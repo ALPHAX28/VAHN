@@ -1,0 +1,5 @@
+.env
+pylock.toml
+__pycache__
+.venv
+.env.example

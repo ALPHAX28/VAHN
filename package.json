@@ -1,0 +1,20 @@
+{
+  "name": "vahn-sports-standalone",
+  "version": "1.0.0",
+  "description": "Bespoke standalone decoupled e-commerce site for VAHN Sports",
+  "scripts": {
+    "setup:docker": "node setup_docker.js",
+    "dev:docker": "node run_dev.js",
+    "clean:next": "node -e \"require('fs').rmSync('./frontend/.next',{recursive:true,force:true});console.log('Cleaned .next')\"",
+    "prod:start": "node run_prod.js"
+  },
+  "keywords": [
+    "nextjs",
+    "fastapi",
+    "postgresql",
+    "docker",
+    "alembic"
+  ],
+  "author": "Antigravity",
+  "license": "ISC"
+}

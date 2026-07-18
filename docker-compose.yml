@@ -1,0 +1,19 @@
+name: vahn-db
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: vahn-postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: vahn_user
+      POSTGRES_PASSWORD: vahn_pass
+      POSTGRES_DB: vahn_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+    name: vahn_db_data
