@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import { cache } from 'react';
 import { fetchAPI } from './client';
 import type {
   Product,
@@ -12,9 +12,9 @@ import type {
 
 // ---- Products ----
 
-export async function getProduct(handle: string): Promise<Product | null> {
+export const getProduct = cache(async (handle: string): Promise<Product | null> => {
   return fetchAPI<Product>(`/products/${handle}`).catch(() => null);
-}
+});
 
 export async function getProducts(_options?: {
   first?: number;
@@ -103,7 +103,7 @@ export async function removeFromCart(cartId: string, lineIds: string[]): Promise
 }
 
 export async function getCart(cartId: string): Promise<Cart | null> {
-  return fetchAPI<Cart>(`/cart/${cartId}`).catch(() => null);
+  return fetchAPI<Cart>(`/cart/${cartId}`, { cache: 'no-store' }).catch(() => null);
 }
 
 // ---- Blog ----

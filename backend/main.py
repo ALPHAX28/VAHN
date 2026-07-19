@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from database import Base, engine, get_db
 import models
@@ -136,12 +136,18 @@ def read_api_root():
 
 @app.get("/api/products", response_model=List[schemas.ProductSchema])
 def list_products(db: Session = Depends(get_db)):
-    products = db.query(models.Product).filter_by(available_for_sale=True).all()
+    products = db.query(models.Product).options(
+        selectinload(models.Product.variants),
+        selectinload(models.Product.reviews)
+    ).filter_by(available_for_sale=True).all()
     return [db_product_to_schema(p) for p in products]
 
 @app.get("/api/products/{handle}", response_model=schemas.ProductSchema)
 def get_product(handle: str, db: Session = Depends(get_db)):
-    prod = db.query(models.Product).filter_by(handle=handle).first()
+    prod = db.query(models.Product).options(
+        selectinload(models.Product.variants),
+        selectinload(models.Product.reviews)
+    ).filter_by(handle=handle).first()
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
     return db_product_to_schema(prod)
@@ -179,7 +185,10 @@ def create_review(handle: str, review_in: schemas.ReviewCreate, db: Session = De
 
 @app.get("/api/collections/{handle}", response_model=schemas.CollectionSchema)
 def get_collection(handle: str, db: Session = Depends(get_db)):
-    coll = db.query(models.Collection).filter_by(handle=handle).first()
+    coll = db.query(models.Collection).options(
+        selectinload(models.Collection.products).selectinload(models.Product.variants),
+        selectinload(models.Collection.products).selectinload(models.Product.reviews)
+    ).filter_by(handle=handle).first()
     if not coll:
         raise HTTPException(status_code=404, detail="Collection not found")
     

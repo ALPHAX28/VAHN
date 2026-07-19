@@ -15,20 +15,28 @@ export async function fetchAPI<T>(
   path: string,
   options: FetchOptions = {}
 ): Promise<T> {
-  const { method = 'GET', body, cache = 'no-store', tags } = options;
+  const { method = 'GET', body, cache, tags } = options;
   const url = `${API_BASE_URL}${path}`;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
 
-  const res = await fetch(url, {
+  const fetchOptions: RequestInit = {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
-    cache,
-    next: tags ? { tags } : undefined,
-  });
+  };
+
+  if (cache) {
+    fetchOptions.cache = cache;
+  } else if (method === 'GET') {
+    fetchOptions.next = { revalidate: 30, tags };
+  } else {
+    fetchOptions.cache = 'no-store';
+  }
+
+  const res = await fetch(url, fetchOptions);
 
   if (!res.ok) {
     throw new Error(`API error: ${res.status} ${res.statusText} on ${path}`);
