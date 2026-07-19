@@ -20,7 +20,7 @@ function getVariantFromOptions(
 
 export default function ProductInfo({ product }: Props) {
   const variants = product.variants.edges.map((e) => e.node);
-  const { addItem } = useCart();
+  const { addItem, updateItem, lines } = useCart();
   const [adding, setAdding] = useState(false);
   const [addedMessage, setAddedMessage] = useState('');
 
@@ -36,6 +36,7 @@ export default function ProductInfo({ product }: Props) {
   const comparePrice = selectedVariant?.compareAtPrice;
   const isOnSale = comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount);
   const available = selectedVariant?.availableForSale ?? false;
+  const cartItem = selectedVariant ? lines.find((l) => l.merchandise.id === selectedVariant.id) : undefined;
 
   const handleOptionSelect = useCallback(
     (optionName: string, value: string) => {
@@ -230,29 +231,51 @@ export default function ProductInfo({ product }: Props) {
 
       {/* Add to cart */}
       <div className="product-add-to-cart-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <button
-          className={`btn-add-to-cart ${!available || adding ? 'disabled' : ''}`}
-          onClick={handleAddToCart}
-          disabled={!available || adding}
-          aria-label={available ? 'Add to cart' : 'Sold out'}
-        >
-          <span className="btn-add-to-cart-text">
-            {adding ? (
-              <span className="loading-spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white', width: '16px', height: '16px', display: 'inline-block' }} />
-            ) : addedMessage ? (
-              <>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', marginRight: '4px' }}>
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                {addedMessage}
-              </>
-            ) : available ? (
-              'Add to Cart'
-            ) : (
-              'Sold Out'
-            )}
-          </span>
-        </button>
+        {cartItem ? (
+          <div className="btn-qty-selector">
+            <button
+              onClick={() => updateItem(cartItem.id, cartItem.quantity - 1)}
+              className="btn-qty-selector-btn"
+              aria-label="Decrease quantity"
+            >
+              —
+            </button>
+            <span className="btn-qty-selector-value">
+              {cartItem.quantity}
+            </span>
+            <button
+              onClick={() => updateItem(cartItem.id, cartItem.quantity + 1)}
+              className="btn-qty-selector-btn"
+              aria-label="Increase quantity"
+            >
+              +
+            </button>
+          </div>
+        ) : (
+          <button
+            className={`btn-add-to-cart ${!available || adding ? 'disabled' : ''}`}
+            onClick={handleAddToCart}
+            disabled={!available || adding}
+            aria-label={available ? 'Add to cart' : 'Sold out'}
+          >
+            <span className="btn-add-to-cart-text">
+              {adding ? (
+                <span className="loading-spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white', width: '16px', height: '16px', display: 'inline-block' }} />
+              ) : addedMessage ? (
+                <>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', marginRight: '4px' }}>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  {addedMessage}
+                </>
+              ) : available ? (
+                'Add to Cart'
+              ) : (
+                'Sold Out'
+              )}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Description */}

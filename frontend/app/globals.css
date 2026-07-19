@@ -1819,6 +1819,45 @@ input, textarea, select {
   border-color: var(--color-grey-dark);
 }
 
+/* Quantity Selector on Product Page */
+.btn-qty-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 2px solid #8A2020;
+  border-radius: 3rem;
+  overflow: hidden;
+  width: 100%;
+  height: 56px;
+  background: var(--color-white);
+}
+
+.btn-qty-selector-btn {
+  background: transparent;
+  border: none;
+  width: 80px;
+  height: 100%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: #8A2020;
+  font-weight: 700;
+  transition: background var(--transition-fast);
+}
+
+.btn-qty-selector-btn:hover {
+  background: #fdf5f5;
+}
+
+.btn-qty-selector-value {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-black);
+}
+
 /* Premium Button 01 Animation Styles */
 .btn-add-to-cart {
   position: relative;
