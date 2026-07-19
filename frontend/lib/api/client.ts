@@ -2,7 +2,23 @@
 // Standalone API Client
 // ===================================================================
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const getApiBaseUrl = () => {
+  // If running locally (development environment)
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+  }
+  // If running in the browser in production: use relative path to prevent CORS / preflight redirect errors
+  if (typeof window !== 'undefined') {
+    return '/api/backend/api';
+  }
+  // If running on the server in production (SSR/build)
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}/api/backend/api`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface FetchOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
