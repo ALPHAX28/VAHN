@@ -3,13 +3,6 @@ const nextConfig = {
   output: 'standalone',
   images: {
     unoptimized: true,
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'cdn.shopify.com',
-        pathname: '/s/files/**',
-      },
-    ],
   },
   async headers() {
     return [
