@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
@@ -7,13 +8,29 @@ import { formatMoney } from '@/lib/utils';
 
 export default function CartDrawer() {
   const { cart, isOpen, isLoading, closeCart, lines, totalQuantity, updateItem, removeItem } = useCart();
+  const [shouldRender, setShouldRender] = useState(isOpen);
+  const [isClosing, setIsClosing] = useState(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      setIsClosing(false);
+    } else if (shouldRender) {
+      setIsClosing(true);
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+        setIsClosing(false);
+      }, 350); // Matches slideOutRight duration
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, shouldRender]);
+
+  if (!shouldRender) return null;
 
   return (
     <>
-      <div className="backdrop" onClick={closeCart} />
-      <div className="cart-drawer" role="dialog" aria-label="Shopping cart" aria-modal="true">
+      <div className={`backdrop ${isClosing ? 'closing' : ''}`} onClick={closeCart} />
+      <div className={`cart-drawer ${isClosing ? 'closing' : ''}`} role="dialog" aria-label="Shopping cart" aria-modal="true">
         {/* Header */}
         <div className="cart-drawer-header">
           <h2>Cart {totalQuantity > 0 && `(${totalQuantity})`}</h2>

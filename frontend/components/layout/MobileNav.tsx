@@ -7,12 +7,20 @@ interface NavLink { href: string; label: string; }
 interface Props {
   links: NavLink[];
   onClose: () => void;
+  isClosing?: boolean;
 }
 
-export default function MobileNav({ links, onClose }: Props) {
+export default function MobileNav({ links, onClose, isClosing = false }: Props) {
   return (
     <div className="mobile-nav" role="dialog" aria-label="Mobile navigation">
-      <div className="mobile-nav-panel">
+      {/* Backdrop overlay */}
+      <div
+        className={`backdrop ${isClosing ? 'closing' : ''}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      <div className={`mobile-nav-panel ${isClosing ? 'closing' : ''}`}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <span style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', letterSpacing: '0.2em' }}>VAHN</span>
           <button
@@ -38,11 +46,6 @@ export default function MobileNav({ links, onClose }: Props) {
           ))}
         </nav>
       </div>
-      <div
-        style={{ flex: 1 }}
-        onClick={onClose}
-        aria-hidden="true"
-      />
     </div>
   );
 }

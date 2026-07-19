@@ -25,7 +25,23 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [shouldRenderNav, setShouldRenderNav] = useState(false);
+  const [isClosingNav, setIsClosingNav] = useState(false);
   const [logoError, setLogoError] = useState(false);
+
+  useEffect(() => {
+    if (mobileOpen) {
+      setShouldRenderNav(true);
+      setIsClosingNav(false);
+    } else if (shouldRenderNav) {
+      setIsClosingNav(true);
+      const timer = setTimeout(() => {
+        setShouldRenderNav(false);
+        setIsClosingNav(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [mobileOpen, shouldRenderNav]);
 
   // Derive transparent from pathname — no useEffect setState needed
   const isTransparent = TRANSPARENT_PATHS.some(
@@ -151,8 +167,8 @@ export default function Header() {
       </header>
 
       {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
-      {mobileOpen && (
-        <MobileNav links={NAV_LINKS} onClose={() => setMobileOpen(false)} />
+      {shouldRenderNav && (
+        <MobileNav links={NAV_LINKS} isClosing={isClosingNav} onClose={() => setMobileOpen(false)} />
       )}
     </>
   );
