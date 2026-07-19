@@ -10,6 +10,12 @@ interface Props {
   searchParams: Promise<Record<string, string | string[]>>;
 }
 
+export async function generateStaticParams() {
+  return [
+    { handle: 'vahn-beginning' },
+  ];
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { handle } = await params;
   const collection = await getCollection(handle).catch(() => null);

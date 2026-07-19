@@ -2264,6 +2264,22 @@ input, textarea, select {
   }
 }
 
+/* Premium Spinner and Pulse Animations for loading */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
 
-
+.premium-spinner {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #eaeaea;
+  border-top: 2px solid var(--color-black);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
