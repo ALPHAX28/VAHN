@@ -263,7 +263,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // If a sync is already running, queue a catch-up sync and wait
       if (isSyncingRef.current) {
         needsSyncRef.current = true;
-        triggerSync(immediate, overrideCart);
         return;
       }
 
@@ -290,10 +289,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         }
 
         localStorage.setItem(CART_ID_STORAGE_KEY, updatedCart.id);
-        dispatch({ type: 'SET_CART', payload: updatedCart });
         
-        // Successfully synced — clear dirty flag
-        localStorage.removeItem('vahn-cart-dirty');
+        // Only commit response if user hasn't made new changes during flight
+        if (!needsSyncRef.current) {
+          dispatch({ type: 'SET_CART', payload: updatedCart });
+          localStorage.removeItem('vahn-cart-dirty');
+        }
       } catch (err) {
         console.error('Cart sync failed:', err);
       } finally {
