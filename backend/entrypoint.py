@@ -10,6 +10,10 @@ if not database_url:
     print("ERROR: DATABASE_URL not set in the environment.")
     sys.exit(1)
 
+# Strip query parameters for pg8000 compatibility (e.g. sslmode, channel_binding)
+if "+pg8000" in database_url and "?" in database_url:
+    database_url = database_url.split("?")[0]
+
 # PostgreSQL warm-up loop
 print("Checking database connection...")
 engine = create_engine(database_url)

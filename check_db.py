@@ -19,6 +19,10 @@ def check_postgres_connection(retries=5, delay=2):
         database = os.getenv("DB_NAME", "vahn_db")
         database_url = f"postgresql+pg8000://{user}:{password}@{host}:{port}/{database}"
 
+    # Strip query parameters for pg8000 compatibility (e.g. sslmode, channel_binding)
+    if "+pg8000" in database_url and "?" in database_url:
+        database_url = database_url.split("?")[0]
+
     # Extract host for display
     display_url = database_url
     if "@" in database_url:
