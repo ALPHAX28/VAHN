@@ -2389,3 +2389,141 @@ input, textarea, select {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
+
+/* ====================================================================
+   VAHN — Homepage Mobile UX Optimization Styles
+   ==================================================================== */
+
+.home-section-padding {
+  padding: var(--space-3xl) var(--space-xl);
+}
+
+.icons-with-text-section {
+  background: var(--color-white);
+  padding: var(--space-2xl) var(--space-xl);
+}
+
+.icons-with-text-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2xl);
+  max-width: var(--page-width);
+  margin: 0 auto;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+.image-with-text-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 0;
+}
+
+.image-with-text-content {
+  padding: var(--space-2xl) var(--space-2xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.bottom-hero-section {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  margin-bottom: var(--space-2xl);
+}
+
+.bottom-hero-grid {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: var(--space-2xl) var(--space-xl);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: end;
+  gap: var(--space-xl);
+  color: var(--color-white);
+}
+
+.comparison-slider-container {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  cursor: ew-resize;
+  user-select: none;
+}
+
+@media (max-width: 768px) {
+  .home-section-padding {
+    padding: var(--space-xl) var(--space-md) !important;
+  }
+
+  .icons-with-text-section {
+    padding: var(--space-xl) var(--space-md) !important;
+  }
+
+  .icons-with-text-grid {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-md) !important;
+  }
+
+  .image-with-text-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .image-with-text-content {
+    padding: var(--space-xl) var(--space-md) !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .image-with-text-content .btn {
+    width: 100% !important;
+    max-width: 280px !important;
+    justify-content: center !important;
+  }
+
+  .bottom-hero-section {
+    aspect-ratio: 4/5 !important;
+    margin-bottom: var(--space-xl) !important;
+  }
+
+  .bottom-hero-grid {
+    grid-template-columns: 1fr !important;
+    padding: var(--space-xl) var(--space-md) !important;
+    gap: var(--space-sm) !important;
+    text-align: center !important;
+  }
+
+  .bottom-hero-grid div {
+    justify-self: center !important;
+    text-align: center !important;
+  }
+
+  .comparison-slider-container {
+    aspect-ratio: 4/3 !important;
+  }
+
+  .home-section-container {
+    padding: 0 var(--space-md) !important;
+  }
+}
+
+.home-section-container {
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: 0 var(--space-xl);
+}

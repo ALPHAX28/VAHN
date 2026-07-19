@@ -5,18 +5,9 @@ import React from 'react';
 export default function BottomHero() {
   return (
     <section
+      className="bottom-hero-section"
       style={{
-        position: 'relative',
-        width: '100%',
-        height: 'auto',
-        aspectRatio: '16/9',
         backgroundImage: 'url(/assets/courtyard-jersey.png)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        display: 'flex',
-        alignItems: 'flex-end',
-        overflow: 'hidden',
-        marginBottom: 'var(--space-2xl)',
       }}
       aria-label="New arrivals banner"
     >
@@ -31,21 +22,7 @@ export default function BottomHero() {
         aria-hidden="true"
       />
 
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          width: '100%',
-          maxWidth: 'var(--page-width)',
-          margin: '0 auto',
-          padding: 'var(--space-2xl) var(--space-xl)',
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          alignItems: 'end',
-          gap: 'var(--space-xl)',
-          color: 'var(--color-white)',
-        }}
-      >
+      <div className="bottom-hero-grid">
         {/* Left column: Headings */}
         <div>
           <p
@@ -88,28 +65,6 @@ export default function BottomHero() {
         </div>
       </div>
 
-      <style jsx>{`
-        section {
-          height: auto;
-          aspect-ratio: 16/9;
-        }
-        @media (max-width: 768px) {
-          section {
-            height: 520px !important;
-            aspect-ratio: auto !important;
-          }
-          div {
-            grid-template-columns: 1fr !important;
-            text-align: left !important;
-            gap: var(--space-md) !important;
-            padding: var(--space-xl) var(--space-md) !important;
-          }
-          div div {
-            justify-self: start !important;
-            max-width: 100% !important;
-          }
-        }
-      `}</style>
     </section>
   );
 }

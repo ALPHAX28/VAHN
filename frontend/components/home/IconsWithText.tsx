@@ -35,27 +35,8 @@ const COLUMNS = [
 
 export default function IconsWithText() {
   return (
-    <section
-      style={{
-        background: 'var(--color-white)',
-        padding: 'var(--space-2xl) var(--space-xl)',
-        position: 'relative',
-      }}
-      aria-label="Features"
-    >
-
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          maxWidth: 'var(--page-width)',
-          margin: '0 auto',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 'var(--space-2xl)',
-          textAlign: 'center',
-        }}
-      >
+    <section className="icons-with-text-section" aria-label="Features">
+      <div className="icons-with-text-grid">
         {COLUMNS.map((col, i) => (
           <div
             key={i}

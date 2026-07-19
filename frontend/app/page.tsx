@@ -27,7 +27,7 @@ export default async function HomePage() {
 
       {/* 2. Featured products / "coming soon..." */}
       <section className="section" style={{ background: 'var(--color-grey-light)' }}>
-        <div style={{ maxWidth: 'var(--page-width)', margin: '0 auto', padding: '0 var(--space-xl)' }}>
+        <div className="home-section-container">
           <div className="section-header" style={{ padding: 0, marginBottom: 'var(--space-xl)' }}>
             <div>
               <p className="section-title">The Collection</p>
@@ -84,9 +84,9 @@ export default async function HomePage() {
 
       {/* 9. Brand statement / CTA section */}
       <section
+        className="home-section-padding"
         style={{
           background: 'linear-gradient(180deg, #12131A 0%, #08090C 100%)',
-          padding: 'var(--space-3xl) var(--space-xl)',
           textAlign: 'center',
           borderTop: '1px solid rgba(255, 255, 255, 0.05)',
         }}

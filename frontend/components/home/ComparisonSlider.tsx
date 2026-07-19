@@ -45,8 +45,8 @@ export default function ComparisonSlider() {
 
   return (
     <section
+      className="home-section-padding"
       style={{
-        padding: 'var(--space-2xl) 0',
         background: 'var(--color-white)',
         display: 'flex',
         flexDirection: 'column',
@@ -56,7 +56,7 @@ export default function ComparisonSlider() {
       aria-label="Design comparison"
     >
       {/* Headings */}
-      <div style={{ textAlign: 'center', padding: '0 var(--space-xl)', maxWidth: '640px' }}>
+      <div style={{ textAlign: 'center', padding: '0 var(--space-md)', maxWidth: '640px' }}>
         <h2
           style={{
             fontFamily: 'var(--font-heading)',
@@ -84,15 +84,7 @@ export default function ComparisonSlider() {
       {/* Slider Container */}
       <div
         ref={containerRef}
-        style={{
-          position: 'relative',
-          width: '100%',
-          maxWidth: '1200px',
-          aspectRatio: '16/9',
-          overflow: 'hidden',
-          cursor: 'ew-resize',
-          userSelect: 'none',
-        }}
+        className="comparison-slider-container"
         onMouseDown={(e) => {
           setIsDragging(true);
           handleMove(e.clientX);

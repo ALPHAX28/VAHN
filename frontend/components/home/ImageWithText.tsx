@@ -15,14 +15,7 @@ export default function ImageWithText() {
       }}
       aria-label="Signature product banner"
     >
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          alignItems: 'center',
-          gap: 0,
-        }}
-      >
+      <div className="image-with-text-grid">
         {/* Left: Image */}
         <div style={{ position: 'relative', width: '100%', aspectRatio: '1', overflow: 'hidden' }}>
           <Image
@@ -36,16 +29,7 @@ export default function ImageWithText() {
         </div>
 
         {/* Right: Content */}
-        <div
-          style={{
-            padding: 'var(--space-2xl) var(--space-2xl)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-lg)',
-            maxWidth: '560px',
-            margin: '0 auto',
-          }}
-        >
+        <div className="image-with-text-content">
           <h2
             style={{
               fontFamily: 'var(--font-heading)',
@@ -77,16 +61,6 @@ export default function ImageWithText() {
         </div>
       </div>
 
-      <style jsx>{`
-        @media (max-width: 768px) {
-          div {
-            grid-template-columns: 1fr !important;
-          }
-          div div:nth-child(2) {
-            padding: var(--space-xl) var(--space-md) !important;
-          }
-        }
-      `}</style>
     </section>
   );
 }

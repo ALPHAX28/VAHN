@@ -3,11 +3,11 @@ import React from 'react';
 export default function PullQuote() {
   return (
     <section
+      className="home-section-padding"
       style={{
         background: 'var(--color-grey-light)',
         borderTop: '1px solid var(--color-border)',
         borderBottom: '1px solid var(--color-border)',
-        padding: 'var(--space-3xl) var(--space-xl)',
         textAlign: 'center',
         position: 'relative',
         overflow: 'hidden',
