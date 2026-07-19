@@ -89,14 +89,6 @@ export default function IconsWithText() {
         ))}
       </div>
 
-      <style jsx>{`
-        @media (max-width: 768px) {
-          div {
-            grid-template-columns: 1fr !important;
-            gap: var(--space-xl) !important;
-          }
-        }
-      `}</style>
     </section>
   );
 }
