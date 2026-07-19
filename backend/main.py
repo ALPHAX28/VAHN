@@ -9,7 +9,10 @@ from database import Base, engine, get_db
 import models
 import schemas
 
-app = FastAPI(title="VAHN Standalone Backend API")
+import os
+
+root_path = "/api/backend" if os.getenv("VERCEL") else ""
+app = FastAPI(title="VAHN Standalone Backend API", root_path=root_path)
 
 # Enable CORS for Next.js frontend
 app.add_middleware(
