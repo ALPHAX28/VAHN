@@ -56,22 +56,31 @@ let isLocalDb = true;
 const backendEnvPath = path.join(backendDir, '.env');
 if (fs.existsSync(backendEnvPath)) {
   const envContent = fs.readFileSync(backendEnvPath, 'utf8');
+  let dbUrl = '';
+  let dbHostEnv = '';
+  
   envContent.split(/\r?\n/).forEach((line) => {
     const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?$/);
     if (match) {
       const key = match[1];
       const value = (match[2] || '').trim().replace(/^["']|["']$/g, '');
-      if (key === 'DB_HOST') {
-        isLocalDb = (value === 'localhost' || value === '127.0.0.1' || value === 'db' || value === 'vahn-postgres-db');
-      } else if (key === 'DATABASE_URL' && !envContent.includes('DB_HOST=')) {
-        const hostMatch = value.match(/@([^:/]+)/);
-        if (hostMatch) {
-          const dbHost = hostMatch[1];
-          isLocalDb = (dbHost === 'localhost' || dbHost === '127.0.0.1' || dbHost === 'db' || dbHost === 'vahn-postgres-db');
-        }
+      if (key === 'DATABASE_URL') {
+        dbUrl = value;
+      } else if (key === 'DB_HOST') {
+        dbHostEnv = value;
       }
     }
   });
+
+  if (dbUrl) {
+    const hostMatch = dbUrl.match(/@([^:/]+)/);
+    if (hostMatch) {
+      const dbHost = hostMatch[1];
+      isLocalDb = (dbHost === 'localhost' || dbHost === '127.0.0.1' || dbHost === 'db' || dbHost === 'vahn-postgres-db');
+    }
+  } else if (dbHostEnv) {
+    isLocalDb = (dbHostEnv === 'localhost' || dbHostEnv === '127.0.0.1' || dbHostEnv === 'db' || dbHostEnv === 'vahn-postgres-db');
+  }
 }
 
 // ─── DB container pre-check ──────────────────────────────────────────────────
