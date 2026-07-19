@@ -75,6 +75,16 @@ export async function createCart(
   });
 }
 
+export async function syncCart(
+  cartId: string,
+  lines: { merchandiseId: string; quantity: number }[]
+): Promise<Cart> {
+  return fetchAPI<Cart>(`/cart/${cartId}`, {
+    method: 'PUT',
+    body: lines
+  });
+}
+
 export async function addToCart(
   cartId: string,
   lines: { merchandiseId: string; quantity: number }[]

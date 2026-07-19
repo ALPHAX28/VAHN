@@ -293,6 +293,42 @@ def create_cart(lines: List[dict] = [], db: Session = Depends(get_db)):
     db.refresh(cart)
     return build_cart_schema(cart, db)
 
+@app.put("/api/cart/{cart_id}", response_model=schemas.CartSchema)
+def sync_cart(cart_id: str, payload: List[dict] = [], db: Session = Depends(get_db)):
+    cart = db.query(models.Cart).filter_by(id=cart_id).first()
+    if not cart:
+        cart = models.Cart(id=cart_id)
+        db.add(cart)
+        db.commit()
+
+    # Clear existing items
+    db.query(models.CartItem).filter_by(cart_id=cart_id).delete()
+    db.commit()
+
+    # Add new items
+    for line in payload:
+        variant_id = line.get("merchandiseId") or line.get("variant_id")
+        qty = line.get("quantity", 1)
+        if qty <= 0:
+            continue
+
+        variant = db.query(models.ProductVariant).filter_by(id=variant_id).first()
+        if variant:
+            # Clamp to stock
+            if variant.inventory_quantity is not None and qty > variant.inventory_quantity:
+                qty = variant.inventory_quantity
+            item = models.CartItem(
+                id=str(uuid.uuid4()),
+                cart_id=cart_id,
+                variant_id=variant_id,
+                quantity=qty
+            )
+            db.add(item)
+
+    db.commit()
+    db.refresh(cart)
+    return build_cart_schema(cart, db)
+
 @app.get("/api/cart/{cart_id}", response_model=schemas.CartSchema)
 def get_cart(cart_id: str, db: Session = Depends(get_db)):
     cart = db.query(models.Cart).filter_by(id=cart_id).first()

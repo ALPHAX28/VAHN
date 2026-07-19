@@ -232,6 +232,65 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.cart]);
 
+  // Keep a mutable ref of the cart state to avoid recreation of triggerSync
+  const cartRef = useRef<Cart | null>(null);
+  useEffect(() => {
+    cartRef.current = state.cart;
+  }, [state.cart]);
+
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSyncingRef = useRef(false);
+  const needsSyncRef = useRef(false);
+
+  // Debounced synchronization function
+  const triggerSync = useCallback(() => {
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    syncTimeoutRef.current = setTimeout(async () => {
+      // If a sync is already running, queue a catch-up sync and wait
+      if (isSyncingRef.current) {
+        needsSyncRef.current = true;
+        triggerSync();
+        return;
+      }
+
+      isSyncingRef.current = true;
+      needsSyncRef.current = false;
+
+      try {
+        const cart = cartRef.current;
+        const currentLines = cart?.lines.edges.map((e) => ({
+          merchandiseId: e.node.merchandise.id,
+          quantity: e.node.quantity,
+        })) ?? [];
+
+        const storedId = localStorage.getItem(CART_ID_STORAGE_KEY);
+        let updatedCart: Cart;
+
+        if (!storedId || storedId === 'temp') {
+          const { syncCart } = await import('@/lib/api');
+          updatedCart = await createCart(currentLines);
+        } else {
+          const { syncCart } = await import('@/lib/api');
+          updatedCart = await syncCart(storedId, currentLines);
+        }
+
+        localStorage.setItem(CART_ID_STORAGE_KEY, updatedCart.id);
+        dispatch({ type: 'SET_CART', payload: updatedCart });
+      } catch (err) {
+        console.error('Cart sync failed:', err);
+      } finally {
+        isSyncingRef.current = false;
+        if (needsSyncRef.current) {
+          needsSyncRef.current = false;
+          triggerSync();
+        }
+      }
+    }, 400); // 400ms debounce
+  }, []);
+
   const getOrCreateCartId = useCallback(async (): Promise<string> => {
     const storedId = localStorage.getItem(CART_ID_STORAGE_KEY);
     if (storedId) return storedId;
@@ -242,12 +301,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
-   * addItem — fire-and-forget, optimistic.
-   * The cart drawer opens INSTANTLY with real product data if displayData is provided.
+   * addItem — optimistic add to cart
    */
   const addItem = useCallback(
     (merchandiseId: string, quantity: number, displayData?: AddItemDisplayData) => {
-      // Build a fully-populated optimistic line if we have display data
       const unitAmount = displayData ? parseFloat(displayData.price.amount) * quantity : 0;
       const currencyCode = displayData?.price.currencyCode ?? 'INR';
 
@@ -274,111 +331,47 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         },
       };
 
-      // Open drawer with optimistic item IMMEDIATELY
       dispatch({
         type: 'OPTIMISTIC_ADD',
         line: optimisticLine,
         checkoutUrl: state.cart?.checkoutUrl ?? '',
       });
 
-      // Sync to server in background
-      getOrCreateCartId()
-        .then((cartId) => addToCart(cartId, [{ merchandiseId, quantity }]))
-        .then((updatedCart) => {
-          localStorage.setItem(CART_ID_STORAGE_KEY, updatedCart.id);
-          // Replace optimistic cart with real server data
-          dispatch({ type: 'SET_CART', payload: updatedCart });
-        })
-        .catch(async (err) => {
-          console.error('addToCart failed, rolling back:', err);
-          const storedId = localStorage.getItem(CART_ID_STORAGE_KEY);
-          if (storedId) {
-            const realCart = await getCart(storedId).catch(() => null);
-            dispatch({ type: 'SET_CART', payload: realCart });
-          }
-        });
+      triggerSync();
     },
-    [getOrCreateCartId, state.cart]
+    [state.cart?.checkoutUrl, triggerSync]
   );
 
   /**
-   * updateItem — optimistic quantity change.
-   * Uses timestamps to discard stale server responses (prevents flicker on rapid clicks).
+   * updateItem — optimistic update item quantity
    */
   const updateItem = useCallback(
     (lineId: string, quantity: number) => {
-      if (!state.cart?.id || state.cart.id === 'temp') return;
-
-      // Safeguard: Clamp to maximum available stock if defined
-      const line = state.cart.lines.edges.find((e) => e.node.id === lineId)?.node;
+      const line = state.cart?.lines.edges.find((e) => e.node.id === lineId)?.node;
       if (line && line.merchandise.quantityAvailable !== undefined && quantity > line.merchandise.quantityAvailable) {
         quantity = line.merchandise.quantityAvailable;
       }
 
-      // Stamp this operation — any server response with an older stamp is discarded
-      const stamp = Date.now();
-      lastOpTimestamp.current.set(lineId, stamp);
-
-      // Optimistic update — instant
       if (quantity === 0) {
         dispatch({ type: 'OPTIMISTIC_REMOVE', lineId });
       } else {
         dispatch({ type: 'OPTIMISTIC_UPDATE_QUANTITY', lineId, quantity });
       }
 
-      const cartId = state.cart.id;
-
-      const serverCall =
-        quantity === 0
-          ? removeFromCart(cartId, [lineId])
-          : updateCart(cartId, [{ id: lineId, quantity }]);
-
-      serverCall
-        .then((updatedCart) => {
-          // Only commit if no NEWER operation for this line has been initiated
-          if (lastOpTimestamp.current.get(lineId) === stamp) {
-            dispatch({ type: 'SET_CART', payload: updatedCart });
-            lastOpTimestamp.current.delete(lineId);
-          }
-          // Otherwise: a newer optimistic update is already in place — discard this response
-        })
-        .catch(async (err) => {
-          console.error('updateItem failed, rolling back:', err);
-          const realCart = await getCart(cartId).catch(() => null);
-          dispatch({ type: 'SET_CART', payload: realCart });
-          lastOpTimestamp.current.delete(lineId);
-        });
+      triggerSync();
     },
-    [state.cart]
+    [state.cart, triggerSync]
   );
 
   /**
-   * removeItem — optimistic removal.
+   * removeItem — optimistic remove item
    */
   const removeItem = useCallback(
     (lineId: string) => {
-      if (!state.cart?.id || state.cart.id === 'temp') return;
-
-      const stamp = Date.now();
-      lastOpTimestamp.current.set(lineId, stamp);
-
       dispatch({ type: 'OPTIMISTIC_REMOVE', lineId });
-
-      removeFromCart(state.cart.id, [lineId])
-        .then((updatedCart) => {
-          if (lastOpTimestamp.current.get(lineId) === stamp) {
-            dispatch({ type: 'SET_CART', payload: updatedCart });
-            lastOpTimestamp.current.delete(lineId);
-          }
-        })
-        .catch(async (err) => {
-          console.error('removeItem failed, rolling back:', err);
-          const realCart = await getCart(state.cart!.id).catch(() => null);
-          dispatch({ type: 'SET_CART', payload: realCart });
-          lastOpTimestamp.current.delete(lineId);
-        });
+      triggerSync();
     },
-    [state.cart]
+    [triggerSync]
   );
 
   const lines: CartLine[] = state.cart?.lines.edges.map((e) => e.node) ?? [];
