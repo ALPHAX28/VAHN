@@ -4,6 +4,7 @@ export default function PullQuote() {
   return (
     <section
       className="home-section-padding"
+      suppressHydrationWarning
       style={{
         background: 'var(--color-grey-light)',
         borderTop: '1px solid var(--color-border)',
@@ -17,6 +18,7 @@ export default function PullQuote() {
       {/* Decorative quotes in background */}
       <div
         className="pullquote-decor"
+        suppressHydrationWarning
         style={{
           position: 'absolute',
           top: '20px',
@@ -29,7 +31,7 @@ export default function PullQuote() {
           userSelect: 'none',
         }}
       >
-        “
+        {"\u201c"}
       </div>
 
       <div style={{ maxWidth: '800px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
@@ -61,6 +63,7 @@ export default function PullQuote() {
 
       <div
         className="pullquote-decor"
+        suppressHydrationWarning
         style={{
           position: 'absolute',
           bottom: '-100px',
@@ -73,7 +76,7 @@ export default function PullQuote() {
           userSelect: 'none',
         }}
       >
-        ”
+        {"\u201d"}
       </div>
     </section>
   );
