@@ -44,17 +44,52 @@ function step(n, total, msg) {
   console.log(`\n\x1b[1;34m--- Step ${n}/${total}: ${msg} ---\x1b[0m`);
 }
 
+// Helper to parse database host from env
+let isLocalDb = true;
+const backendEnvPath = path.join(backendDir, '.env');
+if (fs.existsSync(backendEnvPath)) {
+  const envContent = fs.readFileSync(backendEnvPath, 'utf8');
+  let dbUrl = '';
+  let dbHostEnv = '';
+  
+  envContent.split(/\r?\n/).forEach((line) => {
+    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?$/);
+    if (match) {
+      const key = match[1];
+      const value = (match[2] || '').trim().replace(/^["']|["']$/g, '');
+      if (key === 'DATABASE_URL') {
+        dbUrl = value;
+      } else if (key === 'DB_HOST') {
+        dbHostEnv = value;
+      }
+    }
+  });
+
+  if (dbUrl) {
+    const hostMatch = dbUrl.match(/@([^:/]+)/);
+    if (hostMatch) {
+      const dbHost = hostMatch[1];
+      isLocalDb = (dbHost === 'localhost' || dbHost === '127.0.0.1' || dbHost === 'db' || dbHost === 'vahn-postgres-db');
+    }
+  } else if (dbHostEnv) {
+    isLocalDb = (dbHostEnv === 'localhost' || dbHostEnv === '127.0.0.1' || dbHostEnv === 'db' || dbHostEnv === 'vahn-postgres-db');
+  }
+}
+
 console.log('\n\x1b[1m=== VAHN Standalone Decoupled Storefront Setup ===\x1b[0m');
 
 // ─── Step 1: Docker ──────────────────────────────────────────────────────────
 step(1, 7, 'Starting PostgreSQL Database in Docker');
-if (!runCommand('docker-compose up -d')) {
-  console.error('\nERROR: Failed to start docker-compose. Make sure Docker Desktop is running.');
-  process.exit(1);
+if (isLocalDb) {
+  if (!runCommand('docker-compose up -d')) {
+    console.error('\nERROR: Failed to start docker-compose. Make sure Docker Desktop is running.');
+    process.exit(1);
+  }
+  console.log('Waiting 5 seconds for PostgreSQL to warm up...');
+  execSync('python -c "import time; time.sleep(5)"', { shell: true });
+} else {
+  console.log('\x1b[32m✔ Remote PostgreSQL database detected. Skipping local container startup.\x1b[0m');
 }
-
-console.log('Waiting 5 seconds for PostgreSQL to warm up...');
-execSync('python -c "import time; time.sleep(5)"', { shell: true });
 
 // ─── Step 2: Create virtual environment ──────────────────────────────────────
 step(2, 7, 'Creating Python virtual environment (backend/.venv)');
