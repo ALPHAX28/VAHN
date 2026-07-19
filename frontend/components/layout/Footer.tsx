@@ -52,7 +52,7 @@ export default function Footer() {
                 alt="VAHN"
                 width={100}
                 height={24}
-                style={{ display: 'block' }}
+                style={{ display: 'block', height: '24px', width: 'auto' }}
                 onError={() => setLogoError(true)}
               />
             )}

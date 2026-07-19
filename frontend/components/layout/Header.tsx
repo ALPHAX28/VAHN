@@ -88,7 +88,7 @@ export default function Header() {
                 width={120}
                 height={28}
                 priority
-                style={{ display: 'block' }}
+                style={{ display: 'block', height: '28px', width: 'auto' }}
                 onError={() => setLogoError(true)}
               />
             )}
