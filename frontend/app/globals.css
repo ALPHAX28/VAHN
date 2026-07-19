@@ -2066,6 +2066,74 @@ input, textarea, select {
     padding: var(--space-xl) var(--space-md) !important;
     gap: var(--space-xl) !important;
   }
+
+  /* Horizontal Carousel for Lookbook ("How He Wears It") */
+  .lookbook-grid {
+    display: flex !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory !important;
+    scroll-behavior: smooth !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 16px !important;
+    padding: 8px 16px 24px 16px !important;
+    margin-left: -16px !important;
+    margin-right: -16px !important;
+    scrollbar-width: none !important; /* Hide scrollbar Firefox */
+  }
+
+  .lookbook-grid::-webkit-scrollbar {
+    display: none !important; /* Hide scrollbar Chrome/Safari */
+  }
+
+  .lookbook-card {
+    flex: 0 0 260px !important;
+    scroll-snap-align: start !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06) !important;
+  }
+
+  /* Horizontal Carousel for Reviews */
+  .reviews-grid {
+    display: flex !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory !important;
+    scroll-behavior: smooth !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 16px !important;
+    padding: 8px 16px 24px 16px !important;
+    margin-left: -16px !important;
+    margin-right: -16px !important;
+    scrollbar-width: none !important;
+  }
+
+  .reviews-grid::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .review-card {
+    flex: 0 0 280px !important;
+    scroll-snap-align: start !important;
+    min-height: 220px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04) !important;
+  }
+
+  /* Reviews Load More - Remove fade overlay on mobile and make it a clean block button */
+  .reviews-fade-overlay {
+    position: static !important;
+    height: auto !important;
+    background: none !important;
+    display: flex !important;
+    justify-content: center !important;
+    padding-top: 16px !important;
+    padding-bottom: 0 !important;
+    margin-top: 16px !important;
+    pointer-events: auto !important;
+  }
+
+  .reviews-load-more-btn {
+    width: 100% !important;
+    max-width: 220px !important;
+    text-align: center !important;
+  }
 }
 
 /* Extra Small Devices (Mobile <= 480px) */
@@ -2099,6 +2167,19 @@ input, textarea, select {
   .header-icon svg {
     width: 16px !important;
     height: 16px !important;
+  }
+
+  /* Add to Cart & Buy It Now buttons - Sleeker & less bulky on mobile */
+  .btn-add-to-cart,
+  .btn-buy-it-now {
+    padding: 0.85rem 1.5rem !important;
+    border-radius: 2rem !important;
+  }
+
+  .btn-add-to-cart-text,
+  .btn-buy-it-now-text {
+    font-size: 0.8rem !important;
+    letter-spacing: 0.08em !important;
   }
 
   /* Footer adjustments */
@@ -2182,5 +2263,7 @@ input, textarea, select {
     justify-content: center !important;
   }
 }
+
+
 
 
