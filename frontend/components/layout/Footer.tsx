@@ -153,7 +153,10 @@ export default function Footer() {
 
       {/* Copyright bar */}
       <div className="footer-bar">
-        <p>© {new Date().getFullYear()} VAHN. All rights reserved. Premium bespoke teamwear.</p>
+        <div className="footer-bar-inner">
+          <p>© {new Date().getFullYear()} VAHN. All rights reserved.</p>
+          <p className="footer-motto">✦ EST. 2026 ✦ Crafted for the bold</p>
+        </div>
       </div>
     </footer>
   );
