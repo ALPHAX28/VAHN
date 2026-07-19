@@ -30,7 +30,10 @@ target_metadata = models.Base.metadata
 # ... etc.
 
 def get_url():
-    return os.getenv("DATABASE_URL", "postgresql+pg8000://vahn_user:vahn_pass@localhost:5432/vahn_db")
+    url = os.getenv("DATABASE_URL", "postgresql+pg8000://vahn_user:vahn_pass@localhost:5432/vahn_db")
+    if "+pg8000" in url and "?" in url:
+        url = url.split("?")[0]
+    return url
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
