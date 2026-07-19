@@ -123,6 +123,14 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
 
 # ---- ENDPOINTS ----
 
+@app.get("/")
+def read_root():
+    return {"status": "ok", "service": "VAHN Backend API"}
+
+@app.get("/api")
+def read_api_root():
+    return {"status": "ok", "service": "VAHN Backend API"}
+
 @app.get("/api/products", response_model=List[schemas.ProductSchema])
 def list_products(db: Session = Depends(get_db)):
     products = db.query(models.Product).filter_by(available_for_sale=True).all()
