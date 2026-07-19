@@ -3,18 +3,11 @@
 // ===================================================================
 
 const getApiBaseUrl = () => {
-  // If running locally (development environment)
-  if (process.env.NODE_ENV === 'development') {
-    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-  }
   // If running in the browser in production: use relative path to prevent CORS / preflight redirect errors
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
     return '/api/backend/api';
   }
-  // If running on the server in production (SSR/build)
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}/api/backend/api`;
-  }
+  // Otherwise (server-side rendering, or local development): use NEXT_PUBLIC_API_URL
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 };
 
