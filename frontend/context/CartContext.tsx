@@ -125,6 +125,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
           checkoutUrl: action.checkoutUrl,
           totalQuantity: action.line.quantity,
           lines: { edges: [{ node: action.line }] },
+          discountCodes: [],
           cost: {
             subtotalAmount: action.line.cost.totalAmount,
             totalAmount: action.line.cost.totalAmount,
