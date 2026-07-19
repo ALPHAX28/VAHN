@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import { getProduct, getProductRecommendations, getProducts } from '@/lib/api';
+import { getProduct, getProductRecommendations } from '@/lib/api';
 import ProductMediaGallery from '@/components/product/ProductMediaGallery';
 import ProductInfo from '@/components/product/ProductInfo';
 import ProductCard from '@/components/collection/ProductCard';
@@ -9,18 +9,6 @@ import ProductReviews from '@/components/product/ProductReviews';
 
 interface Props {
   params: Promise<{ handle: string }>;
-}
-
-export async function generateStaticParams() {
-  try {
-    const { products } = await getProducts();
-    return products.map((product) => ({
-      handle: product.handle,
-    }));
-  } catch (error) {
-    console.error('Error generating static params for products:', error);
-    return [];
-  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
