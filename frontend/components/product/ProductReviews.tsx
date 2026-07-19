@@ -98,11 +98,11 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
     <section className="reviews-section">
       <div className="container">
         {/* Header and Controls */}
-        <div className="reviews-header-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+        <div className="reviews-header-container">
           <div>
-            <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2.5rem)', textTransform: 'uppercase', fontFamily: 'var(--font-heading)' }}>Customer Reviews</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
-              <span style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--color-black)' }}>{averageScore}</span>
+            <h2 className="reviews-header-title">Customer Reviews</h2>
+            <div className="reviews-stats-row">
+              <span className="reviews-stats-average">{averageScore}</span>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', gap: '3px', margin: '2px 0' }}>
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -123,11 +123,10 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', position: 'relative' }}>
+          <div className="reviews-controls-row">
             <button 
               onClick={() => setShowForm(!showForm)} 
-              className="btn btn-primary"
-              style={{ padding: '10px 24px', fontSize: '0.8125rem', borderRadius: '30px', backgroundColor: '#1056d1', color: '#fff', border: 'none' }}
+              className="btn btn-primary reviews-write-btn"
             >
               Write a review
             </button>
@@ -136,9 +135,8 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
             <div style={{ position: 'relative' }}>
               <button 
                 onClick={() => { setShowFilterDropdown(!showFilterDropdown); setShowSortDropdown(false); }}
-                className="btn-icon-outline"
+                className="btn-icon-outline reviews-icon-btn"
                 aria-label="Filter reviews"
-                style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'var(--color-white)', height: '38px', width: '38px' }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
@@ -164,9 +162,8 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
             <div style={{ position: 'relative' }}>
               <button 
                 onClick={() => { setShowSortDropdown(!showSortDropdown); setShowFilterDropdown(false); }}
-                className="btn-icon-outline"
+                className="btn-icon-outline reviews-icon-btn"
                 aria-label="Sort reviews"
-                style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'var(--color-white)', height: '38px', width: '38px' }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -198,30 +195,30 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
 
         {/* Review Form */}
         {showForm && (
-          <form onSubmit={handleSubmitReview} style={{ background: 'var(--color-white)', padding: '24px', borderRadius: '8px', border: '1px solid var(--color-border)', marginBottom: '32px', maxWidth: '600px', marginLeft: '0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <form onSubmit={handleSubmitReview} className="review-form">
             <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-heading)' }}>Write a Review</h3>
             
             <div>
-              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '8px' }}>Your Name</label>
+              <label className="review-form-label">Your Name</label>
               <input 
                 type="text" 
                 value={author} 
                 onChange={(e) => setAuthor(e.target.value)} 
                 required 
                 placeholder="Enter your name"
-                style={{ width: '100%', padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--color-border)', outline: 'none' }}
+                className="review-form-input"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '8px' }}>Review Title</label>
+              <label className="review-form-label">Review Title</label>
               <input 
                 type="text" 
                 value={title} 
                 onChange={(e) => setTitle(e.target.value)} 
                 required 
                 placeholder="e.g. Extremely comfortable"
-                style={{ width: '100%', padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--color-border)', outline: 'none' }}
+                className="review-form-input"
               />
             </div>
 
@@ -250,33 +247,31 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
             </div>
 
             <div>
-              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '8px' }}>Review</label>
+              <label className="review-form-label">Review</label>
               <textarea 
                 value={content} 
                 onChange={(e) => setContent(e.target.value)} 
                 required 
                 rows={4}
                 placeholder="Share your thoughts about this product..."
-                style={{ width: '100%', padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--color-border)', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
+                className="review-form-textarea"
               />
             </div>
 
             {error && <p style={{ color: '#D93939', fontSize: '0.875rem' }}>{error}</p>}
 
-            <div style={{ display: 'flex', gap: '12px' }}>
+            <div className="review-form-actions">
               <button 
                 type="submit" 
                 disabled={isSubmitting} 
-                className="btn btn-primary"
-                style={{ padding: '10px 24px', fontSize: '0.8125rem', backgroundColor: 'var(--color-black)', color: 'var(--color-white)', borderRadius: '4px' }}
+                className="btn btn-primary review-form-submit-btn"
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Review'}
               </button>
               <button 
                 type="button" 
                 onClick={() => setShowForm(false)} 
-                className="btn btn-secondary"
-                style={{ padding: '10px 24px', fontSize: '0.8125rem', border: '1px solid var(--color-border)', borderRadius: '4px' }}
+                className="btn btn-secondary review-form-cancel-btn"
               >
                 Cancel
               </button>
