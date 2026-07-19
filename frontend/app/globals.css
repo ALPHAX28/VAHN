@@ -2068,71 +2068,86 @@ input, textarea, select {
   }
 
   /* Horizontal Carousel for Lookbook ("How He Wears It") */
+  .lookbook-section .container {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .lookbook-section .section-header {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
   .lookbook-grid {
     display: flex !important;
     overflow-x: auto !important;
     scroll-snap-type: x mandatory !important;
     scroll-behavior: smooth !important;
     -webkit-overflow-scrolling: touch !important;
-    gap: 16px !important;
-    padding: 8px 16px 24px 16px !important;
-    margin-left: -16px !important;
-    margin-right: -16px !important;
-    scrollbar-width: none !important; /* Hide scrollbar Firefox */
+    gap: 12px !important;
+    padding: 4px 16px 20px !important;
+    margin-top: var(--space-md) !important;
+    scrollbar-width: none !important;
   }
 
   .lookbook-grid::-webkit-scrollbar {
-    display: none !important; /* Hide scrollbar Chrome/Safari */
+    display: none !important;
   }
 
   .lookbook-card {
-    flex: 0 0 260px !important;
+    flex: 0 0 76vw !important;
+    max-width: 280px !important;
     scroll-snap-align: start !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.06) !important;
   }
 
-  /* Horizontal Carousel for Reviews */
+  /* Reviews: vertical stack on mobile — clean, readable, no horizontal scroll */
   .reviews-grid {
     display: flex !important;
-    overflow-x: auto !important;
-    scroll-snap-type: x mandatory !important;
-    scroll-behavior: smooth !important;
-    -webkit-overflow-scrolling: touch !important;
-    gap: 16px !important;
-    padding: 8px 16px 24px 16px !important;
-    margin-left: -16px !important;
-    margin-right: -16px !important;
-    scrollbar-width: none !important;
-  }
-
-  .reviews-grid::-webkit-scrollbar {
-    display: none !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    margin-top: var(--space-md) !important;
+    overflow-x: visible !important;
+    padding: 0 !important;
   }
 
   .review-card {
-    flex: 0 0 280px !important;
-    scroll-snap-align: start !important;
-    min-height: 220px !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.04) !important;
+    flex: unset !important;
+    width: 100% !important;
+    min-height: unset !important;
+    padding: 16px !important;
+    border-radius: 10px !important;
+    scroll-snap-align: unset !important;
   }
 
-  /* Reviews Load More - Remove fade overlay on mobile and make it a clean block button */
+  /* Keep review stars a bit smaller on mobile */
+  .review-card .review-stars svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  /* Read-more link inline, not as a separate awkward row */
+  .review-read-more {
+    font-size: 0.8125rem !important;
+    margin-top: 2px !important;
+  }
+
+  /* Load More Reviews: clean full-width centered button below the list */
   .reviews-fade-overlay {
     position: static !important;
     height: auto !important;
     background: none !important;
     display: flex !important;
     justify-content: center !important;
-    padding-top: 16px !important;
-    padding-bottom: 0 !important;
-    margin-top: 16px !important;
+    padding: 20px 0 0 !important;
     pointer-events: auto !important;
   }
 
   .reviews-load-more-btn {
     width: 100% !important;
-    max-width: 220px !important;
+    max-width: 260px !important;
     text-align: center !important;
+    padding: 14px 24px !important;
   }
 }
 
