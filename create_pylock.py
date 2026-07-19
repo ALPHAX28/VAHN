@@ -61,7 +61,7 @@ def write_pylock_toml(packages):
     with open(LOCK_FILE, 'w', encoding='utf-8') as f:
         f.write(content)
 
-    print(f"✔ pylock.toml written → {LOCK_FILE}")
+    print(f"[OK] pylock.toml written -> {LOCK_FILE}")
     print(f"  Locked {len(packages)} packages")
 
 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
             capture_output=True, text=True
         )
         if result.returncode == 0:
-            print(f"✔ pylock.toml written via pip PEP 751 export → {LOCK_FILE}")
+            print(f"[OK] pylock.toml written via pip PEP 751 export -> {LOCK_FILE}")
             sys.exit(0)
     except Exception:
         pass

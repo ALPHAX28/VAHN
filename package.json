@@ -6,7 +6,8 @@
     "setup:docker": "node setup_docker.js",
     "dev:docker": "node run_dev.js",
     "clean:next": "node -e \"require('fs').rmSync('./frontend/.next',{recursive:true,force:true});console.log('Cleaned .next')\"",
-    "prod:start": "node run_prod.js"
+    "prod:start": "node run_prod.js",
+    "prod:docker": "docker-compose -p prod-vahn -f docker-compose.prod.yml up --build"
   },
   "keywords": [
     "nextjs",
