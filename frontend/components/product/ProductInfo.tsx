@@ -253,15 +253,6 @@ export default function ProductInfo({ product }: Props) {
             )}
           </span>
         </button>
-
-        {available && selectedVariant && (
-          <a
-            href={`${process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN ? `https://${process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN}/cart/${selectedVariant.id.split('/').pop()}:1` : '#'}`}
-            className="btn-buy-it-now"
-          >
-            <span className="btn-buy-it-now-text">Buy It Now</span>
-          </a>
-        )}
       </div>
 
       {/* Description */}

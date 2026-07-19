@@ -187,8 +187,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Used to discard stale server responses when the user clicks rapidly
   const lastOpTimestamp = useRef<Map<string, number>>(new Map());
 
-  // Initialize cart from localStorage
+  // Initialize cart from localStorage (synchronously first, then background refresh)
   useEffect(() => {
+    // 1. Sync load cached cart data (instant!)
+    const cachedCartData = localStorage.getItem('vahn-cart-data');
+    if (cachedCartData) {
+      try {
+        const parsed = JSON.parse(cachedCartData);
+        if (parsed) {
+          dispatch({ type: 'SET_CART', payload: parsed });
+        }
+      } catch (e) {
+        console.error('Failed to parse cached cart data', e);
+      }
+    }
+
+    // 2. Fetch fresh cart data in background to sync
     const storedCartId = localStorage.getItem(CART_ID_STORAGE_KEY);
     if (!storedCartId) return;
     getCart(storedCartId)
@@ -197,10 +211,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           dispatch({ type: 'SET_CART', payload: cart });
         } else {
           localStorage.removeItem(CART_ID_STORAGE_KEY);
+          localStorage.removeItem('vahn-cart-data');
+          dispatch({ type: 'SET_CART', payload: null });
         }
       })
-      .catch(() => localStorage.removeItem(CART_ID_STORAGE_KEY));
+      .catch(() => {
+        // Keep cached cart on network error to prevent flashing / empty state
+      });
   }, []);
+
+  // Persist cart updates to localStorage automatically
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (state.cart) {
+      localStorage.setItem('vahn-cart-data', JSON.stringify(state.cart));
+    }
+  }, [state.cart]);
 
   const getOrCreateCartId = useCallback(async (): Promise<string> => {
     const storedId = localStorage.getItem(CART_ID_STORAGE_KEY);

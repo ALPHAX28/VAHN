@@ -2088,6 +2088,7 @@ input, textarea, select {
     padding: 4px 16px 20px !important;
     margin-top: var(--space-md) !important;
     scrollbar-width: none !important;
+    scroll-padding-left: 16px !important;
   }
 
   .lookbook-grid::-webkit-scrollbar {
@@ -2098,6 +2099,7 @@ input, textarea, select {
     flex: 0 0 76vw !important;
     max-width: 280px !important;
     scroll-snap-align: start !important;
+    scroll-margin-left: 16px !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.06) !important;
   }
 
