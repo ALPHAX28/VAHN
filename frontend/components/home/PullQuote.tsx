@@ -16,6 +16,7 @@ export default function PullQuote() {
     >
       {/* Decorative quotes in background */}
       <div
+        className="pullquote-decor"
         style={{
           position: 'absolute',
           top: '20px',
@@ -59,6 +60,7 @@ export default function PullQuote() {
       </div>
 
       <div
+        className="pullquote-decor"
         style={{
           position: 'absolute',
           bottom: '-100px',

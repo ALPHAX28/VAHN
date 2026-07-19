@@ -84,7 +84,7 @@ export default async function HomePage() {
 
       {/* 9. Brand statement / CTA section */}
       <section
-        className="home-section-padding"
+        className="home-section-padding home-cta-section"
         style={{
           background: 'linear-gradient(180deg, #12131A 0%, #08090C 100%)',
           textAlign: 'center',

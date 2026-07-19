@@ -2564,10 +2564,22 @@ input, textarea, select {
   .home-section-container {
     padding: 0 var(--space-md) !important;
   }
+
+  .pullquote-decor {
+    display: none !important;
+  }
+
+  .home-cta-section {
+    padding-bottom: 96px !important;
+  }
 }
 
 .home-section-container {
   max-width: var(--page-width);
   margin: 0 auto;
   padding: 0 var(--space-xl);
+}
+
+.pullquote-decor {
+  display: block;
 }
