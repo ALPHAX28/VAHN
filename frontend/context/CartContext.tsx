@@ -15,6 +15,7 @@ import {
   updateCart,
   removeFromCart,
   getCart,
+  syncCart,
 } from '@/lib/api';
 
 // ---- Types ----
@@ -191,33 +192,43 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // 1. Sync load cached cart data (instant!)
     const cachedCartData = localStorage.getItem('vahn-cart-data');
+    let loadedCart: Cart | null = null;
     if (cachedCartData) {
       try {
         const parsed = JSON.parse(cachedCartData);
         if (parsed) {
           dispatch({ type: 'SET_CART', payload: parsed });
+          loadedCart = parsed;
         }
       } catch (e) {
         console.error('Failed to parse cached cart data', e);
       }
     }
 
-    // 2. Fetch fresh cart data in background to sync
+    // 2. Fetch fresh cart data in background or trigger a sync if local changes are dirty
     const storedCartId = localStorage.getItem(CART_ID_STORAGE_KEY);
-    if (!storedCartId) return;
-    getCart(storedCartId)
-      .then((cart) => {
-        if (cart) {
-          dispatch({ type: 'SET_CART', payload: cart });
-        } else {
-          localStorage.removeItem(CART_ID_STORAGE_KEY);
-          localStorage.removeItem('vahn-cart-data');
-          dispatch({ type: 'SET_CART', payload: null });
-        }
-      })
-      .catch(() => {
-        // Keep cached cart on network error to prevent flashing / empty state
-      });
+    const isDirty = localStorage.getItem('vahn-cart-dirty') === 'true';
+
+    if (isDirty && loadedCart) {
+      // Trigger sync immediately on mount so unsynced client changes overwrite database
+      triggerSync(true);
+    } else if (storedCartId) {
+      getCart(storedCartId)
+        .then((cart) => {
+          if (cart) {
+            dispatch({ type: 'SET_CART', payload: cart });
+            localStorage.removeItem('vahn-cart-dirty');
+          } else {
+            localStorage.removeItem(CART_ID_STORAGE_KEY);
+            localStorage.removeItem('vahn-cart-data');
+            localStorage.removeItem('vahn-cart-dirty');
+            dispatch({ type: 'SET_CART', payload: null });
+          }
+        })
+        .catch(() => {
+          // Keep cached cart on network error
+        });
+    }
   }, []);
 
   // Persist cart updates to localStorage automatically
@@ -243,21 +254,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const needsSyncRef = useRef(false);
 
   // Debounced synchronization function
-  const triggerSync = useCallback(() => {
+  const triggerSync = useCallback((immediate = false) => {
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
     }
 
-    syncTimeoutRef.current = setTimeout(async () => {
+    const runSync = async () => {
       // If a sync is already running, queue a catch-up sync and wait
       if (isSyncingRef.current) {
         needsSyncRef.current = true;
-        triggerSync();
+        triggerSync(immediate);
         return;
       }
 
       isSyncingRef.current = true;
       needsSyncRef.current = false;
+
+      // Set dirty flag before starting network call
+      localStorage.setItem('vahn-cart-dirty', 'true');
 
       try {
         const cart = cartRef.current;
@@ -270,15 +284,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         let updatedCart: Cart;
 
         if (!storedId || storedId === 'temp') {
-          const { syncCart } = await import('@/lib/api');
           updatedCart = await createCart(currentLines);
         } else {
-          const { syncCart } = await import('@/lib/api');
           updatedCart = await syncCart(storedId, currentLines);
         }
 
         localStorage.setItem(CART_ID_STORAGE_KEY, updatedCart.id);
         dispatch({ type: 'SET_CART', payload: updatedCart });
+        
+        // Successfully synced — clear dirty flag
+        localStorage.removeItem('vahn-cart-dirty');
       } catch (err) {
         console.error('Cart sync failed:', err);
       } finally {
@@ -288,7 +303,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           triggerSync();
         }
       }
-    }, 400); // 400ms debounce
+    };
+
+    if (immediate) {
+      runSync();
+    } else {
+      // Mark dirty immediately on input (before debounce finishes)
+      localStorage.setItem('vahn-cart-dirty', 'true');
+      syncTimeoutRef.current = setTimeout(runSync, 400); // 400ms debounce
+    }
   }, []);
 
   const getOrCreateCartId = useCallback(async (): Promise<string> => {
