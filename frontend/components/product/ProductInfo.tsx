@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Product, ProductVariant } from '@/lib/api/types';
-import { useCart } from '@/context/CartContext';
+import { useCart, type AddItemDisplayData } from '@/context/CartContext';
 import { formatMoney } from '@/lib/utils';
 
 interface Props { product: Product; }
@@ -52,12 +52,21 @@ export default function ProductInfo({ product }: Props) {
 
   const handleAddToCart = () => {
     if (!selectedVariant || !available || adding) return;
-    // Show instant feedback — optimistic update handles the UI change
+
+    // Build full display data so the cart drawer shows real info instantly
+    const displayData: AddItemDisplayData = {
+      productTitle: product.title,
+      productHandle: product.handle,
+      variantTitle: selectedVariant.title !== 'Default Title' ? selectedVariant.title : product.title,
+      price: selectedVariant.price,
+      image: selectedVariant.image ?? product.featuredImage,
+      selectedOptions: selectedVariant.selectedOptions,
+    };
+
     setAdding(true);
     setAddedMessage('Added to Cart');
-    // Fire-and-forget: addItem handles optimistic update + server sync
-    addItem(selectedVariant.id, 1);
-    // Reset the button label after 2s
+    // Fire-and-forget: addItem opens the drawer instantly with real data
+    addItem(selectedVariant.id, 1, displayData);
     setTimeout(() => {
       setAdding(false);
       setAddedMessage('');

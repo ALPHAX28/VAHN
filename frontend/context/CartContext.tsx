@@ -8,7 +8,7 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
-import type { Cart, CartLine } from '@/lib/api/types';
+import type { Cart, CartLine, Money, Image, SelectedOption } from '@/lib/api/types';
 import {
   createCart,
   addToCart,
@@ -19,6 +19,19 @@ import {
 
 // ---- Types ----
 
+/**
+ * Rich display data passed from the product page into addItem
+ * so that the optimistic cart item shows real image/title/price instantly.
+ */
+export interface AddItemDisplayData {
+  productTitle: string;
+  productHandle: string;
+  variantTitle: string;
+  price: Money;
+  image: Image | null;
+  selectedOptions: SelectedOption[];
+}
+
 interface CartState {
   cart: Cart | null;
   isOpen: boolean;
@@ -28,16 +41,15 @@ type CartAction =
   | { type: 'SET_CART'; payload: Cart | null }
   | { type: 'OPEN_DRAWER' }
   | { type: 'CLOSE_DRAWER' }
-  // Optimistic actions — update local state instantly
   | { type: 'OPTIMISTIC_UPDATE_QUANTITY'; lineId: string; quantity: number }
   | { type: 'OPTIMISTIC_REMOVE'; lineId: string }
   | { type: 'OPTIMISTIC_ADD'; line: CartLine; checkoutUrl: string };
 
 interface CartContextValue extends CartState {
   isLoading: boolean;
-  addItem: (merchandiseId: string, quantity: number) => Promise<void>;
-  updateItem: (lineId: string, quantity: number) => Promise<void>;
-  removeItem: (lineId: string) => Promise<void>;
+  addItem: (merchandiseId: string, quantity: number, displayData?: AddItemDisplayData) => void;
+  updateItem: (lineId: string, quantity: number) => void;
+  removeItem: (lineId: string) => void;
   openCart: () => void;
   closeCart: () => void;
   lines: CartLine[];
@@ -47,7 +59,7 @@ interface CartContextValue extends CartState {
 // ---- Helpers ----
 
 function recalcCart(cart: Cart): Cart {
-  const lines: CartLine[] = cart.lines.edges.map((e) => e.node);
+  const lines = cart.lines.edges.map((e) => e.node);
   const totalQuantity = lines.reduce((sum, l) => sum + l.quantity, 0);
   const subtotal = lines.reduce(
     (sum, l) => sum + parseFloat(l.cost.totalAmount.amount),
@@ -57,9 +69,7 @@ function recalcCart(cart: Cart): Cart {
   return {
     ...cart,
     totalQuantity,
-    lines: {
-      edges: lines.map((node) => ({ node })),
-    },
+    lines: { edges: lines.map((node) => ({ node })) },
     cost: {
       subtotalAmount: { amount: subtotal.toFixed(2), currencyCode },
       totalAmount: { amount: subtotal.toFixed(2), currencyCode },
@@ -81,45 +91,39 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     case 'CLOSE_DRAWER':
       return { ...state, isOpen: false };
 
-    // Instantly update quantity in local state
     case 'OPTIMISTIC_UPDATE_QUANTITY': {
       if (!state.cart) return state;
       const updatedEdges = state.cart.lines.edges.map((edge) => {
         if (edge.node.id !== action.lineId) return edge;
-        const newQty = action.quantity;
         const unitPrice = parseFloat(edge.node.merchandise.price.amount);
         const currencyCode = edge.node.merchandise.price.currencyCode;
         return {
           node: {
             ...edge.node,
-            quantity: newQty,
+            quantity: action.quantity,
             cost: {
               totalAmount: {
-                amount: (unitPrice * newQty).toFixed(2),
+                amount: (unitPrice * action.quantity).toFixed(2),
                 currencyCode,
               },
             },
           },
         };
       });
-      const newCart = recalcCart({ ...state.cart, lines: { edges: updatedEdges } });
-      return { ...state, cart: newCart };
+      return { ...state, cart: recalcCart({ ...state.cart, lines: { edges: updatedEdges } }) };
     }
 
-    // Instantly remove item from local state
     case 'OPTIMISTIC_REMOVE': {
       if (!state.cart) return state;
       const filteredEdges = state.cart.lines.edges.filter(
         (edge) => edge.node.id !== action.lineId
       );
-      const newCart = recalcCart({ ...state.cart, lines: { edges: filteredEdges } });
-      return { ...state, cart: newCart };
+      return { ...state, cart: recalcCart({ ...state.cart, lines: { edges: filteredEdges } }) };
     }
 
-    // Instantly add item to local state (before server confirms)
     case 'OPTIMISTIC_ADD': {
-      if (!state.cart) {
-        // Build a minimal cart locally
+      // Open drawer immediately
+      if (!state.cart || state.cart.id === 'temp') {
         const tempCart: Cart = {
           id: 'temp',
           checkoutUrl: action.checkoutUrl,
@@ -134,7 +138,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         };
         return { ...state, cart: tempCart, isOpen: true };
       }
-      // Check if same variant already in cart — merge quantities
+      // Merge into existing cart
       const exists = state.cart.lines.edges.find(
         (e) => e.node.merchandise.id === action.line.merchandise.id
       );
@@ -149,17 +153,18 @@ function cartReducer(state: CartState, action: CartAction): CartState {
             node: {
               ...edge.node,
               quantity: newQty,
-              cost: {
-                totalAmount: { amount: (unitPrice * newQty).toFixed(2), currencyCode },
-              },
+              cost: { totalAmount: { amount: (unitPrice * newQty).toFixed(2), currencyCode } },
             },
           };
         });
       } else {
         updatedEdges = [...state.cart.lines.edges, { node: action.line }];
       }
-      const newCart = recalcCart({ ...state.cart, lines: { edges: updatedEdges } });
-      return { ...state, cart: newCart, isOpen: true };
+      return {
+        ...state,
+        cart: recalcCart({ ...state.cart, lines: { edges: updatedEdges } }),
+        isOpen: true,
+      };
     }
 
     default:
@@ -170,7 +175,6 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 // ---- Context ----
 
 const CartContext = createContext<CartContextValue | null>(null);
-
 const CART_ID_STORAGE_KEY = 'vahn-cart-id';
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -179,142 +183,164 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     isOpen: false,
   });
 
-  // Track pending server requests to prevent race conditions
-  const pendingRef = useRef<Set<string>>(new Set());
+  // Maps lineId → timestamp of last operation on that line
+  // Used to discard stale server responses when the user clicks rapidly
+  const lastOpTimestamp = useRef<Map<string, number>>(new Map());
 
-  // Initialize cart from localStorage on mount
+  // Initialize cart from localStorage
   useEffect(() => {
-    async function initCart() {
-      const storedCartId = localStorage.getItem(CART_ID_STORAGE_KEY);
-      if (storedCartId) {
-        try {
-          const cart = await getCart(storedCartId);
-          if (cart) {
-            dispatch({ type: 'SET_CART', payload: cart });
-            return;
-          }
-        } catch {
-          // Cart expired, will create new one on next add
+    const storedCartId = localStorage.getItem(CART_ID_STORAGE_KEY);
+    if (!storedCartId) return;
+    getCart(storedCartId)
+      .then((cart) => {
+        if (cart) {
+          dispatch({ type: 'SET_CART', payload: cart });
+        } else {
+          localStorage.removeItem(CART_ID_STORAGE_KEY);
         }
-        localStorage.removeItem(CART_ID_STORAGE_KEY);
-      }
-    }
-    initCart();
+      })
+      .catch(() => localStorage.removeItem(CART_ID_STORAGE_KEY));
   }, []);
 
-  const getOrCreateCart = useCallback(async (): Promise<string> => {
-    if (state.cart?.id && state.cart.id !== 'temp') return state.cart.id;
+  const getOrCreateCartId = useCallback(async (): Promise<string> => {
     const storedId = localStorage.getItem(CART_ID_STORAGE_KEY);
     if (storedId) return storedId;
     const newCart = await createCart([]);
     localStorage.setItem(CART_ID_STORAGE_KEY, newCart.id);
     dispatch({ type: 'SET_CART', payload: newCart });
     return newCart.id;
-  }, [state.cart?.id]);
+  }, []);
 
+  /**
+   * addItem — fire-and-forget, optimistic.
+   * The cart drawer opens INSTANTLY with real product data if displayData is provided.
+   */
   const addItem = useCallback(
-    async (merchandiseId: string, quantity: number) => {
-      // Build optimistic line from current cart data (use temp values if needed)
-      const existingVariant = state.cart?.lines.edges
-        .map((e) => e.node)
-        .find((l) => l.merchandise.id === merchandiseId);
+    (merchandiseId: string, quantity: number, displayData?: AddItemDisplayData) => {
+      // Build a fully-populated optimistic line if we have display data
+      const unitAmount = displayData ? parseFloat(displayData.price.amount) * quantity : 0;
+      const currencyCode = displayData?.price.currencyCode ?? 'INR';
 
-      const optimisticLine: CartLine = existingVariant
-        ? {
-            ...existingVariant,
-            id: existingVariant.id,
-            quantity: existingVariant.quantity + quantity,
+      const optimisticLine: CartLine = {
+        id: `temp-${merchandiseId}-${Date.now()}`,
+        quantity,
+        merchandise: {
+          id: merchandiseId,
+          title: displayData?.variantTitle ?? '',
+          selectedOptions: displayData?.selectedOptions ?? [],
+          product: {
+            id: merchandiseId,
+            title: displayData?.productTitle ?? '',
+            handle: displayData?.productHandle ?? '',
+            featuredImage: displayData?.image ?? null,
+          },
+          price: displayData?.price ?? { amount: '0', currencyCode: 'INR' },
+        },
+        cost: {
+          totalAmount: {
+            amount: unitAmount.toFixed(2),
+            currencyCode,
+          },
+        },
+      };
+
+      // Open drawer with optimistic item IMMEDIATELY
+      dispatch({
+        type: 'OPTIMISTIC_ADD',
+        line: optimisticLine,
+        checkoutUrl: state.cart?.checkoutUrl ?? '',
+      });
+
+      // Sync to server in background
+      getOrCreateCartId()
+        .then((cartId) => addToCart(cartId, [{ merchandiseId, quantity }]))
+        .then((updatedCart) => {
+          localStorage.setItem(CART_ID_STORAGE_KEY, updatedCart.id);
+          // Replace optimistic cart with real server data
+          dispatch({ type: 'SET_CART', payload: updatedCart });
+        })
+        .catch(async (err) => {
+          console.error('addToCart failed, rolling back:', err);
+          const storedId = localStorage.getItem(CART_ID_STORAGE_KEY);
+          if (storedId) {
+            const realCart = await getCart(storedId).catch(() => null);
+            dispatch({ type: 'SET_CART', payload: realCart });
           }
-        : {
-            id: `temp-${merchandiseId}`,
-            quantity,
-            merchandise: {
-              id: merchandiseId,
-              title: '',
-              selectedOptions: [],
-              product: { id: '', title: '', handle: '', featuredImage: null },
-              price: { amount: '0', currencyCode: 'INR' },
-            },
-            cost: { totalAmount: { amount: '0', currencyCode: 'INR' } },
-          };
-
-      // Optimistically open the drawer immediately
-      dispatch({ type: 'OPTIMISTIC_ADD', line: optimisticLine, checkoutUrl: state.cart?.checkoutUrl ?? '' });
-
-      try {
-        const cartId = await getOrCreateCart();
-        const updatedCart = await addToCart(cartId, [{ merchandiseId, quantity }]);
-        localStorage.setItem(CART_ID_STORAGE_KEY, updatedCart.id);
-        // Replace optimistic state with real server response
-        dispatch({ type: 'SET_CART', payload: updatedCart });
-        dispatch({ type: 'OPEN_DRAWER' });
-      } catch (err) {
-        console.error('Failed to add item, refreshing cart:', err);
-        // Rollback: re-fetch the real cart state
-        const storedId = localStorage.getItem(CART_ID_STORAGE_KEY);
-        if (storedId) {
-          const realCart = await getCart(storedId).catch(() => null);
-          dispatch({ type: 'SET_CART', payload: realCart });
-        }
-      }
+        });
     },
-    [getOrCreateCart, state.cart]
+    [getOrCreateCartId, state.cart]
   );
 
+  /**
+   * updateItem — optimistic quantity change.
+   * Uses timestamps to discard stale server responses (prevents flicker on rapid clicks).
+   */
   const updateItem = useCallback(
-    async (lineId: string, quantity: number) => {
-      if (!state.cart?.id) return;
+    (lineId: string, quantity: number) => {
+      if (!state.cart?.id || state.cart.id === 'temp') return;
 
-      // Debounce: track this operation
-      const opId = `update-${lineId}`;
-      pendingRef.current.add(opId);
+      // Stamp this operation — any server response with an older stamp is discarded
+      const stamp = Date.now();
+      lastOpTimestamp.current.set(lineId, stamp);
 
-      // Optimistic update — instant UI change
+      // Optimistic update — instant
       if (quantity === 0) {
         dispatch({ type: 'OPTIMISTIC_REMOVE', lineId });
       } else {
         dispatch({ type: 'OPTIMISTIC_UPDATE_QUANTITY', lineId, quantity });
       }
 
-      try {
-        const cartId = state.cart.id;
-        let updatedCart: Cart;
-        if (quantity === 0) {
-          updatedCart = await removeFromCart(cartId, [lineId]);
-        } else {
-          updatedCart = await updateCart(cartId, [{ id: lineId, quantity }]);
-        }
-        // Only apply server response if this op is still the latest
-        if (pendingRef.current.has(opId)) {
-          dispatch({ type: 'SET_CART', payload: updatedCart });
-        }
-      } catch (err) {
-        console.error('Failed to update item, rolling back:', err);
-        // Rollback: re-fetch real cart
-        const realCart = await getCart(state.cart.id).catch(() => null);
-        dispatch({ type: 'SET_CART', payload: realCart });
-      } finally {
-        pendingRef.current.delete(opId);
-      }
+      const cartId = state.cart.id;
+
+      const serverCall =
+        quantity === 0
+          ? removeFromCart(cartId, [lineId])
+          : updateCart(cartId, [{ id: lineId, quantity }]);
+
+      serverCall
+        .then((updatedCart) => {
+          // Only commit if no NEWER operation for this line has been initiated
+          if (lastOpTimestamp.current.get(lineId) === stamp) {
+            dispatch({ type: 'SET_CART', payload: updatedCart });
+            lastOpTimestamp.current.delete(lineId);
+          }
+          // Otherwise: a newer optimistic update is already in place — discard this response
+        })
+        .catch(async (err) => {
+          console.error('updateItem failed, rolling back:', err);
+          const realCart = await getCart(cartId).catch(() => null);
+          dispatch({ type: 'SET_CART', payload: realCart });
+          lastOpTimestamp.current.delete(lineId);
+        });
     },
     [state.cart]
   );
 
+  /**
+   * removeItem — optimistic removal.
+   */
   const removeItem = useCallback(
-    async (lineId: string) => {
-      if (!state.cart?.id) return;
+    (lineId: string) => {
+      if (!state.cart?.id || state.cart.id === 'temp') return;
 
-      // Optimistic remove — instant UI change
+      const stamp = Date.now();
+      lastOpTimestamp.current.set(lineId, stamp);
+
       dispatch({ type: 'OPTIMISTIC_REMOVE', lineId });
 
-      try {
-        const updatedCart = await removeFromCart(state.cart.id, [lineId]);
-        dispatch({ type: 'SET_CART', payload: updatedCart });
-      } catch (err) {
-        console.error('Failed to remove item, rolling back:', err);
-        const realCart = await getCart(state.cart.id).catch(() => null);
-        dispatch({ type: 'SET_CART', payload: realCart });
-      }
+      removeFromCart(state.cart.id, [lineId])
+        .then((updatedCart) => {
+          if (lastOpTimestamp.current.get(lineId) === stamp) {
+            dispatch({ type: 'SET_CART', payload: updatedCart });
+            lastOpTimestamp.current.delete(lineId);
+          }
+        })
+        .catch(async (err) => {
+          console.error('removeItem failed, rolling back:', err);
+          const realCart = await getCart(state.cart!.id).catch(() => null);
+          dispatch({ type: 'SET_CART', payload: realCart });
+          lastOpTimestamp.current.delete(lineId);
+        });
     },
     [state.cart]
   );
@@ -326,7 +352,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     <CartContext.Provider
       value={{
         ...state,
-        isLoading: false, // No global loading state needed with optimistic updates
+        isLoading: false,
         addItem,
         updateItem,
         removeItem,
