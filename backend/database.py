@@ -11,7 +11,11 @@ if DATABASE_URL and "+pg8000" in DATABASE_URL and "?" in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.split("?")[0]
 
 # Create engine
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=60
+)
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
