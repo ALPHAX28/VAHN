@@ -2589,6 +2589,19 @@ input, textarea, select {
   .home-cta-section {
     padding-bottom: 96px !important;
   }
+
+  .footer-header {
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    margin-bottom: var(--space-md) !important;
+    padding-bottom: var(--space-xs) !important;
+  }
+
+  .footer-main {
+    padding: var(--space-xl) var(--space-md) 100px !important;
+    gap: var(--space-lg) !important;
+  }
 }
 
 .home-section-container {
@@ -2599,4 +2612,31 @@ input, textarea, select {
 
 .pullquote-decor {
   display: block;
+}
+
+.footer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xl);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-md);
+}
+
+.footer-socials-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.footer-socials-row a {
+  color: var(--color-grey-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+}
+
+.footer-socials-row a:hover {
+  color: var(--color-maroon);
 }

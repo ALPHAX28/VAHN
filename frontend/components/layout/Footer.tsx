@@ -4,6 +4,38 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
 
+const SOCIALS = [
+  {
+    label: 'Instagram',
+    href: 'https://instagram.com/vahnteamwear',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+      </svg>
+    ),
+  },
+  {
+    label: 'TikTok',
+    href: 'https://tiktok.com/@vahnteamwear',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path>
+      </svg>
+    ),
+  },
+  {
+    label: 'Facebook',
+    href: 'https://facebook.com/vahnteamwear',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
+      </svg>
+    ),
+  },
+];
+
 const FOOTER_MENUS = [
   {
     heading: 'About',
@@ -22,14 +54,6 @@ const FOOTER_MENUS = [
       { label: 'Size Guide', href: '/pages/size-guide' },
     ],
   },
-  {
-    heading: 'Socials',
-    links: [
-      { label: 'Instagram', href: 'https://instagram.com/vahnteamwear' },
-      { label: 'TikTok', href: 'https://tiktok.com/@vahnteamwear' },
-      { label: 'Facebook', href: 'https://facebook.com/vahnteamwear' },
-    ],
-  },
 ];
 
 export default function Footer() {
@@ -38,25 +62,42 @@ export default function Footer() {
   return (
     <footer className="footer">
       <div className="footer-main">
-        {/* Left: Logo + Menus */}
+        {/* Left: Logo + Socials + Menus */}
         <div>
-          {/* Logo */}
-          <Link href="/" aria-label="VAHN home" style={{ display: 'inline-block', marginBottom: '32px' }}>
-            {logoError ? (
-              <span style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-black)' }}>
-                VAHN
-              </span>
-            ) : (
-              <Image
-                src="/assets/logo.png"
-                alt="VAHN"
-                width={100}
-                height={24}
-                style={{ display: 'block', height: '24px', width: 'auto' }}
-                onError={() => setLogoError(true)}
-              />
-            )}
-          </Link>
+          <div className="footer-header">
+            {/* Logo */}
+            <Link href="/" aria-label="VAHN home" style={{ display: 'inline-block' }}>
+              {logoError ? (
+                <span style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-black)' }}>
+                  VAHN
+                </span>
+              ) : (
+                <Image
+                  src="/assets/logo.png"
+                  alt="VAHN"
+                  width={100}
+                  height={24}
+                  style={{ display: 'block', height: '24px', width: 'auto' }}
+                  onError={() => setLogoError(true)}
+                />
+              )}
+            </Link>
+
+            {/* Social Icons */}
+            <div className="footer-socials-row">
+              {SOCIALS.map((social) => (
+                <a
+                  key={social.label}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={social.label}
+                >
+                  {social.icon}
+                </a>
+              ))}
+            </div>
+          </div>
 
           <div className="footer-menus">
             {FOOTER_MENUS.map((menu) => (
