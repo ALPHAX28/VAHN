@@ -244,8 +244,14 @@ export default function ProductInfo({ product }: Props) {
               {cartItem.quantity}
             </span>
             <button
-              onClick={() => updateItem(cartItem.id, cartItem.quantity + 1)}
-              className="btn-qty-selector-btn"
+              onClick={() => {
+                if (selectedVariant?.quantityAvailable !== undefined && cartItem.quantity >= selectedVariant.quantityAvailable) {
+                  return;
+                }
+                updateItem(cartItem.id, cartItem.quantity + 1);
+              }}
+              className={`btn-qty-selector-btn ${selectedVariant?.quantityAvailable !== undefined && cartItem.quantity >= selectedVariant.quantityAvailable ? 'disabled' : ''}`}
+              disabled={selectedVariant?.quantityAvailable !== undefined && cartItem.quantity >= selectedVariant.quantityAvailable}
               aria-label="Increase quantity"
             >
               +

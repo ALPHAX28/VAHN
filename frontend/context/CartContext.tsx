@@ -309,6 +309,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     (lineId: string, quantity: number) => {
       if (!state.cart?.id || state.cart.id === 'temp') return;
 
+      // Safeguard: Clamp to maximum available stock if defined
+      const line = state.cart.lines.edges.find((e) => e.node.id === lineId)?.node;
+      if (line && line.merchandise.quantityAvailable !== undefined && quantity > line.merchandise.quantityAvailable) {
+        quantity = line.merchandise.quantityAvailable;
+      }
+
       // Stamp this operation — any server response with an older stamp is discarded
       const stamp = Date.now();
       lastOpTimestamp.current.set(lineId, stamp);

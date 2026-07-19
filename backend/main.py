@@ -246,7 +246,8 @@ def build_cart_schema(cart: models.Cart, db: Session) -> schemas.CartSchema:
                             title=p.title,
                             handle=p.handle,
                             featuredImage=schemas.ImageNode(url=p.featured_image_url, altText=p.featured_image_alt) if p.featured_image_url else None
-                        )
+                        ),
+                        quantityAvailable=v.inventory_quantity
                     ),
                     cost=schemas.CartLineCost(
                         totalAmount=schemas.Money(amount=f"{v.price_amount * item.quantity:.2f}", currencyCode=v.price_currency)

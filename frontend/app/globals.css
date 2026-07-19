@@ -1847,8 +1847,15 @@ input, textarea, select {
   transition: background var(--transition-fast);
 }
 
-.btn-qty-selector-btn:hover {
+.btn-qty-selector-btn:hover:not(:disabled):not(.disabled) {
   background: #fdf5f5;
+}
+
+.btn-qty-selector-btn.disabled,
+.btn-qty-selector-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: transparent !important;
 }
 
 .btn-qty-selector-value {

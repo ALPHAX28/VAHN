@@ -118,6 +118,7 @@ export interface CartLine {
       featuredImage: Image | null;
     };
     price: Money;
+    quantityAvailable?: number;
   };
   cost: {
     totalAmount: Money;

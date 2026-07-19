@@ -143,6 +143,7 @@ class CartMerchandise(BaseModel):
     price: Money
     selectedOptions: List[SelectedOption]
     product: CartProductMini
+    quantityAvailable: Optional[int] = None
 
 class CartLineCost(BaseModel):
     totalAmount: Money

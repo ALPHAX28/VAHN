@@ -92,8 +92,13 @@ export default function CartDrawer() {
                     <button
                       className="qty-btn"
                       aria-label="Increase quantity"
-                      onClick={() => updateItem(line.id, line.quantity + 1)}
-                      disabled={isLoading}
+                      onClick={() => {
+                        if (line.merchandise.quantityAvailable !== undefined && line.quantity >= line.merchandise.quantityAvailable) {
+                          return;
+                        }
+                        updateItem(line.id, line.quantity + 1);
+                      }}
+                      disabled={isLoading || (line.merchandise.quantityAvailable !== undefined && line.quantity >= line.merchandise.quantityAvailable)}
                     >
                       +
                     </button>
