@@ -1118,6 +1118,7 @@ input, textarea, select {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-grey-dark);
+  margin: 0;
 }
 
 .product-title-h1 {
@@ -1125,6 +1126,12 @@ input, textarea, select {
   font-size: clamp(2rem, 4vw, 3.5rem);
   text-transform: uppercase;
   line-height: 1.05;
+  margin: 0;
+}
+
+.product-rating-summary {
+  margin: 0;
+  margin-top: -6px;
 }
 
 .product-price-display {
@@ -1133,6 +1140,8 @@ input, textarea, select {
   gap: var(--space-md);
   font-size: 1.375rem;
   font-weight: 600;
+  margin: 0;
+  margin-top: -4px;
 }
 
 .product-price-sale { color: var(--color-maroon); }
@@ -1146,6 +1155,15 @@ input, textarea, select {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: var(--space-sm);
+}
+
+.stock-warning {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.product-add-to-cart-wrapper {
+  margin-top: 8px;
 }
 
 .variant-options { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
@@ -2150,6 +2168,31 @@ input, textarea, select {
     max-width: 260px !important;
     text-align: center !important;
     padding: 14px 24px !important;
+  }
+
+  /* Product details tighter spacing on mobile */
+  .product-info {
+    padding: var(--space-md) var(--space-md) !important;
+    gap: 12px !important;
+  }
+  .product-rating-summary {
+    margin-top: -8px !important;
+  }
+  .product-price-display {
+    margin-top: -6px !important;
+  }
+  .variant-picker {
+    gap: 10px !important;
+  }
+  .variant-label {
+    margin-bottom: 4px !important;
+  }
+  .stock-warning {
+    margin-top: 2px !important;
+    margin-bottom: 2px !important;
+  }
+  .product-add-to-cart-wrapper {
+    margin-top: 4px !important;
   }
 }
 

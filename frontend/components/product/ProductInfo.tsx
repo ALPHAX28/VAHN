@@ -85,10 +85,10 @@ export default function ProductInfo({ product }: Props) {
       <p className="product-vendor">{product.vendor}</p>
 
       {/* Title */}
-      <h1 className="product-title-h1" style={{ marginBottom: '8px' }}>{product.title}</h1>
+      <h1 className="product-title-h1">{product.title}</h1>
 
       {/* Reviews Summary */}
-      <div className="product-rating-summary" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '0.875rem' }}>
+      <div className="product-rating-summary" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem' }}>
         <div className="rating-stars" style={{ display: 'flex', gap: '3px' }}>
           {[1, 2, 3, 4, 5].map((star) => (
             <svg
@@ -210,11 +210,11 @@ export default function ProductInfo({ product }: Props) {
 
       {/* Stock warning */}
       {available && selectedVariant && selectedVariant.quantityAvailable !== undefined && selectedVariant.quantityAvailable <= 3 && (
-        <div className="stock-warning" style={{ marginBottom: '16px', marginTop: '8px' }}>
-          <div className="stock-warning-text" style={{ fontSize: '0.875rem', color: '#D93939', fontWeight: 600, marginBottom: '6px' }}>
+        <div className="stock-warning">
+          <div className="stock-warning-text" style={{ fontSize: '0.875rem', color: '#D93939', fontWeight: 600 }}>
             Hurry, only {selectedVariant.quantityAvailable} item{selectedVariant.quantityAvailable > 1 ? 's' : ''} left in stock!
           </div>
-          <div className="stock-warning-bar" style={{ width: '100%', height: '6px', background: '#F0F0F0', borderRadius: '3px', overflow: 'hidden' }}>
+          <div className="stock-warning-bar" style={{ width: '100%', height: '6px', background: '#F0F0F0', borderRadius: '3px', overflow: 'hidden', marginTop: '6px' }}>
             <div 
               className="stock-warning-progress" 
               style={{ 
@@ -229,7 +229,7 @@ export default function ProductInfo({ product }: Props) {
       )}
 
       {/* Add to cart */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+      <div className="product-add-to-cart-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <button
           className={`btn-add-to-cart ${!available || adding ? 'disabled' : ''}`}
           onClick={handleAddToCart}
