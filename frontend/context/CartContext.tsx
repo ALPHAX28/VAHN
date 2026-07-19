@@ -211,7 +211,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
     if (isDirty && loadedCart) {
       // Trigger sync immediately on mount so unsynced client changes overwrite database
-      triggerSync(true);
+      triggerSync(true, loadedCart);
     } else if (storedCartId) {
       getCart(storedCartId)
         .then((cart) => {
@@ -254,7 +254,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const needsSyncRef = useRef(false);
 
   // Debounced synchronization function
-  const triggerSync = useCallback((immediate = false) => {
+  const triggerSync = useCallback((immediate = false, overrideCart: Cart | null = null) => {
     if (syncTimeoutRef.current) {
       clearTimeout(syncTimeoutRef.current);
     }
@@ -263,7 +263,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // If a sync is already running, queue a catch-up sync and wait
       if (isSyncingRef.current) {
         needsSyncRef.current = true;
-        triggerSync(immediate);
+        triggerSync(immediate, overrideCart);
         return;
       }
 
@@ -274,7 +274,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('vahn-cart-dirty', 'true');
 
       try {
-        const cart = cartRef.current;
+        const cart = overrideCart || cartRef.current;
         const currentLines = cart?.lines.edges.map((e) => ({
           merchandiseId: e.node.merchandise.id,
           quantity: e.node.quantity,
