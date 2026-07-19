@@ -2,16 +2,26 @@
 // Standalone API Client
 // ===================================================================
 
-const getApiBaseUrl = () => {
-  // If running in the browser in production: use relative path to prevent CORS / preflight redirect errors
+function getApiBaseUrl(): string {
+  // BROWSER (client-side) in production:
+  // Use a relative path so requests are same-origin → no CORS preflight issues
   if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
     return '/api/backend/api';
   }
-  // Otherwise (server-side rendering, or local development): use NEXT_PUBLIC_API_URL
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-};
 
-const API_BASE_URL = getApiBaseUrl();
+  // SERVER-SIDE on Vercel (SSR for product/collection/etc. pages):
+  // VERCEL_PROJECT_PRODUCTION_URL is Vercel's system env var set to the stable
+  // production domain (e.g. "vahn.vercel.app") — NOT the preview deployment URL,
+  // so it won't be blocked by Vercel's deployment protection.
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/api/backend/api`;
+  }
+
+  // Local development (or any other environment):
+  // Use NEXT_PUBLIC_API_URL (set in .env.local) or fallback to localhost
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+}
+
 
 export interface FetchOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -25,7 +35,7 @@ export async function fetchAPI<T>(
   options: FetchOptions = {}
 ): Promise<T> {
   const { method = 'GET', body, cache, tags } = options;
-  const url = `${API_BASE_URL}${path}`;
+  const url = `${getApiBaseUrl()}${path}`;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
