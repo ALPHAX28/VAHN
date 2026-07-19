@@ -20,7 +20,7 @@ function getVariantFromOptions(
 
 export default function ProductInfo({ product }: Props) {
   const variants = product.variants.edges.map((e) => e.node);
-  const { addItem, isLoading } = useCart();
+  const { addItem } = useCart();
   const [adding, setAdding] = useState(false);
   const [addedMessage, setAddedMessage] = useState('');
 
@@ -50,16 +50,18 @@ export default function ProductInfo({ product }: Props) {
     return variant?.availableForSale ?? false;
   };
 
-  const handleAddToCart = async () => {
-    if (!selectedVariant || !available) return;
+  const handleAddToCart = () => {
+    if (!selectedVariant || !available || adding) return;
+    // Show instant feedback — optimistic update handles the UI change
     setAdding(true);
-    try {
-      await addItem(selectedVariant.id, 1);
-      setAddedMessage('Added to Cart');
-      setTimeout(() => setAddedMessage(''), 2000);
-    } finally {
+    setAddedMessage('Added to Cart');
+    // Fire-and-forget: addItem handles optimistic update + server sync
+    addItem(selectedVariant.id, 1);
+    // Reset the button label after 2s
+    setTimeout(() => {
       setAdding(false);
-    }
+      setAddedMessage('');
+    }, 2000);
   };
 
   const reviewsList = product.reviews ?? [];
@@ -220,9 +222,9 @@ export default function ProductInfo({ product }: Props) {
       {/* Add to cart */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
         <button
-          className={`btn-add-to-cart ${!available || adding || isLoading ? 'disabled' : ''}`}
+          className={`btn-add-to-cart ${!available || adding ? 'disabled' : ''}`}
           onClick={handleAddToCart}
-          disabled={!available || adding || isLoading}
+          disabled={!available || adding}
           aria-label={available ? 'Add to cart' : 'Sold out'}
         >
           <span className="btn-add-to-cart-text">
