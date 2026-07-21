@@ -2949,13 +2949,13 @@ input, textarea, select {
   background: var(--color-white);
   border-top: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
-  padding: var(--space-xl) 0;
+  padding: 2.5rem 0;
 }
 
 .product-highlights-grid {
   display: flex;
   justify-content: flex-start;
-  gap: 4rem;
+  gap: 6.5rem;
   align-items: center;
 }
 
@@ -2970,15 +2970,15 @@ input, textarea, select {
 .highlight-item {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
 }
 
 .highlight-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   color: var(--color-black);
 }
 
@@ -2989,14 +2989,16 @@ input, textarea, select {
 
 .highlight-label {
   font-family: var(--font-ui);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: var(--color-grey-dark);
-  text-transform: capitalize;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .highlight-value {
   font-family: var(--font-heading);
-  font-size: 1.125rem;
+  font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;

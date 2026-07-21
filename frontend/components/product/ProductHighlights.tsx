@@ -19,7 +19,7 @@ export default function ProductHighlights({ product }: Props) {
           {/* Fit Item */}
           <div className="highlight-item">
             <div className="highlight-icon">
-              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z" />
               </svg>
             </div>
@@ -32,7 +32,7 @@ export default function ProductHighlights({ product }: Props) {
           {/* Kit Type Item */}
           <div className="highlight-item">
             <div className="highlight-icon">
-              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
             </div>
@@ -45,7 +45,7 @@ export default function ProductHighlights({ product }: Props) {
           {/* Activity Item */}
           <div className="highlight-item">
             <div className="highlight-icon">
-              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="5" r="2" />
                 <path d="M6 22l4-8 2 2v6" />
                 <path d="M18 10l-4-4-4 2-3 4" />

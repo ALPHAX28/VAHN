@@ -23,8 +23,8 @@ export default function ProductInfo({ product }: Props) {
   const { addItem, updateItem, lines } = useCart();
   const [adding, setAdding] = useState(false);
   const [addedMessage, setAddedMessage] = useState('');
-  const [isDetailsOpen, setIsDetailsOpen] = useState(true);
-  const [isFitOpen, setIsFitOpen] = useState(true);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isFitOpen, setIsFitOpen] = useState(false);
 
   const { detailsHtml, fitHtml } = (() => {
     const html = product.descriptionHtml || '';
