@@ -22,7 +22,7 @@ export default function MobileNav({ links, onClose, isClosing = false }: Props) 
 
       <div className={`mobile-nav-panel ${isClosing ? 'closing' : ''}`}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', letterSpacing: '0.2em' }}>VAHN</span>
+          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '1.05rem', letterSpacing: '0.2em' }}>VAHN</span>
           <button
             onClick={onClose}
             aria-label="Close menu"
