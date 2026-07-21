@@ -25,6 +25,23 @@ export default function ProductInfo({ product }: Props) {
   const [addedMessage, setAddedMessage] = useState('');
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isFitOpen, setIsFitOpen] = useState(false);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [unit, setUnit] = useState<'cm' | 'in'>('cm');
+
+  const sizeData = {
+    cm: [
+      { size: 'S', chest: '102 cm', length: '68 cm', sleeve: '22 cm' },
+      { size: 'M', chest: '108 cm', length: '70 cm', sleeve: '23 cm' },
+      { size: 'L', chest: '114 cm', length: '72 cm', sleeve: '24 cm' },
+      { size: 'XL', chest: '120 cm', length: '74 cm', sleeve: '25 cm' },
+    ],
+    in: [
+      { size: 'S', chest: '40.2 in', length: '26.8 in', sleeve: '8.7 in' },
+      { size: 'M', chest: '42.5 in', length: '27.6 in', sleeve: '9.1 in' },
+      { size: 'L', chest: '44.9 in', length: '28.3 in', sleeve: '9.4 in' },
+      { size: 'XL', chest: '47.2 in', length: '29.1 in', sleeve: '9.8 in' },
+    ]
+  };
 
   const { detailsHtml, fitHtml } = (() => {
     const html = product.descriptionHtml || '';
@@ -143,9 +160,41 @@ export default function ProductInfo({ product }: Props) {
           <div className="variant-picker">
             {product.options.map((option) => (
               <div key={option.id}>
-                <p className="variant-label">
-                  {option.name}: <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{selectedOptions[option.name]}</span>
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                  <p className="variant-label" style={{ marginBottom: 0 }}>
+                    {option.name}: <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{selectedOptions[option.name]}</span>
+                  </p>
+                  {option.name.toLowerCase() === 'size' && (
+                    <button
+                      onClick={() => setSizeGuideOpen(true)}
+                      className="size-guide-trigger-btn"
+                      type="button"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--color-black)',
+                        fontFamily: 'var(--font-ui)',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      Size Guide
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
                 <div className="variant-options" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {option.values.map((value) => {
                     const isAvail = isValueAvailable(option.name, value);
@@ -441,6 +490,101 @@ export default function ProductInfo({ product }: Props) {
               {tag}
             </Link>
           ))}
+        </div>
+      )}
+
+      {sizeGuideOpen && (
+        <div className="size-guide-modal-overlay" onClick={() => setSizeGuideOpen(false)}>
+          <div className="size-guide-modal-card" onClick={(e) => e.stopPropagation()}>
+            <button className="size-guide-close-btn" onClick={() => setSizeGuideOpen(false)} aria-label="Close size guide">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+            
+            <h3 className="size-guide-title">Size Guide</h3>
+            
+            <div className="size-guide-unit-toggle">
+              <button 
+                type="button"
+                className={`unit-toggle-btn ${unit === 'cm' ? 'active' : ''}`}
+                onClick={() => setUnit('cm')}
+              >
+                Metric (CM)
+              </button>
+              <button 
+                type="button"
+                className={`unit-toggle-btn ${unit === 'in' ? 'active' : ''}`}
+                onClick={() => setUnit('in')}
+              >
+                Imperial (IN)
+              </button>
+            </div>
+
+            <div className="size-guide-body">
+              {/* Left Column: Vector Graphic */}
+              <div className="size-guide-graphic">
+                <svg viewBox="0 0 200 240" className="size-guide-jersey-svg" width="100%" height="100%">
+                  <path 
+                    d="M 60 40 L 40 48 L 20 80 L 45 92 L 55 75 L 55 210 L 145 210 L 145 75 L 155 92 L 180 80 L 160 48 L 140 40 C 130 52 110 52 100 52 C 90 52 70 52 60 40 Z" 
+                    fill="none" 
+                    stroke="var(--color-black)" 
+                    strokeWidth="2.5" 
+                    strokeLinejoin="round" 
+                  />
+                  <path d="M 60 40 C 70 52 90 52 100 52 C 110 52 130 52 140 40" fill="none" stroke="var(--color-black)" strokeWidth="1.5" />
+                  
+                  {/* Chest line */}
+                  <line x1="55" y1="120" x2="145" y2="120" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
+                  <path d="M 55 120 L 60 116 M 55 120 L 60 124 M 145 120 L 140 116 M 145 120 L 140 124" stroke="var(--color-maroon)" strokeWidth="1.5" />
+                  <text x="100" y="112" textAnchor="middle" fill="var(--color-maroon)" fontSize="10" fontWeight="bold">A: CHEST</text>
+
+                  {/* Length line */}
+                  <line x1="100" y1="52" x2="100" y2="210" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
+                  <path d="M 100 52 L 96 57 M 100 52 L 104 57 M 100 210 L 96 205 M 100 210 L 104 205" stroke="var(--color-maroon)" strokeWidth="1.5" />
+                  <text x="94" y="140" textAnchor="end" fill="var(--color-maroon)" fontSize="10" fontWeight="bold" transform="rotate(-90 94 140)">B: LENGTH</text>
+
+                  {/* Sleeve line */}
+                  <line x1="140" y1="40" x2="180" y2="80" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
+                  <path d="M 140 40 L 146 42 M 140 40 L 141 46 M 180 80 L 174 78 M 180 80 L 179 74" stroke="var(--color-maroon)" strokeWidth="1.5" />
+                  <text x="150" y="55" fill="var(--color-maroon)" fontSize="9" fontWeight="bold">C: SLEEVE</text>
+                </svg>
+              </div>
+
+              {/* Right Column: Table and Details */}
+              <div className="size-guide-table-column">
+                <table className="size-guide-table">
+                  <thead>
+                    <tr>
+                      <th>Size</th>
+                      <th>A: Chest</th>
+                      <th>B: Length</th>
+                      <th>C: Sleeve</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sizeData[unit].map((row) => (
+                      <tr key={row.size}>
+                        <td><strong>{row.size}</strong></td>
+                        <td>{row.chest}</td>
+                        <td>{row.length}</td>
+                        <td>{row.sleeve}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="size-guide-help-text">
+                  <p><strong>Measuring Tips:</strong></p>
+                  <ul>
+                    <li><strong>Chest:</strong> Measure around the fullest part of your chest, keeping the tape horizontal.</li>
+                    <li><strong>Length:</strong> Measure from the highest point of the shoulder down to the hem.</li>
+                    <li><strong>Sleeve:</strong> Measure from the neck collar point along the shoulder line down to the sleeve hem.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
