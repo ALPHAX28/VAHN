@@ -2957,6 +2957,8 @@ input, textarea, select {
   justify-content: flex-start;
   gap: 6.5rem;
   align-items: center;
+  margin-left: -75px;
+  padding-left: 0;
 }
 
 @media (max-width: 768px) {
