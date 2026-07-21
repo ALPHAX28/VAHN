@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import type { Image as ShopifyImage } from '@/lib/api/types';
 
@@ -13,6 +13,18 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
   const [showAllImages, setShowAllImages] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [collapsedHeight, setCollapsedHeight] = useState<number | null>(null);
+
+  // Measure exact 2x2 grid height when collapsed to lock outer container height when expanded
+  useEffect(() => {
+    if (!showAllImages && gridRef.current) {
+      const h = gridRef.current.clientHeight;
+      if (h > 0) {
+        setCollapsedHeight(h);
+      }
+    }
+  }, [showAllImages]);
 
   const displayImages = showAllImages ? images : images.slice(0, 4);
 
@@ -64,7 +76,21 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
       <div className="product-gallery">
         {/* Desktop: Adidas-style 2-Column Grid */}
         <div className="adidas-gallery-desktop">
-          <div className="adidas-grid-container">
+          <div
+            ref={gridRef}
+            className="adidas-grid-container"
+            style={
+              showAllImages && collapsedHeight
+                ? {
+                    maxHeight: `${collapsedHeight}px`,
+                    height: `${collapsedHeight}px`,
+                    overflowY: 'auto',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                  }
+                : {}
+            }
+          >
             {displayImages.map((img, i) => (
               <div
                 key={i}
