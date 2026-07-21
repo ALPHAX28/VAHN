@@ -2938,15 +2938,16 @@ input, textarea, select {
 }
 
 .product-highlights-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-xl);
+  display: flex;
+  justify-content: flex-start;
+  gap: 4rem;
   align-items: center;
 }
 
 @media (max-width: 768px) {
   .product-highlights-grid {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: flex-start;
     gap: var(--space-lg);
   }
 }

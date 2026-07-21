@@ -22,14 +22,25 @@ def seed_database():
             db.commit()
             db.refresh(db_collection)
 
+        images_json = [
+            {"url": "/assets/courtyard-jersey.png", "altText": "VAHN Signature Oversized Jersey - Front View"},
+            {"url": "/assets/signature-product.png", "altText": "VAHN Signature Oversized Jersey - Detail View"},
+            {"url": "/assets/bull-banner.png", "altText": "VAHN Signature Oversized Jersey - Lifestyle View"},
+            {"url": "/assets/courtyard-jersey.png", "altText": "VAHN Signature Oversized Jersey - Back View"},
+            {"url": "/assets/signature-product.png", "altText": "VAHN Signature Oversized Jersey - Texture View"},
+            {"url": "/assets/bull-banner.png", "altText": "VAHN Signature Oversized Jersey - Editorial View"},
+            {"url": "/assets/courtyard-jersey.png", "altText": "VAHN Signature Oversized Jersey - Close-up View"}
+        ]
+
         # Check if product already exists
         db_product = db.query(models.Product).filter_by(handle="vahn-signature-oversized-jersey").first()
         if db_product:
             db_product.fit = "OVERSIZED"
             db_product.kit_type = "SIGNATURE"
             db_product.activity = "LIFESTYLE"
+            db_product.images = images_json
             db.commit()
-            print("Updated existing product with fit, kit_type, and activity attributes.")
+            print("Updated existing product with images, fit, kit_type, and activity attributes.")
         else:
             print("Creating 'VAHN Signature Oversized Jersey' product...")
             
