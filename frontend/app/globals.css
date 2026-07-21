@@ -1148,10 +1148,23 @@ input, textarea, select {
   gap: var(--space-lg);
   max-width: 600px;
   width: 100%;
+  max-height: 900px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-@media (max-width: 768px) {
-  .product-info { padding: var(--space-xl) var(--space-md); }
+.product-info::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .product-info {
+    height: auto;
+    max-height: none;
+    overflow-y: visible;
+    padding: var(--space-xl) var(--space-md);
+  }
 }
 
 .product-vendor {
@@ -2712,18 +2725,9 @@ input, textarea, select {
   animation: slideOutRight 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* ---- Product Accordion Scroll Container ---- */
+/* ---- Product Accordion Styles ---- */
 .product-accordions-wrapper {
-  height: 240px;
-  overflow-y: auto;
   border-top: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
   margin-top: var(--space-md);
-  padding: 0 4px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.product-accordions-wrapper::-webkit-scrollbar {
-  display: none;
 }
