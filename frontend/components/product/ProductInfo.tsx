@@ -166,7 +166,7 @@ export default function ProductInfo({ product }: Props) {
                             padding: 0,
                             width: '48px',
                             height: '48px',
-                            borderRadius: '8px',
+                            borderRadius: '0px',
                             overflow: 'hidden',
                             border: selectedOptions[option.name] === value ? '2px solid var(--color-black)' : '1px solid var(--color-border)',
                             cursor: 'pointer',
