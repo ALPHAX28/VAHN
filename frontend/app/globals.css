@@ -1128,6 +1128,8 @@ input, textarea, select {
 .product-gallery-thumb {
   width: 64px;
   height: 64px;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 0 !important;
   object-fit: cover;
   border: 1px solid var(--color-border);
   cursor: pointer;
@@ -1694,7 +1696,7 @@ input, textarea, select {
   display: flex;
   flex-direction: column;
   background: var(--color-white);
-  border-radius: var(--radius-lg);
+  border-radius: 0 !important;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
@@ -1711,10 +1713,12 @@ input, textarea, select {
   aspect-ratio: 3/4;
   overflow: hidden;
   background: var(--color-grey-light);
+  border-radius: 0 !important;
 }
 
 .lookbook-image {
   object-fit: cover;
+  border-radius: 0 !important;
   transition: transform var(--transition-slow);
 }
 
@@ -2340,7 +2344,7 @@ input, textarea, select {
   .btn-add-to-cart,
   .btn-buy-it-now {
     padding: 0.85rem 1.5rem !important;
-    border-radius: 2rem !important;
+    border-radius: 0 !important;
   }
 
   .btn-add-to-cart-text,
