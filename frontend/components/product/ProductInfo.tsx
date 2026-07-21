@@ -23,6 +23,7 @@ export default function ProductInfo({ product }: Props) {
   const { addItem, updateItem, lines } = useCart();
   const [adding, setAdding] = useState(false);
   const [addedMessage, setAddedMessage] = useState('');
+  const [isDetailsOpen, setIsDetailsOpen] = useState(true);
 
   // Initialize selected options from first available variant
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
@@ -284,12 +285,73 @@ export default function ProductInfo({ product }: Props) {
         )}
       </div>
 
-      {/* Description */}
+      {/* Description Accordion */}
       {product.descriptionHtml && (
-        <div
-          className="product-description"
-          dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
-        />
+        <div 
+          className="product-details-accordion" 
+          style={{ 
+            borderTop: '1px solid var(--color-border)', 
+            borderBottom: '1px solid var(--color-border)', 
+            marginTop: 'var(--space-md)' 
+          }}
+        >
+          <button
+            onClick={() => setIsDetailsOpen(!isDetailsOpen)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'none',
+              border: 'none',
+              padding: '16px 0',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-ui)',
+              fontSize: '0.8125rem',
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: 'var(--color-black)',
+            }}
+            aria-expanded={isDetailsOpen}
+          >
+            <span>Details & Fit</span>
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transform: isDetailsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.3s ease',
+              }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          
+          <div
+            style={{
+              maxHeight: isDetailsOpen ? '1000px' : '0px',
+              overflow: 'hidden',
+              transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            <div
+              className="product-description"
+              dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+              style={{
+                paddingBottom: '20px',
+                fontSize: '0.9375rem',
+                lineHeight: 1.6,
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {/* Tags */}
