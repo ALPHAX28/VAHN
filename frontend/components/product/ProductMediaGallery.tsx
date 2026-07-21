@@ -83,7 +83,6 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
               showAllImages && collapsedHeight
                 ? {
                     maxHeight: `${collapsedHeight}px`,
-                    height: `${collapsedHeight}px`,
                     overflowY: 'auto',
                     scrollbarWidth: 'none',
                     msOverflowStyle: 'none',
