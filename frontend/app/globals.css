@@ -2713,13 +2713,17 @@ input, textarea, select {
 }
 
 /* ---- Product Accordion Scroll Container ---- */
-.accordion-scroll-content {
-  max-height: 200px;
+.product-accordions-wrapper {
+  height: 240px;
   overflow-y: auto;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  margin-top: var(--space-md);
+  padding: 0 4px;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-.accordion-scroll-content::-webkit-scrollbar {
+.product-accordions-wrapper::-webkit-scrollbar {
   display: none;
 }

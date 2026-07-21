@@ -300,140 +300,125 @@ export default function ProductInfo({ product }: Props) {
         )}
       </div>
 
-      {/* Details Accordion */}
-      {detailsHtml && (
-        <div 
-          className="product-details-accordion" 
-          style={{ 
-            borderTop: '1px solid var(--color-border)', 
-            borderBottom: fitHtml ? 'none' : '1px solid var(--color-border)',
-            marginTop: 'var(--space-md)' 
-          }}
-        >
-          <button
-            onClick={() => setIsDetailsOpen(!isDetailsOpen)}
-            style={{
-              width: '100%',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              background: 'none',
-              border: 'none',
-              padding: '16px 0',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-ui)',
-              fontSize: '0.8125rem',
-              fontWeight: 700,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: 'var(--color-black)',
-            }}
-            aria-expanded={isDetailsOpen}
-          >
-            <span>Details</span>
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                transform: isDetailsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: 'transform 0.3s ease',
+      {/* Dedicated Fixed-Height Accordions Scroll Container */}
+      {(detailsHtml || fitHtml) && (
+        <div className="product-accordions-wrapper">
+          {/* Details Accordion */}
+          {detailsHtml && (
+            <div 
+              className="product-details-accordion" 
+              style={{ 
+                borderBottom: fitHtml ? '1px solid var(--color-border)' : 'none',
               }}
             >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-          
-          <div
-            style={{
-              maxHeight: isDetailsOpen ? '200px' : '0px',
-              overflow: 'hidden',
-              transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
-          >
-            <div
-              className="product-description accordion-scroll-content"
-              dangerouslySetInnerHTML={{ __html: detailsHtml }}
-              style={{
-                paddingBottom: '20px',
-                fontSize: '0.9375rem',
-                lineHeight: 1.6,
-              }}
-            />
-          </div>
-        </div>
-      )}
+              <button
+                onClick={() => setIsDetailsOpen(!isDetailsOpen)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'none',
+                  border: 'none',
+                  padding: '14px 0',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-ui)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-black)',
+                }}
+                aria-expanded={isDetailsOpen}
+              >
+                <span>Details</span>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    transform: isDetailsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.3s ease',
+                  }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              
+              {isDetailsOpen && (
+                <div
+                  className="product-description"
+                  dangerouslySetInnerHTML={{ __html: detailsHtml }}
+                  style={{
+                    paddingBottom: '16px',
+                    fontSize: '0.9375rem',
+                    lineHeight: 1.6,
+                  }}
+                />
+              )}
+            </div>
+          )}
 
-      {/* Size & Fit Accordion */}
-      {fitHtml && (
-        <div 
-          className="product-details-accordion" 
-          style={{ 
-            borderTop: '1px solid var(--color-border)', 
-            borderBottom: '1px solid var(--color-border)'
-          }}
-        >
-          <button
-            onClick={() => setIsFitOpen(!isFitOpen)}
-            style={{
-              width: '100%',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              background: 'none',
-              border: 'none',
-              padding: '16px 0',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-ui)',
-              fontSize: '0.8125rem',
-              fontWeight: 700,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: 'var(--color-black)',
-            }}
-            aria-expanded={isFitOpen}
-          >
-            <span>Size & Fit</span>
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                transform: isFitOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: 'transform 0.3s ease',
-              }}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-          
-          <div
-            style={{
-              maxHeight: isFitOpen ? '200px' : '0px',
-              overflow: 'hidden',
-              transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
-          >
-            <div
-              className="product-description accordion-scroll-content"
-              dangerouslySetInnerHTML={{ __html: fitHtml }}
-              style={{
-                paddingBottom: '20px',
-                fontSize: '0.9375rem',
-                lineHeight: 1.6,
-              }}
-            />
-          </div>
+          {/* Size & Fit Accordion */}
+          {fitHtml && (
+            <div className="product-details-accordion">
+              <button
+                onClick={() => setIsFitOpen(!isFitOpen)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'none',
+                  border: 'none',
+                  padding: '14px 0',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-ui)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-black)',
+                }}
+                aria-expanded={isFitOpen}
+              >
+                <span>Size & Fit</span>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    transform: isFitOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.3s ease',
+                  }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              
+              {isFitOpen && (
+                <div
+                  className="product-description"
+                  dangerouslySetInnerHTML={{ __html: fitHtml }}
+                  style={{
+                    paddingBottom: '16px',
+                    fontSize: '0.9375rem',
+                    lineHeight: 1.6,
+                  }}
+                />
+              )}
+            </div>
+          )}
         </div>
       )}
 
