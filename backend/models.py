@@ -42,6 +42,9 @@ class Product(Base):
     featured_image_alt = Column(String, nullable=True)
     images = Column(JSON, default=list) # List of image objects [{"url": "...", "altText": "..."}]
     lookbook = Column(JSON, default=list) # List of lookbook items [{"id": "...", "imageUrl": "...", "title": "...", "description": "..."}]
+    fit = Column(String, nullable=True) # e.g. "SLIM", "OVERSIZED", "REGULAR"
+    kit_type = Column(String, nullable=True) # e.g. "HOME", "SIGNATURE", "JERSEY"
+    activity = Column(String, nullable=True) # e.g. "FOOTBALL", "LIFESTYLE", "STREETWEAR"
 
     # Relationships
     collections = relationship("Collection", secondary=collection_product_association, back_populates="products")

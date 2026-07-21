@@ -121,7 +121,10 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
         seo=schemas.SEO(title=prod.title, description=prod.description),
         featuredImage=schemas.ImageNode(url=prod.featured_image_url, altText=prod.featured_image_alt) if prod.featured_image_url else None,
         lookbook=lookbook_schemas,
-        reviews=review_schemas
+        reviews=review_schemas,
+        fit=prod.fit,
+        kitType=prod.kit_type,
+        activity=prod.activity
     )
 
 # ---- ENDPOINTS ----

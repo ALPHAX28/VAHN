@@ -93,6 +93,9 @@ class ProductSchema(BaseModel):
     featuredImage: Optional[ImageNode] = None
     lookbook: List[LookbookSchema] = []
     reviews: List[ReviewSchema] = []
+    fit: Optional[str] = None
+    kitType: Optional[str] = None
+    activity: Optional[str] = None
 
 class ProductEdge(BaseModel):
     node: ProductSchema

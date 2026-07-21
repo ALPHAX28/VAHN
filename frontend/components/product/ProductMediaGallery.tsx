@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import type { Image as ShopifyImage } from '@/lib/api/types';
 
@@ -10,21 +10,49 @@ interface Props {
 }
 
 export default function ProductMediaGallery({ images, productTitle }: Props) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [showAllImages, setShowAllImages] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
 
-  const navigate = (newIndex: number) => {
-    setActiveIndex(newIndex);
+  const displayImages = showAllImages ? images : images.slice(0, 4);
+
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
   };
 
-  const prev = () => navigate((activeIndex - 1 + images.length) % images.length);
-  const next = () => navigate((activeIndex + 1) % images.length);
-  const goTo = (i: number) => navigate(i);
+  const closeLightbox = () => {
+    setLightboxIndex(null);
+  };
+
+  const nextLightboxImage = useCallback(() => {
+    if (lightboxIndex !== null && images.length > 0) {
+      setLightboxIndex((lightboxIndex + 1) % images.length);
+    }
+  }, [lightboxIndex, images.length]);
+
+  const prevLightboxImage = useCallback(() => {
+    if (lightboxIndex !== null && images.length > 0) {
+      setLightboxIndex((lightboxIndex - 1 + images.length) % images.length);
+    }
+  }, [lightboxIndex, images.length]);
+
+  // Keyboard navigation for Lightbox Modal
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowRight') nextLightboxImage();
+      if (e.key === 'ArrowLeft') prevLightboxImage();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxIndex, nextLightboxImage, prevLightboxImage]);
 
   if (!images.length) {
     return (
       <div
         className="product-gallery"
-        style={{ background: 'var(--color-grey-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{ background: 'var(--color-grey-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}
       >
         <span style={{ color: 'var(--color-grey-dark)' }}>No image</span>
       </div>
@@ -32,81 +60,189 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
   }
 
   return (
-    <div className="product-gallery">
-      {/* Main image carousel */}
-      <div className="product-gallery-main-container">
-        {/* Sliding strip — all images in a row */}
-        <div
-          className="gallery-strip"
-          style={{ transform: `translateX(-${activeIndex * 100}%)` }}
-        >
-          {images.slice(0, 8).map((img, i) => (
-            <div key={i} className="gallery-strip-slide">
-              <Image
-                src={img.url}
-                alt={img.altText ?? `${productTitle} view ${i + 1}`}
-                fill
-                sizes="(min-width: 768px) 50vw, 100vw"
-                className="product-gallery-main"
-                priority={i === 0}
-                style={{ objectFit: 'cover' }}
-              />
+    <>
+      <div className="product-gallery">
+        {/* Desktop: Adidas-style 2-Column Grid */}
+        <div className="adidas-gallery-desktop">
+          <div className="adidas-grid-container">
+            {displayImages.map((img, i) => (
+              <div
+                key={i}
+                className="adidas-grid-item"
+                onClick={() => openLightbox(i)}
+                style={{ cursor: 'pointer' }}
+              >
+                <Image
+                  src={img.url}
+                  alt={img.altText ?? `${productTitle} view ${i + 1}`}
+                  fill
+                  sizes="(min-width: 768px) 30vw, 50vw"
+                  className="adidas-grid-image"
+                  priority={i === 0}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* "Show More" Button for Desktop Grid */}
+          {images.length > 4 && (
+            <div className="adidas-show-more-wrapper">
+              <button
+                className="adidas-show-more-btn"
+                onClick={() => setShowAllImages(!showAllImages)}
+                aria-expanded={showAllImages}
+              >
+                <span>{showAllImages ? 'Show less' : 'Show more'}</span>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    transform: showAllImages ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.3s ease',
+                  }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
             </div>
-          ))}
+          )}
         </div>
 
-        {images.length > 1 && (
-          <>
-            <button
-              className="gallery-nav-btn gallery-nav-btn--prev"
-              onClick={prev}
-              aria-label="Previous image"
+        {/* Mobile: Carousel View */}
+        <div className="adidas-gallery-mobile">
+          <div className="product-gallery-main-container">
+            <div
+              className="gallery-strip"
+              style={{ transform: `translateX(-${mobileActiveIndex * 100}%)` }}
             >
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-            <button
-              className="gallery-nav-btn gallery-nav-btn--next"
-              onClick={next}
-              aria-label="Next image"
-            >
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
-
-            {/* Dot indicators */}
-            <div className="gallery-dots">
-              {images.slice(0, 8).map((_, i) => (
-                <button
+              {images.map((img, i) => (
+                <div
                   key={i}
-                  className={`gallery-dot ${i === activeIndex ? 'active' : ''}`}
-                  onClick={() => goTo(i)}
-                  aria-label={`Go to image ${i + 1}`}
-                />
+                  className="gallery-strip-slide"
+                  onClick={() => openLightbox(i)}
+                >
+                  <Image
+                    src={img.url}
+                    alt={img.altText ?? `${productTitle} view ${i + 1}`}
+                    fill
+                    sizes="100vw"
+                    className="product-gallery-main"
+                    priority={i === 0}
+                    style={{ objectFit: 'cover' }}
+                  />
+                </div>
               ))}
             </div>
-          </>
-        )}
+
+            {images.length > 1 && (
+              <>
+                <button
+                  className="gallery-nav-btn gallery-nav-btn--prev"
+                  onClick={() => setMobileActiveIndex((mobileActiveIndex - 1 + images.length) % images.length)}
+                  aria-label="Previous image"
+                >
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                <button
+                  className="gallery-nav-btn gallery-nav-btn--next"
+                  onClick={() => setMobileActiveIndex((mobileActiveIndex + 1) % images.length)}
+                  aria-label="Next image"
+                >
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Thumbnails */}
-      {images.length > 1 && (
-        <div className="product-gallery-thumbs">
-          {images.slice(0, 8).map((img, i) => (
-            <Image
-              key={i}
-              src={img.url}
-              alt={img.altText ?? `${productTitle} view ${i + 1}`}
-              width={64}
-              height={64}
-              className={`product-gallery-thumb ${i === activeIndex ? 'active' : ''}`}
-              onClick={() => goTo(i)}
-            />
-          ))}
+      {/* Full-Screen Lightbox Carousel Modal */}
+      {lightboxIndex !== null && (
+        <div className="lightbox-modal-overlay" onClick={closeLightbox}>
+          <div className="lightbox-modal-container" onClick={(e) => e.stopPropagation()}>
+            {/* Close Button */}
+            <button
+              className="lightbox-close-btn"
+              onClick={closeLightbox}
+              aria-label="Close Lightbox"
+            >
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            {/* Back Arrow */}
+            {images.length > 1 && (
+              <button
+                className="lightbox-nav-btn lightbox-nav-btn--prev"
+                onClick={prevLightboxImage}
+                aria-label="Previous Image"
+              >
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+            )}
+
+            {/* Main Lightbox Image View */}
+            <div className="lightbox-image-wrapper">
+              <Image
+                src={images[lightboxIndex].url}
+                alt={images[lightboxIndex].altText ?? `${productTitle} preview`}
+                fill
+                sizes="100vw"
+                style={{ objectFit: 'contain' }}
+                priority
+              />
+            </div>
+
+            {/* Forward Arrow */}
+            {images.length > 1 && (
+              <button
+                className="lightbox-nav-btn lightbox-nav-btn--next"
+                onClick={nextLightboxImage}
+                aria-label="Next Image"
+              >
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            )}
+
+            {/* Bottom Carousel Thumbnails Track */}
+            {images.length > 1 && (
+              <div className="lightbox-thumbs-track">
+                {images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    className={`lightbox-thumb-btn ${idx === lightboxIndex ? 'active' : ''}`}
+                    onClick={() => setLightboxIndex(idx)}
+                  >
+                    <Image
+                      src={img.url}
+                      alt={`Thumbnail ${idx + 1}`}
+                      width={54}
+                      height={54}
+                      style={{ objectFit: 'cover' }}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

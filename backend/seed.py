@@ -82,7 +82,10 @@ def seed_database():
                 featured_image_url="/assets/courtyard-jersey.png",
                 featured_image_alt="VAHN Signature Oversized Jersey",
                 images=images_json,
-                lookbook=lookbook_json
+                lookbook=lookbook_json,
+                fit="OVERSIZED",
+                kit_type="SIGNATURE",
+                activity="LIFESTYLE"
             )
             db.add(db_product)
             db.commit()

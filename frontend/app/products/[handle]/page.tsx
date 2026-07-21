@@ -8,6 +8,8 @@ import ProductCard from '@/components/collection/ProductCard';
 import ProductReviews from '@/components/product/ProductReviews';
 
 
+import ProductHighlights from '@/components/product/ProductHighlights';
+
 interface Props {
   params: Promise<{ handle: string }>;
 }
@@ -47,6 +49,9 @@ export default async function ProductPage({ params }: Props) {
         {/* Right: Product Info */}
         <ProductInfo product={product} />
       </div>
+
+      {/* Fit, Kit Type & Activity Highlights Bar */}
+      <ProductHighlights product={product} />
 
 
       {/* Lookbook / "How He Wears It" Section */}

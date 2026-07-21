@@ -54,6 +54,9 @@ export interface Product {
   featuredImage: Image | null;
   lookbook?: LookbookItem[];
   reviews?: Review[];
+  fit?: string | null;
+  kitType?: string | null;
+  activity?: string | null;
 }
 
 export interface LookbookItem {
