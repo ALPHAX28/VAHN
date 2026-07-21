@@ -2742,7 +2742,6 @@ input, textarea, select {
   position: relative;
   width: 100%;
   max-height: 650px;
-  height: 650px;
   overflow: hidden;
 }
 
@@ -2762,9 +2761,9 @@ input, textarea, select {
 .adidas-grid-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  align-content: start;
   gap: 8px;
   width: 100%;
-  height: 100%;
   max-height: 650px;
   overflow-y: auto;
   scrollbar-width: none;
@@ -2779,7 +2778,7 @@ input, textarea, select {
 .adidas-grid-item {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 1 / 1;
   background: var(--color-grey-light);
   overflow: hidden;
 }
