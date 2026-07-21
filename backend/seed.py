@@ -24,7 +24,13 @@ def seed_database():
 
         # Check if product already exists
         db_product = db.query(models.Product).filter_by(handle="vahn-signature-oversized-jersey").first()
-        if not db_product:
+        if db_product:
+            db_product.fit = "OVERSIZED"
+            db_product.kit_type = "SIGNATURE"
+            db_product.activity = "LIFESTYLE"
+            db.commit()
+            print("Updated existing product with fit, kit_type, and activity attributes.")
+        else:
             print("Creating 'VAHN Signature Oversized Jersey' product...")
             
             # Options and images JSON structures
@@ -245,8 +251,6 @@ def seed_database():
 
             db.commit()
             print("Seed complete.")
-        else:
-            print("Database already seeded.")
             
     except Exception as e:
         db.rollback()

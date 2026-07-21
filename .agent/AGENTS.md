@@ -10,3 +10,10 @@ To optimize token usage and avoid context window bloat, the agent MUST always ro
 5. **Execution of Scripts:** Use the helper script at `.agents/scripts/headroom_helper.py` when running batch operations or offline file compressions.
 
 Never bypass Headroom for any reading, review, or code generation task. Always maintain the Compress-Cache-Retrieve (CCR) pattern.
+
+# Database Schema & Migration Rules
+
+Whenever any database models or schemas (`backend/models.py`) are modified or added:
+1. **Create Alembic Migration**: The agent MUST always generate/write a corresponding revision file under `backend/migrations/versions/` with exact `upgrade()` and `downgrade()` statements matching the schema changes.
+2. **Execute Migration**: The agent MUST automatically run the Alembic migration command (`python -m alembic upgrade head` or `alembic upgrade head`) to apply changes to the local/production database immediately.
+3. **Seed Update**: If the schema change introduces new default attributes, the agent MUST update `backend/seed.py` and run database seeding.
