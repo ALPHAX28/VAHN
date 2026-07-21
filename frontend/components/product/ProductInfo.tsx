@@ -24,6 +24,21 @@ export default function ProductInfo({ product }: Props) {
   const [adding, setAdding] = useState(false);
   const [addedMessage, setAddedMessage] = useState('');
   const [isDetailsOpen, setIsDetailsOpen] = useState(true);
+  const [isFitOpen, setIsFitOpen] = useState(true);
+
+  const { detailsHtml, fitHtml } = (() => {
+    const html = product.descriptionHtml || '';
+    let listIndex = html.indexOf('<ul');
+    if (listIndex === -1) {
+      listIndex = html.indexOf('<ol');
+    }
+    if (listIndex === -1) {
+      return { detailsHtml: html, fitHtml: '' };
+    }
+    const details = html.substring(0, listIndex).trim();
+    const fit = html.substring(listIndex).trim();
+    return { detailsHtml: details, fitHtml: fit };
+  })();
 
   // Initialize selected options from first available variant
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
@@ -285,13 +300,13 @@ export default function ProductInfo({ product }: Props) {
         )}
       </div>
 
-      {/* Description Accordion */}
-      {product.descriptionHtml && (
+      {/* Details Accordion */}
+      {detailsHtml && (
         <div 
           className="product-details-accordion" 
           style={{ 
             borderTop: '1px solid var(--color-border)', 
-            borderBottom: '1px solid var(--color-border)', 
+            borderBottom: fitHtml ? 'none' : '1px solid var(--color-border)',
             marginTop: 'var(--space-md)' 
           }}
         >
@@ -315,7 +330,7 @@ export default function ProductInfo({ product }: Props) {
             }}
             aria-expanded={isDetailsOpen}
           >
-            <span>Details & Fit</span>
+            <span>Details</span>
             <svg
               viewBox="0 0 24 24"
               width="18"
@@ -343,7 +358,75 @@ export default function ProductInfo({ product }: Props) {
           >
             <div
               className="product-description"
-              dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+              dangerouslySetInnerHTML={{ __html: detailsHtml }}
+              style={{
+                paddingBottom: '20px',
+                fontSize: '0.9375rem',
+                lineHeight: 1.6,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Size & Fit Accordion */}
+      {fitHtml && (
+        <div 
+          className="product-details-accordion" 
+          style={{ 
+            borderTop: '1px solid var(--color-border)', 
+            borderBottom: '1px solid var(--color-border)'
+          }}
+        >
+          <button
+            onClick={() => setIsFitOpen(!isFitOpen)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'none',
+              border: 'none',
+              padding: '16px 0',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-ui)',
+              fontSize: '0.8125rem',
+              fontWeight: 700,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: 'var(--color-black)',
+            }}
+            aria-expanded={isFitOpen}
+          >
+            <span>Size & Fit</span>
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                transform: isFitOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.3s ease',
+              }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          
+          <div
+            style={{
+              maxHeight: isFitOpen ? '1000px' : '0px',
+              overflow: 'hidden',
+              transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            <div
+              className="product-description"
+              dangerouslySetInnerHTML={{ __html: fitHtml }}
               style={{
                 paddingBottom: '20px',
                 fontSize: '0.9375rem',

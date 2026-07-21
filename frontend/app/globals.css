@@ -85,6 +85,7 @@ html {
   font-size: 16px;
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -989,6 +990,7 @@ input, textarea, select {
   grid-template-columns: 1.15fr 0.85fr;
   gap: 0;
   min-height: 100svh;
+  align-items: start;
 }
 
 @media (max-width: 900px) {
