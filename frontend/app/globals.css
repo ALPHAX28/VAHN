@@ -2711,3 +2711,15 @@ input, textarea, select {
 .cart-drawer.closing {
   animation: slideOutRight 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
+/* ---- Product Accordion Scroll Container ---- */
+.accordion-scroll-content {
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.accordion-scroll-content::-webkit-scrollbar {
+  display: none;
+}

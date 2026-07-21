@@ -351,13 +351,13 @@ export default function ProductInfo({ product }: Props) {
           
           <div
             style={{
-              maxHeight: isDetailsOpen ? '1000px' : '0px',
+              maxHeight: isDetailsOpen ? '200px' : '0px',
               overflow: 'hidden',
               transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             <div
-              className="product-description"
+              className="product-description accordion-scroll-content"
               dangerouslySetInnerHTML={{ __html: detailsHtml }}
               style={{
                 paddingBottom: '20px',
@@ -419,13 +419,13 @@ export default function ProductInfo({ product }: Props) {
           
           <div
             style={{
-              maxHeight: isFitOpen ? '1000px' : '0px',
+              maxHeight: isFitOpen ? '200px' : '0px',
               overflow: 'hidden',
               transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             <div
-              className="product-description"
+              className="product-description accordion-scroll-content"
               dangerouslySetInnerHTML={{ __html: fitHtml }}
               style={{
                 paddingBottom: '20px',

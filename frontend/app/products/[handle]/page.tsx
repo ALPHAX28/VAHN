@@ -7,6 +7,7 @@ import ProductInfo from '@/components/product/ProductInfo';
 import ProductCard from '@/components/collection/ProductCard';
 import ProductReviews from '@/components/product/ProductReviews';
 
+
 interface Props {
   params: Promise<{ handle: string }>;
 }
@@ -46,6 +47,7 @@ export default async function ProductPage({ params }: Props) {
         {/* Right: Product Info */}
         <ProductInfo product={product} />
       </div>
+
 
       {/* Lookbook / "How He Wears It" Section */}
       {product.lookbook && product.lookbook.length > 0 && (
