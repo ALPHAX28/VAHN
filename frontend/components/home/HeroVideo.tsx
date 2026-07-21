@@ -59,7 +59,7 @@ export default function HeroVideo() {
       <div className="hero-content" style={{ position: 'relative', zIndex: 2 }}>
         <h1
           style={{
-            fontFamily: 'var(--font-body)',
+            fontFamily: "'Instrument Serif', serif",
             fontWeight: 400,
             fontStyle: 'italic',
             textTransform: 'none',

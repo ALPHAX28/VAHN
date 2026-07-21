@@ -37,7 +37,7 @@ export default function PullQuote() {
       <div style={{ maxWidth: '800px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
         <p
           style={{
-            fontFamily: 'var(--font-body)',
+            fontFamily: "'Instrument Serif', serif",
             fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
             lineHeight: 1.4,
             fontStyle: 'italic',

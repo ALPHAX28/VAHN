@@ -27,7 +27,7 @@ export default function BottomHero() {
         <div>
           <p
             style={{
-              fontFamily: 'var(--font-body)',
+              fontFamily: "'Instrument Serif', serif",
               fontSize: '1.25rem',
               fontStyle: 'italic',
               textTransform: 'none',
