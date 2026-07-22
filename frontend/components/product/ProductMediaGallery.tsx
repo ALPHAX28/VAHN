@@ -150,7 +150,6 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
                 <div
                   key={i}
                   className="gallery-strip-slide"
-                  onClick={() => openLightbox(i)}
                 >
                   <Image
                     src={img.url}
@@ -169,22 +168,32 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
               <>
                 <button
                   className="gallery-nav-btn gallery-nav-btn--prev"
-                  onClick={() => setMobileActiveIndex((mobileActiveIndex - 1 + images.length) % images.length)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMobileActiveIndex((mobileActiveIndex - 1 + images.length) % images.length);
+                  }}
                   aria-label="Previous image"
                 >
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="15 18 9 12 15 6" />
                   </svg>
                 </button>
                 <button
                   className="gallery-nav-btn gallery-nav-btn--next"
-                  onClick={() => setMobileActiveIndex((mobileActiveIndex + 1) % images.length)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMobileActiveIndex((mobileActiveIndex + 1) % images.length);
+                  }}
                   aria-label="Next image"
                 >
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="9 18 15 12 9 6" />
                   </svg>
                 </button>
+
+                <div className="mobile-gallery-counter">
+                  {mobileActiveIndex + 1} / {images.length}
+                </div>
               </>
             )}
           </div>
