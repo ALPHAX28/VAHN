@@ -2320,13 +2320,13 @@ input, textarea, select {
   }
 
   .header-icon {
-    width: 32px !important;
-    height: 32px !important;
+    width: 38px !important;
+    height: 38px !important;
   }
 
   .header-icon svg {
-    width: 16px !important;
-    height: 16px !important;
+    width: 20px !important;
+    height: 20px !important;
   }
 
   /* Add to Cart & Buy It Now buttons - Sleeker & less bulky on mobile */

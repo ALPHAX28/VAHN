@@ -223,8 +223,8 @@ const frontendProcess = spawn('npm', ['run', 'start'], {
   env: { ...process.env, NODE_ENV: 'production' },
 });
 
-prefixOutput('backend ', backendProcess.stdout, '32');
-prefixOutput('backend ', backendProcess.stderr, '33');
+prefixOutput('backend', backendProcess.stdout, '32');
+prefixOutput('backend', backendProcess.stderr, '33');
 prefixOutput('frontend', frontendProcess.stdout, '36');
 prefixOutput('frontend', frontendProcess.stderr, '35');
 

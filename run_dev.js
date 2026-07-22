@@ -179,8 +179,8 @@ function prefixOutput(processName, stream, colorCode) {
   });
 }
 
-prefixOutput('backend ', backendProcess.stdout, '32');
-prefixOutput('backend ', backendProcess.stderr, '32');
+prefixOutput('backend', backendProcess.stdout, '32');
+prefixOutput('backend', backendProcess.stderr, '32');
 prefixOutput('frontend', frontendProcess.stdout, '36');
 prefixOutput('frontend', frontendProcess.stderr, '36');
 
