@@ -104,3 +104,51 @@ class ProductReview(Base):
     verified = Column(Boolean, default=True)
 
     product = relationship("Product", back_populates="reviews")
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    salt = Column(String, nullable=False)
+    full_name = Column(String, nullable=False)
+    is_verified = Column(Boolean, default=False)
+    otp_code = Column(String, nullable=True)
+    otp_expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    orders = relationship("Order", back_populates="user", cascade="all, delete-orphan")
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(String, primary_key=True, index=True) # e.g. ORD-894721
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String, default="PROCESSING") # PROCESSING, SHIPPED, DELIVERED, CANCELLED
+    subtotal_amount = Column(Float, nullable=False)
+    total_amount = Column(Float, nullable=False)
+    currency = Column(String, default="INR")
+    shipping_address = Column(JSON, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User", back_populates="orders")
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(String, primary_key=True, index=True)
+    order_id = Column(String, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+    variant_id = Column(String, nullable=True)
+    product_title = Column(String, nullable=False)
+    variant_title = Column(String, nullable=False)
+    image_url = Column(String, nullable=True)
+    price_amount = Column(Float, nullable=False)
+    quantity = Column(Integer, default=1)
+
+    # Relationships
+    order = relationship("Order", back_populates="items")

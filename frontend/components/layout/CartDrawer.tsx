@@ -3,13 +3,20 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { formatMoney } from '@/lib/utils';
 
 export default function CartDrawer() {
-  const { cart, isOpen, isLoading, closeCart, lines, totalQuantity, updateItem, removeItem } = useCart();
+  const { cart, isOpen, isLoading, closeCart, lines, totalQuantity, updateItem, removeItem, clearCart } = useCart();
+  const { user, openAuthModal, getAuthHeaders } = useAuth();
+  const router = useRouter();
+
   const [shouldRender, setShouldRender] = useState(isOpen);
   const [isClosing, setIsClosing] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -20,12 +27,57 @@ export default function CartDrawer() {
       const timer = setTimeout(() => {
         setShouldRender(false);
         setIsClosing(false);
-      }, 350); // Matches slideOutRight duration
+      }, 350);
       return () => clearTimeout(timer);
     }
   }, [isOpen, shouldRender]);
 
   if (!shouldRender) return null;
+
+  const performCheckout = async (cartId: string) => {
+    setCheckoutError('');
+    setCheckoutLoading(true);
+
+    try {
+      const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '');
+      const savedToken = localStorage.getItem('vahn_auth_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (savedToken) headers['Authorization'] = `Bearer ${savedToken}`;
+
+      const res = await fetch(`${apiBase}/api/orders/checkout`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ cart_id: cartId })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Checkout failed');
+      }
+
+      clearCart();
+      closeCart();
+      router.push('/account/orders');
+    } catch (err: any) {
+      setCheckoutError(err.message || 'Failed to process checkout');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const handleCheckout = async () => {
+    if (!cart?.id) return;
+
+    if (!user) {
+      const activeCartId = cart.id;
+      openAuthModal('login', () => {
+        performCheckout(activeCartId);
+      });
+      return;
+    }
+
+    await performCheckout(cart.id);
+  };
 
   return (
     <>
@@ -47,6 +99,8 @@ export default function CartDrawer() {
 
         {/* Body */}
         <div className="cart-drawer-body">
+          {checkoutError && <div className="auth-error-banner" style={{ margin: '12px' }}>{checkoutError}</div>}
+
           {lines.length === 0 ? (
             <div className="cart-empty">
               <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--color-grey-mid)" strokeWidth="2">
@@ -107,7 +161,7 @@ export default function CartDrawer() {
                     </button>
                     <span className="qty-input">{line.quantity}</span>
                     <button
-                      className="qty-btn"
+                      className={`qty-btn ${line.merchandise.quantityAvailable !== undefined && line.quantity >= line.merchandise.quantityAvailable ? 'disabled' : ''}`}
                       aria-label="Increase quantity"
                       onClick={() => {
                         if (line.merchandise.quantityAvailable !== undefined && line.quantity >= line.merchandise.quantityAvailable) {
@@ -151,17 +205,17 @@ export default function CartDrawer() {
             <p style={{ fontSize: '0.8125rem', color: 'var(--color-grey-dark)' }}>
               Shipping and taxes calculated at checkout
             </p>
-            <a
-              href={cart.checkoutUrl}
+            <button
+              onClick={handleCheckout}
+              disabled={checkoutLoading || isLoading}
               className="btn btn-primary btn-full"
-              rel="noopener noreferrer"
             >
-              {isLoading ? (
-                <span className="loading-spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }} />
+              {checkoutLoading ? (
+                <span>Creating Order...</span>
               ) : (
                 'Checkout →'
               )}
-            </a>
+            </button>
             <button
               onClick={closeCart}
               className="btn btn-secondary btn-full"

@@ -95,6 +95,7 @@ export default function ProductInfo({ product }: Props) {
       price: selectedVariant.price,
       image: selectedVariant.image ?? product.featuredImage,
       selectedOptions: selectedVariant.selectedOptions,
+      quantityAvailable: selectedVariant.quantityAvailable,
     };
 
     setAdding(true);

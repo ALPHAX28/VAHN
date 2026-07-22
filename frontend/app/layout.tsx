@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import '@/app/globals.css';
 import { CartProvider } from '@/context/CartContext';
+import { AuthProvider } from '@/context/AuthContext';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CartDrawer from '@/components/layout/CartDrawer';
+import AuthModal from '@/components/auth/AuthModal';
 
 export const metadata: Metadata = {
   title: { default: 'VAHN — Bespoke Teamwear', template: '%s | VAHN' },
@@ -26,12 +28,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <CartProvider>
-          <Header />
-          <main id="main-content">{children}</main>
-          <Footer />
-          <CartDrawer />
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <Header />
+            <main id="main-content">{children}</main>
+            <Footer />
+            <CartDrawer />
+            <AuthModal />
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -31,6 +31,7 @@ export interface AddItemDisplayData {
   price: Money;
   image: Image | null;
   selectedOptions: SelectedOption[];
+  quantityAvailable?: number;
 }
 
 interface CartState {
@@ -51,6 +52,7 @@ interface CartContextValue extends CartState {
   addItem: (merchandiseId: string, quantity: number, displayData?: AddItemDisplayData) => void;
   updateItem: (lineId: string, quantity: number) => void;
   removeItem: (lineId: string) => void;
+  clearCart: () => void;
   openCart: () => void;
   closeCart: () => void;
   lines: CartLine[];
@@ -339,6 +341,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           id: merchandiseId,
           title: displayData?.variantTitle ?? '',
           selectedOptions: displayData?.selectedOptions ?? [],
+          quantityAvailable: displayData?.quantityAvailable,
           product: {
             id: merchandiseId,
             title: displayData?.productTitle ?? '',
@@ -398,6 +401,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [triggerSync]
   );
 
+  /**
+   * clearCart — resets cart state after checkout
+   */
+  const clearCart = useCallback(() => {
+    localStorage.removeItem(CART_ID_STORAGE_KEY);
+    localStorage.removeItem('vahn-cart-data');
+    localStorage.removeItem('vahn-cart-dirty');
+    dispatch({ type: 'SET_CART', payload: null });
+  }, []);
+
   const lines: CartLine[] = state.cart?.lines.edges.map((e) => e.node) ?? [];
   const totalQuantity = state.cart?.totalQuantity ?? 0;
 
@@ -409,6 +422,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         addItem,
         updateItem,
         removeItem,
+        clearCart,
         openCart: () => dispatch({ type: 'OPEN_DRAWER' }),
         closeCart: () => dispatch({ type: 'CLOSE_DRAWER' }),
         lines,

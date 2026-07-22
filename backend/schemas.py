@@ -1,5 +1,13 @@
+import re
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+def validate_email_str(v: str) -> str:
+    if not v or not EMAIL_REGEX.match(v.strip()):
+        raise ValueError("Invalid email address format. Please provide a valid email (e.g. name@example.com).")
+    return v.strip().lower()
 
 class Money(BaseModel):
     amount: str
@@ -173,3 +181,91 @@ class CartSchema(BaseModel):
     totalQuantity: int
     lines: CartLinesConnection
     cost: CartCost
+
+# ---- Cart Payload Schemas (Strict Pydantic Validation) ----
+
+class CartAddItemPayload(BaseModel):
+    merchandiseId: str
+    quantity: int = 1
+
+class CartUpdateItemPayload(BaseModel):
+    quantity: int
+
+# ---- User Auth & Profile Schemas ----
+
+class UserRegisterRequest(BaseModel):
+    email: str
+    password: str
+    full_name: str
+
+    @field_validator('email')
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
+
+class UserLoginRequest(BaseModel):
+    email: str
+    password: str
+
+    @field_validator('email')
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
+
+class OTPVerifyRequest(BaseModel):
+    email: str
+    otp_code: str
+
+    @field_validator('email')
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
+
+class ProfileUpdateRequest(BaseModel):
+    full_name: str
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+class UserSchema(BaseModel):
+    id: int
+    email: str
+    full_name: str
+    is_verified: bool
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserSchema
+
+# ---- Order Schemas ----
+
+class ShippingAddress(BaseModel):
+    name: Optional[str] = "Customer"
+    address: Optional[str] = "Standard Delivery"
+    city: Optional[str] = "City"
+    postalCode: Optional[str] = "000000"
+    phone: Optional[str] = ""
+
+class CheckoutRequest(BaseModel):
+    cart_id: str
+    shipping_address: Optional[ShippingAddress] = None
+
+class OrderItemSchema(BaseModel):
+    id: str
+    variantId: Optional[str] = None
+    productTitle: str
+    variantTitle: str
+    imageUrl: Optional[str] = None
+    price: Money
+    quantity: int
+
+class OrderSchema(BaseModel):
+    id: str
+    status: str
+    subtotalPrice: Money
+    totalPrice: Money
+    shippingAddress: Optional[ShippingAddress] = None
+    createdAt: str
+    items: List[OrderItemSchema]

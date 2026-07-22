@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import SearchModal from '@/components/layout/SearchModal';
 import MobileNav from '@/components/layout/MobileNav';
 
@@ -21,10 +22,12 @@ const TRANSPARENT_PATHS = ['/'];
 
 export default function Header() {
   const { totalQuantity, openCart } = useCart();
+  const { user, openAuthModal, logout } = useAuth();
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [shouldRenderNav, setShouldRenderNav] = useState(false);
   const [isClosingNav, setIsClosingNav] = useState(false);
   const [logoError, setLogoError] = useState(false);
@@ -151,6 +154,66 @@ export default function Header() {
                 <span className="cart-badge">{totalQuantity}</span>
               )}
             </button>
+
+            {/* User Account / Auth */}
+            <div className="header-user-menu-wrapper" style={{ position: 'relative' }}>
+              <button
+                className="header-icon"
+                aria-label={user ? `Account (${user.full_name})` : "Sign In / Register"}
+                onClick={() => {
+                  if (user) {
+                    setUserDropdownOpen(!userDropdownOpen);
+                  } else {
+                    openAuthModal('login');
+                  }
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </button>
+
+              {/* Logged In Dropdown Menu */}
+              {user && userDropdownOpen && (
+                <div className="header-user-dropdown" onClick={() => setUserDropdownOpen(false)}>
+                  <div className="dropdown-user-greeting">
+                    <span className="greeting-sub">Welcome</span>
+                    <strong className="greeting-name">{user.full_name}</strong>
+                  </div>
+                  <hr className="dropdown-divider" />
+                  <Link href="/account/profile" className="user-dropdown-item">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    Profile & Password
+                  </Link>
+                  <Link href="/account/orders" className="user-dropdown-item">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                    </svg>
+                    My Orders
+                  </Link>
+                  <hr className="dropdown-divider" />
+                  <button
+                    className="user-dropdown-item logout-btn"
+                    onClick={() => {
+                      logout();
+                      setUserDropdownOpen(false);
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    Log Out
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Mobile hamburger */}
             <button
