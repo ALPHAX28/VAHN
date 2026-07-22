@@ -2,23 +2,22 @@
 // Standalone API Client
 // ===================================================================
 
-function getApiBaseUrl(): string {
-  // BROWSER (client-side) in production:
-  // Use a relative path so requests are same-origin → no CORS preflight issues
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+export function getApiBaseUrl(): string {
+  // BROWSER (client-side):
+  // Use a relative path in browser production/Vercel deployments so requests are strictly same-origin → zero CORS issues!
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+    }
     return '/api/backend/api';
   }
 
   // SERVER-SIDE on Vercel (SSR for product/collection/etc. pages):
-  // VERCEL_PROJECT_PRODUCTION_URL is Vercel's system env var set to the stable
-  // production domain (e.g. "vahn.vercel.app") — NOT the preview deployment URL,
-  // so it won't be blocked by Vercel's deployment protection.
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/api/backend/api`;
   }
 
   // Local development (or any other environment):
-  // Use NEXT_PUBLIC_API_URL (set in .env.local) or fallback to localhost
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 }
 

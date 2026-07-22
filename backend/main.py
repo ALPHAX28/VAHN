@@ -15,13 +15,13 @@ from auth_utils import generate_salt, hash_password, verify_password, create_acc
 import os
 
 root_path = "/api/backend" if os.getenv("VERCEL") else ""
-app = FastAPI(title="VAHN Standalone Backend API", root_path=root_path)
+app = FastAPI(title="VAHN Standalone Backend API", root_path=root_path, redirect_slashes=False)
 
 # Enable CORS for Next.js frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict to frontend domain
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

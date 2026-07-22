@@ -1,12 +1,14 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getApiBaseUrl } from '@/lib/api/client';
 
 export interface User {
-  id: number;
+  id: string;
   email: string;
   full_name: string;
   is_verified: boolean;
+  created_at: string;
 }
 
 interface AuthContextType {
@@ -15,7 +17,7 @@ interface AuthContextType {
   loading: boolean;
   isAuthModalOpen: boolean;
   authModalMode: 'login' | 'register';
-  openAuthModal: (mode?: 'login' | 'register', onLoginSuccess?: () => void) => void;
+  openAuthModal: (mode?: 'login' | 'register', onSuccess?: () => void) => void;
   closeAuthModal: () => void;
   registerUser: (email: string, pass: string, fullName: string) => Promise<void>;
   loginUser: (email: string, pass: string) => Promise<void>;
@@ -28,7 +30,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '');
+const getEndpoint = (path: string) => `${getApiBaseUrl()}${path}`;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -47,25 +49,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setUser(JSON.parse(savedUser));
       } catch (e) {
-        localStorage.removeItem('vahn_auth_user');
+        console.error('Failed to parse cached user', e);
       }
     }
     setLoading(false);
   }, []);
 
-  const openAuthModal = (mode: 'login' | 'register' = 'login', onLoginSuccess?: () => void) => {
+  const openAuthModal = (mode: 'login' | 'register' = 'login', onSuccess?: () => void) => {
     setAuthModalMode(mode);
-    if (onLoginSuccess) {
-      setSuccessCallback(() => onLoginSuccess);
-    } else {
-      setSuccessCallback(null);
-    }
+    if (onSuccess) setSuccessCallback(() => onSuccess);
     setIsAuthModalOpen(true);
   };
 
   const closeAuthModal = () => {
     setIsAuthModalOpen(false);
-    setSuccessCallback(null);
   };
 
   const getAuthHeaders = (): Record<string, string> => {
@@ -79,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const registerUser = async (email: string, pass: string, fullName: string) => {
-    const res = await fetch(`${API_BASE}/api/auth/register`, {
+    const res = await fetch(getEndpoint('/auth/register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password: pass, full_name: fullName })
@@ -91,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginUser = async (email: string, pass: string) => {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
+    const res = await fetch(getEndpoint('/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password: pass })
@@ -103,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const verifyOTP = async (email: string, otp: string) => {
-    const res = await fetch(`${API_BASE}/api/auth/verify-otp`, {
+    const res = await fetch(getEndpoint('/auth/verify-otp'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otp_code: otp })
@@ -136,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateProfile = async (fullName: string) => {
-    const res = await fetch(`${API_BASE}/api/auth/profile`, {
+    const res = await fetch(getEndpoint('/auth/profile'), {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({ full_name: fullName })
@@ -151,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const changePassword = async (currentPass: string, newPass: string) => {
-    const res = await fetch(`${API_BASE}/api/auth/change-password`, {
+    const res = await fetch(getEndpoint('/auth/change-password'), {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({ current_password: currentPass, new_password: newPass })

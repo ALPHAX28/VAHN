@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { formatMoney } from '@/lib/utils';
+import { getApiBaseUrl } from '@/lib/api/client';
 
 interface OrderItem {
   id: string;
@@ -51,8 +52,7 @@ export default function OrdersPage() {
     setFetching(true);
     setError('');
     try {
-      const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '');
-      const res = await fetch(`${apiBase}/api/orders`, {
+      const res = await fetch(`${getApiBaseUrl()}/orders`, {
         headers: getAuthHeaders()
       });
       if (!res.ok) {

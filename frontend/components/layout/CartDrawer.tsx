@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { formatMoney } from '@/lib/utils';
+import { getApiBaseUrl } from '@/lib/api/client';
 
 export default function CartDrawer() {
   const { cart, isOpen, isLoading, closeCart, lines, totalQuantity, updateItem, removeItem, clearCart } = useCart();
@@ -39,12 +40,11 @@ export default function CartDrawer() {
     setCheckoutLoading(true);
 
     try {
-      const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '');
       const savedToken = localStorage.getItem('vahn_auth_token');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (savedToken) headers['Authorization'] = `Bearer ${savedToken}`;
 
-      const res = await fetch(`${apiBase}/api/orders/checkout`, {
+      const res = await fetch(`${getApiBaseUrl()}/orders/checkout`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ cart_id: cartId })
