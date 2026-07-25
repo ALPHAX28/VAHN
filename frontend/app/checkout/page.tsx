@@ -219,17 +219,7 @@ export default function CheckoutPage() {
       )}
 
       {/* Main Grid */}
-      <div
-        className="vahn-checkout-grid"
-        style={{
-          display: "grid",
-          gridTemplateColumns: step === "review" ? "1fr 360px" : "1fr",
-          maxWidth: "100%",
-          margin: 0,
-          gap: 28,
-          alignItems: "start"
-        }}
-      >
+      <div className={`vahn-checkout-grid ${step === "review" ? "vahn-checkout-grid-review" : ""}`}>
 
         {/* Left: Main Content */}
         <div>
@@ -385,8 +375,8 @@ export default function CheckoutPage() {
             /* STEP 2: REVIEW & PAY */
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               {/* Delivery Address confirmation */}
-              <div style={{ background: "#fff", border: "2px solid #000" }}>
-                <div style={{ padding: "16px 22px", borderBottom: "1px solid #e5e5e5", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div className="vahn-card-box">
+                <div className="vahn-card-box-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                     <MapPinIcon size={16} color="#000" />
                     <span style={{ fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -402,8 +392,8 @@ export default function CheckoutPage() {
                 </div>
 
                 {selectedAddr && (
-                  <div style={{ padding: "18px 22px" }}>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
+                  <div className="vahn-card-box-body">
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
                       <span style={{ fontWeight: 900, fontSize: "1rem", color: "#000" }}>
                         {selectedAddr.first_name} {selectedAddr.last_name}
                       </span>
@@ -426,15 +416,15 @@ export default function CheckoutPage() {
               </div>
 
               {/* Items in order */}
-              <div style={{ background: "#fff", border: "2px solid #000" }}>
-                <div style={{ padding: "16px 22px", borderBottom: "1px solid #e5e5e5", display: "flex", alignItems: "center", gap: 9 }}>
+              <div className="vahn-card-box">
+                <div className="vahn-card-box-header" style={{ display: "flex", alignItems: "center", gap: 9 }}>
                   <ShoppingBagIcon size={16} color="#000" />
                   <span style={{ fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                     Ordered Items ({cartLines.length})
                   </span>
                 </div>
 
-                <div style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 16 }}>
+                <div className="vahn-card-box-body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   {cartLines.map(line => {
                     const price = parseFloat(line.merchandise.price.amount);
                     return (
@@ -443,14 +433,14 @@ export default function CheckoutPage() {
                           <Image
                             src={line.merchandise.product.featuredImage.url}
                             alt={line.merchandise.product.title}
-                            width={68} height={68}
+                            width={64} height={64}
                             style={{ objectFit: "cover", border: "1px solid #e5e5e5", flexShrink: 0 }}
                           />
                         ) : (
-                          <div style={{ width: 68, height: 68, background: "#f3f4f6", border: "1px solid #e5e5e5", flexShrink: 0 }} />
+                          <div style={{ width: 64, height: 64, background: "#f3f4f6", border: "1px solid #e5e5e5", flexShrink: 0 }} />
                         )}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000", marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <div style={{ fontWeight: 900, fontSize: "0.92rem", color: "#000", marginBottom: 3, lineHeight: 1.35 }}>
                             {line.merchandise.product.title}
                           </div>
                           <div style={{ fontSize: "0.82rem", color: "#666" }}>
@@ -460,7 +450,7 @@ export default function CheckoutPage() {
                             Qty: <strong style={{ color: "#333" }}>{line.quantity}</strong>
                           </div>
                         </div>
-                        <div style={{ fontWeight: 900, fontSize: "1rem", color: "#000", flexShrink: 0 }}>
+                        <div style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000", flexShrink: 0 }}>
                           ₹{(price * line.quantity).toLocaleString()}
                         </div>
                       </div>

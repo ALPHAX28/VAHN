@@ -4113,6 +4113,28 @@ input, textarea, select {
   box-sizing: border-box;
 }
 
+.vahn-checkout-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  max-width: 100%;
+  margin: 0;
+  gap: 28px;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.vahn-checkout-grid-review {
+  grid-template-columns: 1fr 360px;
+}
+
+.vahn-checkout-sidebar {
+  background: #ffffff;
+  border: 2px solid #000000;
+  box-sizing: border-box;
+  width: 100%;
+}
+
 .vahn-order-card {
   background: #ffffff;
   border: 2px solid #000000;
@@ -4141,9 +4163,10 @@ input, textarea, select {
 }
 
 @media (max-width: 900px) {
-  .vahn-order-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
+  .vahn-order-grid,
+  .vahn-checkout-grid-review {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
   }
 }
 
