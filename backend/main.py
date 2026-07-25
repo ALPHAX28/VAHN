@@ -129,7 +129,9 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
         reviews=review_schemas,
         fit=prod.fit,
         kitType=prod.kit_type,
-        activity=prod.activity
+        activity=prod.activity,
+        gstPercent=prod.gst_percent if prod.gst_percent is not None else 12.0,
+        shippingRate=prod.shipping_rate
     )
 
 # ---- ENDPOINTS ----
@@ -253,7 +255,9 @@ def build_cart_schema(cart: models.Cart, db: Session) -> schemas.CartSchema:
                             id=f"gid://shopify/Product/{p.id}",
                             title=p.title,
                             handle=p.handle,
-                            featuredImage=schemas.ImageNode(url=p.featured_image_url, altText=p.featured_image_alt) if p.featured_image_url else None
+                            featuredImage=schemas.ImageNode(url=p.featured_image_url, altText=p.featured_image_alt) if p.featured_image_url else None,
+                            gstPercent=p.gst_percent if p.gst_percent is not None else 12.0,
+                            shippingRate=p.shipping_rate
                         ),
                         quantityAvailable=v.inventory_quantity
                     ),
@@ -781,22 +785,38 @@ def checkout(payload: schemas.CheckoutRequest, current_user: models.User = Depen
 
     order_id = f"ORD-{secrets.randbelow(899999) + 100000}"
     subtotal = 0.0
+    tax_amount = 0.0
+    custom_shipping_rates = []
 
-    # Calculate shipping & tax
+    # Calculate shipping & tax per product
     for item in cart.items:
         var = item.variant
+        prod = var.product if var else None
         if var:
             if var.inventory_quantity < item.quantity:
                 raise HTTPException(status_code=400, detail=f"Insufficient stock for {var.title}. Only {var.inventory_quantity} remaining.")
             var.inventory_quantity = max(0, var.inventory_quantity - item.quantity)
 
         item_price = var.price_amount if var else 0.0
-        subtotal += item_price * item.quantity
+        line_total = item_price * item.quantity
+        subtotal += line_total
 
-    # Shipping fee: Free shipping above ₹1999, else ₹99
-    shipping_amount = 0.0 if subtotal >= 1999.0 else 99.0
-    # Tax: 12% GST included
-    tax_amount = round(subtotal * 0.12, 2)
+        # Calculate GST for single or multiple pieces of this product automatically
+        gst_pct = prod.gst_percent if (prod and prod.gst_percent is not None) else 12.0
+        item_tax = line_total * (gst_pct / (100.0 + gst_pct))
+        tax_amount += item_tax
+
+        # Track per-product shipping rate overrides
+        if prod and prod.shipping_rate is not None:
+            custom_shipping_rates.append(prod.shipping_rate)
+
+    # Calculate shipping fee: use max product custom shipping rate if set, else global rule
+    if custom_shipping_rates:
+        shipping_amount = max(custom_shipping_rates)
+    else:
+        shipping_amount = 0.0 if subtotal >= 1999.0 else 99.0
+
+    tax_amount = round(tax_amount, 2)
     total_amount = subtotal + shipping_amount
 
     order = models.Order(
@@ -1073,6 +1093,8 @@ def admin_list_products(
             fit=p.fit,
             kit_type=p.kit_type,
             activity=p.activity,
+            gst_percent=p.gst_percent if p.gst_percent is not None else 12.0,
+            shipping_rate=p.shipping_rate,
             variants_count=len(p.variants),
             created_at=p.created_at.strftime("%b %d, %Y") if p.created_at else None
         ) for p in products
@@ -1105,7 +1127,9 @@ def admin_create_product(
         lookbook=[l.dict() for l in payload.lookbook],
         fit=payload.fit,
         kit_type=payload.kit_type,
-        activity=payload.activity
+        activity=payload.activity,
+        gst_percent=payload.gst_percent,
+        shipping_rate=payload.shipping_rate
     )
     db.add(product)
     db.flush()
@@ -1212,6 +1236,8 @@ def _admin_product_detail(product: models.Product) -> schemas.AdminProductDetail
         fit=product.fit,
         kit_type=product.kit_type,
         activity=product.activity,
+        gst_percent=product.gst_percent if product.gst_percent is not None else 12.0,
+        shipping_rate=product.shipping_rate,
         variants=[
             schemas.AdminVariantSchema(
                 id=v.id,

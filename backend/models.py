@@ -45,6 +45,8 @@ class Product(Base):
     fit = Column(String, nullable=True)      # SLIM | OVERSIZED | REGULAR
     kit_type = Column(String, nullable=True) # HOME | SIGNATURE | JERSEY
     activity = Column(String, nullable=True) # FOOTBALL | LIFESTYLE | STREETWEAR
+    gst_percent = Column(Float, default=12.0, nullable=False)  # GST % (e.g. 5, 12, 18, 28)
+    shipping_rate = Column(Float, nullable=True)               # Per-product flat shipping fee (None = use global rule)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

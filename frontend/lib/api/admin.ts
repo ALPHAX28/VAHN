@@ -4,7 +4,7 @@
  * Uses adminToken from AdminAuthContext.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+import { getApiBaseUrl } from "./client";
 
 // ============================================================
 // Type Definitions
@@ -22,6 +22,8 @@ export interface AdminProductSummary {
   fit: string | null;
   kit_type: string | null;
   activity: string | null;
+  gst_percent: number;
+  shipping_rate: number | null;
   variants_count: number;
   created_at: string | null;
 }
@@ -194,7 +196,8 @@ async function adminFetch<T>(
   token: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const baseUrl = getApiBaseUrl();
+  const res = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",

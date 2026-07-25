@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MapPinIcon } from '@/components/icons/Icons';
+import { MapPinIcon, UserIcon, LockIcon, ChevronRightIcon } from '@/components/icons/Icons';
 
 export default function ProfilePage() {
   const { user, updateProfile, changePassword, loading, openAuthModal } = useAuth();
@@ -34,7 +34,8 @@ export default function ProfilePage() {
   if (loading || !user) {
     return (
       <div className="account-page-container" style={{ textAlign: 'center', padding: '100px 20px' }}>
-        <p>Loading profile details...</p>
+        <div style={{ width: 36, height: 36, border: "3px solid #000", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+        <p style={{ color: "#888", fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Loading profile...</p>
       </div>
     );
   }
@@ -44,12 +45,11 @@ export default function ProfilePage() {
     setProfileMsg('');
     setProfileErr('');
     setProfileLoading(true);
-
     try {
       await updateProfile(fullName);
       setProfileMsg('Profile name updated successfully.');
-    } catch (err: any) {
-      setProfileErr(err.message || 'Failed to update profile name.');
+    } catch (err: unknown) {
+      setProfileErr(err instanceof Error ? err.message : 'Failed to update profile name.');
     } finally {
       setProfileLoading(false);
     }
@@ -59,27 +59,23 @@ export default function ProfilePage() {
     e.preventDefault();
     setPasswordMsg('');
     setPasswordErr('');
-
     if (newPassword !== confirmPassword) {
       setPasswordErr('New password and confirmation do not match.');
       return;
     }
-
     if (newPassword.length < 6) {
       setPasswordErr('Password must be at least 6 characters long.');
       return;
     }
-
     setPasswordLoading(true);
-
     try {
       await changePassword(currentPassword, newPassword);
       setPasswordMsg('Password changed successfully.');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      setPasswordErr(err.message || 'Failed to change password.');
+    } catch (err: unknown) {
+      setPasswordErr(err instanceof Error ? err.message : 'Failed to change password.');
     } finally {
       setPasswordLoading(false);
     }
@@ -88,130 +84,157 @@ export default function ProfilePage() {
   return (
     <div className="account-page-container">
       <div className="account-header">
+        <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
+          Account Settings
+        </div>
         <h1 className="account-title" style={{ textTransform: "uppercase" }}>My Profile</h1>
-        <p className="account-subtitle">Manage your personal information and account security settings.</p>
+        <p className="account-subtitle">Manage your personal information and account security.</p>
       </div>
 
       <div className="account-grid">
-        {/* Profile Details Card */}
-        <div className="account-card" style={{ borderRadius: 0, border: "1px solid #000000" }}>
-          <h2 className="account-card-title" style={{ textTransform: "uppercase" }}>Personal Details</h2>
+        {/* Personal Details Card */}
+        <div className="account-card" style={{ border: "2px solid #000" }}>
+          {/* Card Header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 14, borderBottom: "2px solid #000", marginBottom: 4 }}>
+            <div style={{ width: 32, height: 32, background: "#000", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <UserIcon size={16} color="#fff" />
+            </div>
+            <div>
+              <h2 style={{ fontSize: "0.85rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.07em" }}>Personal Details</h2>
+              <p style={{ fontSize: "0.72rem", color: "#888", margin: 0 }}>Your account name and email</p>
+            </div>
+          </div>
 
-          {profileMsg && <div className="auth-success-banner">{profileMsg}</div>}
-          {profileErr && <div className="auth-error-banner">{profileErr}</div>}
+          {profileMsg && (
+            <div style={{ borderLeft: "4px solid #16a34a", background: "#f0fdf4", color: "#15803d", padding: "11px 14px", fontSize: "0.83rem", fontWeight: 700 }}>
+              {profileMsg}
+            </div>
+          )}
+          {profileErr && (
+            <div style={{ borderLeft: "4px solid #dc2626", background: "#fef2f2", color: "#dc2626", padding: "11px 14px", fontSize: "0.83rem", fontWeight: 700 }}>
+              {profileErr}
+            </div>
+          )}
 
           <form onSubmit={handleUpdateProfile} className="auth-form">
             <div className="auth-input-group">
-              <label className="auth-label">Email Address (Read-only)</label>
+              <label className="auth-label">Email Address</label>
               <input
-                type="email"
-                disabled
-                value={user.email}
+                type="email" disabled value={user.email}
                 className="auth-input disabled"
-                style={{ borderRadius: 0 }}
+                style={{ borderRadius: 0, background: "#f8fafc", color: "#888", cursor: "not-allowed" }}
               />
+              <p style={{ fontSize: "0.72rem", color: "#aaa", margin: "4px 0 0", fontStyle: "italic" }}>
+                Email cannot be changed
+              </p>
             </div>
-
             <div className="auth-input-group">
               <label className="auth-label">Full Name</label>
               <input
-                type="text"
-                required
-                value={fullName}
+                type="text" required value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 className="auth-input"
                 style={{ borderRadius: 0 }}
               />
             </div>
-
-            <button type="submit" disabled={profileLoading} className="auth-submit-btn" style={{ borderRadius: 0, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <button type="submit" disabled={profileLoading} className="auth-submit-btn"
+              style={{ borderRadius: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {profileLoading ? 'Saving...' : 'Save Profile Changes'}
             </button>
           </form>
         </div>
 
         {/* Change Password Card */}
-        <div className="account-card" style={{ borderRadius: 0, border: "1px solid #000000" }}>
-          <h2 className="account-card-title" style={{ textTransform: "uppercase" }}>Security & Password</h2>
+        <div className="account-card" style={{ border: "2px solid #000" }}>
+          {/* Card Header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 14, borderBottom: "2px solid #000", marginBottom: 4 }}>
+            <div style={{ width: 32, height: 32, background: "#000", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <LockIcon size={16} color="#fff" />
+            </div>
+            <div>
+              <h2 style={{ fontSize: "0.85rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.07em" }}>Security & Password</h2>
+              <p style={{ fontSize: "0.72rem", color: "#888", margin: 0 }}>Change your account password</p>
+            </div>
+          </div>
 
-          {passwordMsg && <div className="auth-success-banner">{passwordMsg}</div>}
-          {passwordErr && <div className="auth-error-banner">{passwordErr}</div>}
+          {passwordMsg && (
+            <div style={{ borderLeft: "4px solid #16a34a", background: "#f0fdf4", color: "#15803d", padding: "11px 14px", fontSize: "0.83rem", fontWeight: 700 }}>
+              {passwordMsg}
+            </div>
+          )}
+          {passwordErr && (
+            <div style={{ borderLeft: "4px solid #dc2626", background: "#fef2f2", color: "#dc2626", padding: "11px 14px", fontSize: "0.83rem", fontWeight: 700 }}>
+              {passwordErr}
+            </div>
+          )}
 
           <form onSubmit={handleChangePassword} className="auth-form">
             <div className="auth-input-group">
               <label className="auth-label">Current Password</label>
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="auth-input"
-                style={{ borderRadius: 0 }}
+              <input type="password" required placeholder="••••••••"
+                value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
+                className="auth-input" style={{ borderRadius: 0 }}
               />
             </div>
-
             <div className="auth-input-group">
               <label className="auth-label">New Password</label>
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="auth-input"
-                style={{ borderRadius: 0 }}
+              <input type="password" required placeholder="••••••••"
+                value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                className="auth-input" style={{ borderRadius: 0 }}
               />
             </div>
-
             <div className="auth-input-group">
               <label className="auth-label">Confirm New Password</label>
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="auth-input"
-                style={{ borderRadius: 0 }}
+              <input type="password" required placeholder="••••••••"
+                value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                className="auth-input" style={{ borderRadius: 0 }}
               />
             </div>
-
-            <button type="submit" disabled={passwordLoading} className="auth-submit-btn" style={{ borderRadius: 0, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              {passwordLoading ? 'Updating Password...' : 'Update Password'}
+            <button type="submit" disabled={passwordLoading} className="auth-submit-btn"
+              style={{ borderRadius: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              {passwordLoading ? 'Updating...' : 'Update Password'}
             </button>
           </form>
         </div>
 
-        {/* Saved Delivery Addresses Card */}
-        <div className="account-card" style={{ gridColumn: "1 / -1", marginTop: 8, borderRadius: 0, border: "1px solid #000000" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
-            <div>
-              <h2 className="account-card-title" style={{ margin: 0, textTransform: "uppercase" }}>Saved Delivery Addresses</h2>
-              <p style={{ fontSize: "0.85rem", color: "#555555", margin: "4px 0 0" }}>
-                Add, label, and manage your Indian shipping addresses for fast checkout.
-              </p>
-            </div>
-            <Link
-              href="/account/addresses"
+        {/* Delivery Addresses Shortcut Card */}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <Link href="/account/addresses" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+            <div
               style={{
-                background: "#000000", color: "#ffffff", padding: "12px 22px",
-                borderRadius: 0, fontWeight: 900, fontSize: "0.82rem", textDecoration: "none",
-                display: "inline-flex", alignItems: "center", gap: 6, textTransform: "uppercase", letterSpacing: "0.05em"
+                background: "#fff", border: "2px solid #000",
+                padding: "20px 24px", display: "flex", justifyContent: "space-between",
+                alignItems: "center", transition: "box-shadow 0.15s, background 0.15s",
+                cursor: "pointer"
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLDivElement).style.background = "#f8fafc";
+                (e.currentTarget as HTMLDivElement).style.boxShadow = "4px 4px 0px #000";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.background = "#fff";
+                (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
               }}
             >
-              Manage Saved Addresses →
-            </Link>
-          </div>
-
-          <div style={{ background: "#ffffff", border: "1px solid #000000", padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 0, background: "#f8fafc", border: "1px solid #000000", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <MapPinIcon size={20} color="#000000" />
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ width: 44, height: 44, background: "#000", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <MapPinIcon size={20} color="#fff" />
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.9rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "#000" }}>
+                    Saved Delivery Addresses
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "#777", marginTop: 2 }}>
+                    Add, label and manage your Indian shipping locations
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#000", flexShrink: 0 }}>
+                <span style={{ fontSize: "0.78rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em" }}>Manage</span>
+                <ChevronRightIcon size={16} color="#000" />
+              </div>
             </div>
-            <div>
-              <div style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000000", textTransform: "uppercase" }}>Manage Multiple Delivery Locations</div>
-            </div>
-          </div>
+          </Link>
         </div>
       </div>
     </div>

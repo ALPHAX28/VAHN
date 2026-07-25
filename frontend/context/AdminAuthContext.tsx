@@ -1,8 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { getApiBaseUrl } from "@/lib/api/client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const getEndpoint = (path: string) => `${getApiBaseUrl()}${path}`;
 
 interface AdminUser {
   id: number;
@@ -73,7 +74,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   }), [adminToken]);
 
   const adminRegister = useCallback(async (email: string, password: string, fullName: string, adminSecret: string) => {
-    const res = await fetch(`${API_URL}/admin/auth/register`, {
+    const res = await fetch(getEndpoint('/admin/auth/register'), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, full_name: fullName, admin_secret: adminSecret }),
@@ -84,7 +85,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const adminLogin = useCallback(async (email: string, password: string) => {
-    const res = await fetch(`${API_URL}/admin/auth/login`, {
+    const res = await fetch(getEndpoint('/admin/auth/login'), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -96,8 +97,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const adminVerifyOtp = useCallback(async (email: string, otp: string, mode: "login" | "register") => {
     const endpoint = mode === "login"
-      ? `${API_URL}/admin/auth/login-verify-otp`
-      : `${API_URL}/admin/auth/verify-otp`;
+      ? getEndpoint('/admin/auth/login-verify-otp')
+      : getEndpoint('/admin/auth/verify-otp');
 
     const res = await fetch(endpoint, {
       method: "POST",

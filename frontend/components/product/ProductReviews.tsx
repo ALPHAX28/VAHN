@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { getApiBaseUrl } from '@/lib/api/client';
 import type { Review } from '@/lib/api/types';
 
 interface Props {
@@ -30,7 +31,7 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
     setIsSubmitting(true);
     setError('');
     try {
-      const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/api$/, '');
+      const apiBase = getApiBaseUrl().replace(/\/api$/, '');
       const response = await fetch(`${apiBase}/api/products/${productHandle}/reviews`, {
         method: 'POST',
         headers: {

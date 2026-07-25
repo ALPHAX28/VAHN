@@ -4,21 +4,28 @@
 
 export function getApiBaseUrl(): string {
   // BROWSER (client-side):
-  // Use a relative path in browser production/Vercel deployments so requests are strictly same-origin → zero CORS issues!
   if (typeof window !== 'undefined') {
+    // If running locally on localhost, use localhost backend API
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/+$/, '');
     }
+    // In production browser, use relative same-origin path '/api/backend/api' so all requests
+    // are strictly same-origin (zero CORS issues and zero preflight redirects!)
     return '/api/backend/api';
   }
 
-  // SERVER-SIDE on Vercel (SSR for product/collection/etc. pages):
+  // SERVER-SIDE (SSR / Build time):
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
+  }
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/api/backend/api`;
   }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}/api/backend/api`;
+  }
 
-  // Local development (or any other environment):
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+  return 'http://localhost:8000/api';
 }
 
 

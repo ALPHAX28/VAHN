@@ -30,6 +30,8 @@ export default function NewProductPage() {
     fit: "",
     kit_type: "",
     activity: "",
+    gst_percent: 12,
+    shipping_rate: null as number | null,
   });
 
   // Dynamic Options lists for Fit, Kit Type, Activity
@@ -205,6 +207,11 @@ export default function NewProductPage() {
       return;
     }
 
+    if (!form.gst_percent && form.gst_percent !== 0) {
+      setError("GST Rate is required. Please select a GST percentage.");
+      return;
+    }
+
     if (colourGroups.length === 0 || colourGroups.some(g => !g.colour_value.trim())) {
       setError("Please specify at least one valid Colour Name for your Colour Group.");
       return;
@@ -276,6 +283,8 @@ export default function NewProductPage() {
         activity: form.activity || null,
         featured_image_url: featuredThumbnail[0]?.url || allImages[0]?.url || null,
         featured_image_alt: form.title,
+        gst_percent: form.gst_percent,
+        shipping_rate: form.shipping_rate,
       });
 
       // 2. Save Product Colour Groups into Database
@@ -374,10 +383,66 @@ export default function NewProductPage() {
                 <textarea
                   className="admin-form-textarea"
                   rows={4}
-                  placeholder="e.g.&#10;Heavyweight 360gsm organic cotton blend&#10;Bespoke relaxed oversized silhouette&#10;Signature embroidered branding on chest&#10;Ribbed crewneck collar"
+                  placeholder={`e.g.&#10;Heavyweight 360gsm organic cotton blend&#10;Bespoke relaxed oversized silhouette&#10;Signature embroidered branding on chest&#10;Ribbed crewneck collar`}
                   value={sizeFitInput}
                   onChange={e => setSizeFitInput(e.target.value)}
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* PRICING & TAX */}
+          <div className="admin-card">
+            <h2 className="admin-card-section-title">Pricing & Tax</h2>
+            <p className="admin-page-subtitle" style={{ marginBottom: 16, fontSize: "0.8rem" }}>
+              GST is calculated <strong>inclusively</strong> from the variant selling price. Select the applicable GST slab for this product category.
+              Leave Shipping Rate blank to use the global rule (free ≥ ₹1999, else ₹99).
+            </p>
+            <div className="admin-form-grid">
+              <div className="admin-form-group">
+                <label className="admin-form-label">GST Rate (%) *</label>
+                <select
+                  className="admin-form-select"
+                  value={String(form.gst_percent)}
+                  onChange={e => setForm(f => ({ ...f, gst_percent: Number(e.target.value) }))}
+                  required
+                >
+                  <option value="0">0% — Exempt (Books, raw food)</option>
+                  <option value="5">5% — Reduced rate</option>
+                  <option value="12">12% — Standard (Garments ≤₹1000 MRP)</option>
+                  <option value="18">18% — Standard (Garments &gt;₹1000 MRP)</option>
+                  <option value="28">28% — Luxury / sin goods</option>
+                </select>
+                {form.gst_percent > 0 && (
+                  <div style={{ marginTop: 6, fontSize: "0.75rem", color: "var(--admin-text-secondary)", background: "rgba(25,118,210,0.07)", border: "1px solid rgba(25,118,210,0.2)", padding: "6px 10px" }}>
+                    Example: On a ₹2,499 price — GST portion = <strong>₹{Math.round((2499 * form.gst_percent) / (100 + form.gst_percent)).toLocaleString()}</strong>
+                    &nbsp;·&nbsp; Base (ex-GST) = ₹{(2499 - Math.round((2499 * form.gst_percent) / (100 + form.gst_percent))).toLocaleString()}
+                  </div>
+                )}
+              </div>
+
+              <div className="admin-form-group">
+                <label className="admin-form-label">Shipping Rate (₹) — Per Product Override</label>
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: "0.9rem", fontWeight: 700, color: "var(--admin-text-secondary)" }}>₹</span>
+                  <input
+                    type="number"
+                    className="admin-form-input"
+                    style={{ paddingLeft: 26 }}
+                    placeholder="Leave blank for global rule"
+                    min={0}
+                    value={form.shipping_rate ?? ""}
+                    onFocus={e => e.target.select()}
+                    onChange={e => setForm(f => ({ ...f, shipping_rate: e.target.value === "" ? null : Number(e.target.value) }))}
+                  />
+                </div>
+                <div style={{ marginTop: 6, fontSize: "0.75rem", color: "var(--admin-text-secondary)" }}>
+                  {form.shipping_rate === null
+                    ? "Global rule: Free ≥ ₹1,999 · ₹99 otherwise"
+                    : form.shipping_rate === 0
+                    ? "✓ Free shipping for all orders of this product"
+                    : `₹${form.shipping_rate} flat shipping rate`}
+                </div>
               </div>
             </div>
           </div>

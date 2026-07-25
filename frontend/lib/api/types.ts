@@ -57,6 +57,8 @@ export interface Product {
   fit?: string | null;
   kitType?: string | null;
   activity?: string | null;
+  gstPercent?: number | null;
+  shippingRate?: number | null;
 }
 
 export interface LookbookItem {
@@ -119,6 +121,8 @@ export interface CartLine {
       title: string;
       handle: string;
       featuredImage: Image | null;
+      gstPercent?: number | null;
+      shippingRate?: number | null;
     };
     price: Money;
     quantityAvailable?: number;

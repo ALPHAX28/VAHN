@@ -67,7 +67,6 @@ export default function AdminProductDetailPage() {
       setProduct(p);
       setEditForm({
         title: p.title,
-        handle: p.handle,
         description: p.description || "",
         vendor: p.vendor,
         product_type: p.product_type || "",
@@ -75,7 +74,9 @@ export default function AdminProductDetailPage() {
         available_for_sale: p.available_for_sale,
         fit: p.fit || "",
         kit_type: p.kit_type || "",
-        activity: p.activity || ""
+        activity: p.activity || "",
+        gst_percent: p.gst_percent ?? 12,
+        shipping_rate: p.shipping_rate ?? null,
       });
       setEditSizeFitInput(extractBullets(p.description_html || ""));
     } catch (e: unknown) {
@@ -100,7 +101,6 @@ export default function AdminProductDetailPage() {
   const isFormDirty = Boolean(
     product && (
       (editForm.title !== undefined && editForm.title !== product.title) ||
-      (editForm.handle !== undefined && editForm.handle !== product.handle) ||
       (editForm.description !== undefined && editForm.description !== (product.description || "")) ||
       (editForm.vendor !== undefined && editForm.vendor !== product.vendor) ||
       (editForm.product_type !== undefined && editForm.product_type !== (product.product_type || "")) ||
@@ -108,6 +108,8 @@ export default function AdminProductDetailPage() {
       (editForm.kit_type !== undefined && editForm.kit_type !== (product.kit_type || "")) ||
       (editForm.activity !== undefined && editForm.activity !== (product.activity || "")) ||
       (editForm.available_for_sale !== undefined && editForm.available_for_sale !== product.available_for_sale) ||
+      (editForm.gst_percent !== undefined && editForm.gst_percent !== (product.gst_percent ?? 12)) ||
+      (editForm.shipping_rate !== product.shipping_rate) ||
       editSizeFitInput !== initialBullets
     )
   );
@@ -121,7 +123,6 @@ export default function AdminProductDetailPage() {
     if (!product) return;
     setEditForm({
       title: product.title,
-      handle: product.handle,
       description: product.description || "",
       vendor: product.vendor,
       product_type: product.product_type || "",
@@ -129,7 +130,9 @@ export default function AdminProductDetailPage() {
       available_for_sale: product.available_for_sale,
       fit: product.fit || "",
       kit_type: product.kit_type || "",
-      activity: product.activity || ""
+      activity: product.activity || "",
+      gst_percent: product.gst_percent ?? 12,
+      shipping_rate: product.shipping_rate ?? null,
     });
     setEditSizeFitInput(extractBullets(product.description_html || ""));
   }
@@ -321,66 +324,148 @@ export default function AdminProductDetailPage() {
         ))}
       </div>
 
-      {/* Details Tab */}
+      {/* ===== DETAILS TAB ===== */}
       {activeTab === "Details" && (
-        <div className="admin-card">
-          <div className="admin-form-grid">
-            <div className="admin-form-group admin-form-group--full">
-              <label className="admin-form-label">Title</label>
-              <input type="text" className="admin-form-input" value={editForm.title || ""} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* — IDENTIFICATION — */}
+          <div className="admin-card">
+            <h2 className="admin-card-section-title">Product Identity</h2>
+            <div className="admin-form-grid">
+              <div className="admin-form-group admin-form-group--full">
+                <label className="admin-form-label">Title *</label>
+                <input type="text" className="admin-form-input" value={editForm.title || ""} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} />
+              </div>
+
+              {/* Handle — read-only display */}
+              <div className="admin-form-group admin-form-group--full">
+                <label className="admin-form-label">URL Handle <span style={{ fontWeight: 400, fontSize: "0.72rem", color: "var(--admin-text-secondary)" }}>(permanent — cannot be changed)</span></label>
+                <div style={{
+                  background: "var(--admin-bg-page)", border: "1px solid var(--admin-card-border)",
+                  padding: "9px 14px", fontFamily: "monospace", fontSize: "0.875rem",
+                  color: "var(--admin-text-secondary)", letterSpacing: "0.02em"
+                }}>
+                  {product?.handle}
+                </div>
+              </div>
+
+              <div className="admin-form-group">
+                <label className="admin-form-label">Vendor</label>
+                <input type="text" className="admin-form-input" value={editForm.vendor || ""} onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))} />
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-form-label">Product Type</label>
+                <input type="text" className="admin-form-input" value={editForm.product_type || ""} onChange={e => setEditForm(f => ({ ...f, product_type: e.target.value }))} />
+              </div>
+              <div className="admin-form-group admin-form-group--full">
+                <label className="admin-form-label">Tags (comma separated)</label>
+                <input type="text" className="admin-form-input" value={Array.isArray(editForm.tags) ? editForm.tags.join(", ") : ""} onChange={e => setEditForm(f => ({ ...f, tags: e.target.value.split(",").map(t => t.trim()) }))} />
+              </div>
             </div>
-            <div className="admin-form-group admin-form-group--full">
-              <label className="admin-form-label">Handle</label>
-              <input type="text" className="admin-form-input" value={editForm.handle || ""} onChange={e => setEditForm(f => ({ ...f, handle: e.target.value }))} />
+          </div>
+
+          {/* — PRICING & TAX — */}
+          <div className="admin-card">
+            <h2 className="admin-card-section-title">Pricing & Tax</h2>
+            <p className="admin-page-subtitle" style={{ marginBottom: 16, fontSize: "0.8rem" }}>
+              GST is calculated <strong>inclusively</strong> from the variant price (e.g. at 12% GST: ₹2499 price → ₹268 GST included). Leave Shipping Rate blank to use the global rule (free ≥ ₹1999, else ₹99).
+            </p>
+            <div className="admin-form-grid">
+              <div className="admin-form-group">
+                <label className="admin-form-label">GST Rate (%) *</label>
+                <select
+                  className="admin-form-select"
+                  value={String(editForm.gst_percent ?? 12)}
+                  onChange={e => setEditForm(f => ({ ...f, gst_percent: Number(e.target.value) }))}
+                  required
+                >
+                  <option value="0">0% — Exempt (Books, essentials)</option>
+                  <option value="5">5% — Reduced rate</option>
+                  <option value="12">12% — Standard (Garments ≤₹1000 MRP)</option>
+                  <option value="18">18% — Standard (Garments &gt;₹1000 MRP)</option>
+                  <option value="28">28% — Luxury goods</option>
+                </select>
+                {editForm.gst_percent != null && editForm.gst_percent > 0 && (
+                  <div style={{ marginTop: 6, fontSize: "0.75rem", color: "var(--admin-text-secondary)", background: "rgba(25,118,210,0.07)", border: "1px solid rgba(25,118,210,0.2)", padding: "6px 10px" }}>
+                    Example: On a ₹2,499 product — GST included = <strong>₹{Math.round((2499 * (editForm.gst_percent ?? 12)) / (100 + (editForm.gst_percent ?? 12))).toLocaleString()}</strong> · Base price = ₹{(2499 - Math.round((2499 * (editForm.gst_percent ?? 12)) / (100 + (editForm.gst_percent ?? 12)))).toLocaleString()}
+                  </div>
+                )}
+              </div>
+
+              <div className="admin-form-group">
+                <label className="admin-form-label">Shipping Rate (₹) — Per Product Override</label>
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: "0.9rem", fontWeight: 700, color: "var(--admin-text-secondary)" }}>₹</span>
+                  <input
+                    type="number"
+                    className="admin-form-input"
+                    style={{ paddingLeft: 26 }}
+                    placeholder="Leave blank for global rule"
+                    min={0}
+                    value={editForm.shipping_rate ?? ""}
+                    onFocus={e => e.target.select()}
+                    onChange={e => setEditForm(f => ({ ...f, shipping_rate: e.target.value === "" ? null : Number(e.target.value) }))}
+                  />
+                </div>
+                <div style={{ marginTop: 6, fontSize: "0.75rem", color: "var(--admin-text-secondary)" }}>
+                  {editForm.shipping_rate === null || editForm.shipping_rate === undefined
+                    ? "Using global rule: Free ≥ ₹1,999 · ₹99 otherwise"
+                    : editForm.shipping_rate === 0
+                    ? "✓ Free shipping for this product"
+                    : `₹${editForm.shipping_rate} flat shipping for this product`}
+                </div>
+              </div>
             </div>
-            <div className="admin-form-group">
-              <label className="admin-form-label">Vendor</label>
-              <input type="text" className="admin-form-input" value={editForm.vendor || ""} onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))} />
+          </div>
+
+          {/* — ATTRIBUTES — */}
+          <div className="admin-card">
+            <h2 className="admin-card-section-title">Attributes</h2>
+            <div className="admin-form-grid">
+              <div className="admin-form-group">
+                <label className="admin-form-label">Fit</label>
+                <select className="admin-form-select" value={editForm.fit || ""} onChange={e => setEditForm(f => ({ ...f, fit: e.target.value }))}>
+                  <option value="">—</option>
+                  {FIT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-form-label">Kit Type</label>
+                <select className="admin-form-select" value={editForm.kit_type || ""} onChange={e => setEditForm(f => ({ ...f, kit_type: e.target.value }))}>
+                  <option value="">—</option>
+                  {KIT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-form-label">Activity</label>
+                <select className="admin-form-select" value={editForm.activity || ""} onChange={e => setEditForm(f => ({ ...f, activity: e.target.value }))}>
+                  <option value="">—</option>
+                  {ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-form-label">Availability</label>
+                <label className="admin-toggle">
+                  <input type="checkbox" checked={editForm.available_for_sale ?? true} onChange={e => setEditForm(f => ({ ...f, available_for_sale: e.target.checked }))} />
+                  <span className="admin-toggle-track" />
+                  <span className="admin-toggle-label">Available for sale</span>
+                </label>
+              </div>
             </div>
-            <div className="admin-form-group">
-              <label className="admin-form-label">Product Type</label>
-              <input type="text" className="admin-form-input" value={editForm.product_type || ""} onChange={e => setEditForm(f => ({ ...f, product_type: e.target.value }))} />
-            </div>
-            <div className="admin-form-group">
-              <label className="admin-form-label">Fit</label>
-              <select className="admin-form-select" value={editForm.fit || ""} onChange={e => setEditForm(f => ({ ...f, fit: e.target.value }))}>
-                <option value="">—</option>
-                {FIT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className="admin-form-group">
-              <label className="admin-form-label">Kit Type</label>
-              <select className="admin-form-select" value={editForm.kit_type || ""} onChange={e => setEditForm(f => ({ ...f, kit_type: e.target.value }))}>
-                <option value="">—</option>
-                {KIT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className="admin-form-group">
-              <label className="admin-form-label">Activity</label>
-              <select className="admin-form-select" value={editForm.activity || ""} onChange={e => setEditForm(f => ({ ...f, activity: e.target.value }))}>
-                <option value="">—</option>
-                {ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className="admin-form-group">
-              <label className="admin-form-label">Availability</label>
-              <label className="admin-toggle">
-                <input type="checkbox" checked={editForm.available_for_sale ?? true} onChange={e => setEditForm(f => ({ ...f, available_for_sale: e.target.checked }))} />
-                <span className="admin-toggle-track" />
-                <span className="admin-toggle-label">Available for sale</span>
-              </label>
-            </div>
-            <div className="admin-form-group admin-form-group--full">
-              <label className="admin-form-label">Tags (comma separated)</label>
-              <input type="text" className="admin-form-input" value={Array.isArray(editForm.tags) ? editForm.tags.join(", ") : ""} onChange={e => setEditForm(f => ({ ...f, tags: e.target.value.split(",").map(t => t.trim()) }))} />
-            </div>
-            <div className="admin-form-group admin-form-group--full">
-              <label className="admin-form-label">Product Details & Story (Displayed in DETAILS Accordion)</label>
-              <textarea className="admin-form-textarea" rows={4} placeholder="Product description & story..." value={editForm.description || ""} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
-            </div>
-            <div className="admin-form-group admin-form-group--full">
-              <label className="admin-form-label">Size & Fit Features (Displayed in SIZE & FIT Accordion — One bullet per line)</label>
-              <textarea className="admin-form-textarea" rows={5} placeholder="One bullet per line..." value={editSizeFitInput} onChange={e => setEditSizeFitInput(e.target.value)} />
+          </div>
+
+          {/* — CONTENT — */}
+          <div className="admin-card">
+            <h2 className="admin-card-section-title">Content & Story</h2>
+            <div className="admin-form-grid">
+              <div className="admin-form-group admin-form-group--full">
+                <label className="admin-form-label">Product Details & Story <span style={{ fontWeight: 400, fontSize: "0.72rem" }}>(Displayed in DETAILS Accordion)</span></label>
+                <textarea className="admin-form-textarea" rows={4} placeholder="Product description & story..." value={editForm.description || ""} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+              </div>
+              <div className="admin-form-group admin-form-group--full">
+                <label className="admin-form-label">Size & Fit Features <span style={{ fontWeight: 400, fontSize: "0.72rem" }}>(Displayed in SIZE & FIT Accordion — One bullet per line)</span></label>
+                <textarea className="admin-form-textarea" rows={5} placeholder="One bullet per line..." value={editSizeFitInput} onChange={e => setEditSizeFitInput(e.target.value)} />
+              </div>
             </div>
           </div>
         </div>

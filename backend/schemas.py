@@ -111,6 +111,8 @@ class ProductSchema(BaseModel):
     fit: Optional[str] = None
     kitType: Optional[str] = None
     activity: Optional[str] = None
+    gstPercent: Optional[float] = 12.0
+    shippingRate: Optional[float] = None
 
 class ProductEdge(BaseModel):
     node: ProductSchema
@@ -154,6 +156,8 @@ class CartProductMini(BaseModel):
     title: str
     handle: str
     featuredImage: Optional[ImageNode] = None
+    gstPercent: Optional[float] = 12.0
+    shippingRate: Optional[float] = None
 
 class CartMerchandise(BaseModel):
     id: str
@@ -478,6 +482,8 @@ class ProductCreateRequest(BaseModel):
     fit: Optional[str] = None
     kit_type: Optional[str] = None
     activity: Optional[str] = None
+    gst_percent: float = 12.0
+    shipping_rate: Optional[float] = None
     variants: List[VariantCreateRequest] = []
 
 class ProductUpdateRequest(BaseModel):
@@ -497,6 +503,8 @@ class ProductUpdateRequest(BaseModel):
     fit: Optional[str] = None
     kit_type: Optional[str] = None
     activity: Optional[str] = None
+    gst_percent: Optional[float] = None
+    shipping_rate: Optional[float] = None
 
 class AdminVariantSchema(BaseModel):
     id: str
@@ -521,6 +529,8 @@ class AdminProductSummary(BaseModel):
     fit: Optional[str]
     kit_type: Optional[str]
     activity: Optional[str]
+    gst_percent: float
+    shipping_rate: Optional[float]
     variants_count: int
     created_at: Optional[str]
 
@@ -542,6 +552,8 @@ class AdminProductDetail(BaseModel):
     fit: Optional[str]
     kit_type: Optional[str]
     activity: Optional[str]
+    gst_percent: float
+    shipping_rate: Optional[float]
     variants: List[AdminVariantSchema]
     colour_groups: List[ColourGroupSchema]
     created_at: Optional[str]

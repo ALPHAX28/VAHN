@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import { getAdminOrder, updateOrderStatus, type AdminOrder } from "@/lib/api/admin";
 import AdminBadge from "@/components/admin/AdminBadge";
+import { PrinterIcon } from "@/components/icons/Icons";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -66,14 +67,24 @@ export default function AdminOrderDetailPage() {
 
   return (
     <div className="admin-page">
-      <div className="admin-page-header">
+      <div className="admin-page-header vahn-no-print">
         <div>
           <h1 className="admin-page-title">{order.id}</h1>
           <p className="admin-page-subtitle">
             <AdminBadge label={order.status} /> &nbsp;·&nbsp; {new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
           </p>
         </div>
-        <button onClick={() => router.back()} className="admin-btn admin-btn--ghost">← Orders</button>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <button
+            onClick={() => window.print()}
+            className="admin-btn admin-btn--primary"
+            style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+          >
+            <PrinterIcon size={16} color="#fff" />
+            Print Shipping Label
+          </button>
+          <button onClick={() => router.back()} className="admin-btn admin-btn--ghost">← Orders</button>
+        </div>
       </div>
 
       {error && <div className="admin-alert admin-alert--error">{error}</div>}
@@ -126,12 +137,22 @@ export default function AdminOrderDetailPage() {
 
           {/* Shipping */}
           <div className="admin-card">
-            <h2 className="admin-card-title">Shipping Address</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h2 className="admin-card-title" style={{ margin: 0 }}>Shipping Address</h2>
+              <button
+                onClick={() => window.print()}
+                className="admin-btn admin-btn--secondary"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", fontSize: "0.78rem" }}
+              >
+                <PrinterIcon size={14} color="#000" />
+                Print Label
+              </button>
+            </div>
             <div className="admin-order-address">
-              <div>{addr.name}</div>
-              <div>{addr.address}</div>
-              <div>{addr.city}, {addr.postalCode}</div>
-              {addr.phone && <div>{addr.phone}</div>}
+              <div style={{ fontWeight: 900, color: "#000", fontSize: "0.95rem" }}>{addr.name || order.user_name}</div>
+              <div>{addr.address || "Standard Address"}</div>
+              <div style={{ fontWeight: 700, color: "#000" }}>{addr.city}, {addr.postalCode}</div>
+              {addr.phone && <div>Ph: {addr.phone}</div>}
             </div>
           </div>
         </div>
@@ -162,6 +183,100 @@ export default function AdminOrderDetailPage() {
               {saving ? <span className="admin-btn-spinner" /> : "Update Order"}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* PRINTABLE OFFICIAL COURIER SHIPPING LABEL (Only visible during print mode) */}
+      <div className="vahn-printable-shipping-label">
+        <div style={{
+          width: "100%", maxWidth: "560px", margin: "0 auto",
+          border: "4px solid #000", padding: "24px",
+          background: "#fff", color: "#000", fontFamily: "Arial, sans-serif"
+        }}>
+          
+          {/* Label Top Header */}
+          <div style={{ borderBottom: "3px solid #000", paddingBottom: 14, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h1 style={{ fontSize: "2.2rem", fontWeight: 900, margin: 0, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                VAHN
+              </h1>
+              <div style={{ fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#333" }}>
+                EXPRESS PRIORITY SHIPPING
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <span style={{ background: "#000", color: "#fff", padding: "5px 14px", fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                PREPAID
+              </span>
+              <div style={{ fontSize: "0.72rem", fontWeight: 800, marginTop: 6, color: "#444" }}>
+                AIR EXPRESS LOGISTICS
+              </div>
+            </div>
+          </div>
+
+          {/* Barcode & Waybill Tracking */}
+          <div style={{ borderBottom: "2px solid #000", paddingBottom: 14, marginBottom: 14, textAlign: "center" }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "#666", marginBottom: 4 }}>
+              WAYBILL / TRACKING NUMBER
+            </div>
+            {/* Scannable visual Barcode pattern */}
+            <div style={{
+              fontFamily: "'Courier New', monospace",
+              fontSize: "2.4rem", fontWeight: 700, letterSpacing: "3px",
+              lineHeight: 1, margin: "4px 0"
+            }}>
+              |||| | ||| |||| | |||| ||| |||| | |||
+            </div>
+            <div style={{ fontSize: "1.1rem", fontWeight: 900, letterSpacing: "0.08em" }}>
+              VAHN-{order.id}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "#555", marginTop: 4 }}>
+              Order Date: {new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} · Weight: 0.50 KG
+            </div>
+          </div>
+
+          {/* SHIP TO (DELIVERY RECIPIENT) - BOLD LARGE BOX */}
+          <div style={{ border: "2px solid #000", padding: "16px 20px", marginBottom: 14, background: "#fafafa" }}>
+            <div style={{ fontSize: "0.7rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "#555", borderBottom: "1px solid #ddd", paddingBottom: 6, marginBottom: 10 }}>
+              DELIVER TO (RECIPIENT)
+            </div>
+            <div style={{ fontSize: "1.3rem", fontWeight: 900, color: "#000", marginBottom: 4 }}>
+              {addr.name || order.user_name}
+            </div>
+            <div style={{ fontSize: "1rem", color: "#111", lineHeight: 1.45, marginBottom: 6 }}>
+              {addr.address || "Standard Address"}
+            </div>
+            <div style={{ fontSize: "1.15rem", fontWeight: 900, color: "#000" }}>
+              {addr.city}, {addr.postalCode}
+            </div>
+            {addr.phone && (
+              <div style={{ fontSize: "0.9rem", fontWeight: 800, color: "#000", marginTop: 6 }}>
+                PHONE: {addr.phone}
+              </div>
+            )}
+          </div>
+
+          {/* RETURN ADDRESS (SHIP FROM) */}
+          <div style={{ borderBottom: "2px dashed #000", paddingBottom: 12, marginBottom: 12, fontSize: "0.78rem" }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#666", marginBottom: 4 }}>
+              IF UNDELIVERED, RETURN TO:
+            </div>
+            <div style={{ fontWeight: 800 }}>VAHN SPORTSWEAR INDIA PVT. LTD.</div>
+            <div style={{ color: "#444" }}>502 Airport Towers, Masterda Sarani, Mumbai, MH — 400001</div>
+            <div style={{ color: "#666", marginTop: 2 }}>Contact: support@vahnsports.com | +91 9875741243</div>
+          </div>
+
+          {/* ORDER CONTENTS SUMMARY */}
+          <div style={{ fontSize: "0.75rem", color: "#333" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span><strong>Order ID:</strong> #{order.id}</span>
+              <span><strong>Declared Value:</strong> ₹{order.total_amount.toLocaleString("en-IN")}</span>
+            </div>
+            <div style={{ color: "#555" }}>
+              <strong>Contents ({order.items.length} items):</strong> {order.items.map(i => `${i.product_title} (${i.variant_title}) ×${i.quantity}`).join(", ")}
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

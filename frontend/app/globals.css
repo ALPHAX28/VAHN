@@ -5994,4 +5994,159 @@ input, textarea, select {
   }
 }
 
+/* ============================================================
+   Spinner Keyframe (used in loading states across pages)
+   ============================================================ */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
+/* ============================================================
+   Saved Addresses Grid — responsive card grid
+   ============================================================ */
+.vahn-addresses-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .vahn-addresses-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* ============================================================
+   Order Fulfillment Tracker — Desktop/Mobile toggle
+   ============================================================ */
+.vahn-tracker-desktop {
+  display: block;
+}
+
+.vahn-tracker-mobile {
+  display: none !important;
+}
+
+@media (max-width: 580px) {
+  .vahn-tracker-desktop {
+    display: none !important;
+  }
+  .vahn-tracker-mobile {
+    display: flex !important;
+  }
+}
+
+/* ============================================================
+   Checkout page: sidebar order summary & responsive layout
+   ============================================================ */
+.vahn-checkout-container {
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.vahn-checkout-card-body {
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.vahn-address-select-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.vahn-address-scroll-container {
+  max-height: 345px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.vahn-address-scroll-container::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.vahn-checkout-sidebar {
+  background: #fff;
+  border: 2px solid #000;
+  position: sticky;
+  top: 100px;
+}
+
+@media (max-width: 868px) {
+  .vahn-checkout-grid {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .vahn-checkout-sidebar {
+    position: static !important;
+    top: auto !important;
+    order: -1;
+    width: 100% !important;
+    margin-bottom: 20px !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .vahn-checkout-container {
+    margin: 20px auto !important;
+    padding: 0 16px !important;
+  }
+  .vahn-checkout-card-body {
+    padding: 16px !important;
+  }
+  .vahn-address-select-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .vahn-address-scroll-container {
+    max-height: 290px !important;
+  }
+}
+
+/* ============================================================
+   Input focus enhancement (global auth form inputs)
+   ============================================================ */
+.auth-input:focus {
+  outline: 2px solid #000000;
+  outline-offset: 1px;
+  border-color: #000000;
+}
+
+/* ============================================================
+   Official Printable Tax Invoice / Receipt Styles
+   ============================================================ */
+.vahn-printable-receipt,
+.vahn-printable-shipping-label {
+  display: none;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  header, footer, nav, .vahn-no-print, .admin-sidebar, .admin-header, .admin-page-header, .admin-order-layout {
+    display: none !important;
+  }
+
+  .vahn-printable-receipt,
+  .vahn-printable-shipping-label {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
