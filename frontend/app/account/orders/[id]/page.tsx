@@ -121,7 +121,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
   return (
     <>
       {/* WEB VIEW CONTENT (Hidden during print) */}
-      <div className="vahn-no-print" style={{ maxWidth: 1000, margin: "40px auto", padding: "0 20px", color: "#000" }}>
+      <div className="vahn-no-print">
       {/* Header: Back link + order meta + print button */}
       <div style={{ marginBottom: 28 }}>
         <Link href="/account/orders" style={{
@@ -160,10 +160,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {/* Order Fulfillment Tracker */}
-      <div style={{
-        background: "#fff", border: "2px solid #000", padding: "24px 28px",
-        marginBottom: 24
-      }}>
+      <div className="vahn-order-card">
         {/* Tracker header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
           <h3 style={{ fontSize: "0.78rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.1em", color: "#555" }}>
@@ -291,27 +288,27 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
       <div className="vahn-order-grid">
 
         {/* Ordered Items */}
-        <div style={{ background: "#fff", border: "2px solid #000" }}>
-          <div style={{ padding: "16px 22px", borderBottom: "1px solid #e5e5e5" }}>
+        <div className="vahn-card-box">
+          <div className="vahn-card-box-header">
             <h3 style={{ fontSize: "0.8rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.08em", color: "#555" }}>
               Items in Order ({order.items.length})
             </h3>
           </div>
 
-          <div style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
+          <div className="vahn-card-box-body" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             {order.items.map(item => (
-              <div key={item.id} style={{ display: "flex", gap: 16, alignItems: "flex-start", borderBottom: "1px solid #f3f4f6", paddingBottom: 18 }}>
+              <div key={item.id} style={{ display: "flex", gap: 14, alignItems: "flex-start", borderBottom: "1px solid #f3f4f6", paddingBottom: 18 }}>
                 {item.imageUrl ? (
                   <Image
                     src={item.imageUrl} alt={item.productTitle}
-                    width={72} height={72}
+                    width={64} height={64}
                     style={{ objectFit: "cover", border: "1px solid #e5e5e5", flexShrink: 0 }}
                   />
                 ) : (
-                  <div style={{ width: 72, height: 72, background: "#f3f4f6", border: "1px solid #e5e5e5", flexShrink: 0 }} />
+                  <div style={{ width: 64, height: 64, background: "#f3f4f6", border: "1px solid #e5e5e5", flexShrink: 0 }} />
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontWeight: 900, fontSize: "0.92rem", color: "#000", marginBottom: 4, lineHeight: 1.35 }}>
                     {item.productTitle}
                   </div>
                   <div style={{ fontSize: "0.82rem", color: "#555", marginBottom: 2 }}>
@@ -321,7 +318,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                     Qty: <strong style={{ color: "#000" }}>{item.quantity}</strong> &nbsp;·&nbsp; Unit: ₹{parseFloat(item.price.amount).toLocaleString()}
                   </div>
                 </div>
-                <div style={{ fontWeight: 900, fontSize: "1rem", color: "#000", flexShrink: 0 }}>
+                <div style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000", flexShrink: 0 }}>
                   ₹{(parseFloat(item.price.amount) * item.quantity).toLocaleString()}
                 </div>
               </div>
@@ -332,14 +329,14 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         {/* Right Sidebar */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Delivery Address Card */}
-          <div style={{ background: "#fff", border: "2px solid #000" }}>
-            <div style={{ padding: "14px 18px", borderBottom: "1px solid #e5e5e5", display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="vahn-card-box">
+            <div className="vahn-card-box-header" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <MapPinIcon size={15} color="#000" />
               <h3 style={{ fontSize: "0.78rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.08em", color: "#555" }}>
                 Delivery Address
               </h3>
             </div>
-            <div style={{ padding: "16px 18px" }}>
+            <div className="vahn-card-box-body">
               {addr.name && (
                 <div style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000", marginBottom: 6 }}>{addr.name}</div>
               )}
@@ -370,13 +367,13 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
           </div>
 
           {/* Payment Summary Card */}
-          <div style={{ background: "#fff", border: "2px solid #000" }}>
-            <div style={{ padding: "14px 18px", borderBottom: "1px solid #e5e5e5" }}>
+          <div className="vahn-card-box">
+            <div className="vahn-card-box-header">
               <h3 style={{ fontSize: "0.78rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.08em", color: "#555" }}>
                 Payment Summary
               </h3>
             </div>
-            <div style={{ padding: "16px 18px" }}>
+            <div className="vahn-card-box-body">
               <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: "0.875rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "#555" }}>Items Subtotal</span>

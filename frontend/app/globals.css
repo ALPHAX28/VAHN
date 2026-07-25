@@ -4109,12 +4109,41 @@ input, textarea, select {
   grid-template-columns: 1fr 340px;
   gap: 24px;
   align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.vahn-card-box {
+  background: #fff;
+  border: 2px solid #000;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.vahn-card-box-header {
+  padding: 16px 22px;
+  border-bottom: 1px solid #e5e5e5;
+  box-sizing: border-box;
+}
+
+.vahn-card-box-body {
+  padding: 18px 22px;
+  box-sizing: border-box;
 }
 
 @media (max-width: 900px) {
   .vahn-order-grid {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .vahn-card-box-header {
+    padding: 12px 14px !important;
+  }
+  .vahn-card-box-body {
+    padding: 14px 14px !important;
   }
 }
 
@@ -6159,9 +6188,16 @@ input, textarea, select {
   }
 }
 
-/* ============================================================
-   Order Fulfillment Tracker — Desktop/Mobile toggle
-   ============================================================ */
+.vahn-no-print {
+  width: 100%;
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 0 20px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  color: #000;
+}
+
 .vahn-tracker-desktop {
   display: block;
 }
@@ -6170,12 +6206,16 @@ input, textarea, select {
   display: none !important;
 }
 
-@media (max-width: 580px) {
+@media (max-width: 480px) {
   .vahn-tracker-desktop {
     display: none !important;
   }
   .vahn-tracker-mobile {
     display: flex !important;
+  }
+  .vahn-no-print {
+    margin: 16px auto !important;
+    padding: 0 12px !important;
   }
 }
 
