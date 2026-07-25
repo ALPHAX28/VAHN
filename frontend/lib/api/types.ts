@@ -197,3 +197,57 @@ export interface MenuItem {
 export interface Menu {
   items: MenuItem[];
 }
+
+// ---- User Address & Order Types ----
+
+export interface UserAddress {
+  id: number;
+  user_id: number;
+  label: string;
+  first_name: string;
+  last_name: string;
+  street_address: string;
+  apartment?: string | null;
+  city: string;
+  state: string;
+  pincode: string;
+  country: string;
+  phone: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  is_default: boolean;
+  created_at: string;
+}
+
+export interface OrderItem {
+  id: string;
+  variantId?: string | null;
+  productTitle: string;
+  variantTitle: string;
+  imageUrl?: string | null;
+  price: Money;
+  quantity: number;
+}
+
+export interface OrderDetail {
+  id: string;
+  status: string;
+  refundStatus?: string | null;
+  subtotalPrice: Money;
+  taxPrice: Money;
+  shippingPrice: Money;
+  discountPrice: Money;
+  totalPrice: Money;
+  shippingAddress?: {
+    label?: string;
+    name?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    phone?: string;
+  } | null;
+  createdAt: string;
+  items: OrderItem[];
+}

@@ -191,3 +191,47 @@ export async function predictiveSearch(query: string) {
     return { products: [], collections: [], pages: [] };
   }
 }
+
+// ---- User Address & Order API Functions ----
+
+export async function getUserAddresses(token: string): Promise<import('./types').UserAddress[]> {
+  return fetchAPI<import('./types').UserAddress[]>('/user/addresses', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function createUserAddress(token: string, data: Partial<import('./types').UserAddress>): Promise<import('./types').UserAddress> {
+  return fetchAPI<import('./types').UserAddress>('/user/addresses', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: data
+  });
+}
+
+export async function setDefaultAddress(token: string, addressId: number): Promise<void> {
+  return fetchAPI<void>(`/user/addresses/${addressId}/default`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function deleteUserAddress(token: string, addressId: number): Promise<void> {
+  return fetchAPI<void>(`/user/addresses/${addressId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function getOrderDetail(token: string, orderId: string): Promise<import('./types').OrderDetail> {
+  return fetchAPI<import('./types').OrderDetail>(`/orders/${orderId}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+}
+
+export async function checkoutCart(token: string, cartId: string, addressId?: number, shippingAddress?: any): Promise<import('./types').OrderDetail> {
+  return fetchAPI<import('./types').OrderDetail>('/orders/checkout', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: { cart_id: cartId, address_id: addressId, shipping_address: shippingAddress }
+  });
+}

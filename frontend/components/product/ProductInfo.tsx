@@ -68,7 +68,7 @@ export default function ProductInfo({ product }: Props) {
   const price = selectedVariant?.price ?? product.priceRange.minVariantPrice;
   const comparePrice = selectedVariant?.compareAtPrice;
   const isOnSale = comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount);
-  const available = selectedVariant?.availableForSale ?? false;
+  const available = (selectedVariant?.availableForSale ?? false) && (selectedVariant?.quantityAvailable === undefined || selectedVariant.quantityAvailable > 0);
   const cartItem = selectedVariant ? lines.find((l) => l.merchandise.id === selectedVariant.id) : undefined;
 
   const handleOptionSelect = useCallback(
@@ -81,7 +81,8 @@ export default function ProductInfo({ product }: Props) {
   const isValueAvailable = (optionName: string, value: string) => {
     const testOptions = { ...selectedOptions, [optionName]: value };
     const variant = getVariantFromOptions(variants, testOptions);
-    return variant?.availableForSale ?? false;
+    const hasQty = variant?.quantityAvailable === undefined || variant.quantityAvailable > 0;
+    return (variant?.availableForSale ?? false) && hasQty;
   };
 
   const handleAddToCart = () => {
@@ -144,11 +145,16 @@ export default function ProductInfo({ product }: Props) {
       </div>
 
       {/* Price */}
-      <div className="product-price-display">
+      <div className="product-price-display" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {isOnSale ? (
           <>
             <span className="product-price-sale">{formatMoney(price)}</span>
             <span className="product-price-compare">{formatMoney(comparePrice!)}</span>
+            {comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount) && (
+              <span className="discount-tag-badge" style={{ background: '#d32f2f', color: '#ffffff', fontSize: '0.78rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {Math.round(((parseFloat(comparePrice.amount) - parseFloat(price.amount)) / parseFloat(comparePrice.amount)) * 100)}% OFF
+              </span>
+            )}
           </>
         ) : (
           <span>{formatMoney(price)}</span>
@@ -210,19 +216,18 @@ export default function ProductInfo({ product }: Props) {
                       colorImgUrl = variantForColor?.image?.url ?? '';
                     }
 
-                    // Get quantity for this option value (only for non-colour options)
+                    // Get quantity for this option value matching selected options
                     let qty: number | undefined;
                     if (!isColour) {
-                      const variantForQty = variants.find((v) =>
-                        v.selectedOptions.some((opt) => opt.name === option.name && opt.value === value)
-                      );
+                      const testOptionsForQty = { ...selectedOptions, [option.name]: value };
+                      const variantForQty = getVariantFromOptions(variants, testOptionsForQty);
                       qty = variantForQty?.quantityAvailable;
                     }
-                    const isLowStock = !isColour && isAvail && qty !== undefined && qty > 0 && qty < 5;
+                    const isLowStock = !isColour && isAvail && qty !== undefined && qty > 0 && qty <= 5;
                     const isOutOfStock = !isAvail;
 
                     return (
-                      <div key={value} className={`size-option-wrap${isLowStock ? ' size-option-wrap--has-label' : ''}`}>
+                      <div key={value} className="size-option-wrap">
                         <button
                           className={`variant-option ${selectedOptions[option.name] === value ? 'active' : ''} ${isOutOfStock ? 'unavailable out-of-stock' : ''} ${isColour ? 'colour-swatch' : ''}`}
                           onClick={() => isAvail && handleOptionSelect(option.name, value)}
@@ -261,11 +266,6 @@ export default function ProductInfo({ product }: Props) {
                             </span>
                           )}
                         </button>
-
-                        {/* Low stock label */}
-                        {isLowStock && (
-                          <span className="size-low-stock-label">Only {qty} left</span>
-                        )}
                       </div>
                     );
                   })}
@@ -275,23 +275,19 @@ export default function ProductInfo({ product }: Props) {
           </div>
         )}
 
-      {/* Stock warning */}
-      {available && selectedVariant && selectedVariant.quantityAvailable !== undefined && selectedVariant.quantityAvailable <= 3 && (
-        <div className="stock-warning">
-          <div className="stock-warning-text" style={{ fontSize: '0.875rem', color: '#D93939', fontWeight: 600 }}>
-            Hurry, only {selectedVariant.quantityAvailable} item{selectedVariant.quantityAvailable > 1 ? 's' : ''} left in stock!
-          </div>
-          <div className="stock-warning-bar" style={{ width: '100%', height: '6px', background: '#F0F0F0', borderRadius: '3px', overflow: 'hidden', marginTop: '6px' }}>
-            <div 
-              className="stock-warning-progress" 
-              style={{ 
-                width: `${(selectedVariant.quantityAvailable / 3) * 100}%`, 
-                height: '100%', 
-                background: '#D93939',
-                transition: 'width 0.3s ease'
-              }} 
-            />
-          </div>
+      {/* Out of Stock warning */}
+      {(!available || (selectedVariant && selectedVariant.quantityAvailable === 0)) && (
+        <div className="stock-warning" style={{ color: '#c62828', fontWeight: 700, fontSize: '0.85rem', margin: '14px 0 8px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(229, 57, 53, 0.08)', border: '1px solid rgba(229, 57, 53, 0.2)' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Out of Stock: Size {selectedOptions["Size"] || selectedOptions["size"] || ""} is currently out of stock.
+        </div>
+      )}
+
+      {/* Limited Stock warning */}
+      {available && selectedVariant && selectedVariant.quantityAvailable !== undefined && selectedVariant.quantityAvailable <= 5 && selectedVariant.quantityAvailable > 0 && (
+        <div className="stock-warning" style={{ color: '#d32f2f', fontWeight: 700, fontSize: '0.85rem', margin: '14px 0 8px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(211, 47, 47, 0.06)', border: '1px solid rgba(211, 47, 47, 0.2)' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Limited Stock: Only {selectedVariant.quantityAvailable} left for size {selectedOptions["Size"] || selectedOptions["size"] || ""} — order soon!
         </div>
       )}
 

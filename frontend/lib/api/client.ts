@@ -25,6 +25,7 @@ export function getApiBaseUrl(): string {
 export interface FetchOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
+  headers?: Record<string, string>;
   cache?: RequestCache;
   tags?: string[];
 }
@@ -33,11 +34,12 @@ export async function fetchAPI<T>(
   path: string,
   options: FetchOptions = {}
 ): Promise<T> {
-  const { method = 'GET', body, cache, tags } = options;
+  const { method = 'GET', body, headers: customHeaders, cache, tags } = options;
   const url = `${getApiBaseUrl()}${path}`;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...customHeaders,
   };
 
   const fetchOptions: RequestInit = {

@@ -35,48 +35,18 @@ export default function CartDrawer() {
 
   if (!shouldRender) return null;
 
-  const performCheckout = async (cartId: string) => {
-    setCheckoutError('');
-    setCheckoutLoading(true);
-
-    try {
-      const savedToken = localStorage.getItem('vahn_auth_token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (savedToken) headers['Authorization'] = `Bearer ${savedToken}`;
-
-      const res = await fetch(`${getApiBaseUrl()}/orders/checkout`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ cart_id: cartId })
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'Checkout failed');
-      }
-
-      clearCart();
-      closeCart();
-      router.push('/account/orders');
-    } catch (err: any) {
-      setCheckoutError(err.message || 'Failed to process checkout');
-    } finally {
-      setCheckoutLoading(false);
-    }
-  };
-
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
     if (!cart?.id) return;
+    closeCart();
 
     if (!user) {
-      const activeCartId = cart.id;
       openAuthModal('login', () => {
-        performCheckout(activeCartId);
+        router.push('/checkout');
       });
       return;
     }
 
-    await performCheckout(cart.id);
+    router.push('/checkout');
   };
 
   return (
@@ -99,7 +69,28 @@ export default function CartDrawer() {
 
         {/* Body */}
         <div className="cart-drawer-body">
-          {checkoutError && <div className="auth-error-banner" style={{ margin: '12px' }}>{checkoutError}</div>}
+          {checkoutError && (
+            <div style={{ margin: '12px', padding: '12px', background: 'rgba(229, 57, 53, 0.08)', border: '1px solid rgba(229, 57, 53, 0.25)', borderRadius: '0px' }}>
+              <p style={{ fontSize: '0.82rem', fontWeight: 600, color: '#c62828', margin: '0 0 8px' }}>
+                {checkoutError}
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ width: '100%', fontSize: '0.75rem', padding: '6px', background: '#ffffff', borderColor: '#c62828', color: '#c62828', fontWeight: 700 }}
+                onClick={() => {
+                  lines.forEach(l => {
+                    if (l.merchandise.quantityAvailable === 0 || checkoutError.toLowerCase().includes('stock')) {
+                      removeItem(l.id);
+                    }
+                  });
+                  setCheckoutError('');
+                }}
+              >
+                Clear Out of Stock Items ✕
+              </button>
+            </div>
+          )}
 
           {lines.length === 0 ? (
             <div className="cart-empty">

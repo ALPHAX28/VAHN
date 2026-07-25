@@ -14,18 +14,25 @@ export default function ProductCard({ product }: Props) {
   const isOnSale =
     comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount);
 
+  const discountPercent = isOnSale && comparePrice
+    ? Math.round(((parseFloat(comparePrice.amount) - parseFloat(price.amount)) / parseFloat(comparePrice.amount)) * 100)
+    : 0;
+
   return (
     <Link href={`/products/${product.handle}`} className="product-card">
       {/* Badge */}
-      {isOnSale && <span className="product-card-badge">Sale</span>}
-      {!product.availableForSale && (
+      {isOnSale && discountPercent > 0 ? (
+        <span className="product-card-badge" style={{ background: '#d32f2f', color: '#ffffff', fontWeight: 800 }}>
+          {discountPercent}% OFF
+        </span>
+      ) : !product.availableForSale ? (
         <span
           className="product-card-badge"
           style={{ background: 'var(--color-black)' }}
         >
           Sold Out
         </span>
-      )}
+      ) : null}
 
       {/* Media */}
       <div className="product-card-media">

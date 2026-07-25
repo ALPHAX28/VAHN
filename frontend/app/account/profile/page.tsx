@@ -1,8 +1,10 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { MapPinIcon } from '@/components/icons/Icons';
 
 export default function ProfilePage() {
   const { user, updateProfile, changePassword, loading, openAuthModal } = useAuth();
@@ -86,14 +88,14 @@ export default function ProfilePage() {
   return (
     <div className="account-page-container">
       <div className="account-header">
-        <h1 className="account-title">My Profile</h1>
+        <h1 className="account-title" style={{ textTransform: "uppercase" }}>My Profile</h1>
         <p className="account-subtitle">Manage your personal information and account security settings.</p>
       </div>
 
       <div className="account-grid">
         {/* Profile Details Card */}
-        <div className="account-card">
-          <h2 className="account-card-title">Personal Details</h2>
+        <div className="account-card" style={{ borderRadius: 0, border: "1px solid #000000" }}>
+          <h2 className="account-card-title" style={{ textTransform: "uppercase" }}>Personal Details</h2>
 
           {profileMsg && <div className="auth-success-banner">{profileMsg}</div>}
           {profileErr && <div className="auth-error-banner">{profileErr}</div>}
@@ -106,6 +108,7 @@ export default function ProfilePage() {
                 disabled
                 value={user.email}
                 className="auth-input disabled"
+                style={{ borderRadius: 0 }}
               />
             </div>
 
@@ -117,18 +120,19 @@ export default function ProfilePage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 className="auth-input"
+                style={{ borderRadius: 0 }}
               />
             </div>
 
-            <button type="submit" disabled={profileLoading} className="auth-submit-btn">
+            <button type="submit" disabled={profileLoading} className="auth-submit-btn" style={{ borderRadius: 0, textTransform: "uppercase", letterSpacing: "0.05em" }}>
               {profileLoading ? 'Saving...' : 'Save Profile Changes'}
             </button>
           </form>
         </div>
 
         {/* Change Password Card */}
-        <div className="account-card">
-          <h2 className="account-card-title">Security & Password</h2>
+        <div className="account-card" style={{ borderRadius: 0, border: "1px solid #000000" }}>
+          <h2 className="account-card-title" style={{ textTransform: "uppercase" }}>Security & Password</h2>
 
           {passwordMsg && <div className="auth-success-banner">{passwordMsg}</div>}
           {passwordErr && <div className="auth-error-banner">{passwordErr}</div>}
@@ -143,6 +147,7 @@ export default function ProfilePage() {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 className="auth-input"
+                style={{ borderRadius: 0 }}
               />
             </div>
 
@@ -155,6 +160,7 @@ export default function ProfilePage() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="auth-input"
+                style={{ borderRadius: 0 }}
               />
             </div>
 
@@ -167,13 +173,45 @@ export default function ProfilePage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="auth-input"
+                style={{ borderRadius: 0 }}
               />
             </div>
 
-            <button type="submit" disabled={passwordLoading} className="auth-submit-btn">
+            <button type="submit" disabled={passwordLoading} className="auth-submit-btn" style={{ borderRadius: 0, textTransform: "uppercase", letterSpacing: "0.05em" }}>
               {passwordLoading ? 'Updating Password...' : 'Update Password'}
             </button>
           </form>
+        </div>
+
+        {/* Saved Delivery Addresses Card */}
+        <div className="account-card" style={{ gridColumn: "1 / -1", marginTop: 8, borderRadius: 0, border: "1px solid #000000" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <h2 className="account-card-title" style={{ margin: 0, textTransform: "uppercase" }}>Saved Delivery Addresses</h2>
+              <p style={{ fontSize: "0.85rem", color: "#555555", margin: "4px 0 0" }}>
+                Add, label, and manage your Indian shipping addresses for fast checkout.
+              </p>
+            </div>
+            <Link
+              href="/account/addresses"
+              style={{
+                background: "#000000", color: "#ffffff", padding: "12px 22px",
+                borderRadius: 0, fontWeight: 900, fontSize: "0.82rem", textDecoration: "none",
+                display: "inline-flex", alignItems: "center", gap: 6, textTransform: "uppercase", letterSpacing: "0.05em"
+              }}
+            >
+              Manage Saved Addresses →
+            </Link>
+          </div>
+
+          <div style={{ background: "#ffffff", border: "1px solid #000000", padding: 20, display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 0, background: "#f8fafc", border: "1px solid #000000", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <MapPinIcon size={20} color="#000000" />
+            </div>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000000", textTransform: "uppercase" }}>Manage Multiple Delivery Locations</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

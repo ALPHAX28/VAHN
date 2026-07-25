@@ -103,7 +103,7 @@ export default function OrdersPage() {
       ) : (
         <div className="orders-list">
           {orders.map((order) => (
-            <div key={order.id} className="order-card">
+            <div key={order.id} className="order-card" style={{ cursor: "pointer" }} onClick={() => router.push(`/account/orders/${order.id}`)}>
               {/* Order Card Header */}
               <div className="order-card-header">
                 <div>
@@ -117,6 +117,9 @@ export default function OrdersPage() {
                   <strong className="order-total-price">
                     {formatMoney(order.totalPrice)}
                   </strong>
+                  <Link href={`/account/orders/${order.id}`} className="btn btn-secondary" style={{ padding: "6px 14px", fontSize: "0.78rem" }} onClick={e => e.stopPropagation()}>
+                    View Order Details →
+                  </Link>
                 </div>
               </div>
 
