@@ -73,6 +73,17 @@ const labelStyle: React.CSSProperties = {
 };
 
 export default function AddressModal({ token, isOpen, onClose, onSuccess }: AddressModalProps) {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
   const [activeTab, setActiveTab] = useState<"search" | "manual">("search");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

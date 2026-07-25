@@ -33,6 +33,17 @@ export default function Header() {
   const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
+    if (mobileOpen || searchOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileOpen, searchOpen]);
+
+  useEffect(() => {
     if (mobileOpen) {
       setShouldRenderNav(true);
       setIsClosingNav(false);

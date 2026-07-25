@@ -4139,13 +4139,15 @@ input, textarea, select {
   top: 0;
   left: 0;
   bottom: 0;
+  height: 100vh;
+  height: 100dvh;
   width: var(--admin-sidebar-w);
   background: var(--admin-sidebar-bg);
   border-right: 1px solid var(--admin-sidebar-border);
   display: flex;
   flex-direction: column;
   z-index: 200;
-  overflow-y: auto;
+  overflow: hidden;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -4205,12 +4207,24 @@ input, textarea, select {
 
 .admin-sidebar-nav {
   flex: 1;
+  min-height: 0;
   padding: 12px 10px;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.admin-sidebar-nav::-webkit-scrollbar {
+  display: none;
+  width: 0;
 }
 
 .admin-nav-section {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+}
+
+.admin-nav-section:last-child {
+  margin-bottom: 0;
 }
 
 .admin-nav-section-label {
@@ -4261,6 +4275,9 @@ input, textarea, select {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
+  margin-top: auto;
+  background: var(--admin-sidebar-bg);
 }
 
 .admin-sidebar-user {
@@ -5467,8 +5484,8 @@ input, textarea, select {
 }
 
 @media (max-width: 768px) {
-  .admin-main { margin-left: 0; }
-  .admin-content { padding: 20px 16px; }
+  .admin-main { margin-left: 0; max-width: 100vw; overflow-x: hidden; }
+  .admin-content { padding: 16px 12px; max-width: 100%; box-sizing: border-box; overflow-x: hidden; }
 
   .admin-sidebar {
     transform: translateX(-100%);
@@ -5482,10 +5499,33 @@ input, textarea, select {
   .admin-topbar-menu-btn { display: flex; }
   .admin-topbar-storefront-label { display: inline; }
 
-  .admin-stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .admin-stat-value { font-size: 1.4rem; }
+  .admin-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .admin-stat-card { padding: 14px; box-sizing: border-box; }
+  .admin-stat-value { font-size: 1.35rem; }
+  .admin-stat-label { font-size: 0.72rem; }
 
-  .admin-page-header { flex-direction: column; align-items: flex-start; }
+  .admin-card { padding: 16px 14px; border-radius: 6px; box-sizing: border-box; width: 100%; overflow: hidden; }
+  .admin-card-title { font-size: 0.92rem; }
+  .admin-card-header { flex-wrap: wrap; gap: 10px; }
+
+  .admin-table-wrapper {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+  }
+  .admin-table {
+    min-width: 600px;
+    font-size: 0.8rem;
+  }
+  .admin-table th, .admin-table td { padding: 10px 8px; white-space: nowrap; }
+  .admin-table th:first-child, .admin-table td:first-child { padding-left: 4px; }
+  .admin-table th:last-child, .admin-table td:last-child { padding-right: 4px; }
+
+  .admin-page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .admin-page-title { font-size: 1.25rem; }
   .admin-filters-row { flex-direction: column; align-items: flex-start; }
   .admin-search-input { max-width: 100%; }
   .admin-search-bar { width: 100%; }
@@ -5498,9 +5538,13 @@ input, textarea, select {
 
   .admin-auth-card { padding: 28px 20px; }
   .admin-otp-input { max-width: 44px; height: 46px; font-size: 1.1rem; }
+}
 
-  .admin-table { font-size: 0.8rem; }
-  .admin-table th, .admin-table td { padding: 10px 8px; }
+@media (max-width: 480px) {
+  .admin-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .admin-stat-card { padding: 12px 10px; }
+  .admin-stat-value { font-size: 1.15rem; }
+  .admin-stat-icon { width: 34px; height: 34px; border-radius: 8px; }
 }
 
 /* ---- Image Reordering Controls & Badges ---- */
@@ -6118,6 +6162,16 @@ input, textarea, select {
   outline: 2px solid #000000;
   outline-offset: 1px;
   border-color: #000000;
+}
+
+/* Prevent background scroll bleed when sidebars/drawers/modals are open */
+.admin-sidebar,
+.mobile-nav-panel,
+.cart-drawer,
+.search-modal-content,
+.address-modal-content,
+.auth-modal-content {
+  overscroll-behavior: contain !important;
 }
 
 /* ============================================================

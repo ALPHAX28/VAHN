@@ -23,14 +23,22 @@ export default function CartDrawer() {
     if (isOpen) {
       setShouldRender(true);
       setIsClosing(false);
+      document.body.style.overflow = 'hidden';
     } else if (shouldRender) {
       setIsClosing(true);
+      document.body.style.overflow = '';
       const timer = setTimeout(() => {
         setShouldRender(false);
         setIsClosing(false);
       }, 350);
       return () => clearTimeout(timer);
+    } else {
+      document.body.style.overflow = '';
     }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen, shouldRender]);
 
   if (!shouldRender) return null;

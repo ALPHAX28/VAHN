@@ -30,6 +30,7 @@ export default function AuthModal() {
 
   useEffect(() => {
     if (isAuthModalOpen) {
+      document.body.style.overflow = 'hidden';
       setStep('form');
       setError('');
       setPassword('');
@@ -37,7 +38,13 @@ export default function AuthModal() {
       setShowPassword(false);
       setShowConfirmPassword(false);
       setOtpDigits(['', '', '', '', '', '']);
+    } else {
+      document.body.style.overflow = '';
     }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isAuthModalOpen]);
 
   useEffect(() => {
