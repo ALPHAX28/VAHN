@@ -28,12 +28,18 @@ interface Order {
   items: OrderItem[];
 }
 
+import { clientCache } from '@/lib/api/cache';
+import { fetchAPI } from '@/lib/api/client';
+
 export default function OrdersPage() {
   const { user, loading, getAuthHeaders, openAuthModal } = useAuth();
   const router = useRouter();
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [fetching, setFetching] = useState(true);
+  const cacheKey = user ? `storefront:/orders` : '';
+  const initialOrders = cacheKey ? clientCache.get<Order[]>(cacheKey) : null;
+
+  const [orders, setOrders] = useState<Order[]>(initialOrders || []);
+  const [fetching, setFetching] = useState(!initialOrders);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -44,22 +50,17 @@ export default function OrdersPage() {
     }
 
     if (user) {
-      fetchOrders();
+      fetchOrders(!!initialOrders);
     }
   }, [user, loading, router, openAuthModal]);
 
-  const fetchOrders = async () => {
-    setFetching(true);
+  const fetchOrders = async (isSilent = false) => {
+    if (!isSilent && orders.length === 0) setFetching(true);
     setError('');
     try {
-      const res = await fetch(`${getApiBaseUrl()}/orders`, {
+      const data = await fetchAPI<Order[]>('/orders', {
         headers: getAuthHeaders()
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'Failed to load order history');
-      }
-      const data = await res.json();
       setOrders(data);
     } catch (err: any) {
       setError(err.message || 'Error loading orders');

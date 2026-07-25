@@ -11,10 +11,16 @@ import {
   CheckIcon, TrashIcon, StarIcon
 } from "@/components/icons/Icons";
 
+import { clientCache } from "@/lib/api/cache";
+
 export default function AccountAddressesPage() {
   const { user, token } = useAuth();
-  const [addresses, setAddresses] = useState<UserAddress[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const cacheKey = token ? `storefront:/users/me/addresses` : "";
+  const initialAddresses = cacheKey ? clientCache.get<UserAddress[]>(cacheKey) : null;
+
+  const [addresses, setAddresses] = useState<UserAddress[]>(initialAddresses || []);
+  const [loading, setLoading] = useState(!initialAddresses);
   const [showModal, setShowModal] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [settingDefaultId, setSettingDefaultId] = useState<number | null>(null);
@@ -24,12 +30,12 @@ export default function AccountAddressesPage() {
       setLoading(false);
       return;
     }
-    loadAddresses();
+    loadAddresses(!!initialAddresses);
   }, [token]);
 
-  async function loadAddresses() {
+  async function loadAddresses(isSilent = false) {
     if (!token) return;
-    setLoading(true);
+    if (!isSilent && addresses.length === 0) setLoading(true);
     try {
       const data = await getUserAddresses(token);
       setAddresses(data);
