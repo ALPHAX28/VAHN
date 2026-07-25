@@ -84,7 +84,6 @@ export default function AdminProductsPage() {
                 <thead>
                   <tr>
                     <th>Product</th>
-                    <th>Handle</th>
                     <th>Type</th>
                     <th>Variants</th>
                     <th>Status</th>
@@ -94,7 +93,7 @@ export default function AdminProductsPage() {
                 </thead>
                 <tbody>
                   {(!data?.items || data.items.length === 0) && (
-                    <tr><td colSpan={7} className="admin-table-empty">No products found</td></tr>
+                    <tr><td colSpan={6} className="admin-table-empty">No products found</td></tr>
                   )}
                   {data?.items.map(p => (
                     <tr key={p.id}>
@@ -111,7 +110,6 @@ export default function AdminProductsPage() {
                           </div>
                         </div>
                       </td>
-                      <td><code className="admin-code">{p.handle}</code></td>
                       <td>{p.product_type || "—"}</td>
                       <td>{p.variants_count}</td>
                       <td>
@@ -178,10 +176,6 @@ export default function AdminProductsPage() {
 
                   <div className="admin-mobile-product-details">
                     <div className="admin-mobile-detail-row">
-                      <span className="admin-mobile-detail-label">Handle:</span>
-                      <code className="admin-code" style={{ fontSize: "0.72rem", wordBreak: "break-all" }}>{p.handle}</code>
-                    </div>
-                    <div className="admin-mobile-detail-row">
                       <span className="admin-mobile-detail-label">Variants:</span>
                       <span className="admin-mobile-detail-value">{p.product_type || "Apparel"} • {p.variants_count} variant{p.variants_count === 1 ? "" : "s"}</span>
                     </div>
@@ -197,6 +191,7 @@ export default function AdminProductsPage() {
                       </div>
                     )}
                   </div>
+
 
                   <div className="admin-mobile-product-actions">
                     <Link href={`/admin/products/${p.id}`} className="admin-btn admin-btn--primary" style={{ flex: 1, padding: "8px 12px", fontSize: "0.8rem" }}>
