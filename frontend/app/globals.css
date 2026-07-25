@@ -4056,6 +4056,28 @@ input, textarea, select {
     gap: 8px;
   }
 
+  .order-card-meta-row {
+    width: 100%;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .order-view-btn {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+    display: inline-flex;
+    margin-top: 4px;
+    padding: 8px 12px !important;
+    box-sizing: border-box;
+  }
+
+  .vahn-no-print {
+    padding: 0 12px !important;
+    margin: 20px auto !important;
+  }
+
   .order-items-list {
     padding: 14px 16px;
     gap: 14px;
@@ -4072,6 +4094,27 @@ input, textarea, select {
 
   .order-item-price {
     font-size: 0.84rem;
+  }
+}
+
+.order-card-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.vahn-order-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .vahn-order-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 }
 

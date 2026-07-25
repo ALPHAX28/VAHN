@@ -288,7 +288,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {/* Content Grid: Items (left) | Info (right) */}
-      <div className="vahn-order-grid" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, alignItems: "start" }}>
+      <div className="vahn-order-grid">
 
         {/* Ordered Items */}
         <div style={{ background: "#fff", border: "2px solid #000" }}>

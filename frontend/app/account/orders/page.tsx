@@ -111,14 +111,14 @@ export default function OrdersPage() {
                   <span className="order-number">{order.id}</span>
                   <span className="order-date">Placed on {order.createdAt}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div className="order-card-meta-row">
                   <span className={`order-status-badge status-${order.status.toLowerCase()}`}>
                     {order.status}
                   </span>
                   <strong className="order-total-price">
                     {formatMoney(order.totalPrice)}
                   </strong>
-                  <Link href={`/account/orders/${order.id}`} className="btn btn-secondary" style={{ padding: "6px 14px", fontSize: "0.78rem" }} onClick={e => e.stopPropagation()}>
+                  <Link href={`/account/orders/${order.id}`} className="btn btn-secondary order-view-btn" style={{ fontSize: "0.78rem" }} onClick={e => e.stopPropagation()}>
                     View Order Details →
                   </Link>
                 </div>
