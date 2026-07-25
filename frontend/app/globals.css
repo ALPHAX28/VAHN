@@ -4113,6 +4113,15 @@ input, textarea, select {
   box-sizing: border-box;
 }
 
+.vahn-order-card {
+  background: #ffffff;
+  border: 2px solid #000000;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
 .vahn-card-box {
   background: #fff;
   border: 2px solid #000;
@@ -4139,6 +4148,10 @@ input, textarea, select {
 }
 
 @media (max-width: 640px) {
+  .vahn-order-card {
+    padding: 16px 14px !important;
+    margin-bottom: 20px !important;
+  }
   .vahn-card-box-header {
     padding: 12px 14px !important;
   }
@@ -6206,7 +6219,7 @@ input, textarea, select {
   display: none !important;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .vahn-tracker-desktop {
     display: none !important;
   }
