@@ -6,26 +6,33 @@ import { getAdminUsers, suspendUser, reactivateUser, deleteAdminUser, type Admin
 import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 
+import { clientCache } from "@/lib/api/cache";
+
 export default function AdminUsersPage() {
   const { adminToken } = useAdminAuth();
-  const [data, setData] = useState<PaginatedResponse<AdminUser> | null>(null);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [page, setPage] = useState(1);
+
+  const cachePath = `/admin/users?page=${page}${search ? `&search=${encodeURIComponent(search)}` : ""}&role=customer`;
+  const cacheKey = adminToken ? `admin:${adminToken.slice(0, 10)}:${cachePath}` : "";
+  const initialData = cacheKey ? clientCache.get<PaginatedResponse<AdminUser>>(cacheKey) : null;
+
+  const [data, setData] = useState<PaginatedResponse<AdminUser> | null>(initialData);
+  const [loading, setLoading] = useState(!initialData);
   const [suspendModal, setSuspendModal] = useState<{ userId: number; email: string } | null>(null);
   const [suspendReason, setSuspendReason] = useState("");
 
-  async function load() {
+  async function load(isSilent = false) {
     if (!adminToken) return;
-    setLoading(true);
+    if (!isSilent && !data) setLoading(true);
     try {
       const res = await getAdminUsers(adminToken, { page, search: search || undefined, role: "customer" });
       setData(res);
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); }, [adminToken, page, search]);
+  useEffect(() => { load(!!initialData); }, [adminToken, page, search]);
 
   async function handleSuspend() {
     if (!adminToken || !suspendModal) return;

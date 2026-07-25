@@ -7,10 +7,14 @@ import AdminStatsCard from "@/components/admin/AdminStatsCard";
 import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 
+import { clientCache } from "@/lib/api/cache";
+
 export default function AdminDashboardPage() {
   const { adminToken, adminUser } = useAdminAuth();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = adminToken ? `admin:${adminToken.slice(0, 10)}:/admin/dashboard/stats` : "";
+  const initialStats = cacheKey ? clientCache.get<DashboardStats>(cacheKey) : null;
+  const [stats, setStats] = useState<DashboardStats | null>(initialStats);
+  const [loading, setLoading] = useState(!initialStats);
   const [error, setError] = useState("");
 
   useEffect(() => {

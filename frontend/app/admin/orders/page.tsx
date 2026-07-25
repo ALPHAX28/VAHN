@@ -6,27 +6,34 @@ import { getAdminOrders, type AdminOrderSummary, type PaginatedResponse } from "
 import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 
+import { clientCache } from "@/lib/api/cache";
+
 const STATUS_FILTERS = ["", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
 
 export default function AdminOrdersPage() {
   const { adminToken } = useAdminAuth();
-  const [data, setData] = useState<PaginatedResponse<AdminOrderSummary> | null>(null);
-  const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [page, setPage] = useState(1);
 
-  async function load() {
+  const cachePath = `/admin/orders?page=${page}${status ? `&status=${status}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
+  const cacheKey = adminToken ? `admin:${adminToken.slice(0, 10)}:${cachePath}` : "";
+  const initialData = cacheKey ? clientCache.get<PaginatedResponse<AdminOrderSummary>>(cacheKey) : null;
+
+  const [data, setData] = useState<PaginatedResponse<AdminOrderSummary> | null>(initialData);
+  const [loading, setLoading] = useState(!initialData);
+
+  async function load(isSilent = false) {
     if (!adminToken) return;
-    setLoading(true);
+    if (!isSilent && !data) setLoading(true);
     try {
       const res = await getAdminOrders(adminToken, { page, status: status || undefined, search: search || undefined });
       setData(res);
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); }, [adminToken, page, status, search]);
+  useEffect(() => { load(!!initialData); }, [adminToken, page, status, search]);
 
   return (
     <div className="admin-page">

@@ -4,27 +4,34 @@ import { useEffect, useState } from "react";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import { getAdminCollections, createAdminCollection, updateAdminCollection, deleteAdminCollection, type AdminCollection, type PaginatedResponse } from "@/lib/api/admin";
 
+import { clientCache } from "@/lib/api/cache";
+
 export default function AdminCollectionsPage() {
   const { adminToken } = useAdminAuth();
-  const [data, setData] = useState<PaginatedResponse<AdminCollection> | null>(null);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+
+  const cachePath = `/admin/collections?page=${page}`;
+  const cacheKey = adminToken ? `admin:${adminToken.slice(0, 10)}:${cachePath}` : "";
+  const initialData = cacheKey ? clientCache.get<PaginatedResponse<AdminCollection>>(cacheKey) : null;
+
+  const [data, setData] = useState<PaginatedResponse<AdminCollection> | null>(initialData);
+  const [loading, setLoading] = useState(!initialData);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({ title: "", handle: "", description: "", image_url: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  async function load() {
+  async function load(isSilent = false) {
     if (!adminToken) return;
-    setLoading(true);
+    if (!isSilent && !data) setLoading(true);
     try {
       const res = await getAdminCollections(adminToken, { page });
       setData(res);
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { load(); }, [adminToken, page]);
+  useEffect(() => { load(!!initialData); }, [adminToken, page]);
 
   async function handleSave() {
     if (!adminToken) return;

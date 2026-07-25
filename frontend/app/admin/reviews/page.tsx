@@ -16,6 +16,8 @@ import {
 import AdminBadge from "@/components/admin/AdminBadge";
 import Image from "next/image";
 
+import { clientCache } from "@/lib/api/cache";
+
 interface ProductReviewGroup {
   productId: number;
   productTitle: string;
@@ -34,13 +36,19 @@ export default function AdminReviewsPage() {
   const [productsList, setProductsList] = useState<AdminProductSummary[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<ProductReviewGroup | null>(null);
 
-  // Reviews Data
-  const [reviewsData, setReviewsData] = useState<PaginatedResponse<AdminReview> | null>(null);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [hiddenFilter, setHiddenFilter] = useState<boolean | undefined>(undefined);
   const [page, setPage] = useState(1);
+
+  const cachePath = selectedProduct 
+    ? `/admin/products/${selectedProduct.productId}/reviews?page=${page}` 
+    : `/admin/reviews?page=${page}${hiddenFilter !== undefined ? `&is_hidden=${hiddenFilter}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
+  const cacheKey = adminToken ? `admin:${adminToken.slice(0, 10)}:${cachePath}` : "";
+  const initialData = cacheKey ? clientCache.get<PaginatedResponse<AdminReview>>(cacheKey) : null;
+
+  const [reviewsData, setReviewsData] = useState<PaginatedResponse<AdminReview> | null>(initialData);
+  const [loading, setLoading] = useState(!initialData);
 
   // Edit / Add Modal States
   const [editing, setEditing] = useState<AdminReview | null>(null);
@@ -58,9 +66,9 @@ export default function AdminReviewsPage() {
   }, [adminToken]);
 
   // Load reviews list
-  async function loadReviews() {
+  async function loadReviews(isSilent = false) {
     if (!adminToken) return;
-    setLoading(true);
+    if (!isSilent && !reviewsData) setLoading(true);
     try {
       if (selectedProduct) {
         // Fetch reviews specifically for the selected product
@@ -71,12 +79,10 @@ export default function AdminReviewsPage() {
         const res = await getAdminReviews(adminToken, { page, search: search || undefined, is_hidden: hiddenFilter });
         setReviewsData(res);
       }
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
-  useEffect(() => { loadReviews(); }, [adminToken, page, search, hiddenFilter, selectedProduct]);
+  useEffect(() => { loadReviews(!!initialData); }, [adminToken, page, search, hiddenFilter, selectedProduct]);
 
   // Group reviews by product for Product-Wise overview
   const productGroupsMap = new Map<number, ProductReviewGroup>();

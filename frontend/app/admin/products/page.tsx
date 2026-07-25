@@ -7,17 +7,24 @@ import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 import Image from "next/image";
 
+import { clientCache } from "@/lib/api/cache";
+
 export default function AdminProductsPage() {
   const { adminToken } = useAdminAuth();
-  const [data, setData] = useState<PaginatedResponse<AdminProductSummary> | null>(null);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
 
-  async function load() {
+  const cachePath = `/admin/products?page=${page}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
+  const cacheKey = adminToken ? `admin:${adminToken.slice(0, 10)}:${cachePath}` : "";
+  const initialData = cacheKey ? clientCache.get<PaginatedResponse<AdminProductSummary>>(cacheKey) : null;
+
+  const [data, setData] = useState<PaginatedResponse<AdminProductSummary> | null>(initialData);
+  const [loading, setLoading] = useState(!initialData);
+
+  async function load(isSilent = false) {
     if (!adminToken) return;
-    setLoading(true);
+    if (!isSilent && !data) setLoading(true);
     try {
       const res = await getAdminProducts(adminToken, { page, search: search || undefined });
       setData(res);
@@ -28,7 +35,7 @@ export default function AdminProductsPage() {
     }
   }
 
-  useEffect(() => { load(); }, [adminToken, page, search]);
+  useEffect(() => { load(!!initialData); }, [adminToken, page, search]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

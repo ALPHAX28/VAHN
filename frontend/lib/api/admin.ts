@@ -187,6 +187,8 @@ export interface PaginatedResponse<T> {
   total_pages: number;
 }
 
+import { clientCache } from "./cache";
+
 // ============================================================
 // Core Fetch Helper
 // ============================================================
@@ -196,21 +198,36 @@ async function adminFetch<T>(
   token: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const method = (options.method || "GET").toUpperCase();
   const baseUrl = getApiBaseUrl();
-  const res = await fetch(`${baseUrl}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(options.headers || {}),
-    },
-  });
 
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.detail || `Request failed: ${res.status}`);
+  const networkFetcher = async (): Promise<T> => {
+    const res = await fetch(`${baseUrl}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || `Request failed: ${res.status}`);
+    }
+    return data as T;
+  };
+
+  // If GET request, use SWR client cache for instant 0ms response!
+  if (method === "GET") {
+    const cacheKey = `admin:${token.slice(0, 10)}:${path}`;
+    return clientCache.fetchWithCache<T>(cacheKey, networkFetcher);
   }
-  return data as T;
+
+  // For mutations (POST, PUT, DELETE), execute network call and invalidate cache!
+  const result = await networkFetcher();
+  clientCache.invalidate("admin:");
+  return result;
 }
 
 // ============================================================

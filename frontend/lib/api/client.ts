@@ -29,6 +29,8 @@ export function getApiBaseUrl(): string {
 }
 
 
+import { clientCache } from './cache';
+
 export interface FetchOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
@@ -42,32 +44,43 @@ export async function fetchAPI<T>(
   options: FetchOptions = {}
 ): Promise<T> {
   const { method = 'GET', body, headers: customHeaders, cache, tags } = options;
-  const url = `${getApiBaseUrl()}${path}`;
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...customHeaders,
+  const networkFetcher = async (): Promise<T> => {
+    const url = `${getApiBaseUrl()}${path}`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...customHeaders,
+    };
+
+    const fetchOptions: RequestInit = {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    };
+
+    if (cache) {
+      fetchOptions.cache = cache;
+    } else if (method === 'GET') {
+      fetchOptions.next = { revalidate: 30, tags };
+    } else {
+      fetchOptions.cache = 'no-store';
+    }
+
+    const res = await fetch(url, fetchOptions);
+
+    if (!res.ok) {
+      throw new Error(`API error: ${res.status} ${res.statusText} on ${path}`);
+    }
+
+    return res.json();
   };
 
-  const fetchOptions: RequestInit = {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  };
-
-  if (cache) {
-    fetchOptions.cache = cache;
-  } else if (method === 'GET') {
-    fetchOptions.next = { revalidate: 30, tags };
-  } else {
-    fetchOptions.cache = 'no-store';
+  if (method === 'GET') {
+    const cacheKey = `storefront:${path}`;
+    return clientCache.fetchWithCache<T>(cacheKey, networkFetcher);
   }
 
-  const res = await fetch(url, fetchOptions);
-
-  if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText} on ${path}`);
-  }
-
-  return res.json();
+  const result = await networkFetcher();
+  clientCache.invalidate('storefront:');
+  return result;
 }
