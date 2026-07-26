@@ -60,7 +60,7 @@ class ProductVariant(Base):
     __tablename__ = "product_variants"
 
     id = Column(String, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String, nullable=False)
     available_for_sale = Column(Boolean, default=True)
     price_amount = Column(Float, nullable=False)
@@ -81,7 +81,7 @@ class ProductColourGroup(Base):
     __tablename__ = "product_colour_groups"
 
     id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
     colour_value = Column(String, nullable=False)  # e.g. "Maroon"
     images = Column(JSON, default=list)            # [{url, altText}]
     display_order = Column(Integer, default=0)
@@ -105,8 +105,8 @@ class CartItem(Base):
     __tablename__ = "cart_items"
 
     id = Column(String, primary_key=True, index=True)
-    cart_id = Column(String, ForeignKey("carts.id", ondelete="CASCADE"), nullable=False)
-    variant_id = Column(String, ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=False)
+    cart_id = Column(String, ForeignKey("carts.id", ondelete="CASCADE"), nullable=False, index=True)
+    variant_id = Column(String, ForeignKey("product_variants.id", ondelete="CASCADE"), nullable=False, index=True)
     quantity = Column(Integer, default=1)
 
     # Relationships
@@ -117,8 +117,8 @@ class ProductReview(Base):
     __tablename__ = "product_reviews"
 
     id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     rating = Column(Float, nullable=False)
     title = Column(String, nullable=True)
     author = Column(String, nullable=False)
@@ -158,7 +158,7 @@ class UserAddress(Base):
     __tablename__ = "user_addresses"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     label = Column(String, default="Home") # Home | Work | Office | Studio | Custom
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
@@ -187,7 +187,7 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(String, primary_key=True, index=True)  # e.g. ORD-894721
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     status = Column(String, default="PROCESSING")  # PROCESSING | SHIPPED | DELIVERED | CANCELLED
     refund_status = Column(String, nullable=True)   # PENDING | REFUNDED
     refund_note = Column(Text, nullable=True)
@@ -209,8 +209,8 @@ class OrderItem(Base):
     __tablename__ = "order_items"
 
     id = Column(String, primary_key=True, index=True)
-    order_id = Column(String, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
-    variant_id = Column(String, nullable=True)
+    order_id = Column(String, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    variant_id = Column(String, nullable=True, index=True)
     product_title = Column(String, nullable=False)
     variant_title = Column(String, nullable=False)
     image_url = Column(String, nullable=True)

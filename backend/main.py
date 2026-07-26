@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func
 
@@ -18,6 +19,9 @@ import os
 
 root_path = "/api/backend" if os.getenv("VERCEL") else ""
 app = FastAPI(title="VAHN Standalone Backend API", root_path=root_path, redirect_slashes=False)
+
+# Enterprise Gzip Payload Compression (compresses responses > 500 bytes by 70-80%)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Enable CORS for Next.js frontend
 app.add_middleware(
