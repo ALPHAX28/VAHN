@@ -537,48 +537,50 @@ export default function CheckoutPage() {
             )}
 
             {/* Price breakdown */}
-            <div style={{ padding: "18px 22px" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.875rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "#555" }}>Subtotal</span>
-                  <span style={{ fontWeight: 800, color: "#000" }}>₹{subtotal.toLocaleString()}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "#555" }}>Shipping</span>
-                  <span>
-                    {shippingFee === 0
-                      ? <strong style={{ color: "#16a34a", fontWeight: 800 }}>FREE</strong>
-                      : <span style={{ fontWeight: 700 }}>₹{shippingFee}</span>
-                    }
-                  </span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#888", fontSize: "0.8rem" }}>
-                  <span>Est. GST (12% incl.)</span>
-                  <span>₹{estimatedTax.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "2px solid #000", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "#555" }}>Total Payable</div>
-                  <div style={{ fontSize: "0.72rem", color: "#999", marginTop: 2 }}>Incl. taxes & shipping</div>
-                </div>
-                <div style={{ fontSize: "1.5rem", fontWeight: 900, color: "#000" }}>
-                  ₹{grandTotal.toLocaleString()}
-                </div>
-              </div>
-
-              {/* Free shipping progress */}
-              {subtotal < 1999 && subtotal > 0 && (
-                <div style={{ marginTop: 14, background: "#f8fafc", border: "1px solid #e5e5e5", padding: 12 }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#555", marginBottom: 6 }}>
-                    Add ₹{(1999 - subtotal).toLocaleString()} more for <strong style={{ color: "#000" }}>FREE shipping</strong>
+            <div style={{ padding: "18px 22px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.875rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "#555" }}>Subtotal</span>
+                    <span style={{ fontWeight: 800, color: "#000" }}>₹{subtotal.toLocaleString()}</span>
                   </div>
-                  <div style={{ height: 4, background: "#e5e5e5", width: "100%" }}>
-                    <div style={{ height: 4, background: "#000", width: `${Math.min((subtotal / 1999) * 100, 100)}%`, transition: "width 0.4s" }} />
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "#555" }}>Shipping</span>
+                    <span>
+                      {shippingFee === 0
+                        ? <strong style={{ color: "#16a34a", fontWeight: 800 }}>FREE</strong>
+                        : <span style={{ fontWeight: 700 }}>₹{shippingFee}</span>
+                      }
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#888", fontSize: "0.8rem" }}>
+                    <span>Est. GST (12% incl.)</span>
+                    <span>₹{estimatedTax.toLocaleString()}</span>
                   </div>
                 </div>
-              )}
+
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: "2px solid #000", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "#555" }}>Total Payable</div>
+                    <div style={{ fontSize: "0.72rem", color: "#999", marginTop: 2 }}>Incl. taxes & shipping</div>
+                  </div>
+                  <div style={{ fontSize: "1.5rem", fontWeight: 900, color: "#000" }}>
+                    ₹{grandTotal.toLocaleString()}
+                  </div>
+                </div>
+
+                {/* Free shipping progress */}
+                {subtotal < 1999 && subtotal > 0 && (
+                  <div style={{ marginTop: 14, background: "#f8fafc", border: "1px solid #e5e5e5", padding: 12 }}>
+                    <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#555", marginBottom: 6 }}>
+                      Add ₹{(1999 - subtotal).toLocaleString()} more for <strong style={{ color: "#000" }}>FREE shipping</strong>
+                    </div>
+                    <div style={{ height: 4, background: "#e5e5e5", width: "100%" }}>
+                      <div style={{ height: 4, background: "#000", width: `${Math.min((subtotal / 1999) * 100, 100)}%`, transition: "width 0.4s" }} />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Security note */}
