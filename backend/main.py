@@ -2,7 +2,7 @@ import secrets
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func
@@ -10,7 +10,7 @@ from sqlalchemy import func
 from database import Base, engine, get_db
 import models
 import schemas
-from email_service import send_otp_email
+from email_service import send_otp_email, send_order_confirmation_email
 from auth_utils import generate_salt, hash_password, verify_password, create_access_token, get_current_user, get_current_admin
 from storage import storage
 
@@ -145,6 +145,10 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
     )
 
 # ---- ENDPOINTS ----
+
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok", "service": "VAHN Backend API", "timestamp": datetime.utcnow().isoformat()}
 
 @app.get("/")
 def read_root():
@@ -436,7 +440,7 @@ def generate_6digit_otp() -> str:
     return "".join([str(secrets.randbelow(10)) for _ in range(6)])
 
 @app.post("/api/auth/register")
-def register(payload: schemas.UserRegisterRequest, db: Session = Depends(get_db)):
+def register(payload: schemas.UserRegisterRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     email = payload.email.strip().lower()
     existing_user = db.query(models.User).filter_by(email=email).first()
     if existing_user:
@@ -451,7 +455,7 @@ def register(payload: schemas.UserRegisterRequest, db: Session = Depends(get_db)
         existing_user.salt = salt
         existing_user.password_hash = hash_password(payload.password, salt)
         db.commit()
-        send_otp_email(email, otp, subject="Your VAHN Sign-Up Verification Code")
+        background_tasks.add_task(send_otp_email, email, otp, subject="Your VAHN Sign-Up Verification Code")
         return {"message": "Verification code sent to your email.", "email": email}
 
     salt = generate_salt()
@@ -470,7 +474,7 @@ def register(payload: schemas.UserRegisterRequest, db: Session = Depends(get_db)
     db.add(user)
     db.commit()
 
-    send_otp_email(email, otp, subject="Your VAHN Sign-Up Verification Code")
+    background_tasks.add_task(send_otp_email, email, otp, subject="Your VAHN Sign-Up Verification Code")
     return {"message": "Verification code sent to your email.", "email": email}
 
 @app.post("/api/auth/verify-otp", response_model=schemas.AuthResponse)
@@ -502,7 +506,7 @@ def verify_otp(payload: schemas.OTPVerifyRequest, db: Session = Depends(get_db))
     return schemas.AuthResponse(access_token=token, token_type="bearer", user=user_schema)
 
 @app.post("/api/auth/login")
-def login(payload: schemas.UserLoginRequest, db: Session = Depends(get_db)):
+def login(payload: schemas.UserLoginRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     email = payload.email.strip().lower()
     user = db.query(models.User).filter_by(email=email).first()
     if not user:
@@ -515,7 +519,7 @@ def login(payload: schemas.UserLoginRequest, db: Session = Depends(get_db)):
     user.otp_expires_at = datetime.utcnow() + timedelta(minutes=10)
     db.commit()
 
-    send_otp_email(email, otp, subject="Your VAHN Login Verification Code")
+    background_tasks.add_task(send_otp_email, email, otp, subject="Your VAHN Login Verification Code")
     return {"message": "Verification code sent to your email.", "email": email}
 
 @app.post("/api/auth/login-verify-otp", response_model=schemas.AuthResponse)
@@ -719,7 +723,7 @@ def delete_user_address(address_id: int, current_user: models.User = Depends(get
 # ============================================================
 
 @app.post("/api/orders/checkout", response_model=schemas.OrderSchema)
-def checkout(payload: schemas.CheckoutRequest, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def checkout(payload: schemas.CheckoutRequest, background_tasks: BackgroundTasks, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     cart = db.query(models.Cart).options(
         selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
     ).filter_by(id=payload.cart_id).first()
@@ -797,6 +801,7 @@ def checkout(payload: schemas.CheckoutRequest, current_user: models.User = Depen
     subtotal = 0.0
     tax_amount = 0.0
     custom_shipping_rates = []
+    items_summary = []
 
     # Calculate shipping & tax per product
     for item in cart.items:
@@ -810,6 +815,13 @@ def checkout(payload: schemas.CheckoutRequest, current_user: models.User = Depen
         item_price = var.price_amount if var else 0.0
         line_total = item_price * item.quantity
         subtotal += line_total
+
+        items_summary.append({
+            "title": prod.title if prod else "Product",
+            "variant": var.title if var else "Default",
+            "quantity": item.quantity,
+            "price": item_price
+        })
 
         # Calculate GST for single or multiple pieces of this product automatically
         gst_pct = prod.gst_percent if (prod and prod.gst_percent is not None) else 12.0
@@ -867,6 +879,17 @@ def checkout(payload: schemas.CheckoutRequest, current_user: models.User = Depen
 
     db.commit()
     db.refresh(order)
+
+    # Send Order Confirmation Email asynchronously in background task
+    background_tasks.add_task(
+        send_order_confirmation_email,
+        to_email=current_user.email,
+        order_id=order.id,
+        total_amount=order.total_amount,
+        currency=order.currency,
+        items_summary=items_summary
+    )
+
     return build_order_schema(order)
 
 @app.get("/api/orders", response_model=List[schemas.OrderSchema])
