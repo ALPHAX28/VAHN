@@ -316,7 +316,9 @@ def create_cart(lines: List[dict] = [], db: Session = Depends(get_db)):
             db.add(item)
     
     db.commit()
-    db.refresh(cart)
+    cart = db.query(models.Cart).options(
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+    ).filter_by(id=cart_id).first()
     return build_cart_schema(cart, db)
 
 @app.put("/api/cart/{cart_id}", response_model=schemas.CartSchema)
@@ -352,12 +354,16 @@ def sync_cart(cart_id: str, payload: List[dict] = [], db: Session = Depends(get_
             db.add(item)
 
     db.commit()
-    db.refresh(cart)
+    cart = db.query(models.Cart).options(
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+    ).filter_by(id=cart_id).first()
     return build_cart_schema(cart, db)
 
 @app.get("/api/cart/{cart_id}", response_model=schemas.CartSchema)
 def get_cart(cart_id: str, db: Session = Depends(get_db)):
-    cart = db.query(models.Cart).filter_by(id=cart_id).first()
+    cart = db.query(models.Cart).options(
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+    ).filter_by(id=cart_id).first()
     if not cart:
         # Create it on demand to prevent UI errors
         cart = models.Cart(id=cart_id)
@@ -394,7 +400,9 @@ def add_to_cart(cart_id: str, payload: schemas.CartAddItemPayload, db: Session =
         db.add(item)
 
     db.commit()
-    db.refresh(cart)
+    cart = db.query(models.Cart).options(
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+    ).filter_by(id=cart_id).first()
     return build_cart_schema(cart, db)
 
 @app.put("/api/cart/{cart_id}/items/{item_id}", response_model=schemas.CartSchema)
@@ -414,7 +422,9 @@ def update_cart_item(cart_id: str, item_id: str, payload: schemas.CartUpdateItem
         item.quantity = qty
 
     db.commit()
-    db.refresh(cart)
+    cart = db.query(models.Cart).options(
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+    ).filter_by(id=cart_id).first()
     return build_cart_schema(cart, db)
 
 @app.delete("/api/cart/{cart_id}/items/{item_id}", response_model=schemas.CartSchema)
@@ -429,7 +439,9 @@ def remove_cart_item(cart_id: str, item_id: str, db: Session = Depends(get_db)):
 
     db.delete(item)
     db.commit()
-    db.refresh(cart)
+    cart = db.query(models.Cart).options(
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+    ).filter_by(id=cart_id).first()
     return build_cart_schema(cart, db)
 
 # ============================================================
