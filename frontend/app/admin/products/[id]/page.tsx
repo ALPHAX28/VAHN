@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import {
@@ -18,6 +18,8 @@ const TABS = ["Details", "Variants", "Colour Groups", "Images", "Reviews"];
 const FIT_OPTIONS = ["SLIM", "REGULAR", "OVERSIZED"];
 const KIT_OPTIONS = ["JERSEY", "HOME", "SIGNATURE"];
 const ACTIVITY_OPTIONS = ["FOOTBALL", "LIFESTYLE", "STREETWEAR", "CRICKET", "BASKETBALL"];
+const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "FREE SIZE"];
+
 
 export default function AdminProductDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -39,11 +41,20 @@ export default function AdminProductDetailPage() {
   // Unsaved changes navigation guard modal state
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const alertRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (error && alertRef.current) {
+      alertRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [error]);
 
   // Variant state
   const [newVariant, setNewVariant] = useState({ title: "", colour: "", size: "", price_amount: 0, compare_at_price_amount: "", inventory_quantity: 0, available_for_sale: true, image_url: "" });
   const [editingVariant, setEditingVariant] = useState<string | null>(null);
   const [variantEdits, setVariantEdits] = useState<Record<string, Partial<AdminVariant>>>({});
+  const [addingVariant, setAddingVariant] = useState(false);
+  const [savingVariant, setSavingVariant] = useState<string | null>(null);
 
   // Colour group state
   const [newGroup, setNewGroup] = useState({ colour_value: "", display_order: 0 });
@@ -96,30 +107,62 @@ export default function AdminProductDetailPage() {
 
   const { setDirtyState } = useUnsavedChanges();
 
-  // Compute dirty form state
+  // Compute dirty state for Details tab
   const initialBullets = product ? extractBullets(product.description_html || "") : "";
-  const isFormDirty = Boolean(
-    product && (
-      (editForm.title !== undefined && editForm.title !== product.title) ||
-      (editForm.description !== undefined && editForm.description !== (product.description || "")) ||
-      (editForm.vendor !== undefined && editForm.vendor !== product.vendor) ||
-      (editForm.product_type !== undefined && editForm.product_type !== (product.product_type || "")) ||
-      (editForm.fit !== undefined && editForm.fit !== (product.fit || "")) ||
-      (editForm.kit_type !== undefined && editForm.kit_type !== (product.kit_type || "")) ||
-      (editForm.activity !== undefined && editForm.activity !== (product.activity || "")) ||
-      (editForm.available_for_sale !== undefined && editForm.available_for_sale !== product.available_for_sale) ||
-      (editForm.gst_percent !== undefined && editForm.gst_percent !== (product.gst_percent ?? 12)) ||
-      (editForm.shipping_rate !== product.shipping_rate) ||
-      editSizeFitInput !== initialBullets
-    )
-  );
 
-  // Sync with global UnsavedChangesContext
-  useEffect(() => {
-    setDirtyState(isFormDirty, handleSave, handleDiscardChanges);
-  }, [isFormDirty]);
+  const isDetailsDirty = useMemo(() => {
+    if (!product) return false;
+    const titleChanged = editForm.title !== undefined && editForm.title.trim() !== product.title;
+    const descChanged = editForm.description !== undefined && editForm.description !== (product.description || "");
+    const vendorChanged = editForm.vendor !== undefined && editForm.vendor !== product.vendor;
+    const typeChanged = editForm.product_type !== undefined && editForm.product_type !== (product.product_type || "");
+    const fitChanged = editForm.fit !== undefined && editForm.fit !== (product.fit || "");
+    const kitChanged = editForm.kit_type !== undefined && editForm.kit_type !== (product.kit_type || "");
+    const actChanged = editForm.activity !== undefined && editForm.activity !== (product.activity || "");
+    const availChanged = editForm.available_for_sale !== undefined && editForm.available_for_sale !== product.available_for_sale;
+    const gstChanged = editForm.gst_percent !== undefined && editForm.gst_percent !== (product.gst_percent ?? 12);
+    const shipChanged = editForm.shipping_rate !== undefined && editForm.shipping_rate !== (product.shipping_rate ?? null);
+    const bulletsChanged = editSizeFitInput.trim() !== initialBullets.trim();
 
-  function handleDiscardChanges() {
+    return Boolean(
+      titleChanged || descChanged || vendorChanged || typeChanged ||
+      fitChanged || kitChanged || actChanged || availChanged ||
+      gstChanged || shipChanged || bulletsChanged
+    );
+  }, [product, editForm, editSizeFitInput, initialBullets]);
+
+  const isVariantsDirty = useMemo(() => {
+    return Boolean(
+      newVariant.colour.trim() !== "" ||
+      newVariant.size !== "" ||
+      newVariant.price_amount > 0 ||
+      newVariant.compare_at_price_amount !== "" ||
+      newVariant.inventory_quantity > 0 ||
+      editingVariant !== null
+    );
+  }, [newVariant, editingVariant]);
+
+  const isGroupsDirty = useMemo(() => {
+    return Boolean(newGroup.colour_value.trim() !== "" || newGroupImages.length > 0);
+  }, [newGroup, newGroupImages]);
+
+  const isReviewsDirty = useMemo(() => {
+    return Boolean(newReview.author.trim() !== "" || newReview.content.trim() !== "");
+  }, [newReview]);
+
+  const isPageDirty = isDetailsDirty || isVariantsDirty || isGroupsDirty || isReviewsDirty;
+
+  const isCurrentTabDirty = useMemo(() => {
+    if (activeTab === "Details") return isDetailsDirty;
+    if (activeTab === "Variants") return isVariantsDirty;
+    if (activeTab === "Colour Groups") return isGroupsDirty;
+    if (activeTab === "Reviews") return isReviewsDirty;
+    return false;
+  }, [activeTab, isDetailsDirty, isVariantsDirty, isGroupsDirty, isReviewsDirty]);
+
+  const handleDiscardChanges = useCallback(() => {
+    setError("");
+    setSuccess("");
     if (!product) return;
     setEditForm({
       title: product.title,
@@ -135,25 +178,23 @@ export default function AdminProductDetailPage() {
       shipping_rate: product.shipping_rate ?? null,
     });
     setEditSizeFitInput(extractBullets(product.description_html || ""));
-  }
+    setNewVariant({ title: "", colour: "", size: "", price_amount: 0, compare_at_price_amount: "", inventory_quantity: 0, available_for_sale: true, image_url: "" });
+    setEditingVariant(null);
+    setVariantEdits({});
+    setNewGroup({ colour_value: "", display_order: 0 });
+    setNewGroupImages([]);
+    setNewReview({ rating: 5, author: "", content: "", title: "", verified: true, is_approved: true });
+  }, [product]);
 
-  function handleTabClick(nextTab: string) {
-    if (nextTab === activeTab) return;
-    if (isFormDirty) {
-      setPendingTab(nextTab);
-      setShowUnsavedModal(true);
-    } else {
-      setActiveTab(nextTab);
-    }
-  }
-
-  async function handleSave() {
-    if (!adminToken || !product) return;
+  const handleSave = useCallback(async () => {
+    if (!adminToken || !product) return false;
     setSaving(true);
     setError(""); setSuccess("");
     try {
       const bullets = editSizeFitInput.split("\n").map(b => b.trim()).filter(Boolean);
-      const description_html = `<p>${editForm.description || ""}</p>${bullets.length > 0 ? `<ul>${bullets.map(b => `<li>${b}</li>`).join("")}</ul>` : ""}`;
+      const descPart = editForm.description?.trim() ? `<p>${editForm.description.trim()}</p>` : "";
+      const fitPart = bullets.length > 0 ? `<ul>${bullets.map(b => `<li>${b}</li>`).join("")}</ul>` : "";
+      const description_html = descPart + fitPart;
 
       const updated = await updateAdminProduct(adminToken, productId, {
         ...editForm,
@@ -161,6 +202,19 @@ export default function AdminProductDetailPage() {
         tags: Array.isArray(editForm.tags) ? editForm.tags : (editForm.tags as unknown as string || "").split(",").map((t: string) => t.trim()),
       });
       setProduct(updated);
+      setEditForm({
+        title: updated.title,
+        description: updated.description || "",
+        vendor: updated.vendor,
+        product_type: updated.product_type || "",
+        tags: updated.tags || [],
+        available_for_sale: updated.available_for_sale,
+        fit: updated.fit || "",
+        kit_type: updated.kit_type || "",
+        activity: updated.activity || "",
+        gst_percent: updated.gst_percent ?? 12,
+        shipping_rate: updated.shipping_rate ?? null,
+      });
       setSuccess("Product saved successfully!");
       setTimeout(() => setSuccess(""), 3000);
       return true;
@@ -169,6 +223,23 @@ export default function AdminProductDetailPage() {
       return false;
     } finally {
       setSaving(false);
+    }
+  }, [adminToken, product, productId, editForm, editSizeFitInput]);
+
+  // Sync with global UnsavedChangesContext
+  useEffect(() => {
+    setDirtyState(isPageDirty, handleSave, handleDiscardChanges);
+  }, [isPageDirty, setDirtyState, handleSave, handleDiscardChanges]);
+
+  function handleTabClick(nextTab: string) {
+    if (nextTab === activeTab) return;
+    if (isCurrentTabDirty) {
+      setPendingTab(nextTab);
+      setShowUnsavedModal(true);
+    } else {
+      setError("");
+      setSuccess("");
+      setActiveTab(nextTab);
     }
   }
 
@@ -183,6 +254,8 @@ export default function AdminProductDetailPage() {
 
   function handleModalDiscardAndProceed() {
     handleDiscardChanges();
+    setError("");
+    setSuccess("");
     if (pendingTab) {
       setActiveTab(pendingTab);
       setPendingTab(null);
@@ -192,15 +265,48 @@ export default function AdminProductDetailPage() {
 
   // Variant CRUD
   async function handleAddVariant() {
-    if (!adminToken || !product) return;
+    if (!adminToken || !product || addingVariant) return;
+
+    // ── Field validations ──
+    if (!newVariant.colour.trim() && !newVariant.size.trim()) {
+      setError("Please provide at least a Colour or a Size for the variant.");
+      return;
+    }
+    if (!newVariant.price_amount || newVariant.price_amount <= 0) {
+      setError("Selling price must be greater than ₹0.");
+      return;
+    }
+    const compareNum = newVariant.compare_at_price_amount ? Number(newVariant.compare_at_price_amount) : null;
+    if (compareNum !== null && compareNum < newVariant.price_amount) {
+      setError("Selling price cannot be greater than Original Price (MRP).");
+      return;
+    }
+
+    // ── Duplicate variant detection ──
+    const isDuplicate = product.variants.some(v => {
+      const vColour = v.selected_options.find(o => o.name === "Colour")?.value ?? "";
+      const vSize = v.selected_options.find(o => o.name === "Size")?.value ?? "";
+      return (
+        vColour.toLowerCase() === newVariant.colour.trim().toLowerCase() &&
+        vSize.toLowerCase() === newVariant.size.trim().toLowerCase()
+      );
+    });
+    if (isDuplicate) {
+      setError(`A variant with Colour "${newVariant.colour.trim()}" and Size "${newVariant.size.trim()}" already exists.`);
+      return;
+    }
+
     const selectedOptions: { name: string; value: string }[] = [];
-    if (newVariant.colour) selectedOptions.push({ name: "Colour", value: newVariant.colour });
-    if (newVariant.size) selectedOptions.push({ name: "Size", value: newVariant.size });
+    if (newVariant.colour.trim()) selectedOptions.push({ name: "Colour", value: newVariant.colour.trim() });
+    if (newVariant.size.trim()) selectedOptions.push({ name: "Size", value: newVariant.size.trim() });
+
+    setAddingVariant(true);
+    setError("");
     try {
       await addVariant(adminToken, productId, {
         title: newVariant.title || [newVariant.colour, newVariant.size].filter(Boolean).join(" / ") || "Default",
         price_amount: Number(newVariant.price_amount),
-        compare_at_price_amount: newVariant.compare_at_price_amount ? Number(newVariant.compare_at_price_amount) : null,
+        compare_at_price_amount: compareNum,
         inventory_quantity: Number(newVariant.inventory_quantity),
         available_for_sale: newVariant.available_for_sale,
         image_url: newVariant.image_url || null,
@@ -209,19 +315,71 @@ export default function AdminProductDetailPage() {
       setNewVariant({ title: "", colour: "", size: "", price_amount: 0, compare_at_price_amount: "", inventory_quantity: 0, available_for_sale: true, image_url: "" });
       await loadProduct();
       setSuccess("Variant added!");
+      setTimeout(() => setSuccess(""), 3000);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to add variant"); }
+    finally { setAddingVariant(false); }
   }
 
   async function handleSaveVariant(variantId: string) {
-    if (!adminToken) return;
+    if (!adminToken || !product) return;
     const patch = variantEdits[variantId];
     if (!patch) return;
+
+    const targetVariant = product.variants.find(v => v.id === variantId);
+    if (!targetVariant) return;
+
+    const updatedOptions = patch.selected_options ?? targetVariant.selected_options;
+    const editColour = updatedOptions.find(o => o.name === "Colour")?.value ?? "";
+    const editSize = updatedOptions.find(o => o.name === "Size")?.value ?? "";
+
+    // ── Check if updated options collide with another existing variant ──
+    const isDuplicate = product.variants.some(other => {
+      if (other.id === variantId) return false;
+      const oColour = other.selected_options.find(o => o.name === "Colour")?.value ?? "";
+      const oSize = other.selected_options.find(o => o.name === "Size")?.value ?? "";
+      return (
+        oColour.trim().toLowerCase() === editColour.trim().toLowerCase() &&
+        oSize.trim().toLowerCase() === editSize.trim().toLowerCase()
+      );
+    });
+
+    if (isDuplicate) {
+      setError(`Cannot save: A variant with Colour "${editColour}" and Size "${editSize}" already exists.`);
+      return;
+    }
+
+    // ── Price validation ──
+    const editPrice = patch.price_amount !== undefined ? patch.price_amount : targetVariant.price_amount;
+    const editCompare = patch.compare_at_price_amount !== undefined ? patch.compare_at_price_amount : targetVariant.compare_at_price_amount;
+
+    if (editPrice <= 0) {
+      setError("Selling price must be greater than ₹0.");
+      return;
+    }
+    if (editCompare !== null && editCompare !== undefined && editCompare < editPrice) {
+      setError("Selling price cannot be greater than Original Price (MRP).");
+      return;
+    }
+
+    // Auto-update title based on options
+    const newTitle = [editColour, editSize].filter(Boolean).join(" / ") || targetVariant.title;
+
+    const finalPatch: Partial<AdminVariant> = {
+      ...patch,
+      title: newTitle,
+      selected_options: updatedOptions,
+    };
+
+    setSavingVariant(variantId);
+    setError("");
     try {
-      await updateVariant(adminToken, productId, variantId, patch);
+      await updateVariant(adminToken, productId, variantId, finalPatch);
       setEditingVariant(null);
       await loadProduct();
       setSuccess("Variant updated!");
+      setTimeout(() => setSuccess(""), 3000);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to update variant"); }
+    finally { setSavingVariant(null); }
   }
 
   async function handleDeleteVariant(variantId: string) {
@@ -235,7 +393,18 @@ export default function AdminProductDetailPage() {
 
   // Colour Group CRUD
   async function handleAddGroup() {
-    if (!adminToken || !newGroup.colour_value.trim()) return;
+    if (!adminToken || !newGroup.colour_value.trim()) {
+      setError("Please enter a colour name.");
+      return;
+    }
+    // ── Duplicate colour group detection ──
+    const exists = product?.colour_groups.some(
+      g => g.colour_value.toLowerCase() === newGroup.colour_value.trim().toLowerCase()
+    );
+    if (exists) {
+      setError(`A colour group for "${newGroup.colour_value.trim()}" already exists.`);
+      return;
+    }
     try {
       await createColourGroup(adminToken, productId, {
         colour_value: newGroup.colour_value.trim(),
@@ -246,6 +415,7 @@ export default function AdminProductDetailPage() {
       setNewGroupImages([]);
       await loadProduct();
       setSuccess("Colour group added!");
+      setTimeout(() => setSuccess(""), 3000);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to add colour group"); }
   }
 
@@ -270,11 +440,20 @@ export default function AdminProductDetailPage() {
   // Reviews CRUD
   async function handleAddReview() {
     if (!adminToken) return;
+    if (!newReview.author.trim()) {
+      setError("Author name is required.");
+      return;
+    }
+    if (!newReview.content.trim()) {
+      setError("Review content is required.");
+      return;
+    }
     try {
       await createAdminReview(adminToken, productId, newReview);
       setNewReview({ rating: 5, author: "", content: "", title: "", verified: true, is_approved: true });
       await loadReviews();
       setSuccess("Review added!");
+      setTimeout(() => setSuccess(""), 3000);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
   }
 
@@ -311,17 +490,38 @@ export default function AdminProductDetailPage() {
         </div>
       </div>
 
-      {error && <div className="admin-alert admin-alert--error">{error}</div>}
-      {success && <div className="admin-alert admin-alert--success">{success}</div>}
+      {error && (
+        <div ref={alertRef} className="admin-alert admin-alert--error" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>{error}</span>
+          <button onClick={() => setError("")} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "1rem", fontWeight: 700, padding: "0 4px" }} title="Dismiss">
+            ✕
+          </button>
+        </div>
+      )}
+      {success && (
+        <div className="admin-alert admin-alert--success" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>{success}</span>
+          <button onClick={() => setSuccess("")} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "1rem", fontWeight: 700, padding: "0 4px" }} title="Dismiss">
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="admin-tabs">
-        {TABS.map(tab => (
-          <button key={tab} className={`admin-tab ${activeTab === tab ? "admin-tab--active" : ""}`} onClick={() => handleTabClick(tab)}>
-            {tab}
-            {tab === "Details" && isFormDirty && <span className="admin-tab-dirty-dot" title="Unsaved changes" />}
-          </button>
-        ))}
+        {TABS.map(tab => {
+          const isTabDirty =
+            (tab === "Details" && isDetailsDirty) ||
+            (tab === "Variants" && isVariantsDirty) ||
+            (tab === "Colour Groups" && isGroupsDirty) ||
+            (tab === "Reviews" && isReviewsDirty);
+          return (
+            <button key={tab} className={`admin-tab ${activeTab === tab ? "admin-tab--active" : ""}`} onClick={() => handleTabClick(tab)}>
+              {tab}
+              {isTabDirty && <span className="admin-tab-dirty-dot" title="Unsaved inputs" />}
+            </button>
+          );
+        })}
       </div>
 
       {/* ===== DETAILS TAB ===== */}
@@ -503,9 +703,47 @@ export default function AdminProductDetailPage() {
                     <tr key={v.id}>
                       <td><strong>{v.title}</strong></td>
                       <td>
-                        {v.selected_options.map((o, idx) => (
-                          <span key={idx} className="admin-table-sub" style={{ marginRight: 8 }}>{o.name}: {o.value}</span>
-                        ))}
+                        {editingVariant === v.id ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <input
+                              type="text"
+                              className="admin-form-input"
+                              style={{ width: 110, fontSize: "0.78rem" }}
+                              placeholder="Colour"
+                              value={variantEdits[v.id]?.selected_options?.find(o => o.name === "Colour")?.value ?? v.selected_options.find(o => o.name === "Colour")?.value ?? ""}
+                              onChange={e => {
+                                const newColour = e.target.value;
+                                setVariantEdits(ed => {
+                                  const existingOpts = ed[v.id]?.selected_options ?? v.selected_options.map(o => ({ ...o }));
+                                  const updated = existingOpts.map(o => o.name === "Colour" ? { ...o, value: newColour } : o);
+                                  if (!updated.find(o => o.name === "Colour") && newColour) updated.push({ name: "Colour", value: newColour });
+                                  return { ...ed, [v.id]: { ...ed[v.id], selected_options: updated } };
+                                });
+                              }}
+                            />
+                            <select
+                              className="admin-form-select"
+                              style={{ width: 110, padding: "4px 6px", fontSize: "0.78rem" }}
+                              value={variantEdits[v.id]?.selected_options?.find(o => o.name === "Size")?.value ?? v.selected_options.find(o => o.name === "Size")?.value ?? ""}
+                              onChange={e => {
+                                const newSize = e.target.value;
+                                setVariantEdits(ed => {
+                                  const existingOpts = ed[v.id]?.selected_options ?? v.selected_options.map(o => ({ ...o }));
+                                  const updated = existingOpts.map(o => o.name === "Size" ? { ...o, value: newSize } : o);
+                                  if (!updated.find(o => o.name === "Size") && newSize) updated.push({ name: "Size", value: newSize });
+                                  return { ...ed, [v.id]: { ...ed[v.id], selected_options: updated } };
+                                });
+                              }}
+                            >
+                              <option value="">— Size —</option>
+                              {SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          </div>
+                        ) : (
+                          v.selected_options.map((o, idx) => (
+                            <span key={idx} className="admin-table-sub" style={{ marginRight: 8 }}>{o.name}: {o.value}</span>
+                          ))
+                        )}
                       </td>
                       <td>
                         {editingVariant === v.id ? (
@@ -559,14 +797,38 @@ export default function AdminProductDetailPage() {
                               value={discountPct || ""}
                               onFocus={e => e.target.select()}
                               onChange={e => {
-                                const discPct = Math.round(Number(e.target.value));
-                                const calcCompare = (discPct > 0 && currentPrice > 0)
-                                  ? Math.round(currentPrice / (1 - discPct / 100))
-                                  : null;
-                                setVariantEdits(ed => ({
-                                  ...ed,
-                                  [v.id]: { ...ed[v.id], compare_at_price_amount: calcCompare }
-                                }));
+                                const valStr = e.target.value.trim();
+                                if (!valStr || valStr === "0") {
+                                  setVariantEdits(ed => ({
+                                    ...ed,
+                                    [v.id]: { ...ed[v.id], compare_at_price_amount: null }
+                                  }));
+                                  return;
+                                }
+                                const rawPct = Number(valStr);
+                                if (isNaN(rawPct) || rawPct <= 0 || rawPct >= 100) {
+                                  setVariantEdits(ed => ({
+                                    ...ed,
+                                    [v.id]: { ...ed[v.id], compare_at_price_amount: null }
+                                  }));
+                                  return;
+                                }
+                                const discPct = Math.round(rawPct);
+
+                                if (currentCompare && currentCompare > 0) {
+                                  const calcSelling = Math.round(currentCompare * (1 - discPct / 100));
+                                  setVariantEdits(ed => ({
+                                    ...ed,
+                                    [v.id]: { ...ed[v.id], price_amount: calcSelling }
+                                  }));
+                                } else if (currentPrice && currentPrice > 0) {
+                                  const calcCompare = Math.round(currentPrice / (1 - discPct / 100));
+                                  const safeCompare = isFinite(calcCompare) && calcCompare >= currentPrice ? calcCompare : null;
+                                  setVariantEdits(ed => ({
+                                    ...ed,
+                                    [v.id]: { ...ed[v.id], compare_at_price_amount: safeCompare }
+                                  }));
+                                }
                               }}
                             />
                             <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#d32f2f" }}>%</span>
@@ -610,10 +872,26 @@ export default function AdminProductDetailPage() {
                       </td>
                       <td>
                         {editingVariant === v.id ? (
-                          <button className="admin-btn admin-btn--primary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} onClick={() => handleSaveVariant(v.id)}>Save</button>
+                          <div style={{ display: "flex", gap: 6 }}>
+                             <button
+                               className="admin-btn admin-btn--primary"
+                               style={{ padding: "4px 10px", fontSize: "0.75rem" }}
+                               onClick={() => handleSaveVariant(v.id)}
+                               disabled={savingVariant === v.id}
+                             >
+                               {savingVariant === v.id ? <span className="admin-btn-spinner" /> : "Save"}
+                             </button>
+                             <button
+                               className="admin-btn admin-btn--ghost"
+                               style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                               onClick={() => { setEditingVariant(null); }}
+                             >
+                               ✕
+                             </button>
+                           </div>
                         ) : (
                           <div className="admin-table-actions">
-                            <button className="admin-icon-btn" title="Edit" onClick={() => { setEditingVariant(v.id); setVariantEdits(ed => ({ ...ed, [v.id]: { price_amount: v.price_amount, compare_at_price_amount: v.compare_at_price_amount, inventory_quantity: v.inventory_quantity, available_for_sale: v.available_for_sale } })); }}>
+                            <button className="admin-icon-btn" title="Edit" onClick={() => { setEditingVariant(v.id); setVariantEdits(ed => ({ ...ed, [v.id]: { price_amount: v.price_amount, compare_at_price_amount: v.compare_at_price_amount, inventory_quantity: v.inventory_quantity, available_for_sale: v.available_for_sale, selected_options: v.selected_options.map(o => ({ ...o })) } })); }}>
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             </button>
                             <button className="admin-icon-btn admin-icon-btn--danger" title="Delete" onClick={() => handleDeleteVariant(v.id)}>
@@ -631,21 +909,63 @@ export default function AdminProductDetailPage() {
 
           <div style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid var(--admin-card-border)" }}>
             <h3 style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: 12 }}>Add New Variant</h3>
+
             <div className="admin-form-grid">
+              {/* Computed duplicate flag */}
+              {(() => {
+                const isDup = Boolean(
+                  product &&
+                  newVariant.colour.trim() &&
+                  newVariant.size.trim() &&
+                  product.variants.some(v => {
+                    const vColour = v.selected_options.find(o => o.name === "Colour")?.value ?? "";
+                    const vSize = v.selected_options.find(o => o.name === "Size")?.value ?? "";
+                    return (
+                      vColour.trim().toLowerCase() === newVariant.colour.trim().toLowerCase() &&
+                      vSize.trim().toLowerCase() === newVariant.size.trim().toLowerCase()
+                    );
+                  })
+                );
+                return (
+                  <>
+                    <div className="admin-form-group">
+                      <label className="admin-form-label">Colour</label>
+                      <input
+                        type="text"
+                        className="admin-form-input"
+                        style={isDup ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
+                        placeholder="e.g. Blue"
+                        value={newVariant.colour}
+                        onChange={e => setNewVariant(v => ({ ...v, colour: e.target.value }))}
+                      />
+                    </div>
+                    <div className="admin-form-group">
+                      <label className="admin-form-label">Size</label>
+                      <select
+                        className="admin-form-select"
+                        style={isDup ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
+                        value={newVariant.size}
+                        onChange={e => setNewVariant(v => ({ ...v, size: e.target.value }))}
+                      >
+                        <option value="">— Select Size —</option>
+                        {SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {isDup && (
+                        <span style={{ fontSize: "0.72rem", color: "#d32f2f", fontWeight: 700, marginTop: 4, display: "block" }}>
+                          ⚠️ {newVariant.colour.trim()} / {newVariant.size.trim()} already exists in table above
+                        </span>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
               <div className="admin-form-group">
-                <label className="admin-form-label">Colour</label>
-                <input type="text" className="admin-form-input" placeholder="e.g. Blue" value={newVariant.colour} onChange={e => setNewVariant(v => ({ ...v, colour: e.target.value }))} />
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-form-label">Size</label>
-                <input type="text" className="admin-form-input" placeholder="e.g. M" value={newVariant.size} onChange={e => setNewVariant(v => ({ ...v, size: e.target.value }))} />
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-form-label">Selling Price (₹)</label>
+                <label className="admin-form-label">Selling Price (₹) *</label>
                 <input
                   type="number"
                   className="admin-form-input"
-                  placeholder="e.g. 2499"
+                  style={newVariant.compare_at_price_amount && newVariant.price_amount > Number(newVariant.compare_at_price_amount) ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
+                  placeholder="e.g. 1500"
                   value={newVariant.price_amount || ""}
                   onFocus={e => e.target.select()}
                   onChange={e => {
@@ -653,13 +973,19 @@ export default function AdminProductDetailPage() {
                     setNewVariant(v => ({ ...v, price_amount: price }));
                   }}
                 />
+                <span style={{ fontSize: "0.72rem", color: "var(--admin-text-secondary)", marginTop: 4, display: "block" }}>Price customer pays at checkout</span>
+                {Boolean(newVariant.compare_at_price_amount && newVariant.price_amount > Number(newVariant.compare_at_price_amount)) && (
+                  <span style={{ fontSize: "0.72rem", color: "#d32f2f", fontWeight: 700, marginTop: 4, display: "block" }}>
+                    ⚠️ Selling price cannot be greater than Original Price (₹{newVariant.compare_at_price_amount})
+                  </span>
+                )}
               </div>
               <div className="admin-form-group">
-                <label className="admin-form-label">Compare Price (MRP ₹)</label>
+                <label className="admin-form-label">Original Price (MRP ₹)</label>
                 <input
                   type="number"
                   className="admin-form-input"
-                  placeholder="e.g. 2999"
+                  placeholder="e.g. 2500"
                   value={newVariant.compare_at_price_amount}
                   onFocus={e => e.target.select()}
                   onChange={e => {
@@ -667,32 +993,50 @@ export default function AdminProductDetailPage() {
                     setNewVariant(v => ({ ...v, compare_at_price_amount: compareStr }));
                   }}
                 />
+                <span style={{ fontSize: "0.72rem", color: "var(--admin-text-secondary)", marginTop: 4, display: "block" }}>Original MRP before discount</span>
               </div>
               <div className="admin-form-group">
-                <label className="admin-form-label">Discount % (Auto-Calc MRP)</label>
+                <label className="admin-form-label">Discount % (Auto-Calc Price)</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <input
                     type="number"
                     className="admin-form-input"
-                    placeholder="0"
+                    placeholder="e.g. 40"
+                    min="1"
+                    max="99"
                     value={
                       newVariant.compare_at_price_amount && Number(newVariant.compare_at_price_amount) > newVariant.price_amount && newVariant.price_amount > 0
-                        ? Math.round(((Number(newVariant.compare_at_price_amount) - newVariant.price_amount) / Number(newVariant.compare_at_price_amount)) * 100)
+                        ? Math.min(99, Math.max(1, Math.round(((Number(newVariant.compare_at_price_amount) - newVariant.price_amount) / Number(newVariant.compare_at_price_amount)) * 100))) || ""
                         : ""
                     }
                     onFocus={e => e.target.select()}
                     onChange={e => {
-                      const discPct = Math.round(Number(e.target.value));
-                      if (discPct > 0 && newVariant.price_amount > 0) {
-                        const calcCompare = Math.round(newVariant.price_amount / (1 - discPct / 100));
-                        setNewVariant(v => ({ ...v, compare_at_price_amount: String(calcCompare) }));
-                      } else {
+                      const valStr = e.target.value.trim();
+                      if (!valStr || valStr === "0") {
                         setNewVariant(v => ({ ...v, compare_at_price_amount: "" }));
+                        return;
+                      }
+                      const rawPct = Number(valStr);
+                      if (isNaN(rawPct) || rawPct <= 0 || rawPct >= 100) {
+                        setNewVariant(v => ({ ...v, compare_at_price_amount: "" }));
+                        return;
+                      }
+                      const discPct = Math.round(rawPct);
+
+                      const compareVal = newVariant.compare_at_price_amount ? Number(newVariant.compare_at_price_amount) : 0;
+                      if (compareVal > 0) {
+                        const calcSelling = Math.round(compareVal * (1 - discPct / 100));
+                        setNewVariant(v => ({ ...v, price_amount: calcSelling }));
+                      } else if (newVariant.price_amount > 0) {
+                        const calcCompare = Math.round(newVariant.price_amount / (1 - discPct / 100));
+                        const safeValue = (isFinite(calcCompare) && calcCompare >= newVariant.price_amount) ? String(calcCompare) : "";
+                        setNewVariant(v => ({ ...v, compare_at_price_amount: safeValue }));
                       }
                     }}
                   />
                   <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#d32f2f" }}>%</span>
                 </div>
+                <span style={{ fontSize: "0.72rem", color: "var(--admin-text-secondary)", marginTop: 4, display: "block" }}>Auto-calculates Selling Price if MRP is set (or MRP if Selling Price is set)</span>
               </div>
               <div className="admin-form-group">
                 <label className="admin-form-label">Stock</label>
@@ -705,7 +1049,31 @@ export default function AdminProductDetailPage() {
                 />
               </div>
             </div>
-            <button className="admin-btn admin-btn--primary" style={{ marginTop: 12 }} onClick={handleAddVariant}>+ Add Variant</button>
+            {(() => {
+              const isDup = Boolean(
+                product &&
+                newVariant.colour.trim() &&
+                newVariant.size.trim() &&
+                product.variants.some(v => {
+                  const vColour = v.selected_options.find(o => o.name === "Colour")?.value ?? "";
+                  const vSize = v.selected_options.find(o => o.name === "Size")?.value ?? "";
+                  return (
+                    vColour.trim().toLowerCase() === newVariant.colour.trim().toLowerCase() &&
+                    vSize.trim().toLowerCase() === newVariant.size.trim().toLowerCase()
+                  );
+                })
+              );
+              return (
+                <button
+                  className="admin-btn admin-btn--primary"
+                  style={{ marginTop: 12, ...(isDup ? { backgroundColor: "#9e9e9e", cursor: "not-allowed", opacity: 0.7 } : {}) }}
+                  onClick={handleAddVariant}
+                  disabled={addingVariant || isDup}
+                >
+                  {addingVariant ? <><span className="admin-btn-spinner" /> Adding...</> : isDup ? "Duplicate Variant (Already Exists)" : "+ Add Variant"}
+                </button>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -830,19 +1198,27 @@ export default function AdminProductDetailPage() {
       )}
 
       {/* FLOATING UNSAVED CHANGES BAR */}
-      {isFormDirty && (
+      {isPageDirty && (
         <div className="admin-unsaved-bar">
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.88rem", fontWeight: 600 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffb74d" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            You have unsaved changes in Details tab
+            {isDetailsDirty
+              ? "You have unsaved changes in Details tab"
+              : isVariantsDirty
+              ? "You have unsubmitted inputs in Variants tab"
+              : isGroupsDirty
+              ? "You have unsubmitted inputs in Colour Groups tab"
+              : "You have unsubmitted inputs in Reviews tab"}
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <button className="admin-btn admin-btn--ghost" style={{ color: "#ffffff", borderColor: "rgba(255,255,255,0.3)" }} onClick={handleDiscardChanges}>
-              Discard
+            <button className="admin-btn-discard" onClick={handleDiscardChanges}>
+              Discard / Clear
             </button>
-            <button className="admin-btn" style={{ background: "#ffffff", color: "#111118", fontWeight: 700, border: "none", padding: "8px 16px" }} onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
+            {isDetailsDirty && (
+              <button className="admin-btn-save" onClick={handleSave} disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -853,17 +1229,19 @@ export default function AdminProductDetailPage() {
           <div className="admin-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
             <h3 className="admin-modal-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d32f2f" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              Unsaved Changes
+              Unsaved Inputs Warning
             </h3>
             <p style={{ fontSize: "0.88rem", color: "var(--admin-text-secondary)", margin: "12px 0 20px" }}>
-              You have unsaved changes on the <strong>{activeTab}</strong> tab. Would you like to save your changes or discard them before switching to <strong>{pendingTab}</strong>?
+              You have unsubmitted inputs on the <strong>{activeTab}</strong> tab. Would you like to save or discard your changes before switching to <strong>{pendingTab}</strong>?
             </p>
             <div className="admin-modal-actions" style={{ flexDirection: "column", gap: 8 }}>
-              <button className="admin-btn admin-btn--primary" style={{ width: "100%" }} onClick={handleModalSaveAndProceed}>
-                Save Changes & Continue →
-              </button>
+              {activeTab === "Details" && (
+                <button className="admin-btn admin-btn--primary" style={{ width: "100%" }} onClick={handleModalSaveAndProceed}>
+                  Save Changes & Continue →
+                </button>
+              )}
               <button className="admin-btn admin-btn--danger" style={{ width: "100%" }} onClick={handleModalDiscardAndProceed}>
-                Discard Changes & Continue
+                Discard & Continue →
               </button>
               <button className="admin-btn admin-btn--ghost" style={{ width: "100%", marginTop: 4 }} onClick={() => setShowUnsavedModal(false)}>
                 Cancel (Stay Here)

@@ -46,9 +46,7 @@ export default function AdminDashboardPage() {
           <h1 className="admin-page-title">{greeting}, {adminUser?.full_name?.split(" ")[0] || "Admin"} 👋</h1>
           <p className="admin-page-subtitle">Here's what's happening with your store today.</p>
         </div>
-        <Link href="/admin/products/new" className="admin-btn admin-btn--primary">
-          + New Product
-        </Link>
+
       </div>
 
       {loading && (

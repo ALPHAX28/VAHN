@@ -44,18 +44,20 @@ export default function ProductInfo({ product }: Props) {
   };
 
   const { detailsHtml, fitHtml } = (() => {
-    const html = product.descriptionHtml || '';
-    let listIndex = html.indexOf('<ul');
+    // Strip empty <p> and <p> tags that contain only whitespace
+    const rawHtml = (product.descriptionHtml || '').replace(/<p>\s*<\/p>/gi, '').trim();
+    let listIndex = rawHtml.indexOf('<ul');
     if (listIndex === -1) {
-      listIndex = html.indexOf('<ol');
+      listIndex = rawHtml.indexOf('<ol');
     }
     if (listIndex === -1) {
-      return { detailsHtml: html, fitHtml: '' };
+      return { detailsHtml: rawHtml, fitHtml: '' };
     }
-    const details = html.substring(0, listIndex).trim();
-    const fit = html.substring(listIndex).trim();
+    const details = rawHtml.substring(0, listIndex).trim();
+    const fit = rawHtml.substring(listIndex).trim();
     return { detailsHtml: details, fitHtml: fit };
   })();
+
 
   // Initialize selected options from first available variant
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {

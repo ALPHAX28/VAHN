@@ -74,7 +74,7 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Prevent tab/browser refresh when dirty
+  // Prevent tab/browser refresh and browser Back/Forward navigation when dirty
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isDirty) {
@@ -82,8 +82,24 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
         e.returnValue = "";
       }
     };
+
+    const handlePopState = () => {
+      if (isDirty) {
+        window.history.pushState(null, "", window.location.href);
+        setShowModal(true);
+      }
+    };
+
+    if (isDirty) {
+      window.history.pushState(null, "", window.location.href);
+      window.addEventListener("popstate", handlePopState);
+    }
+
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
   }, [isDirty]);
 
   return (

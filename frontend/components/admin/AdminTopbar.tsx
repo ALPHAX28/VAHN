@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAdminAuth } from "@/context/AdminAuthContext";
+import { useUnsavedChanges } from "@/context/UnsavedChangesContext";
 
 import Image from "next/image";
 
@@ -36,7 +37,14 @@ interface AdminTopbarProps {
 export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
   const pathname = usePathname();
   const { adminUser, adminLogout } = useAdminAuth();
+  const { confirmNavigation } = useUnsavedChanges();
   const breadcrumbs = getBreadcrumbs(pathname);
+
+  function handleBreadcrumbClick(e: React.MouseEvent, href: string) {
+    if (!confirmNavigation(href)) {
+      e.preventDefault();
+    }
+  }
 
   return (
     <header className="admin-topbar">
@@ -60,7 +68,7 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
             <span key={`${crumb.href}-${i}`} className="admin-breadcrumb-item">
               {i > 0 && <span className="admin-breadcrumb-sep">/</span>}
               {i < breadcrumbs.length - 1 ? (
-                <Link href={crumb.href} className="admin-breadcrumb-link">{crumb.label}</Link>
+                <Link href={crumb.href} className="admin-breadcrumb-link" onClick={e => handleBreadcrumbClick(e, crumb.href)}>{crumb.label}</Link>
               ) : (
                 <span className="admin-breadcrumb-current">{crumb.label}</span>
               )}
