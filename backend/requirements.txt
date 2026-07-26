@@ -3,6 +3,7 @@ uvicorn
 sqlalchemy
 alembic
 pg8000
+psycopg2-binary
 pydantic
 python-multipart
 python-dotenv

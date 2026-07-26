@@ -7,14 +7,28 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL and "+pg8000" in DATABASE_URL and "?" in DATABASE_URL:
-    DATABASE_URL = DATABASE_URL.split("?")[0]
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif DATABASE_URL.startswith("postgresql://") and "+psycopg2" not in DATABASE_URL and "+pg8000" not in DATABASE_URL:
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+    elif "+pg8000" in DATABASE_URL:
+        try:
+            import psycopg2
+            DATABASE_URL = DATABASE_URL.replace("+pg8000", "+psycopg2")
+        except ImportError:
+            pass
 
-# Create engine
+    if "?" in DATABASE_URL:
+        DATABASE_URL = DATABASE_URL.split("?")[0]
+
+# Create engine with high-performance connection pooling
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
-    pool_recycle=60
+    pool_size=10,
+    max_overflow=20,
+    pool_recycle=300
 )
 
 # Session factory

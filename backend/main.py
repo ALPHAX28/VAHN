@@ -28,6 +28,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Cache-Control middleware for storefront performance
+@app.middleware("http")
+async def add_cache_control_header(request, call_next):
+    response = await call_next(request)
+    if request.method == "GET" and response.status_code == 200:
+        path = request.url.path
+        if path.startswith("/api/products") or path.startswith("/api/collections"):
+            response.headers["Cache-Control"] = "public, max-age=60, s-maxage=300, stale-while-revalidate=600"
+    return response
+
 # Helper function to convert DB model to schemas.ProductSchema
 def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
     # Convert variants
