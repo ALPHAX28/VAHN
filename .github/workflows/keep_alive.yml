@@ -14,10 +14,9 @@ jobs:
         run: |
           BACKEND_URL="${{ secrets.PROD_BACKEND_URL }}"
           if [ -z "$BACKEND_URL" ]; then
-            echo "[NOTICE] PROD_BACKEND_URL secret is not set in GitHub repository settings."
-            echo "To enable automated warmup pings, add PROD_BACKEND_URL secret (e.g. https://your-backend-api.com/api/health)."
-            exit 0
+            BACKEND_URL="https://vahn.vercel.app/api/backend/api/health"
           fi
           echo "Pinging production backend health check at: $BACKEND_URL"
           RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "$BACKEND_URL")
           echo "Response: $RESPONSE"
+
