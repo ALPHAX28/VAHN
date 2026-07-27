@@ -56,16 +56,12 @@ export default function NewProductPage() {
   );
   const [customSizeInput, setCustomSizeInput] = useState("");
 
-  // Colour Groups hierarchy state
+  // Colour Groups hierarchy state (SCRUM-19: Start with no pre-selected sizes by default)
   const [colourGroups, setColourGroups] = useState<ColourGroupForm[]>([
     {
       colour_value: "Maroon",
       images: [],
-      sizes: {
-        S: { inventory_quantity: 10, price_amount: 2499, compare_at_price_amount: "" },
-        M: { inventory_quantity: 15, price_amount: 2499, compare_at_price_amount: "" },
-        L: { inventory_quantity: 12, price_amount: 2499, compare_at_price_amount: "" },
-      },
+      sizes: {},
     },
   ]);
 
@@ -113,9 +109,7 @@ export default function NewProductPage() {
       {
         colour_value: "",
         images: [],
-        sizes: {
-          M: { inventory_quantity: 10, price_amount: 2499, compare_at_price_amount: "" },
-        },
+        sizes: {}, // SCRUM-19: No pre-selected sizes
       },
     ]);
   }
@@ -139,8 +133,19 @@ export default function NewProductPage() {
       if (sizes[size]) {
         delete sizes[size];
       } else {
-        sizes[size] = { inventory_quantity: 10, price_amount: 2499, compare_at_price_amount: "" };
+        // SCRUM-21: Start with clean 0 / empty values instead of pre-filled defaults
+        sizes[size] = { inventory_quantity: 0, price_amount: 0, compare_at_price_amount: "" };
       }
+      return { ...g, sizes };
+    }));
+  }
+
+  // SCRUM-20: Remove added size record directly from size matrix
+  function removeSizeFromGroup(groupIndex: number, size: string) {
+    setColourGroups(groups => groups.map((g, idx) => {
+      if (idx !== groupIndex) return g;
+      const sizes = { ...g.sizes };
+      delete sizes[size];
       return { ...g, sizes };
     }));
   }
@@ -154,7 +159,8 @@ export default function NewProductPage() {
         ...g,
         sizes: {
           ...g.sizes,
-          [size]: { inventory_quantity: 10, price_amount: 2499, compare_at_price_amount: "" },
+          // SCRUM-21: Start with clean 0 / empty values instead of pre-filled defaults
+          [size]: { inventory_quantity: 0, price_amount: 0, compare_at_price_amount: "" },
         },
       };
     }));
@@ -169,13 +175,21 @@ export default function NewProductPage() {
       let updatedCompare = currentMeta.compare_at_price_amount;
 
       if (field === "inventory_quantity") {
-        return { ...g, sizes: { ...g.sizes, [size]: { ...currentMeta, inventory_quantity: Number(val) } } };
+        // SCRUM-21: Prevent negative stock quantity
+        const qtyVal = Math.max(0, Number(val) || 0);
+        return { ...g, sizes: { ...g.sizes, [size]: { ...currentMeta, inventory_quantity: qtyVal } } };
       } else if (field === "price_amount") {
-        updatedPrice = Number(val);
+        // SCRUM-21: Prevent negative price
+        updatedPrice = Math.max(0, Number(val) || 0);
       } else if (field === "compare_at_price_amount") {
-        updatedCompare = String(val);
+        if (val === "" || val === null || val === undefined) {
+          updatedCompare = "";
+        } else {
+          // SCRUM-21: Prevent negative compare price
+          updatedCompare = String(Math.max(0, Number(val) || 0));
+        }
       } else if (field === "discount_percent") {
-        const discPct = Math.round(Number(val));
+        const discPct = Math.round(Math.max(0, Number(val) || 0));
         if (discPct > 0 && updatedPrice > 0) {
           updatedCompare = String(Math.round(updatedPrice / (1 - discPct / 100)));
         } else if (discPct === 0) {
@@ -215,6 +229,27 @@ export default function NewProductPage() {
     if (colourGroups.length === 0 || colourGroups.some(g => !g.colour_value.trim())) {
       setError("Please specify at least one valid Colour Name for your Colour Group.");
       return;
+    }
+
+    // SCRUM-21 & SCRUM-22 Validation Checks across all colour groups and sizes
+    for (const group of colourGroups) {
+      for (const [size, meta] of Object.entries(group.sizes)) {
+        const sellingPrice = Number(meta.price_amount) || 0;
+        const comparePrice = meta.compare_at_price_amount ? Number(meta.compare_at_price_amount) : 0;
+        const qty = Number(meta.inventory_quantity) || 0;
+
+        // SCRUM-21: Negative check
+        if (sellingPrice < 0 || comparePrice < 0 || qty < 0) {
+          setError(`Price and quantity cannot be negative for size '${size}' in ${group.colour_value || 'Colour Group'}.`);
+          return;
+        }
+
+        // SCRUM-22: Compare price cannot be less than selling price
+        if (comparePrice > 0 && comparePrice < sellingPrice) {
+          setError(`Original Price (MRP ₹${comparePrice}) cannot be less than Selling Price (₹${sellingPrice}) for size '${size}' in ${group.colour_value || 'Colour Group'}.`);
+          return;
+        }
+      }
     }
 
     setLoading(true);
@@ -659,6 +694,7 @@ export default function NewProductPage() {
                             <th>Selling Price (₹)</th>
                             <th>Original Price (MRP ₹)</th>
                             <th>Discount (%)</th>
+                            <th style={{ width: 60, textAlign: "center" }}>Action</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -673,6 +709,7 @@ export default function NewProductPage() {
                                 <td>
                                   <input
                                     type="number"
+                                    min="0"
                                     className="admin-form-input"
                                     style={{ width: 90 }}
                                     value={meta.inventory_quantity}
@@ -683,6 +720,7 @@ export default function NewProductPage() {
                                 <td>
                                   <input
                                     type="number"
+                                    min="0"
                                     className="admin-form-input"
                                     style={{ width: 110 }}
                                     value={meta.price_amount || ""}
@@ -693,6 +731,7 @@ export default function NewProductPage() {
                                 <td>
                                   <input
                                     type="number"
+                                    min="0"
                                     className="admin-form-input"
                                     style={{ width: 110 }}
                                     placeholder="e.g. 2999"
@@ -705,6 +744,8 @@ export default function NewProductPage() {
                                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                     <input
                                       type="number"
+                                      min="0"
+                                      max="99"
                                       className="admin-form-input"
                                       style={{ width: 75 }}
                                       placeholder="0"
@@ -714,6 +755,17 @@ export default function NewProductPage() {
                                     />
                                     <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#d32f2f" }}>% OFF</span>
                                   </div>
+                                </td>
+                                <td style={{ textAlign: "center" }}>
+                                  <button
+                                    type="button"
+                                    className="admin-btn admin-btn--ghost"
+                                    style={{ color: "#e53935", padding: "2px 8px", fontSize: "0.8rem" }}
+                                    title={`Remove size ${sizeKey}`}
+                                    onClick={() => removeSizeFromGroup(groupIdx, sizeKey)}
+                                  >
+                                    ✕ Remove
+                                  </button>
                                 </td>
                               </tr>
                             );
