@@ -34,12 +34,16 @@ export default function NewProductPage() {
     shipping_rate: null as number | null,
   });
 
-  // Dynamic Options lists for Fit, Kit Type, Activity
+  // Dynamic Options lists for Product Type, Fit, Kit Type, Activity
+  const [productTypeOptions, setProductTypeOptions] = useState(["Jersey", "T-Shirt", "Shorts", "Hoodie", "Jacket", "Pants", "Accessory", "Footwear"]);
   const [fitOptions, setFitOptions] = useState(["SLIM", "REGULAR", "OVERSIZED"]);
   const [kitTypeOptions, setKitTypeOptions] = useState(["JERSEY", "HOME", "SIGNATURE"]);
   const [activityOptions, setActivityOptions] = useState(["FOOTBALL", "LIFESTYLE", "STREETWEAR", "CRICKET", "BASKETBALL"]);
 
   // Custom addition inputs
+  const [newProductTypeInput, setNewProductTypeInput] = useState("");
+  const [showNewProductTypeInput, setShowNewProductTypeInput] = useState(false);
+
   const [newFitInput, setNewFitInput] = useState("");
   const [showNewFitInput, setShowNewFitInput] = useState(false);
 
@@ -65,6 +69,18 @@ export default function NewProductPage() {
 
   const updateForm = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [field]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value }));
+
+  // Dynamic Options Addition Helpers
+  function handleAddCustomProductType() {
+    const val = newProductTypeInput.trim();
+    if (!val) return;
+    if (!productTypeOptions.includes(val)) {
+      setProductTypeOptions(opts => [...opts, val]);
+    }
+    setForm(f => ({ ...f, product_type: val }));
+    setNewProductTypeInput("");
+    setShowNewProductTypeInput(false);
+  }
 
   // Fit / Kit Type / Activity Addition Helpers
   function handleAddCustomFit() {
@@ -390,8 +406,36 @@ export default function NewProductPage() {
               </div>
 
               <div className="admin-form-group">
-                <label className="admin-form-label">Product Type</label>
-                <input type="text" className="admin-form-input" placeholder="e.g. Jersey" value={form.product_type} onChange={updateForm("product_type")} />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label className="admin-form-label">Product Type</label>
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--ghost"
+                    style={{ fontSize: "0.72rem", padding: 0 }}
+                    onClick={() => setShowNewProductTypeInput(s => !s)}
+                  >
+                    {showNewProductTypeInput ? "Cancel" : "+ Add New Type"}
+                  </button>
+                </div>
+                {showNewProductTypeInput ? (
+                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                    <input
+                      type="text"
+                      className="admin-form-input"
+                      placeholder="e.g. Compression Wear"
+                      value={newProductTypeInput}
+                      onChange={e => setNewProductTypeInput(e.target.value)}
+                    />
+                    <button type="button" className="admin-btn admin-btn--secondary" onClick={handleAddCustomProductType}>
+                      Add
+                    </button>
+                  </div>
+                ) : (
+                  <select className="admin-form-select" value={form.product_type} onChange={updateForm("product_type")}>
+                    <option value="">— Select Product Type —</option>
+                    {productTypeOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                )}
               </div>
 
               {/* Interactive Tag Input */}
