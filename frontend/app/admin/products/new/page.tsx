@@ -49,11 +49,9 @@ export default function NewProductPage() {
   const [newActivityInput, setNewActivityInput] = useState("");
   const [showNewActivityInput, setShowNewActivityInput] = useState(false);
 
-  const [tags, setTags] = useState<string[]>(["jersey", "streetwear"]);
+  const [tags, setTags] = useState<string[]>([]);
   const [featuredThumbnail, setFeaturedThumbnail] = useState<UploadedImage[]>([]);
-  const [sizeFitInput, setSizeFitInput] = useState<string>(
-    "Heavyweight 360gsm organic cotton blend\nBespoke relaxed oversized silhouette\nSignature embroidered branding on chest\nRibbed crewneck collar"
-  );
+  const [sizeFitInput, setSizeFitInput] = useState<string>("");
   const [customSizeInput, setCustomSizeInput] = useState("");
 
   // Colour Groups hierarchy state (SCRUM-19: Start with no pre-selected sizes by default)
@@ -418,7 +416,7 @@ export default function NewProductPage() {
                 <textarea
                   className="admin-form-textarea"
                   rows={4}
-                  placeholder={`e.g.&#10;Heavyweight 360gsm organic cotton blend&#10;Bespoke relaxed oversized silhouette&#10;Signature embroidered branding on chest&#10;Ribbed crewneck collar`}
+                  placeholder={`e.g.\nHeavyweight 360gsm organic cotton blend\nBespoke relaxed oversized silhouette\nSignature embroidered branding on chest\nRibbed crewneck collar`}
                   value={sizeFitInput}
                   onChange={e => setSizeFitInput(e.target.value)}
                 />
