@@ -7,8 +7,9 @@ export function formatMoney(money: Money): string {
   const amount = parseFloat(money.amount);
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: money.currencyCode,
-    minimumFractionDigits: 2,
+    currency: money.currencyCode || 'INR',
+    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 

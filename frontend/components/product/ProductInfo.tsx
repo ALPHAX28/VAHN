@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import type { Product, ProductVariant } from '@/lib/api/types';
+import type { Product, ProductVariant, Money } from '@/lib/api/types';
 import { useCart, type AddItemDisplayData } from '@/context/CartContext';
 import { formatMoney } from '@/lib/utils';
 
@@ -59,35 +59,127 @@ export default function ProductInfo({ product }: Props) {
   })();
 
 
-  // Initialize selected options from first available variant
+  // Initialize selected options (Color pre-selected, Size unselected by default)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
     const opts: Record<string, string> = {};
-    (variants[0]?.selectedOptions ?? []).forEach((o) => { opts[o.name] = o.value; });
+    (product.options ?? []).forEach((opt) => {
+      const isSize = opt.name.toLowerCase() === 'size';
+      if (!isSize && opt.values.length > 0) {
+        opts[opt.name] = opt.values[0];
+      } else {
+        opts[opt.name] = ''; // Start unselected for size
+      }
+    });
     return opts;
   });
 
-  const selectedVariant = getVariantFromOptions(variants, selectedOptions);
-  const price = selectedVariant?.price ?? product.priceRange.minVariantPrice;
-  const comparePrice = selectedVariant?.compareAtPrice;
+  const hasSizeOption = (product.options ?? []).some((o) => o.name.toLowerCase() === 'size');
+  const selectedSizeValue = selectedOptions['Size'] || selectedOptions['size'] || '';
+  const isSizeSelected = !hasSizeOption || Boolean(selectedSizeValue);
+
+  const selectedVariant = isSizeSelected ? getVariantFromOptions(variants, selectedOptions) : undefined;
+  
+  // ── Dynamic Price Calculation ──
+  const activeColour = selectedOptions['Colour'] || selectedOptions['Color'] || '';
+  const colourVariants = variants.filter(
+    (v) => !activeColour || v.selectedOptions.some((opt) => (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value === activeColour)
+  );
+  const poolVariants = colourVariants.length > 0 ? colourVariants : variants;
+
+  let price = selectedVariant?.price ?? product.priceRange.minVariantPrice;
+  let comparePrice: Money | null = selectedVariant?.compareAtPrice ?? null;
+  let discountPct = 0;
+
+  if (isSizeSelected && selectedVariant) {
+    price = selectedVariant.price;
+    comparePrice = selectedVariant.compareAtPrice;
+    if (comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount)) {
+      discountPct = Math.round(
+        ((parseFloat(comparePrice.amount) - parseFloat(price.amount)) / parseFloat(comparePrice.amount)) * 100
+      );
+    }
+  } else {
+    // When NO size is selected: Find lowest price & highest discount among variants
+    let lowestPriceVar = poolVariants[0];
+    let highestDiscountPct = 0;
+    let bestComparePrice: Money | null = null;
+
+    for (const v of poolVariants) {
+      const p = parseFloat(v.price.amount);
+      if (lowestPriceVar && p < parseFloat(lowestPriceVar.price.amount)) {
+        lowestPriceVar = v;
+      }
+      const c = v.compareAtPrice ? parseFloat(v.compareAtPrice.amount) : null;
+      if (c && c > p) {
+        const pct = Math.round(((c - p) / c) * 100);
+        if (pct > highestDiscountPct) {
+          highestDiscountPct = pct;
+          bestComparePrice = v.compareAtPrice;
+        }
+      }
+    }
+
+    price = lowestPriceVar?.price ?? product.priceRange.minVariantPrice;
+    comparePrice = bestComparePrice ?? lowestPriceVar?.compareAtPrice ?? null;
+    discountPct = highestDiscountPct;
+
+    if (!discountPct && comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount)) {
+      discountPct = Math.round(
+        ((parseFloat(comparePrice.amount) - parseFloat(price.amount)) / parseFloat(comparePrice.amount)) * 100
+      );
+    }
+  }
+
   const isOnSale = comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount);
-  const available = (selectedVariant?.availableForSale ?? false) && (selectedVariant?.quantityAvailable === undefined || selectedVariant.quantityAvailable > 0);
+  const available = isSizeSelected && (selectedVariant?.availableForSale ?? false) && (selectedVariant?.quantityAvailable === undefined || selectedVariant.quantityAvailable > 0);
   const cartItem = selectedVariant ? lines.find((l) => l.merchandise.id === selectedVariant.id) : undefined;
 
   const handleOptionSelect = useCallback(
     (optionName: string, value: string) => {
-      setSelectedOptions((prev) => ({ ...prev, [optionName]: value }));
+      setSelectedOptions((prev) => {
+        const next = { ...prev, [optionName]: value };
+        const isColour = optionName.toLowerCase() === 'colour' || optionName.toLowerCase() === 'color';
+        
+        // If Colour changed, check if current selected Size is valid for new Colour
+        if (isColour && prev['Size']) {
+          const validSizesForNewColour = variants
+            .filter((v) => v.selectedOptions.some((opt) => (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value === value))
+            .flatMap((v) => v.selectedOptions.filter((opt) => opt.name.toLowerCase() === 'size').map((opt) => opt.value));
+
+          if (!validSizesForNewColour.includes(prev['Size'])) {
+            next['Size'] = ''; // Reset size so user selects a valid size for the new colour
+          }
+        }
+        return next;
+      });
     },
-    []
+    [variants]
   );
 
   const isValueAvailable = (optionName: string, value: string) => {
-    const testOptions = { ...selectedOptions, [optionName]: value };
-    const variant = getVariantFromOptions(variants, testOptions);
-    const hasQty = variant?.quantityAvailable === undefined || variant.quantityAvailable > 0;
-    return (variant?.availableForSale ?? false) && hasQty;
+    const relevantVariants = variants.filter((v) =>
+      v.selectedOptions.some((opt) => opt.name === optionName && opt.value === value)
+    );
+    if (relevantVariants.length === 0) return false;
+
+    const otherSelectedOpts = Object.entries(selectedOptions).filter(
+      ([k, v]) => k !== optionName && v !== ''
+    );
+
+    const matchingVariants = relevantVariants.filter((v) =>
+      otherSelectedOpts.every(([k, val]) =>
+        v.selectedOptions.some((opt) => opt.name === k && opt.value === val)
+      )
+    );
+
+    const targetVariants = matchingVariants.length > 0 ? matchingVariants : relevantVariants;
+    return targetVariants.some(
+      (v) => v.availableForSale && (v.quantityAvailable === undefined || v.quantityAvailable > 0)
+    );
   };
 
   const handleAddToCart = () => {
+    if (!isSizeSelected) return;
     if (!selectedVariant || !available || adding) return;
 
     // Build full display data so the cart drawer shows real info instantly
@@ -146,20 +238,40 @@ export default function ProductInfo({ product }: Props) {
         <span style={{ color: 'var(--color-grey-dark)', textDecoration: 'underline' }}>{totalReviews} reviews</span>
       </div>
 
-      {/* Price */}
-      <div className="product-price-display" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {isOnSale ? (
+      {/* Price & Discount */}
+      <div className="product-price-display" style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0 16px', flexWrap: 'wrap' }}>
+        {isOnSale && comparePrice ? (
           <>
-            <span className="product-price-sale">{formatMoney(price)}</span>
-            <span className="product-price-compare">{formatMoney(comparePrice!)}</span>
-            {comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount) && (
-              <span className="discount-tag-badge" style={{ background: '#d32f2f', color: '#ffffff', fontSize: '0.78rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                {Math.round(((parseFloat(comparePrice.amount) - parseFloat(price.amount)) / parseFloat(comparePrice.amount)) * 100)}% OFF
+            <span className="price-sale" style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-black)', letterSpacing: '-0.02em', lineHeight: 1 }}>
+              {formatMoney(price)}
+            </span>
+            <span className="price-compare" style={{ textDecoration: 'line-through', color: '#757575', fontSize: '1.1rem', fontWeight: 500, lineHeight: 1 }}>
+              {formatMoney(comparePrice)}
+            </span>
+            {discountPct > 0 && (
+              <span
+                style={{
+                  background: '#d32f2f',
+                  color: '#ffffff',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  padding: '3px 8px',
+                  borderRadius: '3px',
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  marginLeft: '2px'
+                }}
+              >
+                {discountPct}% OFF
               </span>
             )}
           </>
         ) : (
-          <span>{formatMoney(price)}</span>
+          <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-black)', letterSpacing: '-0.02em', lineHeight: 1 }}>
+            {formatMoney(price)}
+          </span>
         )}
       </div>
 
@@ -167,72 +279,89 @@ export default function ProductInfo({ product }: Props) {
       {product.options.length > 0 &&
         !(product.options.length === 1 && product.options[0].values.length === 1 && product.options[0].values[0] === 'Default Title') && (
           <div className="variant-picker">
-            {product.options.map((option) => (
-              <div key={option.id}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
-                  <p className="variant-label" style={{ marginBottom: 0 }}>
-                    {option.name}: <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{selectedOptions[option.name]}</span>
-                  </p>
-                  {option.name.toLowerCase() === 'size' && (
-                    <button
-                      onClick={() => setSizeGuideOpen(true)}
-                      className="size-guide-trigger-btn"
-                      type="button"
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--color-black)',
-                        fontFamily: 'var(--font-ui)',
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        textDecoration: 'underline',
-                        cursor: 'pointer',
-                        padding: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      Size Guide
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                        <line x1="12" y1="17" x2="12.01" y2="17" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-                <div className="variant-options" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                  {option.values.map((value) => {
-                    const isAvail = isValueAvailable(option.name, value);
-                    const isColour = option.name.toLowerCase() === 'colour' || option.name.toLowerCase() === 'color';
-                    
-                    // Find variant image for colour swatch
-                    let colorImgUrl = '';
-                    if (isColour) {
-                      const variantForColor = variants.find((v) =>
-                        v.selectedOptions.some((opt) => opt.name === option.name && opt.value === value)
-                      );
-                      colorImgUrl = variantForColor?.image?.url ?? '';
-                    }
+            {product.options.map((option) => {
+              const isColour = option.name.toLowerCase() === 'colour' || option.name.toLowerCase() === 'color';
+              
+              // Filter size values to ONLY those available for the currently selected Colour!
+              let displayValues = option.values;
+              if (!isColour) {
+                const selectedColour = selectedOptions['Colour'] || selectedOptions['Color'] || selectedOptions['colour'] || selectedOptions['color'] || '';
+                if (selectedColour) {
+                  const validValuesForColour = new Set(
+                    variants
+                      .filter((v) => v.selectedOptions.some((opt) => (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value === selectedColour))
+                      .flatMap((v) => v.selectedOptions.filter((opt) => opt.name.toLowerCase() === option.name.toLowerCase()).map((opt) => opt.value))
+                  );
+                  if (validValuesForColour.size > 0) {
+                    displayValues = option.values.filter((val) => validValuesForColour.has(val));
+                  }
+                }
+              }
 
-                    // Get quantity for this option value matching selected options
-                    let qty: number | undefined;
-                    if (!isColour) {
-                      const testOptionsForQty = { ...selectedOptions, [option.name]: value };
-                      const variantForQty = getVariantFromOptions(variants, testOptionsForQty);
-                      qty = variantForQty?.quantityAvailable;
-                    }
-                    const isLowStock = !isColour && isAvail && qty !== undefined && qty > 0 && qty <= 5;
-                    const isOutOfStock = !isAvail;
+              return (
+                <div key={option.id}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                    <p className="variant-label" style={{ marginBottom: 0 }}>
+                      {option.name}: <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                        {selectedOptions[option.name] || (option.name.toLowerCase() === 'size' ? 'Select Size' : '')}
+                      </span>
+                    </p>
+                    {option.name.toLowerCase() === 'size' && (
+                      <button
+                        onClick={() => setSizeGuideOpen(true)}
+                        className="size-guide-trigger-btn"
+                        type="button"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--color-black)',
+                          fontFamily: 'var(--font-ui)',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          textDecoration: 'underline',
+                          cursor: 'pointer',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        Size Guide
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <div className="variant-options" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    {displayValues.map((value) => {
+                      const isAvail = isValueAvailable(option.name, value);
+                      
+                      // Find colour group image or variant image for colour swatch
+                      let colorImgUrl = '';
+                      if (isColour) {
+                        const colourGroup = product.colourGroups?.find(
+                          (cg) => cg.colourValue.trim().toLowerCase() === value.trim().toLowerCase()
+                        );
+                        const groupImgUrl = colourGroup?.images?.[0]?.url;
+                        const variantForColor = variants.find((v) =>
+                          v.selectedOptions.some((opt) => (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value.trim().toLowerCase() === value.trim().toLowerCase()) && v.image?.url
+                        );
+                        colorImgUrl = groupImgUrl ?? variantForColor?.image?.url ?? product.featuredImage?.url ?? '';
+                      }
+
+                      const isOutOfStock = !isAvail;
 
                     return (
                       <div key={value} className="size-option-wrap">
                         <button
+                          type="button"
                           className={`variant-option ${selectedOptions[option.name] === value ? 'active' : ''} ${isOutOfStock ? 'unavailable out-of-stock' : ''} ${isColour ? 'colour-swatch' : ''}`}
-                          onClick={() => isAvail && handleOptionSelect(option.name, value)}
+                          onClick={() => handleOptionSelect(option.name, value)}
                           aria-pressed={selectedOptions[option.name] === value}
                           aria-label={`${option.name}: ${value}${isOutOfStock ? ' (unavailable)' : ''}`}
                           style={isColour && colorImgUrl ? {
@@ -273,23 +402,24 @@ export default function ProductInfo({ product }: Props) {
                   })}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            );
+          })}
+        </div>
+      )}
 
-      {/* Out of Stock warning */}
-      {(!available || (selectedVariant && selectedVariant.quantityAvailable === 0)) && (
+      {/* Out of Stock warning (Only when size is explicitly selected and variant is out of stock) */}
+      {isSizeSelected && (!available || (selectedVariant && selectedVariant.quantityAvailable === 0)) && (
         <div className="stock-warning" style={{ color: '#c62828', fontWeight: 700, fontSize: '0.85rem', margin: '14px 0 8px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(229, 57, 53, 0.08)', border: '1px solid rgba(229, 57, 53, 0.2)' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-          Out of Stock: Size {selectedOptions["Size"] || selectedOptions["size"] || ""} is currently out of stock.
+          Out of Stock: Size {selectedSizeValue} is currently out of stock.
         </div>
       )}
 
       {/* Limited Stock warning */}
-      {available && selectedVariant && selectedVariant.quantityAvailable !== undefined && selectedVariant.quantityAvailable <= 5 && selectedVariant.quantityAvailable > 0 && (
+      {isSizeSelected && available && selectedVariant && selectedVariant.quantityAvailable !== undefined && selectedVariant.quantityAvailable <= 5 && selectedVariant.quantityAvailable > 0 && (
         <div className="stock-warning" style={{ color: '#d32f2f', fontWeight: 700, fontSize: '0.85rem', margin: '14px 0 8px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(211, 47, 47, 0.06)', border: '1px solid rgba(211, 47, 47, 0.2)' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          Limited Stock: Only {selectedVariant.quantityAvailable} left for size {selectedOptions["Size"] || selectedOptions["size"] || ""} — order soon!
+          Limited Stock: Only {selectedVariant.quantityAvailable} left for size {selectedSizeValue} — order soon!
         </div>
       )}
 
@@ -323,10 +453,10 @@ export default function ProductInfo({ product }: Props) {
           </div>
         ) : (
           <button
-            className={`btn-add-to-cart ${!available || adding ? 'disabled' : ''}`}
+            className={`btn-add-to-cart ${!isSizeSelected || !available || adding ? 'disabled' : ''}`}
             onClick={handleAddToCart}
-            disabled={!available || adding}
-            aria-label={available ? 'Add to cart' : 'Sold out'}
+            disabled={!isSizeSelected || !available || adding}
+            aria-label={!isSizeSelected ? 'Select a size' : available ? 'Add to cart' : 'Sold out'}
           >
             <span className="btn-add-to-cart-text">
               {adding ? (
@@ -338,6 +468,8 @@ export default function ProductInfo({ product }: Props) {
                   </svg>
                   {addedMessage}
                 </>
+              ) : !isSizeSelected ? (
+                'Select a Size'
               ) : available ? (
                 'Add to Cart'
               ) : (

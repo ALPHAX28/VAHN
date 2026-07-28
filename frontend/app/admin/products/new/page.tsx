@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminAuth } from "@/context/AdminAuthContext";
-import { createAdminProduct, createColourGroup } from "@/lib/api/admin";
+import { getAdminProducts, createAdminProduct, createColourGroup } from "@/lib/api/admin";
 import AdminImageUploader, { type UploadedImage } from "@/components/admin/AdminImageUploader";
 import AdminTagInput from "@/components/admin/AdminTagInput";
 
@@ -35,7 +35,7 @@ export default function NewProductPage() {
   });
 
   // Dynamic Options lists for Product Type, Fit, Kit Type, Activity
-  const [productTypeOptions, setProductTypeOptions] = useState(["Jersey", "T-Shirt", "Shorts", "Hoodie", "Jacket", "Pants", "Accessory", "Footwear"]);
+  const [productTypeOptions, setProductTypeOptions] = useState(["Jersey", "T-Shirt", "Hoodie", "Sweatshirt", "Pants", "Shorts", "Jacket", "Accessories", "Streetwear", "Footwear"]);
   const [fitOptions, setFitOptions] = useState(["SLIM", "REGULAR", "OVERSIZED"]);
   const [kitTypeOptions, setKitTypeOptions] = useState(["JERSEY", "HOME", "SIGNATURE"]);
   const [activityOptions, setActivityOptions] = useState(["FOOTBALL", "LIFESTYLE", "STREETWEAR", "CRICKET", "BASKETBALL"]);
@@ -53,6 +53,67 @@ export default function NewProductPage() {
   const [newActivityInput, setNewActivityInput] = useState("");
   const [showNewActivityInput, setShowNewActivityInput] = useState(false);
 
+  function handleAddCustomProductType() {
+    const val = newProductTypeInput.trim();
+    if (!val) return;
+    if (!productTypeOptions.includes(val)) {
+      setProductTypeOptions(opts => [...opts, val]);
+    }
+    setForm(f => ({ ...f, product_type: val }));
+    setNewProductTypeInput("");
+    setShowNewProductTypeInput(false);
+  }
+
+  function handleDeleteProductType(typeToDelete: string) {
+    if (!typeToDelete) return;
+    if (!confirm(`Remove "${typeToDelete}" from Product Type options?`)) return;
+
+    setProductTypeOptions(prev => prev.filter(t => t.toLowerCase() !== typeToDelete.toLowerCase()));
+
+    try {
+      const storedDeleted = JSON.parse(localStorage.getItem("vahn_deleted_product_types") || "[]");
+      if (!storedDeleted.some((dt: string) => dt.toLowerCase() === typeToDelete.toLowerCase())) {
+        storedDeleted.push(typeToDelete);
+        localStorage.setItem("vahn_deleted_product_types", JSON.stringify(storedDeleted));
+      }
+    } catch (e) { console.error(e); }
+
+    if (form.product_type === typeToDelete) {
+      setForm(f => ({ ...f, product_type: "" }));
+    }
+  }
+
+  // Load existing Product Types, Fits, Kit Types, Activities from DB
+  useEffect(() => {
+    if (!adminToken) return;
+    getAdminProducts(adminToken)
+      .then(res => {
+        let deletedTypes: string[] = [];
+        try {
+          deletedTypes = JSON.parse(localStorage.getItem("vahn_deleted_product_types") || "[]");
+        } catch (e) { console.error(e); }
+
+        const defaultTypes = ["Jersey", "T-Shirt", "Hoodie", "Sweatshirt", "Pants", "Shorts", "Jacket", "Accessories", "Streetwear", "Footwear"];
+        const dbTypes = (res.items || []).map(item => item.product_type).filter((t): t is string => Boolean(t && t.trim()));
+        const merged = Array.from(new Set([...defaultTypes, ...dbTypes]));
+        const filtered = merged.filter(t => !deletedTypes.some(dt => dt.toLowerCase() === t.toLowerCase()));
+        setProductTypeOptions(filtered);
+
+        const defaultFits = ["SLIM", "REGULAR", "OVERSIZED"];
+        const dbFits = (res.items || []).map(item => item.fit).filter((f): f is string => Boolean(f && f.trim()));
+        setFitOptions(Array.from(new Set([...defaultFits, ...dbFits])));
+
+        const defaultKits = ["JERSEY", "HOME", "SIGNATURE"];
+        const dbKits = (res.items || []).map(item => item.kit_type).filter((k): k is string => Boolean(k && k.trim()));
+        setKitTypeOptions(Array.from(new Set([...defaultKits, ...dbKits])));
+
+        const defaultActivities = ["FOOTBALL", "LIFESTYLE", "STREETWEAR", "CRICKET", "BASKETBALL"];
+        const dbActivities = (res.items || []).map(item => item.activity).filter((a): a is string => Boolean(a && a.trim()));
+        setActivityOptions(Array.from(new Set([...defaultActivities, ...dbActivities])));
+      })
+      .catch(() => {});
+  }, [adminToken]);
+
   const [tags, setTags] = useState<string[]>([]);
   const [featuredThumbnail, setFeaturedThumbnail] = useState<UploadedImage[]>([]);
   const [sizeFitInput, setSizeFitInput] = useState<string>("");
@@ -69,18 +130,6 @@ export default function NewProductPage() {
 
   const updateForm = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [field]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value }));
-
-  // Dynamic Options Addition Helpers
-  function handleAddCustomProductType() {
-    const val = newProductTypeInput.trim();
-    if (!val) return;
-    if (!productTypeOptions.includes(val)) {
-      setProductTypeOptions(opts => [...opts, val]);
-    }
-    setForm(f => ({ ...f, product_type: val }));
-    setNewProductTypeInput("");
-    setShowNewProductTypeInput(false);
-  }
 
   // Fit / Kit Type / Activity Addition Helpers
   function handleAddCustomFit() {
@@ -406,35 +455,64 @@ export default function NewProductPage() {
               </div>
 
               <div className="admin-form-group">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <label className="admin-form-label">Product Type</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <label className="admin-form-label" style={{ marginBottom: 0 }}>Product Type</label>
                   <button
                     type="button"
-                    className="admin-btn admin-btn--ghost"
-                    style={{ fontSize: "0.72rem", padding: 0 }}
-                    onClick={() => setShowNewProductTypeInput(s => !s)}
+                    className="admin-btn-inline-link"
+                    onClick={() => setShowNewProductTypeInput(!showNewProductTypeInput)}
+                    style={{ fontSize: "0.72rem", color: "var(--admin-primary)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: 0 }}
                   >
                     {showNewProductTypeInput ? "Cancel" : "+ Add New Type"}
                   </button>
                 </div>
+
                 {showNewProductTypeInput ? (
-                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                  <div style={{ display: "flex", gap: 6 }}>
                     <input
                       type="text"
                       className="admin-form-input"
-                      placeholder="e.g. Compression Wear"
+                      placeholder="e.g. Tank Top"
                       value={newProductTypeInput}
                       onChange={e => setNewProductTypeInput(e.target.value)}
                     />
-                    <button type="button" className="admin-btn admin-btn--secondary" onClick={handleAddCustomProductType}>
+                    <button type="button" className="admin-btn admin-btn--primary" style={{ padding: "6px 12px", fontSize: "0.78rem" }} onClick={handleAddCustomProductType}>
                       Add
                     </button>
                   </div>
                 ) : (
-                  <select className="admin-form-select" value={form.product_type} onChange={updateForm("product_type")}>
-                    <option value="">— Select Product Type —</option>
-                    {productTypeOptions.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+                  <>
+                    <select
+                      className="admin-form-select"
+                      value={form.product_type}
+                      onChange={updateForm("product_type")}
+                    >
+                      <option value="">— Select Product Type —</option>
+                      {productTypeOptions.map(pt => (
+                        <option key={pt} value={pt}>{pt}</option>
+                      ))}
+                    </select>
+                    {form.product_type && (
+                      <div style={{ marginTop: 4, display: "flex", justifyContent: "flex-end" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProductType(form.product_type)}
+                          style={{
+                            color: "#d32f2f",
+                            fontSize: "0.72rem",
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            fontWeight: 600,
+                            padding: 0,
+                            textDecoration: "underline"
+                          }}
+                        >
+                          ✕ Delete "{form.product_type}" from options
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 

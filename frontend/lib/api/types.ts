@@ -54,6 +54,7 @@ export interface Product {
   featuredImage: Image | null;
   lookbook?: LookbookItem[];
   reviews?: Review[];
+  colourGroups?: { id: number; colourValue: string; displayOrder?: number; images: { url: string; altText?: string }[] }[];
   fit?: string | null;
   kitType?: string | null;
   activity?: string | null;

@@ -38,8 +38,12 @@ async def add_cache_control_header(request, call_next):
     response = await call_next(request)
     if request.method == "GET" and response.status_code == 200:
         path = request.url.path
-        if path.startswith("/api/products") or path.startswith("/api/collections"):
-            response.headers["Cache-Control"] = "public, max-age=60, s-maxage=300, stale-while-revalidate=600"
+        if "/admin/" in path:
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        elif path.startswith("/api/products/"):
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        elif path.startswith("/api/products") or path.startswith("/api/collections"):
+            response.headers["Cache-Control"] = "public, max-age=5, s-maxage=10, stale-while-revalidate=30"
     return response
 
 # Helper function to convert DB model to schemas.ProductSchema
@@ -62,16 +66,38 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
             )
         )
     
-    # Convert options
+    # Convert options (dynamically extracted from variants so all sizes & colours are always in sync)
+    options_map: dict[str, list[str]] = {}
+    if prod.variants:
+        for v in prod.variants:
+            for opt in v.selected_options:
+                name = opt.get("name", "")
+                val = opt.get("value", "")
+                if name and val:
+                    if name not in options_map:
+                        options_map[name] = []
+                    if val not in options_map[name]:
+                        options_map[name].append(val)
+
     options_schemas = []
-    for opt in prod.options:
-        options_schemas.append(
-            schemas.ProductOption(
-                id=opt.get("id", ""),
-                name=opt.get("name", ""),
-                values=opt.get("values", [])
+    if options_map:
+        for idx, (name, values) in enumerate(options_map.items()):
+            options_schemas.append(
+                schemas.ProductOption(
+                    id=f"option-{idx+1}",
+                    name=name,
+                    values=values
+                )
             )
-        )
+    else:
+        for opt in (prod.options or []):
+            options_schemas.append(
+                schemas.ProductOption(
+                    id=opt.get("id", ""),
+                    name=opt.get("name", ""),
+                    values=opt.get("values", [])
+                )
+            )
 
     # Convert images
     images_edges = []
@@ -117,6 +143,22 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
         for r in (prod.reviews or [])
     ]
 
+    colour_group_schemas = [
+        schemas.StorefrontColourGroupSchema(
+            id=cg.id,
+            colourValue=cg.colour_value,
+            displayOrder=cg.display_order,
+            images=[
+                schemas.StorefrontColourGroupImageSchema(
+                    url=img.get("url", "") if isinstance(img, dict) else getattr(img, "url", ""),
+                    altText=(img.get("altText", "") if isinstance(img, dict) else getattr(img, "alt_text", "")) or ""
+                )
+                for img in (cg.images or [])
+            ]
+        )
+        for cg in (prod.colour_groups or [])
+    ]
+
     return schemas.ProductSchema(
         id=f"gid://shopify/Product/{prod.id}",
         title=prod.title,
@@ -141,6 +183,7 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
         featuredImage=schemas.ImageNode(url=prod.featured_image_url, altText=prod.featured_image_alt) if prod.featured_image_url else None,
         lookbook=lookbook_schemas,
         reviews=review_schemas,
+        colourGroups=colour_group_schemas,
         fit=prod.fit,
         kitType=prod.kit_type,
         activity=prod.activity,

@@ -13,7 +13,7 @@ import type {
 // ---- Products ----
 
 export const getProduct = cache(async (handle: string): Promise<Product | null> => {
-  return fetchAPI<Product>(`/products/${handle}`).catch(() => null);
+  return fetchAPI<Product>(`/products/${handle}`, { cache: 'no-store' }).catch(() => null);
 });
 
 export async function getProducts(_options?: {

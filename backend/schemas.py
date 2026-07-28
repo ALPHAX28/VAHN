@@ -89,6 +89,16 @@ class SEO(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
 
+class StorefrontColourGroupImageSchema(BaseModel):
+    url: str
+    altText: Optional[str] = ""
+
+class StorefrontColourGroupSchema(BaseModel):
+    id: int
+    colourValue: str
+    displayOrder: Optional[int] = 0
+    images: List[StorefrontColourGroupImageSchema] = []
+
 class ProductSchema(BaseModel):
     id: str
     title: str
@@ -108,6 +118,7 @@ class ProductSchema(BaseModel):
     featuredImage: Optional[ImageNode] = None
     lookbook: List[LookbookSchema] = []
     reviews: List[ReviewSchema] = []
+    colourGroups: List[StorefrontColourGroupSchema] = []
     fit: Optional[str] = None
     kitType: Optional[str] = None
     activity: Optional[str] = None

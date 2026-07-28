@@ -4,12 +4,12 @@ import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import {
-  getAdminProduct, updateAdminProduct, addVariant, updateVariant, deleteVariant,
+  getAdminProducts, getAdminProduct, updateAdminProduct, addVariant, updateVariant, deleteVariant,
   createColourGroup, updateColourGroup, deleteColourGroup, type AdminProductDetail, type AdminVariant, type ColourGroup,
   createAdminReview, getProductReviews, deleteAdminReview, updateAdminReview, type AdminReview
 } from "@/lib/api/admin";
 import { useUnsavedChanges } from "@/context/UnsavedChangesContext";
-import AdminImageUploader from "@/components/admin/AdminImageUploader";
+import AdminImageUploader, { type UploadedImage } from "@/components/admin/AdminImageUploader";
 import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 import Image from "next/image";
@@ -37,6 +37,39 @@ export default function AdminProductDetailPage() {
   // Edit state
   const [editForm, setEditForm] = useState<Partial<AdminProductDetail>>({});
   const [editSizeFitInput, setEditSizeFitInput] = useState<string>("");
+  const [productTypeOptions, setProductTypeOptions] = useState(["Jersey", "T-Shirt", "Hoodie", "Sweatshirt", "Pants", "Shorts", "Jacket", "Accessories", "Streetwear", "Footwear"]);
+  const [newProductTypeInput, setNewProductTypeInput] = useState("");
+  const [showNewProductTypeInput, setShowNewProductTypeInput] = useState(false);
+
+  function handleAddCustomProductType() {
+    const val = newProductTypeInput.trim();
+    if (!val) return;
+    if (!productTypeOptions.includes(val)) {
+      setProductTypeOptions(opts => [...opts, val]);
+    }
+    setEditForm(f => ({ ...f, product_type: val }));
+    setNewProductTypeInput("");
+    setShowNewProductTypeInput(false);
+  }
+
+  function handleDeleteProductType(typeToDelete: string) {
+    if (!typeToDelete) return;
+    if (!confirm(`Remove "${typeToDelete}" from Product Type options?`)) return;
+
+    setProductTypeOptions(prev => prev.filter(t => t.toLowerCase() !== typeToDelete.toLowerCase()));
+
+    try {
+      const storedDeleted = JSON.parse(localStorage.getItem("vahn_deleted_product_types") || "[]");
+      if (!storedDeleted.some((dt: string) => dt.toLowerCase() === typeToDelete.toLowerCase())) {
+        storedDeleted.push(typeToDelete);
+        localStorage.setItem("vahn_deleted_product_types", JSON.stringify(storedDeleted));
+      }
+    } catch (e) { console.error(e); }
+
+    if (editForm.product_type === typeToDelete) {
+      setEditForm(f => ({ ...f, product_type: "" }));
+    }
+  }
 
   // Unsaved changes navigation guard modal state
   const [pendingTab, setPendingTab] = useState<string | null>(null);
@@ -60,6 +93,11 @@ export default function AdminProductDetailPage() {
   const [newGroup, setNewGroup] = useState({ colour_value: "", display_order: 0 });
   const [newGroupImages, setNewGroupImages] = useState<{ url: string; altText: string }[]>([]);
 
+  // Buffered Local States for Colour Groups & Gallery Images (0 backend calls until Save!)
+  const [localGroups, setLocalGroups] = useState<ColourGroup[]>([]);
+  const [deletedGroupIds, setDeletedGroupIds] = useState<Set<number>>(new Set());
+  const [localGallery, setLocalGallery] = useState<UploadedImage[]>([]);
+
   // Reviews
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [newReview, setNewReview] = useState({ rating: 5, author: "", content: "", title: "", verified: true, is_approved: true });
@@ -74,7 +112,10 @@ export default function AdminProductDetailPage() {
   async function loadProduct() {
     if (!adminToken) return;
     try {
-      const p = await getAdminProduct(adminToken, productId);
+      const [p, allProdsRes] = await Promise.all([
+        getAdminProduct(adminToken, productId),
+        getAdminProducts(adminToken).catch(() => ({ items: [], total: 0, page: 1, pages: 1, limit: 100 }))
+      ]);
       setProduct(p);
       setEditForm({
         title: p.title,
@@ -90,6 +131,21 @@ export default function AdminProductDetailPage() {
         shipping_rate: p.shipping_rate ?? null,
       });
       setEditSizeFitInput(extractBullets(p.description_html || ""));
+      setLocalGroups(p.colour_groups || []);
+      setDeletedGroupIds(new Set());
+      setLocalGallery((p.images || []).map((img, i) => ({ url: img.url, key: img.url, name: `Image ${i + 1}` })));
+
+      // Dynamically accumulate all Product Types from DB (excluding deleted ones)
+      let deletedTypes: string[] = [];
+      try {
+        deletedTypes = JSON.parse(localStorage.getItem("vahn_deleted_product_types") || "[]");
+      } catch (e) { console.error(e); }
+
+      const defaultTypes = ["Jersey", "T-Shirt", "Hoodie", "Sweatshirt", "Pants", "Shorts", "Jacket", "Accessories", "Streetwear", "Footwear"];
+      const dbTypes = (allProdsRes?.items || []).map(item => item.product_type).filter((t): t is string => Boolean(t && t.trim()));
+      const allTypes = Array.from(new Set([...defaultTypes, ...dbTypes, p.product_type].filter((t): t is string => Boolean(t && t.trim()))));
+      const filteredTypes = allTypes.filter(t => !deletedTypes.some(dt => dt.toLowerCase() === t.toLowerCase()) || t.toLowerCase() === p.product_type?.toLowerCase());
+      setProductTypeOptions(filteredTypes);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load product");
     } finally {
@@ -143,22 +199,35 @@ export default function AdminProductDetailPage() {
   }, [newVariant, editingVariant]);
 
   const isGroupsDirty = useMemo(() => {
-    return Boolean(newGroup.colour_value.trim() !== "" || newGroupImages.length > 0);
-  }, [newGroup, newGroupImages]);
+    if (!product) return false;
+    const isNewGroupDirty = newGroup.colour_value.trim() !== "" || newGroupImages.length > 0;
+    const isDeletedDirty = deletedGroupIds.size > 0;
+    const origGroupsStr = JSON.stringify((product.colour_groups || []).map(g => ({ id: g.id, val: g.colour_value, imgs: g.images })));
+    const localGroupsStr = JSON.stringify((localGroups || []).map(g => ({ id: g.id, val: g.colour_value, imgs: g.images })));
+    return isNewGroupDirty || isDeletedDirty || (origGroupsStr !== localGroupsStr);
+  }, [product, localGroups, deletedGroupIds, newGroup, newGroupImages]);
+
+  const isImagesDirty = useMemo(() => {
+    if (!product) return false;
+    const origUrls = (product.images || []).map(i => i.url);
+    const localUrls = (localGallery || []).map(i => i.url);
+    return JSON.stringify(origUrls) !== JSON.stringify(localUrls);
+  }, [product, localGallery]);
 
   const isReviewsDirty = useMemo(() => {
     return Boolean(newReview.author.trim() !== "" || newReview.content.trim() !== "");
   }, [newReview]);
 
-  const isPageDirty = isDetailsDirty || isVariantsDirty || isGroupsDirty || isReviewsDirty;
+  const isPageDirty = isDetailsDirty || isVariantsDirty || isGroupsDirty || isImagesDirty || isReviewsDirty;
 
   const isCurrentTabDirty = useMemo(() => {
     if (activeTab === "Details") return isDetailsDirty;
     if (activeTab === "Variants") return isVariantsDirty;
     if (activeTab === "Colour Groups") return isGroupsDirty;
+    if (activeTab === "Images") return isImagesDirty;
     if (activeTab === "Reviews") return isReviewsDirty;
     return false;
-  }, [activeTab, isDetailsDirty, isVariantsDirty, isGroupsDirty, isReviewsDirty]);
+  }, [activeTab, isDetailsDirty, isVariantsDirty, isGroupsDirty, isImagesDirty, isReviewsDirty]);
 
   const handleDiscardChanges = useCallback(() => {
     setError("");
@@ -178,6 +247,9 @@ export default function AdminProductDetailPage() {
       shipping_rate: product.shipping_rate ?? null,
     });
     setEditSizeFitInput(extractBullets(product.description_html || ""));
+    setLocalGroups(product.colour_groups || []);
+    setDeletedGroupIds(new Set());
+    setLocalGallery((product.images || []).map((img, i) => ({ url: img.url, key: img.url, name: `Image ${i + 1}` })));
     setNewVariant({ title: "", colour: "", size: "", price_amount: 0, compare_at_price_amount: "", inventory_quantity: 0, available_for_sale: true, image_url: "" });
     setEditingVariant(null);
     setVariantEdits({});
@@ -196,35 +268,47 @@ export default function AdminProductDetailPage() {
       const fitPart = bullets.length > 0 ? `<ul>${bullets.map(b => `<li>${b}</li>`).join("")}</ul>` : "";
       const description_html = descPart + fitPart;
 
-      const updated = await updateAdminProduct(adminToken, productId, {
+      const imagesPayload = isImagesDirty ? localGallery.map((img, i) => ({ url: img.url, altText: product.title })) : undefined;
+
+      await updateAdminProduct(adminToken, productId, {
         ...editForm,
         description_html,
+        ...(imagesPayload ? { images: imagesPayload } : {}),
         tags: Array.isArray(editForm.tags) ? editForm.tags : (editForm.tags as unknown as string || "").split(",").map((t: string) => t.trim()),
       });
-      setProduct(updated);
-      setEditForm({
-        title: updated.title,
-        description: updated.description || "",
-        vendor: updated.vendor,
-        product_type: updated.product_type || "",
-        tags: updated.tags || [],
-        available_for_sale: updated.available_for_sale,
-        fit: updated.fit || "",
-        kit_type: updated.kit_type || "",
-        activity: updated.activity || "",
-        gst_percent: updated.gst_percent ?? 12,
-        shipping_rate: updated.shipping_rate ?? null,
-      });
-      setSuccess("Product saved successfully!");
+
+      // Persist deleted colour groups
+      for (const gid of Array.from(deletedGroupIds)) {
+        try { await deleteColourGroup(adminToken, productId, gid); } catch (e) { console.error(e); }
+      }
+
+      // Persist updated colour group images/names
+      for (const g of localGroups) {
+        const origGroup = product.colour_groups.find(og => og.id === g.id);
+        if (!origGroup || JSON.stringify(origGroup.images) !== JSON.stringify(g.images) || origGroup.colour_value !== g.colour_value) {
+          await updateColourGroup(adminToken, productId, g.id, { colour_value: g.colour_value, images: g.images });
+        }
+      }
+
+      // Persist new colour group if filled
+      if (newGroup.colour_value.trim()) {
+        await createColourGroup(adminToken, productId, {
+          colour_value: newGroup.colour_value.trim(),
+          images: newGroupImages,
+          display_order: newGroup.display_order
+        });
+        setNewGroup({ colour_value: "", display_order: 0 });
+        setNewGroupImages([]);
+      }
+
+      await loadProduct();
+      setSuccess("Product and image changes saved successfully!");
       setTimeout(() => setSuccess(""), 3000);
       return true;
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Save failed");
-      return false;
     } finally {
       setSaving(false);
     }
-  }, [adminToken, product, productId, editForm, editSizeFitInput]);
+  }, [adminToken, product, productId, editForm, editSizeFitInput, isImagesDirty, localGallery, deletedGroupIds, localGroups, newGroup, newGroupImages]);
 
   // Sync with global UnsavedChangesContext
   useEffect(() => {
@@ -391,14 +475,26 @@ export default function AdminProductDetailPage() {
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to delete variant"); }
   }
 
-  // Colour Group CRUD
+  // Colour Group Local State Handlers (Buffered locally, saved only when clicking Save Changes!)
+  function handleUpdateGroupImagesLocal(groupId: number, images: { url: string; key?: string; name?: string }[]) {
+    const formatted = images.map((img, i) => ({ url: img.url, altText: `Photo ${i + 1}` }));
+    setLocalGroups(prev =>
+      prev.map(g => (g.id === groupId ? { ...g, images: formatted } : g))
+    );
+  }
+
+  function handleDeleteGroupLocal(groupId: number) {
+    setLocalGroups(prev => prev.filter(g => g.id !== groupId));
+    setDeletedGroupIds(prev => new Set(prev).add(groupId));
+  }
+
   async function handleAddGroup() {
     if (!adminToken || !newGroup.colour_value.trim()) {
       setError("Please enter a colour name.");
       return;
     }
-    // ── Duplicate colour group detection ──
-    const exists = product?.colour_groups.some(
+    // Duplicate colour group check in local state
+    const exists = localGroups.some(
       g => g.colour_value.toLowerCase() === newGroup.colour_value.trim().toLowerCase()
     );
     if (exists) {
@@ -414,27 +510,9 @@ export default function AdminProductDetailPage() {
       setNewGroup({ colour_value: "", display_order: 0 });
       setNewGroupImages([]);
       await loadProduct();
-      setSuccess("Colour group added!");
+      setSuccess("New colour group saved to database!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to add colour group"); }
-  }
-
-  async function handleUpdateGroupImages(groupId: number, images: { url: string; key?: string; name?: string }[]) {
-    if (!adminToken) return;
-    const formatted = images.map((img, i) => ({ url: img.url, altText: `Photo ${i + 1}` }));
-    try {
-      await updateColourGroup(adminToken, productId, groupId, { images: formatted });
-      await loadProduct();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to update group images"); }
-  }
-
-  async function handleDeleteGroup(groupId: number) {
-    if (!adminToken || !confirm("Delete colour group?")) return;
-    try {
-      await deleteColourGroup(adminToken, productId, groupId);
-      await loadProduct();
-      setSuccess("Group deleted!");
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to delete group"); }
   }
 
   // Reviews CRUD
@@ -554,8 +632,65 @@ export default function AdminProductDetailPage() {
                 <input type="text" className="admin-form-input" value={editForm.vendor || ""} onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))} />
               </div>
               <div className="admin-form-group">
-                <label className="admin-form-label">Product Type</label>
-                <input type="text" className="admin-form-input" value={editForm.product_type || ""} onChange={e => setEditForm(f => ({ ...f, product_type: e.target.value }))} />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <label className="admin-form-label" style={{ marginBottom: 0 }}>Product Type</label>
+                  <button
+                    type="button"
+                    className="admin-btn-inline-link"
+                    onClick={() => setShowNewProductTypeInput(!showNewProductTypeInput)}
+                    style={{ fontSize: "0.72rem", color: "var(--admin-primary)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: 0 }}
+                  >
+                    {showNewProductTypeInput ? "Cancel" : "+ Add New Type"}
+                  </button>
+                </div>
+
+                {showNewProductTypeInput ? (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input
+                      type="text"
+                      className="admin-form-input"
+                      placeholder="e.g. Tank Top"
+                      value={newProductTypeInput}
+                      onChange={e => setNewProductTypeInput(e.target.value)}
+                    />
+                    <button type="button" className="admin-btn admin-btn--primary" style={{ padding: "6px 12px", fontSize: "0.78rem" }} onClick={handleAddCustomProductType}>
+                      Add
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      className="admin-form-select"
+                      value={editForm.product_type || ""}
+                      onChange={e => setEditForm(f => ({ ...f, product_type: e.target.value }))}
+                    >
+                      <option value="">— Select Product Type —</option>
+                      {productTypeOptions.map(pt => (
+                        <option key={pt} value={pt}>{pt}</option>
+                      ))}
+                    </select>
+                    {editForm.product_type && (
+                      <div style={{ marginTop: 4, display: "flex", justifyContent: "flex-end" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProductType(editForm.product_type!)}
+                          style={{
+                            color: "#d32f2f",
+                            fontSize: "0.72rem",
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            fontWeight: 600,
+                            padding: 0,
+                            textDecoration: "underline"
+                          }}
+                        >
+                          ✕ Delete "{editForm.product_type}" from options
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
               <div className="admin-form-group admin-form-group--full">
                 <label className="admin-form-label">Tags (comma separated)</label>
@@ -705,11 +840,10 @@ export default function AdminProductDetailPage() {
                       <td>
                         {editingVariant === v.id ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <input
-                              type="text"
-                              className="admin-form-input"
-                              style={{ width: 110, fontSize: "0.78rem" }}
-                              placeholder="Colour"
+                            {/* Colour Dropdown tied to Colour Groups */}
+                            <select
+                              className="admin-form-select"
+                              style={{ width: 120, padding: "4px 6px", fontSize: "0.78rem" }}
                               value={variantEdits[v.id]?.selected_options?.find(o => o.name === "Colour")?.value ?? v.selected_options.find(o => o.name === "Colour")?.value ?? ""}
                               onChange={e => {
                                 const newColour = e.target.value;
@@ -720,10 +854,16 @@ export default function AdminProductDetailPage() {
                                   return { ...ed, [v.id]: { ...ed[v.id], selected_options: updated } };
                                 });
                               }}
-                            />
+                            >
+                              <option value="">— Colour —</option>
+                              {product.colour_groups.map(g => (
+                                <option key={g.id} value={g.colour_value}>{g.colour_value}</option>
+                              ))}
+                            </select>
+
                             <select
                               className="admin-form-select"
-                              style={{ width: 110, padding: "4px 6px", fontSize: "0.78rem" }}
+                              style={{ width: 120, padding: "4px 6px", fontSize: "0.78rem" }}
                               value={variantEdits[v.id]?.selected_options?.find(o => o.name === "Size")?.value ?? v.selected_options.find(o => o.name === "Size")?.value ?? ""}
                               onChange={e => {
                                 const newSize = e.target.value;
@@ -929,18 +1069,26 @@ export default function AdminProductDetailPage() {
                 return (
                   <>
                     <div className="admin-form-group">
-                      <label className="admin-form-label">Colour</label>
-                      <input
-                        type="text"
-                        className="admin-form-input"
+                      <label className="admin-form-label">Colour *</label>
+                      <select
+                        className="admin-form-select"
                         style={isDup ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
-                        placeholder="e.g. Blue"
                         value={newVariant.colour}
                         onChange={e => setNewVariant(v => ({ ...v, colour: e.target.value }))}
-                      />
+                      >
+                        <option value="">— Select Colour —</option>
+                        {product?.colour_groups.map(g => (
+                          <option key={g.id} value={g.colour_value}>{g.colour_value}</option>
+                        ))}
+                      </select>
+                      {(!product?.colour_groups || product.colour_groups.length === 0) && (
+                        <span style={{ fontSize: "0.72rem", color: "#d32f2f", fontWeight: 700, marginTop: 4, display: "block" }}>
+                          ⚠️ No Colour Groups found. Please add a Colour Group in the "Colour Groups" tab first.
+                        </span>
+                      )}
                     </div>
                     <div className="admin-form-group">
-                      <label className="admin-form-label">Size</label>
+                      <label className="admin-form-label">Size *</label>
                       <select
                         className="admin-form-select"
                         style={isDup ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
@@ -1081,19 +1229,19 @@ export default function AdminProductDetailPage() {
       {/* Colour Groups Tab */}
       {activeTab === "Colour Groups" && (
         <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {product.colour_groups.map(g => (
+          {localGroups.map(g => (
             <div key={g.id} style={{ border: "1px solid var(--admin-card-border)", padding: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: 0 }}>Colour: {g.colour_value}</h3>
-                <button className="admin-btn admin-btn--ghost" style={{ color: "var(--admin-danger)" }} onClick={() => handleDeleteGroup(g.id)}>Delete Group</button>
+                <button className="admin-btn admin-btn--ghost" style={{ color: "var(--admin-danger)" }} onClick={() => handleDeleteGroupLocal(g.id)}>Delete Group</button>
               </div>
 
               <AdminImageUploader
                 endpoint="productImage"
                 label={`Images for ${g.colour_value} (Bulk Drag & Drop / Reorder)`}
                 existingImages={g.images.map(img => ({ url: img.url, key: img.url, name: g.colour_value }))}
-                onReorderExisting={imgs => handleUpdateGroupImages(g.id, imgs)}
-                onUploadComplete={imgs => handleUpdateGroupImages(g.id, imgs)}
+                onReorderExisting={imgs => handleUpdateGroupImagesLocal(g.id, imgs)}
+                onUploadComplete={imgs => handleUpdateGroupImagesLocal(g.id, imgs)}
               />
             </div>
           ))}
@@ -1122,8 +1270,9 @@ export default function AdminProductDetailPage() {
           <AdminImageUploader
             endpoint="productImage"
             label="Product Gallery (All Images)"
-            existingImages={product.images.map(img => ({ url: img.url, key: img.url, name: product.title }))}
-            onUploadComplete={() => loadProduct()}
+            existingImages={localGallery}
+            onReorderExisting={imgs => setLocalGallery(imgs)}
+            onUploadComplete={imgs => setLocalGallery(imgs)}
           />
         </div>
       )}

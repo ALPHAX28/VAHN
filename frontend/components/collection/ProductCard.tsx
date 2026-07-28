@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import type { Product } from '@/lib/api/types';
+import type { Product, Money } from '@/lib/api/types';
 import { formatMoney } from '@/lib/utils';
 
 interface Props {
@@ -9,21 +9,54 @@ interface Props {
 
 export default function ProductCard({ product }: Props) {
   const image = product.featuredImage ?? product.images.edges[0]?.node;
-  const price = product.priceRange.minVariantPrice;
-  const comparePrice = product.compareAtPriceRange?.minVariantPrice;
-  const isOnSale =
-    comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount);
 
-  const discountPercent = isOnSale && comparePrice
-    ? Math.round(((parseFloat(comparePrice.amount) - parseFloat(price.amount)) / parseFloat(comparePrice.amount)) * 100)
-    : 0;
+  // ── Dynamic Price & Discount Calculation across all variants ──
+  const variants = (product.variants?.edges ?? []).map((e) => e.node);
+
+  let displayPrice = product.priceRange.minVariantPrice;
+  let displayComparePrice: Money | null = null;
+  let highestDiscountPercent = 0;
+
+  if (variants.length > 0) {
+    let lowestPriceVar = variants[0];
+    let maxDiscountPct = 0;
+    let bestComparePrice: Money | null = null;
+
+    for (const v of variants) {
+      const p = parseFloat(v.price.amount);
+      if (lowestPriceVar && p < parseFloat(lowestPriceVar.price.amount)) {
+        lowestPriceVar = v;
+      }
+      const c = v.compareAtPrice ? parseFloat(v.compareAtPrice.amount) : null;
+      if (c && c > p) {
+        const pct = Math.round(((c - p) / c) * 100);
+        if (pct > maxDiscountPct) {
+          maxDiscountPct = pct;
+          bestComparePrice = v.compareAtPrice;
+        }
+      }
+    }
+
+    displayPrice = lowestPriceVar?.price ?? product.priceRange.minVariantPrice;
+    displayComparePrice = bestComparePrice ?? lowestPriceVar?.compareAtPrice ?? null;
+    highestDiscountPercent = maxDiscountPct;
+  } else {
+    displayComparePrice = product.compareAtPriceRange?.minVariantPrice ?? null;
+    if (displayComparePrice && parseFloat(displayComparePrice.amount) > parseFloat(displayPrice.amount)) {
+      highestDiscountPercent = Math.round(
+        ((parseFloat(displayComparePrice.amount) - parseFloat(displayPrice.amount)) / parseFloat(displayComparePrice.amount)) * 100
+      );
+    }
+  }
+
+  const isOnSale = Boolean(displayComparePrice && parseFloat(displayComparePrice.amount) > parseFloat(displayPrice.amount));
 
   return (
     <Link href={`/products/${product.handle}`} className="product-card">
       {/* Badge */}
-      {isOnSale && discountPercent > 0 ? (
+      {isOnSale && highestDiscountPercent > 0 ? (
         <span className="product-card-badge" style={{ background: '#d32f2f', color: '#ffffff', fontWeight: 800 }}>
-          {discountPercent}% OFF
+          {highestDiscountPercent}% OFF
         </span>
       ) : !product.availableForSale ? (
         <span
@@ -35,21 +68,20 @@ export default function ProductCard({ product }: Props) {
       ) : null}
 
       {/* Media */}
-      <div className="product-card-media">
+      <div className="product-card-media" style={{ aspectRatio: '4/5', position: 'relative', overflow: 'hidden', background: '#f5f5f5', borderRadius: '10px' }}>
         {image ? (
           <Image
             src={image.url}
             alt={image.altText ?? product.title}
-            width={0}
-            height={0}
+            fill
             sizes="(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            style={{ width: '100%', height: 'auto', display: 'block' }}
+            style={{ objectFit: 'cover', objectPosition: 'center', transition: 'transform 0.4s ease' }}
           />
         ) : (
           <div
             style={{
               width: '100%',
-              aspectRatio: '4/5',
+              height: '100%',
               background: 'var(--color-grey-light)',
               display: 'flex',
               alignItems: 'center',
@@ -67,13 +99,13 @@ export default function ProductCard({ product }: Props) {
       <div className="product-card-info">
         <p className="product-card-title">{product.title}</p>
         <div className="product-card-price">
-          {isOnSale ? (
+          {isOnSale && displayComparePrice ? (
             <>
-              <span className="sale">{formatMoney(price)}</span>
-              <span className="compare">{formatMoney(comparePrice!)}</span>
+              <span className="sale">{formatMoney(displayPrice)}</span>
+              <span className="compare">{formatMoney(displayComparePrice)}</span>
             </>
           ) : (
-            <span>{formatMoney(price)}</span>
+            <span>{formatMoney(displayPrice)}</span>
           )}
         </div>
       </div>
