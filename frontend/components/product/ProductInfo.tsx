@@ -252,8 +252,20 @@ export default function ProductInfo({ product }: Props) {
       {/* Price & Discount */}
       <div className="product-price-display" style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0 16px', flexWrap: 'wrap' }}>
         {isCurrentSelectionOutOfStock ? (
-          <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d32f2f', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'rgba(211,47,47,0.08)', padding: '6px 14px', borderRadius: '4px', border: '1px solid rgba(211,47,47,0.2)' }}>
-            OUT OF STOCK
+          <span
+            style={{
+              color: '#d32f2f',
+              fontSize: '0.95rem',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#d32f2f', display: 'inline-block' }} />
+            Out of Stock
           </span>
         ) : isOnSale && comparePrice ? (
           <>
