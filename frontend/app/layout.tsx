@@ -4,6 +4,8 @@ import { CartProvider } from '@/context/CartContext';
 import { AuthProvider } from '@/context/AuthContext';
 import StoreLayoutShell from '@/components/layout/StoreLayoutShell';
 
+import ClientWarmup from '@/components/layout/ClientWarmup';
+
 export const metadata: Metadata = {
   title: { default: 'VAHN — Bespoke Teamwear', template: '%s | VAHN' },
   description:
@@ -25,6 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
+        <ClientWarmup />
         <AuthProvider>
           <CartProvider>
             <StoreLayoutShell>{children}</StoreLayoutShell>
