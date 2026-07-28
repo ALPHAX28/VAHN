@@ -131,7 +131,18 @@ export default function ProductInfo({ product }: Props) {
   }
 
   const isOnSale = comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount);
-  const available = isSizeSelected && (selectedVariant?.availableForSale ?? false) && (selectedVariant?.quantityAvailable === undefined || selectedVariant.quantityAvailable > 0);
+  
+  // ── Out-of-Stock Check for Selected Colour & Variant ──
+  const isColourOutOfStock = colourVariants.length > 0
+    ? colourVariants.every((v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0))
+    : !product.availableForSale;
+
+  const isSelectedVariantOutOfStock = isSizeSelected && selectedVariant
+    ? (!selectedVariant.availableForSale || (selectedVariant.quantityAvailable !== undefined && selectedVariant.quantityAvailable <= 0))
+    : false;
+
+  const isCurrentSelectionOutOfStock = isSizeSelected ? isSelectedVariantOutOfStock : isColourOutOfStock;
+  const available = !isCurrentSelectionOutOfStock && isSizeSelected && (selectedVariant?.availableForSale ?? false);
   const cartItem = selectedVariant ? lines.find((l) => l.merchandise.id === selectedVariant.id) : undefined;
 
   const handleOptionSelect = useCallback(
@@ -240,7 +251,11 @@ export default function ProductInfo({ product }: Props) {
 
       {/* Price & Discount */}
       <div className="product-price-display" style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0 16px', flexWrap: 'wrap' }}>
-        {isOnSale && comparePrice ? (
+        {isCurrentSelectionOutOfStock ? (
+          <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d32f2f', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'rgba(211,47,47,0.08)', padding: '6px 14px', borderRadius: '4px', border: '1px solid rgba(211,47,47,0.2)' }}>
+            OUT OF STOCK
+          </span>
+        ) : isOnSale && comparePrice ? (
           <>
             <span className="price-sale" style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-black)', letterSpacing: '-0.02em', lineHeight: 1 }}>
               {formatMoney(price)}
@@ -387,6 +402,16 @@ export default function ProductInfo({ product }: Props) {
                             value
                           )}
 
+                          {/* Out-of-stock overlay for colour swatches */}
+                          {isOutOfStock && isColour && (
+                            <span className="colour-oos-overlay" aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#d32f2f" strokeWidth="2.5" strokeLinecap="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </span>
+                          )}
+
                           {/* Out-of-stock X overlay */}
                           {isOutOfStock && !isColour && (
                             <span className="size-oos-overlay" aria-hidden="true">
@@ -469,11 +494,11 @@ export default function ProductInfo({ product }: Props) {
                   {addedMessage}
                 </>
               ) : !isSizeSelected ? (
-                'Select a Size'
+                isColourOutOfStock ? 'OUT OF STOCK' : 'Select a Size'
               ) : available ? (
                 'Add to Cart'
               ) : (
-                'Sold Out'
+                'OUT OF STOCK'
               )}
             </span>
           </button>

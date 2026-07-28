@@ -50,20 +50,18 @@ export default function ProductCard({ product }: Props) {
   }
 
   const isOnSale = Boolean(displayComparePrice && parseFloat(displayComparePrice.amount) > parseFloat(displayPrice.amount));
+  const isAllOutOfStock = !product.availableForSale || (variants.length > 0 && variants.every((v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0)));
 
   return (
     <Link href={`/products/${product.handle}`} className="product-card">
       {/* Badge */}
-      {isOnSale && highestDiscountPercent > 0 ? (
+      {isAllOutOfStock ? (
+        <span className="product-card-badge" style={{ background: '#d32f2f', color: '#ffffff', fontWeight: 800 }}>
+          OUT OF STOCK
+        </span>
+      ) : isOnSale && highestDiscountPercent > 0 ? (
         <span className="product-card-badge" style={{ background: '#d32f2f', color: '#ffffff', fontWeight: 800 }}>
           {highestDiscountPercent}% OFF
-        </span>
-      ) : !product.availableForSale ? (
-        <span
-          className="product-card-badge"
-          style={{ background: 'var(--color-black)' }}
-        >
-          Sold Out
         </span>
       ) : null}
 
@@ -99,7 +97,9 @@ export default function ProductCard({ product }: Props) {
       <div className="product-card-info">
         <p className="product-card-title">{product.title}</p>
         <div className="product-card-price">
-          {isOnSale && displayComparePrice ? (
+          {isAllOutOfStock ? (
+            <span style={{ color: '#d32f2f', fontWeight: 700, fontSize: '0.8125rem', letterSpacing: '0.04em' }}>OUT OF STOCK</span>
+          ) : isOnSale && displayComparePrice ? (
             <>
               <span className="sale">{formatMoney(displayPrice)}</span>
               <span className="compare">{formatMoney(displayComparePrice)}</span>
