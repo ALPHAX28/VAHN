@@ -269,10 +269,10 @@ export const addVariant = (token: string, productId: number, data: object) =>
   adminFetch<AdminVariant>(`/admin/products/${productId}/variants`, token, { method: "POST", body: JSON.stringify(data) });
 
 export const updateVariant = (token: string, productId: number, variantId: string, data: object) =>
-  adminFetch<AdminVariant>(`/admin/products/${productId}/variants/${variantId}`, token, { method: "PUT", body: JSON.stringify(data) });
+  adminFetch<AdminVariant>(`/admin/products/${productId}/variants/${encodeURIComponent(variantId)}`, token, { method: "PUT", body: JSON.stringify(data) });
 
 export const deleteVariant = (token: string, productId: number, variantId: string) =>
-  adminFetch<{ message: string }>(`/admin/products/${productId}/variants/${variantId}`, token, { method: "DELETE" });
+  adminFetch<{ message: string }>(`/admin/products/${productId}/variants/${encodeURIComponent(variantId)}`, token, { method: "DELETE" });
 
 // ============================================================
 // Colour Groups

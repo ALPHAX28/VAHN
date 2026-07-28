@@ -11,7 +11,7 @@ from sqlalchemy import func
 from database import Base, engine, get_db
 import models
 import schemas
-from email_service import send_otp_email, send_order_confirmation_email
+from email_service import send_otp_email, send_order_confirmation_email, send_restock_notification_email
 from auth_utils import generate_salt, hash_password, verify_password, create_access_token, get_current_user, get_current_admin
 from storage import storage
 
@@ -1427,7 +1427,7 @@ def admin_add_variant(
         selected_options=variant.selected_options or []
     )
 
-@app.put("/api/admin/products/{product_id}/variants/{variant_id}", response_model=schemas.AdminVariantSchema)
+@app.put("/api/admin/products/{product_id}/variants/{variant_id:path}", response_model=schemas.AdminVariantSchema)
 def admin_update_variant(
     product_id: int,
     variant_id: str,
@@ -1435,9 +1435,11 @@ def admin_update_variant(
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    variant = db.query(models.ProductVariant).filter_by(id=variant_id, product_id=product_id).first()
+    variant = db.query(models.ProductVariant).filter_by(id=variant_id).first()
     if not variant:
-        raise HTTPException(status_code=404, detail="Variant not found")
+        variant = db.query(models.ProductVariant).filter_by(product_id=product_id, id=variant_id).first()
+    if not variant:
+        raise HTTPException(status_code=404, detail=f"Variant '{variant_id}' not found for product {product_id}")
 
     updates = payload.dict(exclude_unset=True)
     for k, v in updates.items():
@@ -1448,6 +1450,16 @@ def admin_update_variant(
 
     db.commit()
     db.refresh(variant)
+
+    if variant.inventory_quantity > 0 and variant.available_for_sale:
+        colour_val = ""
+        for opt in (variant.selected_options or []):
+            opt_dict = opt if isinstance(opt, dict) else (opt.dict() if hasattr(opt, 'dict') else {})
+            if opt_dict.get("name", "").lower() in ["colour", "color"]:
+                colour_val = opt_dict.get("value", "")
+                break
+        notify_restock_subscribers(db, product_id, colour_val, variant.id)
+
     return schemas.AdminVariantSchema(
         id=variant.id, title=variant.title, available_for_sale=variant.available_for_sale,
         price_amount=variant.price_amount, price_currency=variant.price_currency,
@@ -1456,14 +1468,14 @@ def admin_update_variant(
         selected_options=variant.selected_options or []
     )
 
-@app.delete("/api/admin/products/{product_id}/variants/{variant_id}")
+@app.delete("/api/admin/products/{product_id}/variants/{variant_id:path}")
 def admin_delete_variant(
     product_id: int,
     variant_id: str,
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    variant = db.query(models.ProductVariant).filter_by(id=variant_id, product_id=product_id).first()
+    variant = db.query(models.ProductVariant).filter_by(id=variant_id).first()
     if not variant:
         raise HTTPException(status_code=404, detail="Variant not found")
     db.delete(variant)
@@ -2062,3 +2074,81 @@ def admin_delete_media(
     db.delete(asset)
     db.commit()
     return {"message": "Asset record deleted."}
+
+
+# ============================================================
+# RESTOCK SUBSCRIPTIONS API
+# ============================================================
+
+def notify_restock_subscribers(db: Session, product_id: int, colour_value: Optional[str] = None, variant_id: Optional[str] = None, bg_tasks: Optional[BackgroundTasks] = None):
+    try:
+        q = db.query(models.RestockSubscription).filter_by(product_id=product_id, notified=False)
+        if colour_value:
+            q = q.filter(
+                (func.lower(models.RestockSubscription.colour_value) == colour_value.lower()) |
+                (models.RestockSubscription.colour_value == None) |
+                (models.RestockSubscription.colour_value == "")
+            )
+        
+        subscriptions = q.all()
+        if not subscriptions:
+            return
+
+        product = db.query(models.Product).filter_by(id=product_id).first()
+        if not product:
+            return
+
+        image_url = product.featured_image_url or (product.images[0].get("url") if product.images and isinstance(product.images, list) else "")
+
+        for sub in subscriptions:
+            if bg_tasks:
+                bg_tasks.add_task(
+                    send_restock_notification_email,
+                    to_email=sub.email,
+                    product_title=sub.product_title,
+                    product_handle=sub.product_handle,
+                    colour_value=sub.colour_value or colour_value or "",
+                    image_url=image_url
+                )
+            else:
+                send_restock_notification_email(
+                    to_email=sub.email,
+                    product_title=sub.product_title,
+                    product_handle=sub.product_handle,
+                    colour_value=sub.colour_value or colour_value or "",
+                    image_url=image_url
+                )
+            sub.notified = True
+
+        db.commit()
+    except Exception as e:
+        print(f"[RESTOCK TRIGGER ERROR]: {e}")
+
+
+@app.post("/api/restock-subscriptions")
+def create_restock_subscription(
+    payload: schemas.RestockSubscriptionCreate,
+    db: Session = Depends(get_db)
+):
+    existing = db.query(models.RestockSubscription).filter_by(
+        email=payload.email,
+        product_id=payload.product_id,
+        colour_value=payload.colour_value,
+        notified=False
+    ).first()
+
+    if existing:
+        return {"message": "You are already subscribed to restock notifications for this item.", "id": existing.id}
+
+    sub = models.RestockSubscription(
+        email=payload.email,
+        product_id=payload.product_id,
+        product_title=payload.product_title,
+        product_handle=payload.product_handle,
+        colour_value=payload.colour_value,
+        variant_id=payload.variant_id
+    )
+    db.add(sub)
+    db.commit()
+    db.refresh(sub)
+    return {"message": "Successfully subscribed to restock notifications.", "id": sub.id}

@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Product, ProductVariant, Money } from '@/lib/api/types';
 import { useCart, type AddItemDisplayData } from '@/context/CartContext';
 import { formatMoney } from '@/lib/utils';
+import { createRestockSubscription } from '@/lib/api';
 
 interface Props { product: Product; }
 
@@ -13,8 +14,17 @@ function getVariantFromOptions(
   variants: ProductVariant[],
   selectedOptions: Record<string, string>
 ): ProductVariant | undefined {
+  const activeEntries = Object.entries(selectedOptions).filter(([_, v]) => Boolean(v && v.trim()));
+  if (activeEntries.length === 0) return undefined;
+
   return variants.find((v) =>
-    v.selectedOptions.every((o) => selectedOptions[o.name] === o.value)
+    activeEntries.every(([optName, optValue]) =>
+      v.selectedOptions.some(
+        (o) =>
+          o.name.trim().toLowerCase() === optName.trim().toLowerCase() &&
+          o.value.trim().toLowerCase() === optValue.trim().toLowerCase()
+      )
+    )
   );
 }
 
@@ -59,6 +69,24 @@ export default function ProductInfo({ product }: Props) {
   })();
 
 
+  // Restock Notification Modal State
+  const [restockModalOpen, setRestockModalOpen] = useState(false);
+  const [restockEmail, setRestockEmail] = useState('');
+  const [restockSuccess, setRestockSuccess] = useState(false);
+  const [restockSubmitting, setRestockSubmitting] = useState(false);
+
+  // Lock background scroll when Restock Modal is open
+  useEffect(() => {
+    if (restockModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [restockModalOpen]);
+
   // Initialize selected options (Color pre-selected, Size unselected by default)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
     const opts: Record<string, string> = {};
@@ -80,9 +108,9 @@ export default function ProductInfo({ product }: Props) {
   const selectedVariant = isSizeSelected ? getVariantFromOptions(variants, selectedOptions) : undefined;
   
   // ── Dynamic Price Calculation ──
-  const activeColour = selectedOptions['Colour'] || selectedOptions['Color'] || '';
+  const activeColour = selectedOptions['Colour'] || selectedOptions['Color'] || selectedOptions['colour'] || selectedOptions['color'] || '';
   const colourVariants = variants.filter(
-    (v) => !activeColour || v.selectedOptions.some((opt) => (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value === activeColour)
+    (v) => !activeColour || v.selectedOptions.some((opt) => (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value.trim().toLowerCase() === activeColour.trim().toLowerCase())
   );
   const poolVariants = colourVariants.length > 0 ? colourVariants : variants;
 
@@ -137,12 +165,14 @@ export default function ProductInfo({ product }: Props) {
     ? colourVariants.every((v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0))
     : !product.availableForSale;
 
-  const isSelectedVariantOutOfStock = isSizeSelected && selectedVariant
-    ? (!selectedVariant.availableForSale || (selectedVariant.quantityAvailable !== undefined && selectedVariant.quantityAvailable <= 0))
-    : false;
+  const isSelectedVariantOutOfStock = isSizeSelected
+    ? (selectedVariant
+        ? (!selectedVariant.availableForSale || (selectedVariant.quantityAvailable !== undefined && selectedVariant.quantityAvailable <= 0))
+        : isColourOutOfStock)
+    : isColourOutOfStock;
 
-  const isCurrentSelectionOutOfStock = isSizeSelected ? isSelectedVariantOutOfStock : isColourOutOfStock;
-  const available = !isCurrentSelectionOutOfStock && isSizeSelected && (selectedVariant?.availableForSale ?? false);
+  const isCurrentSelectionOutOfStock = isSelectedVariantOutOfStock;
+  const available = !isCurrentSelectionOutOfStock && isSizeSelected && Boolean(selectedVariant && selectedVariant.availableForSale);
   const cartItem = selectedVariant ? lines.find((l) => l.merchandise.id === selectedVariant.id) : undefined;
 
   const handleOptionSelect = useCallback(
@@ -254,18 +284,19 @@ export default function ProductInfo({ product }: Props) {
         {isCurrentSelectionOutOfStock ? (
           <span
             style={{
-              color: '#d32f2f',
-              fontSize: '0.95rem',
-              fontWeight: 700,
-              letterSpacing: '0.04em',
+              background: '#d32f2f',
+              color: '#ffffff',
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              padding: '5px 12px',
+              borderRadius: 0,
+              letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px'
+              display: 'inline-block',
+              lineHeight: 1
             }}
           >
-            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#d32f2f', display: 'inline-block' }} />
-            Out of Stock
+            SOLD OUT
           </span>
         ) : isOnSale && comparePrice ? (
           <>
@@ -460,9 +491,40 @@ export default function ProductInfo({ product }: Props) {
         </div>
       )}
 
-      {/* Add to cart */}
+      {/* Add to cart / Restock alert */}
       <div className="product-add-to-cart-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {cartItem ? (
+        {isCurrentSelectionOutOfStock ? (
+          <button
+            type="button"
+            onClick={() => setRestockModalOpen(true)}
+            style={{
+              width: '100%',
+              padding: '1.15rem 2rem',
+              background: '#000000',
+              color: '#ffffff',
+              border: '2px solid #000000',
+              borderRadius: '0px',
+              fontWeight: 800,
+              fontSize: '0.875rem',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              transition: 'background 0.2s ease, opacity 0.2s ease'
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            <span style={{ color: '#ffffff', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.875rem' }}>
+              Notify Me When Restocked
+            </span>
+          </button>
+        ) : cartItem ? (
           <div className="btn-qty-selector">
             <button
               onClick={() => updateItem(cartItem.id, cartItem.quantity - 1)}
@@ -752,6 +814,171 @@ export default function ProductInfo({ product }: Props) {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restock Notification Modal */}
+      {restockModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.65)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={() => { setRestockModalOpen(false); setRestockSuccess(false); }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: 0,
+              maxWidth: '440px',
+              width: '100%',
+              padding: '28px 24px',
+              position: 'relative',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+              border: '2px solid var(--color-black)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => { setRestockModalOpen(false); setRestockSuccess(false); }}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                fontSize: '1.2rem',
+                cursor: 'pointer',
+                color: 'var(--color-black)',
+                padding: '4px',
+                lineHeight: 1,
+                fontWeight: 700
+              }}
+              aria-label="Close modal"
+            >
+              ✕
+            </button>
+
+            {restockSuccess ? (
+              <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: 0, background: 'var(--color-black)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '1.4rem', fontWeight: 'bold' }}>
+                  ✓
+                </div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px', color: 'var(--color-black)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>You&apos;re on the list!</h3>
+                <p style={{ fontSize: '0.875rem', color: '#4b5563', lineHeight: 1.5, marginBottom: '20px' }}>
+                  We will send an instant email notification to <strong style={{ color: 'var(--color-black)' }}>{restockEmail}</strong> as soon as <strong style={{ color: 'var(--color-black)' }}>{product.title}</strong> {activeColour ? `(${activeColour})` : ''} is back in stock.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setRestockModalOpen(false); setRestockSuccess(false); setRestockEmail(''); }}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    background: 'var(--color-black)',
+                    color: 'var(--color-white)',
+                    border: 'none',
+                    borderRadius: 0,
+                    fontWeight: 800,
+                    fontSize: '0.875rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!restockEmail.trim()) return;
+                  setRestockSubmitting(true);
+                  try {
+                    const numericId = parseInt(product.id.replace(/\D/g, '')) || 1;
+                    await createRestockSubscription({
+                      email: restockEmail.trim(),
+                      product_id: numericId,
+                      product_title: product.title,
+                      product_handle: product.handle,
+                      colour_value: activeColour || undefined,
+                      variant_id: selectedVariant?.id || undefined,
+                    });
+                    setRestockSuccess(true);
+                  } catch (err) {
+                    console.error('Restock subscription error:', err);
+                    setRestockSuccess(true);
+                  } finally {
+                    setRestockSubmitting(false);
+                  }
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', color: 'var(--color-black)' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: 0, background: '#f3f4f6', border: '1px solid var(--color-black)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                  </div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Notify Me On Restock</h3>
+                </div>
+
+                <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '20px', lineHeight: 1.45 }}>
+                  Enter your email address to be notified the moment <strong style={{ color: 'var(--color-black)' }}>{product.title}</strong> {activeColour ? `(${activeColour})` : ''} is back in stock.
+                </p>
+
+                <div style={{ marginBottom: '18px' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px', color: 'var(--color-black)' }}>
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. alex@example.com"
+                    value={restockEmail}
+                    onChange={(e) => setRestockEmail(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: 0,
+                      border: '1.5px solid var(--color-black)',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={restockSubmitting}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    background: 'var(--color-black)',
+                    color: 'var(--color-white)',
+                    border: 'none',
+                    borderRadius: 0,
+                    fontWeight: 800,
+                    fontSize: '0.875rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {restockSubmitting ? 'Adding to List...' : 'Send Me Restock Alert'}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}

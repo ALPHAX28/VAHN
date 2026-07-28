@@ -248,6 +248,19 @@ class OTPVerifyRequest(BaseModel):
 class ProfileUpdateRequest(BaseModel):
     full_name: str
 
+class RestockSubscriptionCreate(BaseModel):
+    email: str
+    product_id: int
+    product_title: str
+    product_handle: str
+    colour_value: Optional[str] = None
+    variant_id: Optional[str] = None
+
+    @field_validator('email')
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
+
 class PasswordChangeRequest(BaseModel):
     current_password: str
     new_password: str

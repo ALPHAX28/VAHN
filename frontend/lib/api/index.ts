@@ -235,3 +235,17 @@ export async function checkoutCart(token: string, cartId: string, addressId?: nu
     body: { cart_id: cartId, address_id: addressId, shipping_address: shippingAddress }
   });
 }
+
+export async function createRestockSubscription(payload: {
+  email: string;
+  product_id: number;
+  product_title: string;
+  product_handle: string;
+  colour_value?: string;
+  variant_id?: string;
+}): Promise<{ message: string; id: number }> {
+  return fetchAPI<{ message: string; id: number }>('/restock-subscriptions', {
+    method: 'POST',
+    body: payload,
+  });
+}

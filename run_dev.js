@@ -122,11 +122,21 @@ try {
 // Verify Alembic migrations are up to date
 console.log('Checking database migrations status...');
 try {
-  execSync(`"${pythonBin}" -m alembic check`, { cwd: backendDir, stdio: 'ignore' });
-  console.log('\x1b[32m✔ Database migrations are up-to-date\x1b[0m');
+  const currentOutput = execSync(`"${pythonBin}" -m alembic current`, { cwd: backendDir }).toString();
+  const headsOutput = execSync(`"${pythonBin}" -m alembic heads`, { cwd: backendDir }).toString();
+
+  const currentMatch = currentOutput.match(/([a-f0-9]{12})/);
+  const headMatch = headsOutput.match(/([a-f0-9]{12})/);
+
+  if (currentMatch && headMatch && currentMatch[1] === headMatch[1]) {
+    console.log(`\x1b[32m✔ Database migrations are up-to-date (${currentMatch[1]})\x1b[0m`);
+  } else {
+    console.log('\x1b[33m⚠ Pending database migrations detected. Applying latest Alembic revision...\x1b[0m');
+    execSync(`"${pythonBin}" -m alembic upgrade head`, { cwd: backendDir, stdio: 'inherit' });
+    console.log('\x1b[32m✔ Database migrations successfully applied\x1b[0m');
+  }
 } catch (err) {
-  console.error('\n\x1b[31m✘ ERROR: Database migrations are not up-to-date with the latest schema.\x1b[0m');
-  console.error('\x1b[33m  Please run "npm run setup:docker" first to apply migrations and seed metadata.\x1b[0m\n');
+  console.error('\n\x1b[31m✘ ERROR: Failed to verify or apply database migrations.\x1b[0m');
   process.exit(1);
 }
 

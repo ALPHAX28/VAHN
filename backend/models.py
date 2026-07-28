@@ -235,3 +235,19 @@ class MediaAsset(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     uploaded_by = relationship("User", foreign_keys=[uploaded_by_id])
+
+
+class RestockSubscription(Base):
+    __tablename__ = "restock_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_title = Column(String, nullable=False)
+    product_handle = Column(String, nullable=False)
+    colour_value = Column(String, nullable=True)
+    variant_id = Column(String, nullable=True)
+    notified = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    product = relationship("Product")
