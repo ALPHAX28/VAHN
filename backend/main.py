@@ -15,10 +15,43 @@ from email_service import send_otp_email, send_order_confirmation_email
 from auth_utils import generate_salt, hash_password, verify_password, create_access_token, get_current_user, get_current_admin
 from storage import storage
 
+import asyncio
+from contextlib import asynccontextmanager
+import sqlalchemy
 import os
 
+async def _db_heartbeat_loop():
+    """Background task that runs every 3 minutes (180s) to keep DB connection pool warm while server is running."""
+    while True:
+        try:
+            await asyncio.sleep(180)
+            db = next(get_db())
+            try:
+                db.execute(sqlalchemy.text("SELECT 1"))
+            finally:
+                db.close()
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            pass
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    heartbeat_task = asyncio.create_task(_db_heartbeat_loop())
+    yield
+    heartbeat_task.cancel()
+    try:
+        await heartbeat_task
+    except Exception:
+        pass
+
 root_path = "/api/backend" if os.getenv("VERCEL") else ""
-app = FastAPI(title="VAHN Standalone Backend API", root_path=root_path, redirect_slashes=False)
+app = FastAPI(
+    title="VAHN Standalone Backend API",
+    root_path=root_path,
+    redirect_slashes=False,
+    lifespan=lifespan
+)
 
 # Enterprise Gzip Payload Compression (compresses responses > 500 bytes by 70-80%)
 app.add_middleware(GZipMiddleware, minimum_size=500)

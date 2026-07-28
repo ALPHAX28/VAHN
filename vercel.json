@@ -9,6 +9,12 @@
       "entrypoint": "main.py"
     }
   },
+  "crons": [
+    {
+      "path": "/api/keep-alive",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/backend/(.*)",
