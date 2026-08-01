@@ -347,20 +347,36 @@ input, textarea, select {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ---- Product Grid ---- */
+/* ---- Product Grid & Card ---- */
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-sm);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 280px));
+  gap: var(--space-lg);
 }
 
-@media (max-width: 1024px) {
-  .product-grid { grid-template-columns: repeat(2, 1fr); }
+.product-card {
+  display: flex;
+  flex-direction: column;
+  max-width: 280px;
+  width: 100%;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-2px);
 }
 
 @media (max-width: 600px) {
-  .product-grid { grid-template-columns: repeat(2, 1fr); gap: 4px; }
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-sm);
+  }
+  .product-card {
+    max-width: 100%;
+  }
 }
 
 /* Related products — smaller cards, auto-sized to image */

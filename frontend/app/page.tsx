@@ -31,8 +31,8 @@ export default async function HomePage() {
           <div className="section-header" style={{ padding: 0, marginBottom: 'var(--space-xl)' }}>
             <div>
               <p className="section-title">The Collection</p>
-              <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2.5rem)', marginTop: '4px' }}>
-                Coming Soon…
+              <h2 style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {collection?.title || (products.length > 0 ? 'Latest Arrivals' : 'Coming Soon')}
               </h2>
             </div>
             {products.length > 0 && (

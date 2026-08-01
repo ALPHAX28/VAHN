@@ -450,12 +450,14 @@ export default function NewProductPage() {
               </div>
 
               <div className="admin-form-group">
-                <label className="admin-form-label">Vendor</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, minHeight: 18 }}>
+                  <label className="admin-form-label" style={{ marginBottom: 0 }}>Vendor</label>
+                </div>
                 <input type="text" className="admin-form-input" value={form.vendor} onChange={updateForm("vendor")} />
               </div>
 
               <div className="admin-form-group">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, minHeight: 18 }}>
                   <label className="admin-form-label" style={{ marginBottom: 0 }}>Product Type</label>
                   <button
                     type="button"

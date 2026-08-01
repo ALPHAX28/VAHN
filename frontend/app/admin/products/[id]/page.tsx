@@ -14,7 +14,7 @@ import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 import Image from "next/image";
 
-const TABS = ["Details", "Variants", "Colour Groups", "Images", "Reviews"];
+const TABS = ["Details", "Variants", "Colour Groups", "Reviews"];
 const FIT_OPTIONS = ["SLIM", "REGULAR", "OVERSIZED"];
 const KIT_OPTIONS = ["JERSEY", "HOME", "SIGNATURE"];
 const ACTIVITY_OPTIONS = ["FOOTBALL", "LIFESTYLE", "STREETWEAR", "CRICKET", "BASKETBALL"];
@@ -92,6 +92,7 @@ export default function AdminProductDetailPage() {
   // Colour group state
   const [newGroup, setNewGroup] = useState({ colour_value: "", display_order: 0 });
   const [newGroupImages, setNewGroupImages] = useState<{ url: string; altText: string }[]>([]);
+  const [newGroupUploaderKey, setNewGroupUploaderKey] = useState(0);
 
   // Buffered Local States for Colour Groups & Gallery Images (0 backend calls until Save!)
   const [localGroups, setLocalGroups] = useState<ColourGroup[]>([]);
@@ -101,6 +102,9 @@ export default function AdminProductDetailPage() {
   // Reviews
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [newReview, setNewReview] = useState({ rating: 5, author: "", content: "", title: "", verified: true, is_approved: true });
+  const [deleteReviewModal, setDeleteReviewModal] = useState<AdminReview | null>(null);
+  const [deleteVariantModal, setDeleteVariantModal] = useState<AdminVariant | null>(null);
+  const [deletingItem, setDeletingItem] = useState(false);
 
   function extractBullets(html: string): string {
     if (!html) return "";
@@ -315,6 +319,37 @@ export default function AdminProductDetailPage() {
     setDirtyState(isPageDirty, handleSave, handleDiscardChanges);
   }, [isPageDirty, setDirtyState, handleSave, handleDiscardChanges]);
 
+  const handleSaveAll = useCallback(async () => {
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      if (isVariantsDirty) {
+        if (editingVariant) {
+          await handleSaveVariant(editingVariant);
+        } else if (newVariant.colour.trim() && newVariant.size.trim() && newVariant.price_amount > 0) {
+          await handleAddVariant();
+        } else {
+          const variantIds = Object.keys(variantEdits);
+          for (const vid of variantIds) {
+            await handleSaveVariant(vid);
+          }
+        }
+      }
+
+      if (isDetailsDirty || isGroupsDirty) {
+        await handleSave();
+      }
+
+      setSuccess("Changes saved successfully!");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
+  }, [isVariantsDirty, editingVariant, newVariant, variantEdits, isDetailsDirty, isGroupsDirty, handleSave, handleSaveVariant, handleAddVariant]);
+
   function handleTabClick(nextTab: string) {
     if (nextTab === activeTab) return;
     if (isCurrentTabDirty) {
@@ -328,12 +363,27 @@ export default function AdminProductDetailPage() {
   }
 
   async function handleModalSaveAndProceed() {
-    const ok = await handleSave();
-    if (ok && pendingTab) {
+    setError("");
+    setSuccess("");
+    if (activeTab === "Variants") {
+      if (editingVariant) {
+        await handleSaveVariant(editingVariant);
+      } else if (newVariant.colour.trim() && newVariant.size.trim() && newVariant.price_amount > 0) {
+        await handleAddVariant();
+      } else {
+        const variantIds = Object.keys(variantEdits);
+        for (const vid of variantIds) {
+          await handleSaveVariant(vid);
+        }
+      }
+    } else {
+      await handleSave();
+    }
+    if (pendingTab) {
       setActiveTab(pendingTab);
       setPendingTab(null);
-      setShowUnsavedModal(false);
     }
+    setShowUnsavedModal(false);
   }
 
   function handleModalDiscardAndProceed() {
@@ -509,6 +559,7 @@ export default function AdminProductDetailPage() {
       });
       setNewGroup({ colour_value: "", display_order: 0 });
       setNewGroupImages([]);
+      setNewGroupUploaderKey(k => k + 1);
       await loadProduct();
       setSuccess("New colour group saved to database!");
       setTimeout(() => setSuccess(""), 3000);
@@ -562,7 +613,7 @@ export default function AdminProductDetailPage() {
         </div>
         <div className="admin-header-actions">
           <Link href={`/products/${product.handle}`} target="_blank" className="admin-btn admin-btn--ghost">View on store ↗</Link>
-          <button className="admin-btn admin-btn--primary" onClick={handleSave} disabled={saving}>
+          <button className="admin-btn admin-btn--primary" onClick={handleSaveAll} disabled={saving}>
             {saving ? <span className="admin-btn-spinner" /> : "Save Changes"}
           </button>
         </div>
@@ -628,11 +679,13 @@ export default function AdminProductDetailPage() {
               </div>
 
               <div className="admin-form-group">
-                <label className="admin-form-label">Vendor</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, minHeight: 18 }}>
+                  <label className="admin-form-label" style={{ marginBottom: 0 }}>Vendor</label>
+                </div>
                 <input type="text" className="admin-form-input" value={editForm.vendor || ""} onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))} />
               </div>
               <div className="admin-form-group">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, minHeight: 18 }}>
                   <label className="admin-form-label" style={{ marginBottom: 0 }}>Product Type</label>
                   <button
                     type="button"
@@ -806,9 +859,189 @@ export default function AdminProductDetailPage() {
         </div>
       )}
 
-      {/* Variants Tab */}
+      {/* Variants Tab — SCRUM-25: Add New Variant section is at the TOP */}
       {activeTab === "Variants" && (
         <div className="admin-card">
+          {/* Add New Variant Section (TOP) */}
+          <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: "1px solid var(--admin-card-border)" }}>
+            <h3 style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: 12 }}>Add New Variant</h3>
+
+            <div className="admin-form-grid">
+              {/* Computed duplicate flag */}
+              {(() => {
+                const isDup = Boolean(
+                  product &&
+                  newVariant.colour.trim() &&
+                  newVariant.size.trim() &&
+                  product.variants.some(v => {
+                    const vColour = v.selected_options.find(o => o.name === "Colour")?.value ?? "";
+                    const vSize = v.selected_options.find(o => o.name === "Size")?.value ?? "";
+                    return (
+                      vColour.trim().toLowerCase() === newVariant.colour.trim().toLowerCase() &&
+                      vSize.trim().toLowerCase() === newVariant.size.trim().toLowerCase()
+                    );
+                  })
+                );
+                return (
+                  <>
+                    <div className="admin-form-group">
+                      <label className="admin-form-label">Colour *</label>
+                      <select
+                        className="admin-form-select"
+                        style={isDup ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
+                        value={newVariant.colour}
+                        onChange={e => setNewVariant(v => ({ ...v, colour: e.target.value }))}
+                      >
+                        <option value="">— Select Colour —</option>
+                        {product?.colour_groups.map(g => (
+                          <option key={g.id} value={g.colour_value}>{g.colour_value}</option>
+                        ))}
+                      </select>
+                      {(!product?.colour_groups || product.colour_groups.length === 0) && (
+                        <span style={{ fontSize: "0.72rem", color: "#d32f2f", fontWeight: 700, marginTop: 4, display: "block" }}>
+                          ⚠️ No Colour Groups found. Please add a Colour Group in the "Colour Groups" tab first.
+                        </span>
+                      )}
+                    </div>
+                    <div className="admin-form-group">
+                      <label className="admin-form-label">Size *</label>
+                      <select
+                        className="admin-form-select"
+                        style={isDup ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
+                        value={newVariant.size}
+                        onChange={e => setNewVariant(v => ({ ...v, size: e.target.value }))}
+                      >
+                        <option value="">— Select Size —</option>
+                        {SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {isDup && (
+                        <span style={{ fontSize: "0.72rem", color: "#d32f2f", fontWeight: 700, marginTop: 4, display: "block" }}>
+                          ⚠️ {newVariant.colour.trim()} / {newVariant.size.trim()} already exists in table below
+                        </span>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+              <div className="admin-form-group">
+                <label className="admin-form-label">Selling Price (₹) *</label>
+                <input
+                  type="number"
+                  className="admin-form-input"
+                  style={newVariant.compare_at_price_amount && newVariant.price_amount > Number(newVariant.compare_at_price_amount) ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
+                  placeholder="e.g. 1500"
+                  value={newVariant.price_amount || ""}
+                  onFocus={e => e.target.select()}
+                  onChange={e => {
+                    const price = e.target.value ? Number(e.target.value) : 0;
+                    setNewVariant(v => ({ ...v, price_amount: price }));
+                  }}
+                />
+                <span style={{ fontSize: "0.72rem", color: "var(--admin-text-secondary)", marginTop: 4, display: "block" }}>Price customer pays at checkout</span>
+                {Boolean(newVariant.compare_at_price_amount && newVariant.price_amount > Number(newVariant.compare_at_price_amount)) && (
+                  <span style={{ fontSize: "0.72rem", color: "#d32f2f", fontWeight: 700, marginTop: 4, display: "block" }}>
+                    ⚠️ Selling price cannot be greater than Original Price (₹{newVariant.compare_at_price_amount})
+                  </span>
+                )}
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-form-label">Original Price (MRP ₹)</label>
+                <input
+                  type="number"
+                  className="admin-form-input"
+                  placeholder="e.g. 2500"
+                  value={newVariant.compare_at_price_amount}
+                  onFocus={e => e.target.select()}
+                  onChange={e => {
+                    const compareStr = e.target.value;
+                    setNewVariant(v => ({ ...v, compare_at_price_amount: compareStr }));
+                  }}
+                />
+                <span style={{ fontSize: "0.72rem", color: "var(--admin-text-secondary)", marginTop: 4, display: "block" }}>Original MRP before discount</span>
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-form-label">Discount % (Auto-Calc Price)</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input
+                    type="number"
+                    className="admin-form-input"
+                    placeholder="e.g. 40"
+                    min="1"
+                    max="99"
+                    value={
+                      newVariant.compare_at_price_amount && Number(newVariant.compare_at_price_amount) > newVariant.price_amount && newVariant.price_amount > 0
+                        ? Math.min(99, Math.max(1, Math.round(((Number(newVariant.compare_at_price_amount) - newVariant.price_amount) / Number(newVariant.compare_at_price_amount)) * 100))) || ""
+                        : ""
+                    }
+                    onFocus={e => e.target.select()}
+                    onChange={e => {
+                      const valStr = e.target.value.trim();
+                      if (!valStr || valStr === "0") {
+                        setNewVariant(v => ({ ...v, compare_at_price_amount: "" }));
+                        return;
+                      }
+                      const rawPct = Number(valStr);
+                      if (isNaN(rawPct) || rawPct <= 0 || rawPct >= 100) {
+                        setNewVariant(v => ({ ...v, compare_at_price_amount: "" }));
+                        return;
+                      }
+                      const discPct = Math.round(rawPct);
+
+                      const compareVal = newVariant.compare_at_price_amount ? Number(newVariant.compare_at_price_amount) : 0;
+                      if (compareVal > 0) {
+                        const calcSelling = Math.round(compareVal * (1 - discPct / 100));
+                        setNewVariant(v => ({ ...v, price_amount: calcSelling }));
+                      } else if (newVariant.price_amount > 0) {
+                        const calcCompare = Math.round(newVariant.price_amount / (1 - discPct / 100));
+                        const safeValue = (isFinite(calcCompare) && calcCompare >= newVariant.price_amount) ? String(calcCompare) : "";
+                        setNewVariant(v => ({ ...v, compare_at_price_amount: safeValue }));
+                      }
+                    }}
+                  />
+                  <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#d32f2f" }}>%</span>
+                </div>
+                <span style={{ fontSize: "0.72rem", color: "var(--admin-text-secondary)", marginTop: 4, display: "block" }}>Auto-calculates Selling Price if MRP is set (or MRP if Selling Price is set)</span>
+              </div>
+              <div className="admin-form-group">
+                <label className="admin-form-label">Stock</label>
+                <input
+                  type="number"
+                  className="admin-form-input"
+                  value={newVariant.inventory_quantity}
+                  onFocus={e => e.target.select()}
+                  onChange={e => setNewVariant(v => ({ ...v, inventory_quantity: Number(e.target.value) }))}
+                />
+              </div>
+            </div>
+            {(() => {
+              const isDup = Boolean(
+                product &&
+                newVariant.colour.trim() &&
+                newVariant.size.trim() &&
+                product.variants.some(v => {
+                  const vColour = v.selected_options.find(o => o.name === "Colour")?.value ?? "";
+                  const vSize = v.selected_options.find(o => o.name === "Size")?.value ?? "";
+                  return (
+                    vColour.trim().toLowerCase() === newVariant.colour.trim().toLowerCase() &&
+                    vSize.trim().toLowerCase() === newVariant.size.trim().toLowerCase()
+                  );
+                })
+              );
+              return (
+                <button
+                  className="admin-btn admin-btn--primary"
+                  style={{ marginTop: 12, ...(isDup ? { backgroundColor: "#9e9e9e", cursor: "not-allowed", opacity: 0.7 } : {}) }}
+                  onClick={handleAddVariant}
+                  disabled={addingVariant || isDup}
+                >
+                  {addingVariant ? <><span className="admin-btn-spinner" /> Adding...</> : isDup ? "Duplicate Variant (Already Exists)" : "+ Add Variant"}
+                </button>
+              );
+            })()}
+          </div>
+
+          {/* Existing Variants Table (BOTTOM) */}
+          <h3 style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: 12 }}>Existing Variants ({product.variants.length})</h3>
           <div className="admin-table-wrapper">
             <table className="admin-table">
               <thead>
@@ -1034,7 +1267,7 @@ export default function AdminProductDetailPage() {
                             <button className="admin-icon-btn" title="Edit" onClick={() => { setEditingVariant(v.id); setVariantEdits(ed => ({ ...ed, [v.id]: { price_amount: v.price_amount, compare_at_price_amount: v.compare_at_price_amount, inventory_quantity: v.inventory_quantity, available_for_sale: v.available_for_sale, selected_options: v.selected_options.map(o => ({ ...o })) } })); }}>
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             </button>
-                            <button className="admin-icon-btn admin-icon-btn--danger" title="Delete" onClick={() => handleDeleteVariant(v.id)}>
+                            <button className="admin-icon-btn admin-icon-btn--danger" title="Delete" onClick={() => setDeleteVariantModal(v)}>
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                             </button>
                           </div>
@@ -1045,183 +1278,6 @@ export default function AdminProductDetailPage() {
                 })}
               </tbody>
             </table>
-          </div>
-
-          <div style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid var(--admin-card-border)" }}>
-            <h3 style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: 12 }}>Add New Variant</h3>
-
-            <div className="admin-form-grid">
-              {/* Computed duplicate flag */}
-              {(() => {
-                const isDup = Boolean(
-                  product &&
-                  newVariant.colour.trim() &&
-                  newVariant.size.trim() &&
-                  product.variants.some(v => {
-                    const vColour = v.selected_options.find(o => o.name === "Colour")?.value ?? "";
-                    const vSize = v.selected_options.find(o => o.name === "Size")?.value ?? "";
-                    return (
-                      vColour.trim().toLowerCase() === newVariant.colour.trim().toLowerCase() &&
-                      vSize.trim().toLowerCase() === newVariant.size.trim().toLowerCase()
-                    );
-                  })
-                );
-                return (
-                  <>
-                    <div className="admin-form-group">
-                      <label className="admin-form-label">Colour *</label>
-                      <select
-                        className="admin-form-select"
-                        style={isDup ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
-                        value={newVariant.colour}
-                        onChange={e => setNewVariant(v => ({ ...v, colour: e.target.value }))}
-                      >
-                        <option value="">— Select Colour —</option>
-                        {product?.colour_groups.map(g => (
-                          <option key={g.id} value={g.colour_value}>{g.colour_value}</option>
-                        ))}
-                      </select>
-                      {(!product?.colour_groups || product.colour_groups.length === 0) && (
-                        <span style={{ fontSize: "0.72rem", color: "#d32f2f", fontWeight: 700, marginTop: 4, display: "block" }}>
-                          ⚠️ No Colour Groups found. Please add a Colour Group in the "Colour Groups" tab first.
-                        </span>
-                      )}
-                    </div>
-                    <div className="admin-form-group">
-                      <label className="admin-form-label">Size *</label>
-                      <select
-                        className="admin-form-select"
-                        style={isDup ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
-                        value={newVariant.size}
-                        onChange={e => setNewVariant(v => ({ ...v, size: e.target.value }))}
-                      >
-                        <option value="">— Select Size —</option>
-                        {SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                      {isDup && (
-                        <span style={{ fontSize: "0.72rem", color: "#d32f2f", fontWeight: 700, marginTop: 4, display: "block" }}>
-                          ⚠️ {newVariant.colour.trim()} / {newVariant.size.trim()} already exists in table above
-                        </span>
-                      )}
-                    </div>
-                  </>
-                );
-              })()}
-              <div className="admin-form-group">
-                <label className="admin-form-label">Selling Price (₹) *</label>
-                <input
-                  type="number"
-                  className="admin-form-input"
-                  style={newVariant.compare_at_price_amount && newVariant.price_amount > Number(newVariant.compare_at_price_amount) ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
-                  placeholder="e.g. 1500"
-                  value={newVariant.price_amount || ""}
-                  onFocus={e => e.target.select()}
-                  onChange={e => {
-                    const price = e.target.value ? Number(e.target.value) : 0;
-                    setNewVariant(v => ({ ...v, price_amount: price }));
-                  }}
-                />
-                <span style={{ fontSize: "0.72rem", color: "var(--admin-text-secondary)", marginTop: 4, display: "block" }}>Price customer pays at checkout</span>
-                {Boolean(newVariant.compare_at_price_amount && newVariant.price_amount > Number(newVariant.compare_at_price_amount)) && (
-                  <span style={{ fontSize: "0.72rem", color: "#d32f2f", fontWeight: 700, marginTop: 4, display: "block" }}>
-                    ⚠️ Selling price cannot be greater than Original Price (₹{newVariant.compare_at_price_amount})
-                  </span>
-                )}
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-form-label">Original Price (MRP ₹)</label>
-                <input
-                  type="number"
-                  className="admin-form-input"
-                  placeholder="e.g. 2500"
-                  value={newVariant.compare_at_price_amount}
-                  onFocus={e => e.target.select()}
-                  onChange={e => {
-                    const compareStr = e.target.value;
-                    setNewVariant(v => ({ ...v, compare_at_price_amount: compareStr }));
-                  }}
-                />
-                <span style={{ fontSize: "0.72rem", color: "var(--admin-text-secondary)", marginTop: 4, display: "block" }}>Original MRP before discount</span>
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-form-label">Discount % (Auto-Calc Price)</label>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <input
-                    type="number"
-                    className="admin-form-input"
-                    placeholder="e.g. 40"
-                    min="1"
-                    max="99"
-                    value={
-                      newVariant.compare_at_price_amount && Number(newVariant.compare_at_price_amount) > newVariant.price_amount && newVariant.price_amount > 0
-                        ? Math.min(99, Math.max(1, Math.round(((Number(newVariant.compare_at_price_amount) - newVariant.price_amount) / Number(newVariant.compare_at_price_amount)) * 100))) || ""
-                        : ""
-                    }
-                    onFocus={e => e.target.select()}
-                    onChange={e => {
-                      const valStr = e.target.value.trim();
-                      if (!valStr || valStr === "0") {
-                        setNewVariant(v => ({ ...v, compare_at_price_amount: "" }));
-                        return;
-                      }
-                      const rawPct = Number(valStr);
-                      if (isNaN(rawPct) || rawPct <= 0 || rawPct >= 100) {
-                        setNewVariant(v => ({ ...v, compare_at_price_amount: "" }));
-                        return;
-                      }
-                      const discPct = Math.round(rawPct);
-
-                      const compareVal = newVariant.compare_at_price_amount ? Number(newVariant.compare_at_price_amount) : 0;
-                      if (compareVal > 0) {
-                        const calcSelling = Math.round(compareVal * (1 - discPct / 100));
-                        setNewVariant(v => ({ ...v, price_amount: calcSelling }));
-                      } else if (newVariant.price_amount > 0) {
-                        const calcCompare = Math.round(newVariant.price_amount / (1 - discPct / 100));
-                        const safeValue = (isFinite(calcCompare) && calcCompare >= newVariant.price_amount) ? String(calcCompare) : "";
-                        setNewVariant(v => ({ ...v, compare_at_price_amount: safeValue }));
-                      }
-                    }}
-                  />
-                  <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#d32f2f" }}>%</span>
-                </div>
-                <span style={{ fontSize: "0.72rem", color: "var(--admin-text-secondary)", marginTop: 4, display: "block" }}>Auto-calculates Selling Price if MRP is set (or MRP if Selling Price is set)</span>
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-form-label">Stock</label>
-                <input
-                  type="number"
-                  className="admin-form-input"
-                  value={newVariant.inventory_quantity}
-                  onFocus={e => e.target.select()}
-                  onChange={e => setNewVariant(v => ({ ...v, inventory_quantity: Number(e.target.value) }))}
-                />
-              </div>
-            </div>
-            {(() => {
-              const isDup = Boolean(
-                product &&
-                newVariant.colour.trim() &&
-                newVariant.size.trim() &&
-                product.variants.some(v => {
-                  const vColour = v.selected_options.find(o => o.name === "Colour")?.value ?? "";
-                  const vSize = v.selected_options.find(o => o.name === "Size")?.value ?? "";
-                  return (
-                    vColour.trim().toLowerCase() === newVariant.colour.trim().toLowerCase() &&
-                    vSize.trim().toLowerCase() === newVariant.size.trim().toLowerCase()
-                  );
-                })
-              );
-              return (
-                <button
-                  className="admin-btn admin-btn--primary"
-                  style={{ marginTop: 12, ...(isDup ? { backgroundColor: "#9e9e9e", cursor: "not-allowed", opacity: 0.7 } : {}) }}
-                  onClick={handleAddVariant}
-                  disabled={addingVariant || isDup}
-                >
-                  {addingVariant ? <><span className="admin-btn-spinner" /> Adding...</> : isDup ? "Duplicate Variant (Already Exists)" : "+ Add Variant"}
-                </button>
-              );
-            })()}
           </div>
         </div>
       )}
@@ -1254,6 +1310,7 @@ export default function AdminProductDetailPage() {
             </div>
             <div style={{ marginTop: 12 }}>
               <AdminImageUploader
+                key={newGroupUploaderKey}
                 endpoint="productImage"
                 label="Upload Initial Images for New Group"
                 onUploadComplete={imgs => setNewGroupImages(imgs.map(img => ({ url: img.url, altText: newGroup.colour_value })))}
@@ -1264,18 +1321,6 @@ export default function AdminProductDetailPage() {
         </div>
       )}
 
-      {/* Images Tab */}
-      {activeTab === "Images" && (
-        <div className="admin-card">
-          <AdminImageUploader
-            endpoint="productImage"
-            label="Product Gallery (All Images)"
-            existingImages={localGallery}
-            onReorderExisting={imgs => setLocalGallery(imgs)}
-            onUploadComplete={imgs => setLocalGallery(imgs)}
-          />
-        </div>
-      )}
 
       {/* Reviews Tab */}
       {activeTab === "Reviews" && (
@@ -1308,11 +1353,12 @@ export default function AdminProductDetailPage() {
                     <td>
                       <div className="admin-table-actions">
                         <button className="admin-icon-btn" title={r.is_hidden ? "Show" : "Hide"} onClick={() => handleToggleReviewHide(r)}>
+                          {/* SCRUM-32: Eye icon when VISIBLE (shown), crossed eye when HIDDEN */}
                           {r.is_hidden
-                            ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>}
+                            ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
                         </button>
-                        <button className="admin-icon-btn admin-icon-btn--danger" title="Delete" onClick={() => handleDeleteReview(r.id)}>
+                        <button className="admin-icon-btn admin-icon-btn--danger" title="Delete" onClick={() => setDeleteReviewModal(r)}>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                         </button>
                       </div>
@@ -1323,26 +1369,6 @@ export default function AdminProductDetailPage() {
             </table>
           </div>
 
-          <div style={{ paddingTop: 16, borderTop: "1px solid var(--admin-card-border)" }}>
-            <h3 style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: 12 }}>+ Add Customer Review</h3>
-            <div className="admin-form-grid">
-              <div className="admin-form-group">
-                <label className="admin-form-label">Author Name</label>
-                <input type="text" className="admin-form-input" value={newReview.author} onChange={e => setNewReview(r => ({ ...r, author: e.target.value }))} />
-              </div>
-              <div className="admin-form-group">
-                <label className="admin-form-label">Rating (1-5 Stars)</label>
-                <select className="admin-form-select" value={newReview.rating} onChange={e => setNewReview(r => ({ ...r, rating: Number(e.target.value) }))}>
-                  {[5,4,3,2,1].map(n => <option key={n} value={n}>{n} Stars</option>)}
-                </select>
-              </div>
-              <div className="admin-form-group admin-form-group--full">
-                <label className="admin-form-label">Content</label>
-                <textarea className="admin-form-textarea" rows={3} value={newReview.content} onChange={e => setNewReview(r => ({ ...r, content: e.target.value }))} />
-              </div>
-            </div>
-            <button className="admin-btn admin-btn--primary" style={{ marginTop: 12 }} onClick={handleAddReview}>Add Review</button>
-          </div>
         </div>
       )}
 
@@ -1363,11 +1389,9 @@ export default function AdminProductDetailPage() {
             <button className="admin-btn-discard" onClick={handleDiscardChanges}>
               Discard / Clear
             </button>
-            {isDetailsDirty && (
-              <button className="admin-btn-save" onClick={handleSave} disabled={saving}>
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
-            )}
+            <button className="admin-btn-save" onClick={handleSaveAll} disabled={saving}>
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
           </div>
         </div>
       )}
@@ -1384,16 +1408,106 @@ export default function AdminProductDetailPage() {
               You have unsubmitted inputs on the <strong>{activeTab}</strong> tab. Would you like to save or discard your changes before switching to <strong>{pendingTab}</strong>?
             </p>
             <div className="admin-modal-actions" style={{ flexDirection: "column", gap: 8 }}>
-              {activeTab === "Details" && (
-                <button className="admin-btn admin-btn--primary" style={{ width: "100%" }} onClick={handleModalSaveAndProceed}>
-                  Save Changes & Continue →
-                </button>
-              )}
+              <button className="admin-btn admin-btn--primary" style={{ width: "100%" }} onClick={handleModalSaveAndProceed}>
+                Save Changes & Continue →
+              </button>
               <button className="admin-btn admin-btn--danger" style={{ width: "100%" }} onClick={handleModalDiscardAndProceed}>
                 Discard & Continue →
               </button>
               <button className="admin-btn admin-btn--ghost" style={{ width: "100%", marginTop: 4 }} onClick={() => setShowUnsavedModal(false)}>
                 Cancel (Stay Here)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* DELETE REVIEW CONFIRMATION MODAL */}
+      {deleteReviewModal && (
+        <div className="admin-modal-overlay" onClick={() => !deletingItem && setDeleteReviewModal(null)}>
+          <div className="admin-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <h3 className="admin-modal-title" style={{ display: "flex", alignItems: "center", gap: 10, color: "#d32f2f" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+              </svg>
+              Delete Review
+            </h3>
+            <p style={{ fontSize: "0.88rem", color: "var(--admin-text-secondary)", margin: "14px 0 20px", lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete the review by <strong>"{deleteReviewModal.author}"</strong>? This action cannot be undone.
+            </p>
+            <div className="admin-modal-actions" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button className="admin-btn admin-btn--ghost" onClick={() => setDeleteReviewModal(null)} disabled={deletingItem}>
+                Cancel
+              </button>
+              <button
+                className="admin-btn admin-btn--danger"
+                disabled={deletingItem}
+                onClick={async () => {
+                  if (!adminToken) return;
+                  setDeletingItem(true);
+                  try {
+                    await deleteAdminReview(adminToken, deleteReviewModal.id);
+                    setDeleteReviewModal(null);
+                    await loadReviews();
+                    setSuccess("Review deleted successfully!");
+                    setTimeout(() => setSuccess(""), 3000);
+                  } catch (e: unknown) {
+                    setError(e instanceof Error ? e.message : "Failed to delete review");
+                  } finally {
+                    setDeletingItem(false);
+                  }
+                }}
+              >
+                {deletingItem ? <><span className="admin-btn-spinner" /> Deleting...</> : "Delete Review"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE VARIANT CONFIRMATION MODAL */}
+      {deleteVariantModal && (
+        <div className="admin-modal-overlay" onClick={() => !deletingItem && setDeleteVariantModal(null)}>
+          <div className="admin-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <h3 className="admin-modal-title" style={{ display: "flex", alignItems: "center", gap: 10, color: "#d32f2f" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+              </svg>
+              Delete Variant
+            </h3>
+            <p style={{ fontSize: "0.88rem", color: "var(--admin-text-secondary)", margin: "14px 0 20px", lineHeight: 1.5 }}>
+              Are you sure you want to delete variant <strong>"{deleteVariantModal.title}"</strong>?
+            </p>
+            <div className="admin-modal-actions" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button className="admin-btn admin-btn--ghost" onClick={() => setDeleteVariantModal(null)} disabled={deletingItem}>
+                Cancel
+              </button>
+              <button
+                className="admin-btn admin-btn--danger"
+                disabled={deletingItem}
+                onClick={async () => {
+                  if (!adminToken) return;
+                  setDeletingItem(true);
+                  try {
+                    await deleteVariant(adminToken, productId, deleteVariantModal.id);
+                    setDeleteVariantModal(null);
+                    await loadProduct();
+                    setSuccess("Variant deleted successfully!");
+                    setTimeout(() => setSuccess(""), 3000);
+                  } catch (e: unknown) {
+                    setError(e instanceof Error ? e.message : "Failed to delete variant");
+                    setDeleteVariantModal(null);
+                  } finally {
+                    setDeletingItem(false);
+                  }
+                }}
+              >
+                {deletingItem ? <><span className="admin-btn-spinner" /> Deleting...</> : "Delete Variant"}
               </button>
             </div>
           </div>

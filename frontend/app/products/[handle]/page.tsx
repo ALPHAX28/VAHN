@@ -2,8 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { getProduct, getProductRecommendations } from '@/lib/api';
-import ProductMediaGallery from '@/components/product/ProductMediaGallery';
-import ProductInfo from '@/components/product/ProductInfo';
+import ProductPageClient from '@/components/product/ProductPageClient';
 import ProductCard from '@/components/collection/ProductCard';
 import ProductReviews from '@/components/product/ProductReviews';
 
@@ -43,11 +42,8 @@ export default async function ProductPage({ params }: Props) {
   return (
     <>
       <div className="product-page">
-        {/* Left: Media Gallery */}
-        <ProductMediaGallery images={images} productTitle={product.title} />
-
-        {/* Right: Product Info */}
-        <ProductInfo product={product} />
+        {/* SCRUM-33: ProductPageClient lifts gallery state so colour selection updates ALL gallery images */}
+        <ProductPageClient product={product} defaultImages={images} />
       </div>
 
       {/* Fit, Kit Type & Activity Highlights Bar */}

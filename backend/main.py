@@ -173,7 +173,8 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
             content=r.content,
             verified=r.verified
         )
-        for r in (prod.reviews or [])
+        # SCRUM-30: Only show reviews that are not hidden (is_hidden=False)
+        for r in (prod.reviews or []) if not r.is_hidden
     ]
 
     colour_group_schemas = [
@@ -250,10 +251,13 @@ def list_products(db: Session = Depends(get_db)):
 def get_product(handle: str, db: Session = Depends(get_db)):
     prod = db.query(models.Product).options(
         selectinload(models.Product.variants),
-        selectinload(models.Product.reviews)
+        selectinload(models.Product.reviews),
+        selectinload(models.Product.colour_groups)
     ).filter_by(handle=handle).first()
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
+    # SCRUM-34/24: If product is marked unavailable, still return it so the
+    # frontend can show "Out of Stock" — availableForSale=False signals this.
     return db_product_to_schema(prod)
 
 @app.post("/api/products/{handle}/reviews", response_model=schemas.ReviewSchema)
@@ -296,15 +300,18 @@ def get_collection(handle: str, db: Session = Depends(get_db)):
     if not coll:
         raise HTTPException(status_code=404, detail="Collection not found")
     
-    # Map products
+    # Map products — SCRUM-34: only show available products on storefront
     product_edges = []
     for idx, p in enumerate(coll.products):
+        if not p.available_for_sale:
+            continue  # Skip unavailable products from storefront collections
         product_edges.append(
             schemas.ProductEdge(
                 node=db_product_to_schema(p),
                 cursor=f"cursor-{idx+1}"
             )
         )
+
 
     return schemas.CollectionSchema(
         id=f"gid://shopify/Collection/{coll.id}",

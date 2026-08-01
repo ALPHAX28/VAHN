@@ -54,6 +54,8 @@ export default function AdminReviewsPage() {
   const [editing, setEditing] = useState<AdminReview | null>(null);
   const [editContent, setEditContent] = useState("");
   const [editRating, setEditRating] = useState(5);
+  const [deleteModal, setDeleteModal] = useState<AdminReview | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [showAddReview, setShowAddReview] = useState(false);
   const [newReview, setNewReview] = useState({ rating: 5, author: "", content: "", title: "", verified: true, is_approved: true });
 
@@ -183,9 +185,6 @@ export default function AdminReviewsPage() {
         <div className="admin-header-actions">
           {selectedProduct ? (
             <>
-              <button className="admin-btn admin-btn--secondary" onClick={() => setShowAddReview(true)}>
-                + Add Review
-              </button>
               <button
                 className="admin-btn admin-btn--ghost"
                 onClick={() => { setSelectedProduct(null); setPage(1); }}
@@ -339,14 +338,15 @@ export default function AdminReviewsPage() {
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             </button>
                             <button className="admin-icon-btn" title={review.is_hidden ? "Show" : "Hide"} onClick={() => handleToggleHide(review)}>
+                              {/* SCRUM-32: Eye icon when VISIBLE (shown), crossed eye when HIDDEN */}
                               {review.is_hidden
-                                ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>}
+                                ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
                             </button>
                             <button className="admin-icon-btn" title={review.is_approved ? "Unapprove" : "Approve"} onClick={() => handleToggleApprove(review)}>
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
                             </button>
-                            <button className="admin-icon-btn admin-icon-btn--danger" title="Delete" onClick={() => handleDelete(review.id)}>
+                            <button className="admin-icon-btn admin-icon-btn--danger" title="Delete" onClick={() => setDeleteModal(review)}>
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                             </button>
                           </div>
@@ -392,28 +392,45 @@ export default function AdminReviewsPage() {
         </div>
       )}
 
-      {/* Add Review Modal */}
-      {showAddReview && selectedProduct && (
-        <div className="admin-modal-overlay" onClick={() => setShowAddReview(false)}>
-          <div className="admin-modal" onClick={e => e.stopPropagation()}>
-            <h3 className="admin-modal-title">Add Review for {selectedProduct.productTitle}</h3>
-            <div className="admin-form-group">
-              <label className="admin-form-label">Author Name</label>
-              <input type="text" className="admin-form-input" placeholder="e.g. John Doe" value={newReview.author} onChange={e => setNewReview(r => ({ ...r, author: e.target.value }))} />
-            </div>
-            <div className="admin-form-group">
-              <label className="admin-form-label">Rating</label>
-              <select className="admin-form-select" value={newReview.rating} onChange={e => setNewReview(r => ({ ...r, rating: Number(e.target.value) }))}>
-                {[5,4,3,2,1].map(n => <option key={n} value={n}>{n} Stars</option>)}
-              </select>
-            </div>
-            <div className="admin-form-group">
-              <label className="admin-form-label">Review Content</label>
-              <textarea className="admin-form-textarea" rows={4} placeholder="Review text..." value={newReview.content} onChange={e => setNewReview(r => ({ ...r, content: e.target.value }))} />
-            </div>
-            <div className="admin-modal-actions">
-              <button className="admin-btn admin-btn--ghost" onClick={() => setShowAddReview(false)}>Cancel</button>
-              <button className="admin-btn admin-btn--primary" onClick={handleAddReview}>Add Review</button>
+      {/* Delete Review Confirmation Modal */}
+      {deleteModal && (
+        <div className="admin-modal-overlay" onClick={() => !deleting && setDeleteModal(null)}>
+          <div className="admin-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <h3 className="admin-modal-title" style={{ display: "flex", alignItems: "center", gap: 10, color: "#d32f2f" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+              </svg>
+              Delete Review
+            </h3>
+            <p style={{ fontSize: "0.88rem", color: "var(--admin-text-secondary)", margin: "14px 0 20px", lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete the review by <strong>"{deleteModal.author}"</strong>? This action cannot be undone.
+            </p>
+            <div className="admin-modal-actions" style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button className="admin-btn admin-btn--ghost" onClick={() => setDeleteModal(null)} disabled={deleting}>
+                Cancel
+              </button>
+              <button
+                className="admin-btn admin-btn--danger"
+                disabled={deleting}
+                onClick={async () => {
+                  if (!adminToken) return;
+                  setDeleting(true);
+                  try {
+                    await deleteAdminReview(adminToken, deleteModal.id);
+                    setDeleteModal(null);
+                    loadReviews();
+                  } catch (e: unknown) {
+                    console.error(e);
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+              >
+                {deleting ? <><span className="admin-btn-spinner" /> Deleting...</> : "Delete Review"}
+              </button>
             </div>
           </div>
         </div>

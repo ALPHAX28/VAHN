@@ -8,7 +8,11 @@ import { useCart, type AddItemDisplayData } from '@/context/CartContext';
 import { formatMoney } from '@/lib/utils';
 import { createRestockSubscription } from '@/lib/api';
 
-interface Props { product: Product; }
+interface Props {
+  product: Product;
+  // SCRUM-33: Optional callback to update parent gallery when colour changes
+  onColourChange?: (colourValue: string) => void;
+}
 
 function getVariantFromOptions(
   variants: ProductVariant[],
@@ -28,7 +32,7 @@ function getVariantFromOptions(
   );
 }
 
-export default function ProductInfo({ product }: Props) {
+export default function ProductInfo({ product, onColourChange }: Props) {
   const variants = product.variants.edges.map((e) => e.node);
   const { addItem, updateItem, lines } = useCart();
   const [adding, setAdding] = useState(false);
@@ -161,19 +165,27 @@ export default function ProductInfo({ product }: Props) {
   const isOnSale = comparePrice && parseFloat(comparePrice.amount) > parseFloat(price.amount);
   
   // ── Out-of-Stock Check for Selected Colour & Variant ──
-  const isColourOutOfStock = colourVariants.length > 0
+  // SCRUM-34/24: If the whole product is marked unavailable, treat as out of stock immediately
+  const isColourOutOfStock = !product.availableForSale || (colourVariants.length > 0
     ? colourVariants.every((v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0))
-    : !product.availableForSale;
+    : !product.availableForSale);
 
-  const isSelectedVariantOutOfStock = isSizeSelected
+  const isSelectedVariantOutOfStock = !product.availableForSale || (isSizeSelected
     ? (selectedVariant
         ? (!selectedVariant.availableForSale || (selectedVariant.quantityAvailable !== undefined && selectedVariant.quantityAvailable <= 0))
         : isColourOutOfStock)
-    : isColourOutOfStock;
+    : isColourOutOfStock);
 
   const isCurrentSelectionOutOfStock = isSelectedVariantOutOfStock;
-  const available = !isCurrentSelectionOutOfStock && isSizeSelected && Boolean(selectedVariant && selectedVariant.availableForSale);
+  const available = product.availableForSale && !isCurrentSelectionOutOfStock && isSizeSelected && Boolean(selectedVariant && selectedVariant.availableForSale);
   const cartItem = selectedVariant ? lines.find((l) => l.merchandise.id === selectedVariant.id) : undefined;
+
+  // ── Sync Active Colour Gallery via Effect (SCRUM-33) ──
+  useEffect(() => {
+    if (activeColour && onColourChange) {
+      onColourChange(activeColour);
+    }
+  }, [activeColour, onColourChange]);
 
   const handleOptionSelect = useCallback(
     (optionName: string, value: string) => {
@@ -191,6 +203,7 @@ export default function ProductInfo({ product }: Props) {
             next['Size'] = ''; // Reset size so user selects a valid size for the new colour
           }
         }
+
         return next;
       });
     },
@@ -198,6 +211,8 @@ export default function ProductInfo({ product }: Props) {
   );
 
   const isValueAvailable = (optionName: string, value: string) => {
+    if (!product.availableForSale) return false;
+
     const relevantVariants = variants.filter((v) =>
       v.selectedOptions.some((opt) => opt.name === optionName && opt.value === value)
     );
