@@ -7,6 +7,7 @@ import type { Product, ProductVariant, Money } from '@/lib/api/types';
 import { useCart, type AddItemDisplayData } from '@/context/CartContext';
 import { formatMoney } from '@/lib/utils';
 import { createRestockSubscription } from '@/lib/api';
+import { fetchPublicSizeGuide, type SizeGuideType } from '@/lib/api/sizeGuide';
 
 interface Props {
   product: Product;
@@ -40,22 +41,25 @@ export default function ProductInfo({ product, onColourChange }: Props) {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isFitOpen, setIsFitOpen] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-  const [unit, setUnit] = useState<'cm' | 'in'>('cm');
+  // Dynamic size guide types fetched from the API
+  const [sgTypes, setSgTypes] = useState<SizeGuideType[]>([]);
+  const [sgActiveIdx, setSgActiveIdx] = useState(0);
 
-  const sizeData = {
-    cm: [
-      { size: 'S', chest: '102 cm', length: '68 cm', sleeve: '22 cm' },
-      { size: 'M', chest: '108 cm', length: '70 cm', sleeve: '23 cm' },
-      { size: 'L', chest: '114 cm', length: '72 cm', sleeve: '24 cm' },
-      { size: 'XL', chest: '120 cm', length: '74 cm', sleeve: '25 cm' },
-    ],
-    in: [
-      { size: 'S', chest: '40.2 in', length: '26.8 in', sleeve: '8.7 in' },
-      { size: 'M', chest: '42.5 in', length: '27.6 in', sleeve: '9.1 in' },
-      { size: 'L', chest: '44.9 in', length: '28.3 in', sleeve: '9.4 in' },
-      { size: 'XL', chest: '47.2 in', length: '29.1 in', sleeve: '9.8 in' },
-    ]
-  };
+  useEffect(() => {
+    fetchPublicSizeGuide()
+      .then((data) => {
+        let filtered: SizeGuideType[] = [];
+        if (product.sizeGuideTypeIds && product.sizeGuideTypeIds.length > 0) {
+          const idsSet = new Set(product.sizeGuideTypeIds);
+          filtered = data.filter((sg) => idsSet.has(sg.id));
+        }
+        setSgTypes(filtered);
+        setSgActiveIdx(0);
+      })
+      .catch(() => { setSgTypes([]); });
+  }, [product.sizeGuideTypeIds]);
+
+
 
   const { detailsHtml, fitHtml } = (() => {
     // Strip empty <p> and <p> tags that contain only whitespace
@@ -352,9 +356,10 @@ export default function ProductInfo({ product, onColourChange }: Props) {
       {product.options.length > 0 &&
         !(product.options.length === 1 && product.options[0].values.length === 1 && product.options[0].values[0] === 'Default Title') && (
           <div className="variant-picker">
-            {product.options.map((option) => {
+            {product.options.map((option, optIdx) => {
               const isColour = option.name.toLowerCase() === 'colour' || option.name.toLowerCase() === 'color';
-              
+              const isLastOption = optIdx === product.options.length - 1;
+
               // Filter size values to ONLY those available for the currently selected Colour!
               let displayValues = option.values;
               if (!isColour) {
@@ -371,49 +376,50 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                 }
               }
 
+              // Inline stock info for size option (shown when size selected and ≤5 remaining)
+              const sizeStockLabel = (() => {
+                if (!isColour && selectedOptions[option.name]) {
+                  const v = getVariantFromOptions(variants, selectedOptions);
+                  if (v && v.availableForSale && v.quantityAvailable !== undefined && v.quantityAvailable > 0 && v.quantityAvailable <= 5) {
+                    return `ONLY ${v.quantityAvailable} LEFT IN STOCK`;
+                  }
+                }
+                return '';
+              })();
+
               return (
-                <div key={option.id}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
-                    <p className="variant-label" style={{ marginBottom: 0 }}>
-                      {option.name}: <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-                        {selectedOptions[option.name] || (option.name.toLowerCase() === 'size' ? 'Select Size' : '')}
+                <div
+                  key={option.id}
+                  style={{
+                    padding: '14px 16px',
+                    borderBottom: isLastOption ? 'none' : '1px solid var(--color-border)',
+                  }}
+                >
+                  {/* Option label row */}
+                  <p className="variant-label" style={{ marginBottom: '12px' }}>
+                    {option.name}:{' '}
+                    <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
+                      {selectedOptions[option.name] || (option.name.toLowerCase() === 'size' ? 'Select Size' : '')}
+                    </span>
+                    {sizeStockLabel && (
+                      <span style={{ fontWeight: 700, color: '#c62828', marginLeft: '10px', fontSize: '0.68rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                        {sizeStockLabel}
                       </span>
-                    </p>
-                    {option.name.toLowerCase() === 'size' && (
-                      <button
-                        onClick={() => setSizeGuideOpen(true)}
-                        className="size-guide-trigger-btn"
-                        type="button"
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--color-black)',
-                          fontFamily: 'var(--font-ui)',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                          textDecoration: 'underline',
-                          cursor: 'pointer',
-                          padding: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px'
-                        }}
-                      >
-                        Size Guide
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                          <line x1="12" y1="17" x2="12.01" y2="17" />
-                        </svg>
-                      </button>
                     )}
-                  </div>
-                  <div className="variant-options" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                  </p>
+
+                  {/* Option buttons */}
+                  <div
+                    className="variant-options"
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: isColour ? '10px' : '8px',
+                    }}
+                  >
                     {displayValues.map((value) => {
                       const isAvail = isValueAvailable(option.name, value);
-                      
+
                       // Find colour group image or variant image for colour swatch
                       let colorImgUrl = '';
                       if (isColour) {
@@ -428,67 +434,117 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                       }
 
                       const isOutOfStock = !isAvail;
+                      const isSelected = selectedOptions[option.name] === value;
 
-                    return (
-                      <div key={value} className="size-option-wrap">
-                        <button
-                          type="button"
-                          className={`variant-option ${selectedOptions[option.name] === value ? 'active' : ''} ${isOutOfStock ? 'unavailable out-of-stock' : ''} ${isColour ? 'colour-swatch' : ''}`}
-                          onClick={() => handleOptionSelect(option.name, value)}
-                          aria-pressed={selectedOptions[option.name] === value}
-                          aria-label={`${option.name}: ${value}${isOutOfStock ? ' (unavailable)' : ''}`}
-                          style={isColour && colorImgUrl ? {
-                            padding: 0,
-                            width: '48px',
-                            height: '48px',
-                            borderRadius: '0px',
-                            overflow: 'hidden',
-                            border: selectedOptions[option.name] === value ? '2px solid var(--color-black)' : '1px solid var(--color-border)',
-                            cursor: 'pointer',
-                            position: 'relative'
-                          } : {}}
-                        >
-                          {isColour && colorImgUrl ? (
-                            <Image
-                              src={colorImgUrl}
-                              alt={value}
-                              fill
-                              sizes="48px"
-                              style={{ objectFit: 'cover' }}
-                            />
-                          ) : (
-                            value
-                          )}
+                      return (
+                        <div key={value} className="size-option-wrap">
+                          <button
+                            type="button"
+                            className={`variant-option ${isSelected ? 'active' : ''} ${isOutOfStock ? 'unavailable out-of-stock' : ''} ${isColour ? 'colour-swatch' : 'size-btn'}`}
+                            onClick={() => handleOptionSelect(option.name, value)}
+                            aria-pressed={isSelected}
+                            aria-label={`${option.name}: ${value}${isOutOfStock ? ' (unavailable)' : ''}`}
+                            style={
+                              isColour && colorImgUrl
+                                ? {
+                                    padding: 0,
+                                    width: '70px',
+                                    height: '70px',
+                                    borderRadius: '0px',
+                                    overflow: 'hidden',
+                                    border: isSelected ? '2px solid var(--color-black)' : '1px solid var(--color-border)',
+                                    cursor: 'pointer',
+                                    position: 'relative',
+                                  }
+                                : !isColour
+                                ? {
+                                    width: '68px',
+                                    minWidth: '68px',
+                                    height: '44px',
+                                    background: isSelected ? 'var(--color-black)' : '#f5f5f5',
+                                    color: isSelected ? '#ffffff' : 'var(--color-black)',
+                                    border: `1px solid ${isSelected ? 'var(--color-black)' : '#d0d0d0'}`,
+                                    fontWeight: 600,
+                                    fontSize: '0.875rem',
+                                    cursor: isOutOfStock ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    letterSpacing: '0.03em',
+                                    padding: 0,
+                                    position: 'relative',
+                                    opacity: isOutOfStock ? 0.45 : 1,
+                                  }
+                                : {}
+                            }
+                          >
+                            {isColour && colorImgUrl ? (
+                              <Image
+                                src={colorImgUrl}
+                                alt={value}
+                                fill
+                                sizes="70px"
+                                style={{ objectFit: 'cover' }}
+                              />
+                            ) : (
+                              value
+                            )}
 
-                          {/* Out-of-stock overlay for colour swatches */}
-                          {isOutOfStock && isColour && (
-                            <span className="colour-oos-overlay" aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#d32f2f" strokeWidth="2.5" strokeLinecap="round">
-                                <line x1="18" y1="6" x2="6" y2="18" />
-                                <line x1="6" y1="6" x2="18" y2="18" />
-                              </svg>
-                            </span>
-                          )}
+                            {/* Out-of-stock overlay for colour swatches */}
+                            {isOutOfStock && isColour && (
+                              <span className="colour-oos-overlay" aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#d32f2f" strokeWidth="2.5" strokeLinecap="round">
+                                  <line x1="18" y1="6" x2="6" y2="18" />
+                                  <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                              </span>
+                            )}
 
-                          {/* Out-of-stock X overlay */}
-                          {isOutOfStock && !isColour && (
-                            <span className="size-oos-overlay" aria-hidden="true">
-                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                <line x1="18" y1="6" x2="6" y2="18" />
-                                <line x1="6" y1="6" x2="18" y2="18" />
-                              </svg>
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                    );
-                  })}
+                            {/* Out-of-stock diagonal line for size buttons */}
+                            {isOutOfStock && !isColour && (
+                              <span className="size-oos-overlay" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                  <line x1="18" y1="6" x2="6" y2="18" />
+                                  <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* SIZE GUIDE link — below size buttons, maroon underlined */}
+                  {option.name.toLowerCase() === 'size' && sgTypes.length > 0 && (
+                    <button
+
+                      onClick={() => setSizeGuideOpen(true)}
+                      type="button"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--color-black)',
+                        fontFamily: 'var(--font-ui)',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                        padding: 0,
+                        marginTop: '12px',
+                        display: 'block',
+                      }}
+                    >
+                      SIZE GUIDE
+                    </button>
+                  )}
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
 
       {/* Out of Stock warning (Only when size is explicitly selected and variant is out of stock) */}
       {isSizeSelected && (!available || (selectedVariant && selectedVariant.quantityAvailable === 0)) && (
@@ -498,13 +554,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
         </div>
       )}
 
-      {/* Limited Stock warning */}
-      {isSizeSelected && available && selectedVariant && selectedVariant.quantityAvailable !== undefined && selectedVariant.quantityAvailable <= 5 && selectedVariant.quantityAvailable > 0 && (
-        <div className="stock-warning" style={{ color: '#d32f2f', fontWeight: 700, fontSize: '0.85rem', margin: '14px 0 8px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: 'rgba(211, 47, 47, 0.06)', border: '1px solid rgba(211, 47, 47, 0.2)' }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          Limited Stock: Only {selectedVariant.quantityAvailable} left for size {selectedSizeValue} — order soon!
-        </div>
-      )}
+
 
       {/* Add to cart / Restock alert */}
       <div className="product-add-to-cart-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -747,91 +797,108 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
-            
+
             <h3 className="size-guide-title">Size Guide</h3>
-            
-            <div className="size-guide-unit-toggle">
-              <button 
-                type="button"
-                className={`unit-toggle-btn ${unit === 'cm' ? 'active' : ''}`}
-                onClick={() => setUnit('cm')}
-              >
-                Metric (CM)
-              </button>
-              <button 
-                type="button"
-                className={`unit-toggle-btn ${unit === 'in' ? 'active' : ''}`}
-                onClick={() => setUnit('in')}
-              >
-                Imperial (IN)
-              </button>
-            </div>
 
-            <div className="size-guide-body">
-              {/* Left Column: Vector Graphic */}
-              <div className="size-guide-graphic">
-                <svg viewBox="0 0 200 240" className="size-guide-jersey-svg" width="100%" height="100%">
-                  <path 
-                    d="M 60 40 L 40 48 L 20 80 L 45 92 L 55 75 L 55 210 L 145 210 L 145 75 L 155 92 L 180 80 L 160 48 L 140 40 C 130 52 110 52 100 52 C 90 52 70 52 60 40 Z" 
-                    fill="none" 
-                    stroke="var(--color-black)" 
-                    strokeWidth="2.5" 
-                    strokeLinejoin="round" 
-                  />
-                  <path d="M 60 40 C 70 52 90 52 100 52 C 110 52 130 52 140 40" fill="none" stroke="var(--color-black)" strokeWidth="1.5" />
-                  
-                  {/* Chest line */}
-                  <line x1="55" y1="120" x2="145" y2="120" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
-                  <path d="M 55 120 L 60 116 M 55 120 L 60 124 M 145 120 L 140 116 M 145 120 L 140 124" stroke="var(--color-maroon)" strokeWidth="1.5" />
-                  <text x="100" y="112" textAnchor="middle" fill="var(--color-maroon)" fontSize="10" fontWeight="bold">A: CHEST</text>
-
-                  {/* Length line */}
-                  <line x1="100" y1="52" x2="100" y2="210" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
-                  <path d="M 100 52 L 96 57 M 100 52 L 104 57 M 100 210 L 96 205 M 100 210 L 104 205" stroke="var(--color-maroon)" strokeWidth="1.5" />
-                  <text x="94" y="140" textAnchor="end" fill="var(--color-maroon)" fontSize="10" fontWeight="bold" transform="rotate(-90 94 140)">B: LENGTH</text>
-
-                  {/* Sleeve line */}
-                  <line x1="140" y1="40" x2="180" y2="80" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
-                  <path d="M 140 40 L 146 42 M 140 40 L 141 46 M 180 80 L 174 78 M 180 80 L 179 74" stroke="var(--color-maroon)" strokeWidth="1.5" />
-                  <text x="150" y="55" fill="var(--color-maroon)" fontSize="9" fontWeight="bold">C: SLEEVE</text>
-                </svg>
+            {/* Dynamic tabs — one per measurement type */}
+            {sgTypes.length > 1 && (
+              <div className="size-guide-unit-toggle">
+                {sgTypes.map((sg, i) => (
+                  <button
+                    key={sg.id}
+                    type="button"
+                    className={`unit-toggle-btn ${sgActiveIdx === i ? 'active' : ''}`}
+                    onClick={() => setSgActiveIdx(i)}
+                  >
+                    {sg.name}
+                  </button>
+                ))}
               </div>
+            )}
 
-              {/* Right Column: Table and Details */}
-              <div className="size-guide-table-column">
-                <table className="size-guide-table">
-                  <thead>
-                    <tr>
-                      <th>Size</th>
-                      <th>A: Chest</th>
-                      <th>B: Length</th>
-                      <th>C: Sleeve</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sizeData[unit].map((row) => (
-                      <tr key={row.size}>
-                        <td><strong>{row.size}</strong></td>
-                        <td>{row.chest}</td>
-                        <td>{row.length}</td>
-                        <td>{row.sleeve}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="size-guide-help-text">
-                  <p><strong>Measuring Tips:</strong></p>
-                  <ul>
-                    <li><strong>Chest:</strong> Measure around the fullest part of your chest, keeping the tape horizontal.</li>
-                    <li><strong>Length:</strong> Measure from the highest point of the shoulder down to the hem.</li>
-                    <li><strong>Sleeve:</strong> Measure from the neck collar point along the shoulder line down to the sleeve hem.</li>
-                  </ul>
+            {sgTypes.length === 0 ? (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: '#888' }}>
+                Size guide data is not configured yet.
+              </div>
+            ) : (() => {
+              const sg = sgTypes[sgActiveIdx] ?? sgTypes[0];
+              return (
+                <div className="size-guide-body">
+                  {/* Left Column: Uploaded image or fallback SVG */}
+                  <div className="size-guide-graphic">
+                    {sg.diagram_image_url ? (
+                      <Image
+                        src={sg.diagram_image_url}
+                        alt={`${sg.name} diagram`}
+                        width={280}
+                        height={280}
+                        style={{ objectFit: 'contain', width: '100%', height: '100%' }}
+                      />
+                    ) : (
+                      <svg viewBox="0 0 200 240" className="size-guide-jersey-svg" width="100%" height="100%">
+                        <path
+                          d="M 60 40 L 40 48 L 20 80 L 45 92 L 55 75 L 55 210 L 145 210 L 145 75 L 155 92 L 180 80 L 160 48 L 140 40 C 130 52 110 52 100 52 C 90 52 70 52 60 40 Z"
+                          fill="none" stroke="var(--color-black)" strokeWidth="2.5" strokeLinejoin="round"
+                        />
+                        <path d="M 60 40 C 70 52 90 52 100 52 C 110 52 130 52 140 40" fill="none" stroke="var(--color-black)" strokeWidth="1.5" />
+                        <line x1="55" y1="120" x2="145" y2="120" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
+                        <path d="M 55 120 L 60 116 M 55 120 L 60 124 M 145 120 L 140 116 M 145 120 L 140 124" stroke="var(--color-maroon)" strokeWidth="1.5" />
+                        <text x="100" y="112" textAnchor="middle" fill="var(--color-maroon)" fontSize="10" fontWeight="bold">A: CHEST</text>
+                        <line x1="100" y1="52" x2="100" y2="210" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
+                        <path d="M 100 52 L 96 57 M 100 52 L 104 57 M 100 210 L 96 205 M 100 210 L 104 205" stroke="var(--color-maroon)" strokeWidth="1.5" />
+                        <text x="94" y="140" textAnchor="end" fill="var(--color-maroon)" fontSize="10" fontWeight="bold" transform="rotate(-90 94 140)">B: LENGTH</text>
+                        <line x1="140" y1="40" x2="180" y2="80" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
+                        <path d="M 140 40 L 146 42 M 140 40 L 141 46 M 180 80 L 174 78 M 180 80 L 179 74" stroke="var(--color-maroon)" strokeWidth="1.5" />
+                        <text x="150" y="55" fill="var(--color-maroon)" fontSize="9" fontWeight="bold">C: SLEEVE</text>
+                      </svg>
+                    )}
+                  </div>
+
+                  {/* Right Column: Dynamic Table + Tips */}
+                  <div className="size-guide-table-column">
+                    {sg.columns.length > 0 && sg.rows.length > 0 ? (
+                      <table className="size-guide-table">
+                        <thead>
+                          <tr>
+                            {sg.columns.map((col) => (
+                              <th key={col}>{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sg.rows.map((row, ri) => (
+                            <tr key={ri}>
+                              {sg.columns.map((col, ci) => (
+                                <td key={col}>
+                                  {ci === 0 ? <strong>{row[col] ?? ''}</strong> : row[col] ?? ''}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p style={{ color: '#888', fontSize: '0.875rem' }}>No table data configured.</p>
+                    )}
+
+                    {sg.measuring_tips.length > 0 && (
+                      <div className="size-guide-help-text">
+                        <p><strong>Measuring Tips:</strong></p>
+                        <ul>
+                          {sg.measuring_tips.map((tip, ti) => (
+                            <li key={ti}><strong>{tip.title}:</strong> {tip.description}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         </div>
       )}
+
 
       {/* Restock Notification Modal */}
       {restockModalOpen && (

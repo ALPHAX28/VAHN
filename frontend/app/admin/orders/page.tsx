@@ -53,11 +53,37 @@ export default function AdminOrdersPage() {
             </button>
           ))}
         </div>
-        <form className="admin-search-bar" onSubmit={e => { e.preventDefault(); setSearch(searchInput); setPage(1); }}>
-          <input type="text" className="admin-search-input" placeholder="Search by order ID or email..." value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+        <form
+          className="admin-search-bar"
+          onSubmit={e => { e.preventDefault(); setSearch(searchInput); setPage(1); }}
+        >
+          <input
+            type="text"
+            className="admin-search-input"
+            placeholder="Search by order ID or email..."
+            value={searchInput}
+            onChange={e => {
+              const val = e.target.value;
+              setSearchInput(val);
+              if (!val.trim()) {
+                setSearch("");
+                setPage(1);
+              }
+            }}
+          />
           <button type="submit" className="admin-btn admin-btn--secondary">Search</button>
+          {search && (
+            <button
+              type="button"
+              className="admin-btn admin-btn--ghost"
+              onClick={() => { setSearch(""); setSearchInput(""); setPage(1); }}
+            >
+              Clear
+            </button>
+          )}
         </form>
       </div>
+
 
       <div className="admin-card">
         {loading ? (

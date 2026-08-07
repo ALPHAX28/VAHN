@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import { getAdminProducts, createAdminProduct, createColourGroup } from "@/lib/api/admin";
+import { adminListSizeGuide, type SizeGuideType } from "@/lib/api/sizeGuide";
 import AdminImageUploader, { type UploadedImage } from "@/components/admin/AdminImageUploader";
 import AdminTagInput from "@/components/admin/AdminTagInput";
 
@@ -20,6 +21,9 @@ export default function NewProductPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [allSizeGuides, setAllSizeGuides] = useState<SizeGuideType[]>([]);
+  const [selectedSizeGuideIds, setSelectedSizeGuideIds] = useState<number[]>([]);
+
 
   const [form, setForm] = useState({
     title: "",
@@ -36,7 +40,8 @@ export default function NewProductPage() {
 
   // Dynamic Options lists for Product Type, Fit, Kit Type, Activity
   const [productTypeOptions, setProductTypeOptions] = useState(["Jersey", "T-Shirt", "Hoodie", "Sweatshirt", "Pants", "Shorts", "Jacket", "Accessories", "Streetwear", "Footwear"]);
-  const [fitOptions, setFitOptions] = useState(["SLIM", "REGULAR", "OVERSIZED"]);
+  const [fitOptions, setFitOptions] = useState(["SLIM", "REGULAR", "RELAXED FIT", "OVERSIZED"]);
+
   const [kitTypeOptions, setKitTypeOptions] = useState(["JERSEY", "HOME", "SIGNATURE"]);
   const [activityOptions, setActivityOptions] = useState(["FOOTBALL", "LIFESTYLE", "STREETWEAR", "CRICKET", "BASKETBALL"]);
 
@@ -86,7 +91,18 @@ export default function NewProductPage() {
   // Load existing Product Types, Fits, Kit Types, Activities from DB
   useEffect(() => {
     if (!adminToken) return;
+    adminListSizeGuide(adminToken)
+      .then((list) => {
+        setAllSizeGuides(list);
+        const visible = list.filter((s) => s.is_visible);
+        if (visible.length > 0) {
+          setSelectedSizeGuideIds(visible.map((s) => s.id));
+        }
+      })
+      .catch(() => {});
+
     getAdminProducts(adminToken)
+
       .then(res => {
         let deletedTypes: string[] = [];
         try {
@@ -99,7 +115,8 @@ export default function NewProductPage() {
         const filtered = merged.filter(t => !deletedTypes.some(dt => dt.toLowerCase() === t.toLowerCase()));
         setProductTypeOptions(filtered);
 
-        const defaultFits = ["SLIM", "REGULAR", "OVERSIZED"];
+        const defaultFits = ["SLIM", "REGULAR", "RELAXED FIT", "OVERSIZED"];
+
         const dbFits = (res.items || []).map(item => item.fit).filter((f): f is string => Boolean(f && f.trim()));
         setFitOptions(Array.from(new Set([...defaultFits, ...dbFits])));
 
@@ -284,7 +301,14 @@ export default function NewProductPage() {
       return;
     }
 
+    const activeGuides = allSizeGuides.filter((s) => s.is_visible);
+    if (activeGuides.length > 0 && selectedSizeGuideIds.length === 0) {
+      setError("Please select at least one Size Guide for this product.");
+      return;
+    }
+
     if (!form.gst_percent && form.gst_percent !== 0) {
+
       setError("GST Rate is required. Please select a GST percentage.");
       return;
     }
@@ -383,7 +407,9 @@ export default function NewProductPage() {
         featured_image_alt: form.title,
         gst_percent: form.gst_percent,
         shipping_rate: form.shipping_rate,
+        size_guide_type_ids: selectedSizeGuideIds,
       });
+
 
       // 2. Save Product Colour Groups into Database
       for (let i = 0; i < colourGroups.length; i++) {
@@ -407,11 +433,19 @@ export default function NewProductPage() {
     <div className="admin-page">
       <div className="admin-page-header">
         <div>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="admin-btn-inline-link"
+            style={{ display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 8, fontSize: "0.8125rem", color: "var(--admin-text-secondary)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: 0 }}
+          >
+            ← Back to Products
+          </button>
           <h1 className="admin-page-title">New Product</h1>
           <p className="admin-page-subtitle">Configure product details, attributes, colour image groups, and size matrix</p>
         </div>
-        <button onClick={() => router.back()} className="admin-btn admin-btn--ghost">← Back</button>
       </div>
+
 
       {error && <div className="admin-alert admin-alert--error">{error}</div>}
 
@@ -604,7 +638,71 @@ export default function NewProductPage() {
             </div>
           </div>
 
+          {/* SIZE GUIDES SECTION */}
+          <div className="admin-card">
+            <h2 className="admin-card-section-title">Size Guides</h2>
+            <p className="admin-page-subtitle" style={{ fontSize: "0.78rem", marginBottom: 12 }}>
+              Select which size guides (measurement types) to display for this product on the storefront.
+            </p>
+            {allSizeGuides.filter((sg) => sg.is_visible).length === 0 ? (
+              <p style={{ fontSize: "0.8125rem", color: "var(--admin-text-secondary)" }}>
+                No active size guides configured in system.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                  {allSizeGuides
+                    .filter((sg) => sg.is_visible)
+                    .map((sg) => {
+                      const isSelected = selectedSizeGuideIds.includes(sg.id);
+                      return (
+                        <label
+                          key={sg.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "8px 14px",
+                            borderRadius: 6,
+                            border: isSelected
+                              ? "2px solid var(--admin-primary)"
+                              : "1px solid var(--admin-card-border)",
+                            background: isSelected
+                              ? "rgba(58, 54, 153, 0.05)"
+                              : "var(--admin-bg-page)",
+                            cursor: "pointer",
+                            fontWeight: 600,
+                            fontSize: "0.875rem",
+                            userSelect: "none",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setSelectedSizeGuideIds((prev) =>
+                                checked ? [...prev, sg.id] : prev.filter((id) => id !== sg.id)
+                              );
+                            }}
+                            style={{ accentColor: "var(--admin-primary)", width: 16, height: 16 }}
+                          />
+                          <span>{sg.name}</span>
+                        </label>
+                      );
+                    })}
+                </div>
+                {selectedSizeGuideIds.length === 0 && (
+                  <div style={{ fontSize: "0.75rem", color: "#d32f2f", fontWeight: 600, marginTop: 4 }}>
+                    ⚠️ At least one size guide must be selected for this product.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* ATTRIBUTES SECTION */}
+
           <div className="admin-card">
             <h2 className="admin-card-section-title">Attributes</h2>
 

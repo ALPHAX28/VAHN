@@ -32,6 +32,7 @@ const NAV_ITEMS = [
     section: "Content",
     items: [
       { href: "/admin/reviews", label: "Reviews", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
+      { href: "/admin/size-guide", label: "Size Guide", icon: "M9 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-3M9 7V5a2 2 0 0 1 2-2h6l4 4v6a2 2 0 0 1-2 2h-2M9 7h6m-6 4h4m-4 4h2" },
     ]
   },
 ];

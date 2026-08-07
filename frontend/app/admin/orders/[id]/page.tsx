@@ -67,35 +67,31 @@ export default function AdminOrderDetailPage() {
 
   return (
     <div className="admin-page">
-      <div className="admin-page-header vahn-no-print">
-        <div>
-          <h1 className="admin-page-title">{order.id}</h1>
-          <p className="admin-page-subtitle">
-            <AdminBadge label={order.status} /> &nbsp;·&nbsp; {new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button
-            onClick={() => window.print()}
-            className="admin-btn admin-btn--primary"
-            style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-          >
-            <PrinterIcon size={16} color="#fff" />
-            Print Shipping Label
-          </button>
-          <button onClick={() => router.back()} className="admin-btn admin-btn--ghost">← Orders</button>
-        </div>
-      </div>
-
       {error && <div className="admin-alert admin-alert--error">{error}</div>}
       {success && <div className="admin-alert admin-alert--success">{success}</div>}
 
       <div className="admin-order-layout">
-        {/* Left: Items + Customer */}
+        {/* Left: Header + Items + Customer */}
         <div className="admin-order-main">
+          {/* Order Header Title Block */}
+          <div className="vahn-no-print" style={{ marginBottom: 4 }}>
+            <button
+              onClick={() => router.back()}
+              className="admin-btn-inline-link"
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 6, fontSize: "0.8125rem", color: "var(--admin-text-secondary)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: 0 }}
+            >
+              ← Back to Orders
+            </button>
+            <h1 className="admin-page-title" style={{ fontSize: "1.75rem", fontWeight: 800, margin: 0 }}>{order.id}</h1>
+            <p className="admin-page-subtitle" style={{ marginTop: 4 }}>
+              <AdminBadge label={order.status} /> &nbsp;·&nbsp; {new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+            </p>
+          </div>
+
           {/* Items */}
           <div className="admin-card">
             <h2 className="admin-card-title">Order Items</h2>
+
             <div className="admin-order-items">
               {order.items.map(item => (
                 <div key={item.id} className="admin-order-item">
@@ -131,9 +127,16 @@ export default function AdminOrderDetailPage() {
             <div className="admin-order-customer">
               <div className="admin-order-customer-name">{order.user_name}</div>
               <div className="admin-order-customer-email">{order.user_email}</div>
-              <Link href={`/admin/users/${order.user_id}`} className="admin-link">View customer →</Link>
+              <Link
+                href={`/admin/users?search=${encodeURIComponent(order.user_email)}`}
+                className="admin-btn admin-btn--secondary"
+                style={{ marginTop: 10, display: "inline-flex", textDecoration: "none", fontSize: "0.8125rem" }}
+              >
+                View Customer Profile →
+              </Link>
             </div>
           </div>
+
 
           {/* Shipping */}
           <div className="admin-card">
@@ -159,7 +162,17 @@ export default function AdminOrderDetailPage() {
 
         {/* Right: Status Management */}
         <div className="admin-order-sidebar">
+          <button
+            onClick={() => window.print()}
+            className="admin-btn admin-btn--primary vahn-no-print"
+            style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 16px" }}
+          >
+            <PrinterIcon size={16} color="#fff" />
+            Print Shipping Label
+          </button>
+
           <div className="admin-card">
+
             <h2 className="admin-card-title">Order Status</h2>
             <div className="admin-form-group">
               <label className="admin-form-label">Fulfilment Status</label>

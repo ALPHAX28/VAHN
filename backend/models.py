@@ -47,6 +47,7 @@ class Product(Base):
     activity = Column(String, nullable=True) # FOOTBALL | LIFESTYLE | STREETWEAR
     gst_percent = Column(Float, default=12.0, nullable=False)  # GST % (e.g. 5, 12, 18, 28)
     shipping_rate = Column(Float, nullable=True)               # Per-product flat shipping fee (None = use global rule)
+    size_guide_type_ids = Column(JSON, default=list, nullable=True) # List of SizeGuideType IDs for this product
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -251,3 +252,23 @@ class RestockSubscription(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     product = relationship("Product")
+
+
+class SizeGuideType(Base):
+    """A single measurement-unit tab in the Size Guide modal (e.g. Metric CM, Imperial IN)."""
+    __tablename__ = "size_guide_types"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)              # e.g. "METRIC (CM)"
+    unit_label = Column(String, nullable=True)         # e.g. "cm"  (informational only)
+    is_visible = Column(Boolean, default=True, nullable=False)
+    display_order = Column(Integer, default=0, nullable=False)
+    diagram_image_url = Column(String, nullable=True)  # Uploaded image; null → show built-in SVG
+    # columns: ["Size", "A: Chest", "B: Length", ...]
+    columns = Column(JSON, default=list, nullable=False)
+    # rows: [{"Size": "S", "A: Chest": "102 cm", "B: Length": "68 cm"}, ...]
+    rows = Column(JSON, default=list, nullable=False)
+    # measuring_tips: [{"title": "Chest", "description": "Measure around..."}]
+    measuring_tips = Column(JSON, default=list, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

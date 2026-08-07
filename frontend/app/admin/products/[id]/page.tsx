@@ -13,9 +13,11 @@ import AdminImageUploader, { type UploadedImage } from "@/components/admin/Admin
 import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 import Image from "next/image";
+import { adminListSizeGuide, type SizeGuideType } from "@/lib/api/sizeGuide";
 
 const TABS = ["Details", "Variants", "Colour Groups", "Reviews"];
-const FIT_OPTIONS = ["SLIM", "REGULAR", "OVERSIZED"];
+const FIT_OPTIONS = ["SLIM", "REGULAR", "RELAXED FIT", "OVERSIZED"];
+
 const KIT_OPTIONS = ["JERSEY", "HOME", "SIGNATURE"];
 const ACTIVITY_OPTIONS = ["FOOTBALL", "LIFESTYLE", "STREETWEAR", "CRICKET", "BASKETBALL"];
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL", "3XL", "FREE SIZE"];
@@ -113,13 +115,17 @@ export default function AdminProductDetailPage() {
     return matches.map(m => m.replace(/<\/?li[^>]*>/gi, "").trim()).join("\n");
   }
 
+  const [allSizeGuides, setAllSizeGuides] = useState<SizeGuideType[]>([]);
+
   async function loadProduct() {
     if (!adminToken) return;
     try {
-      const [p, allProdsRes] = await Promise.all([
+      const [p, allProdsRes, sgList] = await Promise.all([
         getAdminProduct(adminToken, productId),
-        getAdminProducts(adminToken).catch(() => ({ items: [], total: 0, page: 1, pages: 1, limit: 100 }))
+        getAdminProducts(adminToken).catch(() => ({ items: [], total: 0, page: 1, pages: 1, limit: 100 })),
+        adminListSizeGuide(adminToken).catch(() => []),
       ]);
+      setAllSizeGuides(sgList);
       setProduct(p);
       setEditForm({
         title: p.title,
@@ -133,6 +139,7 @@ export default function AdminProductDetailPage() {
         activity: p.activity || "",
         gst_percent: p.gst_percent ?? 12,
         shipping_rate: p.shipping_rate ?? null,
+        size_guide_type_ids: p.size_guide_type_ids || [],
       });
       setEditSizeFitInput(extractBullets(p.description_html || ""));
       setLocalGroups(p.colour_groups || []);
@@ -183,11 +190,12 @@ export default function AdminProductDetailPage() {
     const gstChanged = editForm.gst_percent !== undefined && editForm.gst_percent !== (product.gst_percent ?? 12);
     const shipChanged = editForm.shipping_rate !== undefined && editForm.shipping_rate !== (product.shipping_rate ?? null);
     const bulletsChanged = editSizeFitInput.trim() !== initialBullets.trim();
+    const sgChanged = JSON.stringify(editForm.size_guide_type_ids ?? []) !== JSON.stringify(product.size_guide_type_ids ?? []);
 
     return Boolean(
       titleChanged || descChanged || vendorChanged || typeChanged ||
       fitChanged || kitChanged || actChanged || availChanged ||
-      gstChanged || shipChanged || bulletsChanged
+      gstChanged || shipChanged || bulletsChanged || sgChanged
     );
   }, [product, editForm, editSizeFitInput, initialBullets]);
 
@@ -249,7 +257,9 @@ export default function AdminProductDetailPage() {
       activity: product.activity || "",
       gst_percent: product.gst_percent ?? 12,
       shipping_rate: product.shipping_rate ?? null,
+      size_guide_type_ids: product.size_guide_type_ids || [],
     });
+
     setEditSizeFitInput(extractBullets(product.description_html || ""));
     setLocalGroups(product.colour_groups || []);
     setDeletedGroupIds(new Set());
@@ -264,8 +274,16 @@ export default function AdminProductDetailPage() {
 
   const handleSave = useCallback(async () => {
     if (!adminToken || !product) return false;
+
+    const visibleGuides = allSizeGuides.filter((sg) => sg.is_visible);
+    if (visibleGuides.length > 0 && (!editForm.size_guide_type_ids || editForm.size_guide_type_ids.length === 0)) {
+      setError("Please select at least one Size Guide for this product.");
+      return false;
+    }
+
     setSaving(true);
     setError(""); setSuccess("");
+
     try {
       const bullets = editSizeFitInput.split("\n").map(b => b.trim()).filter(Boolean);
       const descPart = editForm.description?.trim() ? `<p>${editForm.description.trim()}</p>` : "";
@@ -605,7 +623,15 @@ export default function AdminProductDetailPage() {
     <div className="admin-page">
       <div className="admin-page-header">
         <div>
+          <Link
+            href="/admin/products"
+            className="admin-btn-inline-link"
+            style={{ display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 8, fontSize: "0.8125rem", color: "var(--admin-text-secondary)", textDecoration: "none", fontWeight: 600 }}
+          >
+            ← Back to Products
+          </Link>
           <h1 className="admin-page-title">{product.title}</h1>
+
           <p className="admin-page-subtitle">
             <code className="admin-code">{product.handle}</code> &nbsp;·&nbsp;
             <AdminBadge label={product.available_for_sale ? "available" : "unavailable"} variant={product.available_for_sale ? "available" : "unavailable"} />
@@ -806,8 +832,72 @@ export default function AdminProductDetailPage() {
             </div>
           </div>
 
+          {/* — SIZE GUIDES — */}
+          <div className="admin-card">
+            <h2 className="admin-card-section-title">Size Guides</h2>
+            <p className="admin-page-subtitle" style={{ marginBottom: 14, fontSize: "0.8rem" }}>
+              Select which size guides (measurement types) to display for this product on the storefront.
+            </p>
+            {allSizeGuides.filter(sg => sg.is_visible).length === 0 ? (
+              <p style={{ fontSize: "0.8125rem", color: "var(--admin-text-secondary)" }}>
+                No active size guides configured. Go to <Link href="/admin/size-guide" style={{ textDecoration: "underline", color: "var(--admin-primary)" }}>Size Guide Management</Link> to add or enable measurement types.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                  {allSizeGuides.filter(sg => sg.is_visible).map((sg) => {
+                    const currentIds = editForm.size_guide_type_ids || [];
+                    const isSelected = currentIds.includes(sg.id);
+                    return (
+                      <label
+                        key={sg.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "8px 14px",
+                          borderRadius: 6,
+                          border: isSelected ? "2px solid var(--admin-primary)" : "1px solid var(--admin-card-border)",
+                          background: isSelected ? "rgba(58, 54, 153, 0.05)" : "var(--admin-bg-page)",
+                          cursor: "pointer",
+                          fontWeight: 600,
+                          fontSize: "0.875rem",
+                          userSelect: "none"
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setEditForm((f) => {
+                              const existing = f.size_guide_type_ids || [];
+                              const updated = checked
+                                ? [...existing, sg.id]
+                                : existing.filter((id) => id !== sg.id);
+                              return { ...f, size_guide_type_ids: updated };
+                            });
+                          }}
+                          style={{ accentColor: "var(--admin-primary)", width: 16, height: 16 }}
+                        />
+                        <span>{sg.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {(!editForm.size_guide_type_ids || editForm.size_guide_type_ids.length === 0) && (
+                  <div style={{ fontSize: "0.75rem", color: "var(--admin-text-secondary)", marginTop: 4 }}>
+                    ℹ️ No size guides selected — the <strong>SIZE GUIDE</strong> link will not be displayed on the storefront for this product.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+
           {/* — ATTRIBUTES — */}
           <div className="admin-card">
+
             <h2 className="admin-card-section-title">Attributes</h2>
             <div className="admin-form-grid">
               <div className="admin-form-group">

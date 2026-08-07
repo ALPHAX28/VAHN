@@ -60,6 +60,7 @@ export interface Product {
   activity?: string | null;
   gstPercent?: number | null;
   shippingRate?: number | null;
+  sizeGuideTypeIds?: number[];
 }
 
 export interface LookbookItem {

@@ -24,9 +24,10 @@
   --color-bg: var(--color-white);
   --color-text: var(--color-black);
   --color-heading: var(--color-black);
-  --color-primary: var(--color-maroon);
-  --color-primary-hover: var(--color-maroon-dark);
+  --color-primary: var(--color-navy);
+  --color-primary-hover: var(--color-navy-light);
   --color-border: var(--color-grey-mid);
+
   --color-surface: var(--color-grey-light);
 
   /* Typography */
@@ -206,23 +207,23 @@ input, textarea, select {
 .btn:hover::after { opacity: 1; }
 
 .btn-primary {
-  background: var(--color-maroon);
+  background: var(--color-navy);
   color: var(--color-white);
-  border-color: var(--color-maroon);
+  border-color: var(--color-navy);
 }
 
 .btn-primary:hover {
-  background: var(--color-maroon-dark);
-  border-color: var(--color-maroon-dark);
+  background: var(--color-navy-light);
+  border-color: var(--color-navy-light);
   color: var(--color-white);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(164, 35, 37, 0.3);
+  box-shadow: 0 4px 16px rgba(58, 54, 153, 0.3);
 }
 
 .btn-secondary {
   background: transparent;
   color: var(--color-black);
-  border-color: var(--color-maroon);
+  border-color: var(--color-navy);
 }
 
 .btn-secondary:hover {
@@ -230,6 +231,7 @@ input, textarea, select {
   color: var(--color-black);
   transform: translateY(-1px);
 }
+
 
 .btn-navy {
   background: var(--color-navy);
@@ -1224,11 +1226,11 @@ input, textarea, select {
 .product-price-sale { color: var(--color-maroon); }
 .product-price-compare { text-decoration: line-through; color: var(--color-grey-dark); font-size: 1rem; font-weight: 400; }
 
-.variant-picker { display: flex; flex-direction: column; gap: var(--space-md); }
+.variant-picker { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--color-border); }
 
 .variant-label {
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: var(--space-sm);
@@ -1243,22 +1245,24 @@ input, textarea, select {
   margin-top: 8px;
 }
 
-.variant-options { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.variant-options { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .variant-option {
-  min-width: 48px;
+  min-width: 52px;
   height: 44px;
-  padding: 0 var(--space-md);
+  padding: 0 18px;
   border: 1px solid var(--color-border);
   background: var(--color-white);
   font-family: var(--font-ui);
   font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 0;
+  letter-spacing: 0.04em;
 }
 
 .variant-option:hover {
@@ -1274,7 +1278,6 @@ input, textarea, select {
 .variant-option.out-of-stock {
   opacity: 0.45;
   cursor: not-allowed;
-  filter: blur(0.4px);
   position: relative;
   text-decoration: none;
 }
@@ -1898,7 +1901,7 @@ input, textarea, select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border: 2px solid #8A2020;
+  border: 2px solid var(--color-navy);
   border-radius: 0;
   overflow: hidden;
   width: 100%;
@@ -1916,13 +1919,13 @@ input, textarea, select {
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
-  color: #8A2020;
+  color: var(--color-navy);
   font-weight: 700;
   transition: background var(--transition-fast);
 }
 
 .btn-qty-selector-btn:hover:not(:disabled):not(.disabled) {
-  background: #fdf5f5;
+  background: #f0f1fa;
 }
 
 .btn-qty-selector-btn.disabled,
@@ -1939,19 +1942,20 @@ input, textarea, select {
   color: var(--color-black);
 }
 
-/* Premium Button 01 Animation Styles */
+/* Add to Cart Button — solid navy blue per client reference */
 .btn-add-to-cart {
   position: relative;
   overflow: hidden;
-  background: transparent !important;
-  border: 2px solid #8A2020 !important;
+  background: var(--color-navy) !important;
+  border: 2px solid var(--color-navy) !important;
   border-radius: 0 !important;
-  padding: 1.25rem 2rem !important;
+  padding: 1.15rem 2rem !important;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 100%;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .btn-add-to-cart-text {
@@ -1962,7 +1966,6 @@ input, textarea, select {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-size: 0.875rem;
-  transition: color 0.3s cubic-bezier(0.7, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1970,32 +1973,22 @@ input, textarea, select {
 }
 
 .btn-add-to-cart::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: #8A2020;
-  z-index: 1;
-  transition: transform 0.35s cubic-bezier(0.7, 0, 0.2, 1);
+  display: none;
 }
 
-.btn-add-to-cart:hover::before {
-  transform: translate3d(0, -100%, 0);
+.btn-add-to-cart:hover:not(.disabled) {
+  background: var(--color-navy-light) !important;
+  border-color: var(--color-navy-light) !important;
 }
 
 .btn-add-to-cart:hover .btn-add-to-cart-text {
-  color: #8A2020 !important;
+  color: #ffffff !important;
 }
 
 .btn-add-to-cart.disabled {
+  background: var(--color-border) !important;
   border-color: var(--color-border) !important;
   cursor: not-allowed;
-}
-
-.btn-add-to-cart.disabled::before {
-  background: var(--color-border);
 }
 
 .btn-add-to-cart.disabled:hover::before {

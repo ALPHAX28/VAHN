@@ -222,7 +222,8 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
         kitType=prod.kit_type,
         activity=prod.activity,
         gstPercent=prod.gst_percent if prod.gst_percent is not None else 12.0,
-        shippingRate=prod.shipping_rate
+        shippingRate=prod.shipping_rate,
+        sizeGuideTypeIds=prod.size_guide_type_ids or []
     )
 
 # ---- ENDPOINTS ----
@@ -1261,7 +1262,8 @@ def admin_create_product(
         kit_type=payload.kit_type,
         activity=payload.activity,
         gst_percent=payload.gst_percent,
-        shipping_rate=payload.shipping_rate
+        shipping_rate=payload.shipping_rate,
+        size_guide_type_ids=payload.size_guide_type_ids or []
     )
     db.add(product)
     db.flush()
@@ -1370,6 +1372,7 @@ def _admin_product_detail(product: models.Product) -> schemas.AdminProductDetail
         activity=product.activity,
         gst_percent=product.gst_percent if product.gst_percent is not None else 12.0,
         shipping_rate=product.shipping_rate,
+        size_guide_type_ids=product.size_guide_type_ids or [],
         variants=[
             schemas.AdminVariantSchema(
                 id=v.id,
@@ -2159,3 +2162,107 @@ def create_restock_subscription(
     db.commit()
     db.refresh(sub)
     return {"message": "Successfully subscribed to restock notifications.", "id": sub.id}
+
+
+# ============================================================
+# Size Guide Endpoints
+# ============================================================
+
+@app.get("/api/size-guide", response_model=List[schemas.SizeGuideTypeOut])
+def public_get_size_guide(db: Session = Depends(get_db)):
+    """Public: return all visible size guide types ordered by display_order."""
+    types = (
+        db.query(models.SizeGuideType)
+        .filter_by(is_visible=True)
+        .order_by(models.SizeGuideType.display_order)
+        .all()
+    )
+    return types
+
+
+@app.get("/api/admin/size-guide", response_model=List[schemas.SizeGuideTypeOut])
+def admin_list_size_guide(
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: return ALL size guide types (including hidden)."""
+    return (
+        db.query(models.SizeGuideType)
+        .order_by(models.SizeGuideType.display_order)
+        .all()
+    )
+
+
+@app.post("/api/admin/size-guide", response_model=schemas.SizeGuideTypeOut, status_code=201)
+def admin_create_size_guide_type(
+    payload: schemas.SizeGuideTypeCreate,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: create a new size guide measurement type."""
+    sg = models.SizeGuideType(
+        name=payload.name,
+        unit_label=payload.unit_label,
+        is_visible=payload.is_visible,
+        display_order=payload.display_order,
+        diagram_image_url=payload.diagram_image_url,
+        columns=payload.columns,
+        rows=payload.rows,
+        measuring_tips=[t.model_dump() for t in payload.measuring_tips],
+    )
+    db.add(sg)
+    db.commit()
+    db.refresh(sg)
+    return sg
+
+
+@app.put("/api/admin/size-guide/{sg_id}", response_model=schemas.SizeGuideTypeOut)
+def admin_update_size_guide_type(
+    sg_id: int,
+    payload: schemas.SizeGuideTypeUpdate,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: update an existing size guide type (partial update)."""
+    sg = db.query(models.SizeGuideType).filter_by(id=sg_id).first()
+    if not sg:
+        raise HTTPException(status_code=404, detail="Size guide type not found")
+
+    data = payload.model_dump(exclude_unset=True)
+    if "measuring_tips" in data and data["measuring_tips"] is not None:
+        data["measuring_tips"] = [t if isinstance(t, dict) else t.model_dump() for t in payload.measuring_tips]
+    for field, value in data.items():
+        setattr(sg, field, value)
+    sg.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(sg)
+    return sg
+
+
+@app.delete("/api/admin/size-guide/{sg_id}", status_code=204)
+def admin_delete_size_guide_type(
+    sg_id: int,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: delete a size guide type."""
+    sg = db.query(models.SizeGuideType).filter_by(id=sg_id).first()
+    if not sg:
+        raise HTTPException(status_code=404, detail="Size guide type not found")
+    db.delete(sg)
+    db.commit()
+
+
+@app.put("/api/admin/size-guide-reorder", status_code=200)
+def admin_reorder_size_guide(
+    items: List[schemas.SizeGuideReorderItem],
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: bulk-update display_order for size guide types."""
+    for item in items:
+        sg = db.query(models.SizeGuideType).filter_by(id=item.id).first()
+        if sg:
+            sg.display_order = item.display_order
+    db.commit()
+    return {"message": "Reordered successfully"}

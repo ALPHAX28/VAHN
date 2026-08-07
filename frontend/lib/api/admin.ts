@@ -57,8 +57,10 @@ export interface AdminProductDetail extends AdminProductSummary {
   lookbook: Array<{ id: string; imageUrl: string; title: string; description: string }>;
   variants: AdminVariant[];
   colour_groups: ColourGroup[];
+  size_guide_type_ids?: number[];
   updated_at: string | null;
 }
+
 
 export interface AdminOrder {
   id: string;

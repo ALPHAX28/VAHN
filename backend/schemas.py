@@ -124,6 +124,7 @@ class ProductSchema(BaseModel):
     activity: Optional[str] = None
     gstPercent: Optional[float] = 12.0
     shippingRate: Optional[float] = None
+    sizeGuideTypeIds: List[int] = []
 
 class ProductEdge(BaseModel):
     node: ProductSchema
@@ -508,6 +509,7 @@ class ProductCreateRequest(BaseModel):
     activity: Optional[str] = None
     gst_percent: float = 12.0
     shipping_rate: Optional[float] = None
+    size_guide_type_ids: Optional[List[int]] = []
     variants: List[VariantCreateRequest] = []
 
 class ProductUpdateRequest(BaseModel):
@@ -529,6 +531,7 @@ class ProductUpdateRequest(BaseModel):
     activity: Optional[str] = None
     gst_percent: Optional[float] = None
     shipping_rate: Optional[float] = None
+    size_guide_type_ids: Optional[List[int]] = None
 
 class AdminVariantSchema(BaseModel):
     id: str
@@ -578,6 +581,7 @@ class AdminProductDetail(BaseModel):
     activity: Optional[str]
     gst_percent: float
     shipping_rate: Optional[float]
+    size_guide_type_ids: List[int] = []
     variants: List[AdminVariantSchema]
     colour_groups: List[ColourGroupSchema]
     created_at: Optional[str]
@@ -745,3 +749,50 @@ class PaginatedResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+# ============================================================
+# Size Guide Schemas
+# ============================================================
+
+class MeasuringTip(BaseModel):
+    title: str
+    description: str
+
+class SizeGuideTypeOut(BaseModel):
+    id: int
+    name: str
+    unit_label: Optional[str] = None
+    is_visible: bool
+    display_order: int
+    diagram_image_url: Optional[str] = None
+    columns: List[str]
+    rows: List[dict]
+    measuring_tips: List[MeasuringTip]
+
+    class Config:
+        from_attributes = True
+
+class SizeGuideTypeCreate(BaseModel):
+    name: str
+    unit_label: Optional[str] = None
+    is_visible: bool = True
+    display_order: int = 0
+    diagram_image_url: Optional[str] = None
+    columns: List[str] = []
+    rows: List[dict] = []
+    measuring_tips: List[MeasuringTip] = []
+
+class SizeGuideTypeUpdate(BaseModel):
+    name: Optional[str] = None
+    unit_label: Optional[str] = None
+    is_visible: Optional[bool] = None
+    display_order: Optional[int] = None
+    diagram_image_url: Optional[str] = None
+    columns: Optional[List[str]] = None
+    rows: Optional[List[dict]] = None
+    measuring_tips: Optional[List[MeasuringTip]] = None
+
+class SizeGuideReorderItem(BaseModel):
+    id: int
+    display_order: int
