@@ -66,7 +66,8 @@ export default function ProductCard({ product }: Props) {
       ) : null}
 
       {/* Media */}
-      <div className="product-card-media" style={{ aspectRatio: '4/5', position: 'relative', overflow: 'hidden', background: '#f5f5f5', borderRadius: '10px' }}>
+      <div className="product-card-media" style={{ aspectRatio: '1 / 1', position: 'relative', overflow: 'hidden', background: '#f5f5f5', borderRadius: 0 }}>
+
         {image ? (
           <Image
             src={image.url}

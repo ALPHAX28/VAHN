@@ -137,17 +137,18 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False)
-    salt = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)  # nullable: phone-only users may not provide email
+    phone = Column(String, unique=True, index=True, nullable=True)  # E.164 format e.g. +919876543210
+    phone_verified = Column(Boolean, default=False, nullable=False)
+    password_hash = Column(String, nullable=True)  # nullable: OTP-only flow
+    salt = Column(String, nullable=True)            # nullable: OTP-only flow
     full_name = Column(String, nullable=False)
     role = Column(String, default="customer")  # customer | admin
-    is_verified = Column(Boolean, default=False)
+    is_verified = Column(Boolean, default=True)  # always True for phone-OTP users
     is_active = Column(Boolean, default=True)
     suspended_at = Column(DateTime, nullable=True)
     suspension_reason = Column(String, nullable=True)
-    otp_code = Column(String, nullable=True)
-    otp_expires_at = Column(DateTime, nullable=True)
+    # OTP is NOT stored in DB — HMAC stateless token approach
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

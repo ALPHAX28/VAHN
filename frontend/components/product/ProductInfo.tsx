@@ -9,10 +9,40 @@ import { formatMoney } from '@/lib/utils';
 import { createRestockSubscription } from '@/lib/api';
 import { fetchPublicSizeGuide, type SizeGuideType } from '@/lib/api/sizeGuide';
 
+
+
 interface Props {
   product: Product;
   // SCRUM-33: Optional callback to update parent gallery when colour changes
   onColourChange?: (colourValue: string) => void;
+}
+
+const STANDARD_SIZE_ORDER = [
+  '3XS', '2XS', 'XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', 'XXL', '3XL', 'XXXL', '4XL', '5XL', '6XL'
+];
+
+function sortSizeValues(sizeValues: string[]): string[] {
+  return [...sizeValues].sort((a, b) => {
+    const normA = a.trim().toUpperCase();
+    const normB = b.trim().toUpperCase();
+
+    const numA = parseFloat(normA);
+    const numB = parseFloat(normB);
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return numA - numB;
+    }
+
+    const indexA = STANDARD_SIZE_ORDER.indexOf(normA);
+    const indexB = STANDARD_SIZE_ORDER.indexOf(normB);
+
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+
+    return normA.localeCompare(normB);
+  });
 }
 
 function getVariantFromOptions(
@@ -32,6 +62,7 @@ function getVariantFromOptions(
     )
   );
 }
+
 
 export default function ProductInfo({ product, onColourChange }: Props) {
   const variants = product.variants.edges.map((e) => e.node);
@@ -217,23 +248,39 @@ export default function ProductInfo({ product, onColourChange }: Props) {
   const isValueAvailable = (optionName: string, value: string) => {
     if (!product.availableForSale) return false;
 
+    const isColourOpt = optionName.toLowerCase() === 'colour' || optionName.toLowerCase() === 'color';
+    const isSizeOpt = optionName.toLowerCase() === 'size';
+
     const relevantVariants = variants.filter((v) =>
-      v.selectedOptions.some((opt) => opt.name === optionName && opt.value === value)
+      v.selectedOptions.some(
+        (opt) => opt.name.toLowerCase() === optionName.toLowerCase() && opt.value.trim().toLowerCase() === value.trim().toLowerCase()
+      )
     );
     if (relevantVariants.length === 0) return false;
 
-    const otherSelectedOpts = Object.entries(selectedOptions).filter(
-      ([k, v]) => k !== optionName && v !== ''
-    );
+    // For Colour swatches: a colour is available if ANY variant in that colour is available in stock!
+    if (isColourOpt) {
+      return relevantVariants.some(
+        (v) => v.availableForSale && (v.quantityAvailable === undefined || v.quantityAvailable > 0)
+      );
+    }
 
-    const matchingVariants = relevantVariants.filter((v) =>
-      otherSelectedOpts.every(([k, val]) =>
-        v.selectedOptions.some((opt) => opt.name === k && opt.value === val)
-      )
-    );
+    // For Size buttons: check availability of this size for the currently selected Colour
+    const selectedColour = selectedOptions['Colour'] || selectedOptions['Color'] || selectedOptions['colour'] || selectedOptions['color'] || '';
+    if (isSizeOpt && selectedColour) {
+      const colourAndSizeVariants = relevantVariants.filter((v) =>
+        v.selectedOptions.some(
+          (opt) => (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value.trim().toLowerCase() === selectedColour.trim().toLowerCase()
+        )
+      );
+      if (colourAndSizeVariants.length > 0) {
+        return colourAndSizeVariants.some(
+          (v) => v.availableForSale && (v.quantityAvailable === undefined || v.quantityAvailable > 0)
+        );
+      }
+    }
 
-    const targetVariants = matchingVariants.length > 0 ? matchingVariants : relevantVariants;
-    return targetVariants.some(
+    return relevantVariants.some(
       (v) => v.availableForSale && (v.quantityAvailable === undefined || v.quantityAvailable > 0)
     );
   };
@@ -269,15 +316,28 @@ export default function ProductInfo({ product, onColourChange }: Props) {
     : '5.0';
   const totalReviews = reviewsList.length;
 
+  // Guarantee option order: COLOUR first, SIZE second, then others
+  const sortedOptions = [...(product.options ?? [])].sort((a, b) => {
+    const aName = a.name.toLowerCase();
+    const bName = b.name.toLowerCase();
+    const isAColor = aName === 'colour' || aName === 'color';
+    const isBColor = bName === 'colour' || bName === 'color';
+    const isASize = aName === 'size';
+    const isBSize = bName === 'size';
+
+    if (isAColor) return -1;
+    if (isBColor) return 1;
+    if (isASize) return -1;
+    if (isBSize) return 1;
+    return 0;
+  });
+
   return (
-    <div className="product-info">
+    <div className="product-info" style={{ height: 'auto', maxHeight: 'none', overflow: 'visible', overflowY: 'visible' }}>
       {/* Vendor */}
       <p className="product-vendor">{product.vendor}</p>
 
-      {/* Title */}
-      <h1 className="product-title-h1">{product.title}</h1>
-
-      {/* Reviews Summary */}
+      {/* Reviews Summary (Stars ABOVE Title) */}
       <div
         className="product-rating-summary"
         onClick={() => {
@@ -286,7 +346,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
             el.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         }}
-        style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', cursor: 'pointer' }}
+        style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', cursor: 'pointer', margin: '4px 0 6px' }}
         title="Jump to Customer Reviews"
       >
         <div className="rating-stars" style={{ display: 'flex', gap: '3px' }}>
@@ -294,8 +354,8 @@ export default function ProductInfo({ product, onColourChange }: Props) {
             <svg
               key={star}
               viewBox="0 0 24 24"
-              width="26"
-              height="26"
+              width="20"
+              height="20"
               fill={star <= Math.round(parseFloat(avgRating)) ? '#1056d1' : '#e0e0e0'}
               style={{ display: 'inline-block' }}
             >
@@ -308,9 +368,11 @@ export default function ProductInfo({ product, onColourChange }: Props) {
         <span style={{ color: 'var(--color-grey-dark)', textDecoration: 'underline' }}>{totalReviews} reviews</span>
       </div>
 
+      {/* Title (h2) */}
+      <h2 className="product-title-h2">{product.title}</h2>
 
       {/* Price & Discount */}
-      <div className="product-price-display" style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0 16px', flexWrap: 'wrap' }}>
+      <div className="product-price-display" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left', gap: '2px', margin: '4px 0 10px', width: '100%' }}>
         {isCurrentSelectionOutOfStock ? (
           <span
             style={{
@@ -323,69 +385,36 @@ export default function ProductInfo({ product, onColourChange }: Props) {
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
               display: 'inline-block',
+              width: 'fit-content',
               lineHeight: 1
             }}
           >
             SOLD OUT
           </span>
-        ) : isOnSale && comparePrice ? (
+        ) : (
           <>
-            <span className="price-sale" style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-black)', letterSpacing: '-0.02em', lineHeight: 1 }}>
+            <span className="price-sale" style={{ fontSize: '1.45rem', fontWeight: 800, color: '#000000', letterSpacing: '-0.01em', lineHeight: 1 }}>
               {formatMoney(price)}
             </span>
-            <span className="price-compare" style={{ textDecoration: 'line-through', color: '#757575', fontSize: '1.1rem', fontWeight: 500, lineHeight: 1 }}>
-              {formatMoney(comparePrice)}
-            </span>
-            {discountPct > 0 && (
-              <span
-                style={{
-                  background: '#d32f2f',
-                  color: '#ffffff',
-                  fontSize: '0.75rem',
-                  fontWeight: 800,
-                  padding: '3px 8px',
-                  borderRadius: '3px',
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  marginLeft: '2px'
-                }}
-              >
-                {discountPct}% OFF
+            {isOnSale && comparePrice && (
+              <span className="price-compare" style={{ fontSize: '0.72rem', color: '#888888', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.2 }}>
+                <span style={{ textDecoration: 'line-through' }}>{formatMoney(comparePrice)}</span> ORIGINAL PRICE {discountPct > 0 ? `-${discountPct}%` : ''}
               </span>
             )}
           </>
-        ) : (
-          <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-black)', letterSpacing: '-0.02em', lineHeight: 1 }}>
-            {formatMoney(price)}
-          </span>
         )}
       </div>
 
       {/* Variant Picker */}
-      {product.options.length > 0 &&
-        !(product.options.length === 1 && product.options[0].values.length === 1 && product.options[0].values[0] === 'Default Title') && (
+      {sortedOptions.length > 0 &&
+        !(sortedOptions.length === 1 && sortedOptions[0].values.length === 1 && sortedOptions[0].values[0] === 'Default Title') && (
           <div className="variant-picker">
-            {product.options.map((option, optIdx) => {
+            {sortedOptions.map((option) => {
               const isColour = option.name.toLowerCase() === 'colour' || option.name.toLowerCase() === 'color';
-              const isLastOption = optIdx === product.options.length - 1;
 
-              // Filter size values to ONLY those available for the currently selected Colour!
-              let displayValues = option.values;
-              if (!isColour) {
-                const selectedColour = selectedOptions['Colour'] || selectedOptions['Color'] || selectedOptions['colour'] || selectedOptions['color'] || '';
-                if (selectedColour) {
-                  const validValuesForColour = new Set(
-                    variants
-                      .filter((v) => v.selectedOptions.some((opt) => (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value === selectedColour))
-                      .flatMap((v) => v.selectedOptions.filter((opt) => opt.name.toLowerCase() === option.name.toLowerCase()).map((opt) => opt.value))
-                  );
-                  if (validValuesForColour.size > 0) {
-                    displayValues = option.values.filter((val) => validValuesForColour.has(val));
-                  }
-                }
-              }
+              // Always sort size options from smallest to largest (3XS, 2XS, XS, S, M, L, XL...)
+              const displayValues = !isColour ? sortSizeValues(option.values) : option.values;
+
 
               // Inline stock info for size option (shown when size selected and ≤5 remaining)
               const sizeStockLabel = (() => {
@@ -402,12 +431,12 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                 <div
                   key={option.id}
                   style={{
-                    padding: '14px 16px',
-                    borderBottom: isLastOption ? 'none' : '1px solid var(--color-border)',
+                    padding: 0,
+                    borderBottom: 'none',
                   }}
                 >
                   {/* Option label row */}
-                  <p className="variant-label" style={{ marginBottom: '12px' }}>
+                  <p className="variant-label" style={{ marginBottom: '6px' }}>
                     {option.name}:{' '}
                     <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
                       {selectedOptions[option.name] || (option.name.toLowerCase() === 'size' ? 'Select Size' : '')}
@@ -424,8 +453,10 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                     className="variant-options"
                     style={{
                       display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: isColour ? '10px' : '8px',
+                      flexWrap: isColour ? 'wrap' : 'nowrap',
+                      gap: isColour ? '8px' : '3px',
+                      width: '100%',
+                      maxWidth: isColour ? '100%' : '380px',
                     }}
                   >
                     {displayValues.map((value) => {
@@ -448,7 +479,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                       const isSelected = selectedOptions[option.name] === value;
 
                       return (
-                        <div key={value} className="size-option-wrap">
+                        <div key={value} className="size-option-wrap" style={{ flex: !isColour ? 1 : 'none' }}>
                           <button
                             type="button"
                             className={`variant-option ${isSelected ? 'active' : ''} ${isOutOfStock ? 'unavailable out-of-stock' : ''} ${isColour ? 'colour-swatch' : 'size-btn'}`}
@@ -459,29 +490,29 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                               isColour && colorImgUrl
                                 ? {
                                     padding: 0,
-                                    width: '70px',
-                                    height: '70px',
+                                    width: '64px',
+                                    height: '64px',
                                     borderRadius: '0px',
                                     overflow: 'hidden',
-                                    border: isSelected ? '2px solid var(--color-black)' : '1px solid var(--color-border)',
+                                    border: isSelected ? '2px solid #000000' : '1px solid var(--color-border)',
                                     cursor: 'pointer',
                                     position: 'relative',
                                   }
                                 : !isColour
                                 ? {
-                                    width: '68px',
-                                    minWidth: '68px',
-                                    height: '44px',
-                                    background: isSelected ? 'var(--color-black)' : '#f5f5f5',
-                                    color: isSelected ? '#ffffff' : 'var(--color-black)',
-                                    border: `1px solid ${isSelected ? 'var(--color-black)' : '#d0d0d0'}`,
+                                    width: '100%',
+                                    height: '42px',
+                                    background: isSelected ? '#000000' : '#ebedf0',
+                                    color: isSelected ? '#ffffff' : '#333333',
+                                    border: 'none',
+                                    borderRadius: '0px',
                                     fontWeight: 600,
-                                    fontSize: '0.875rem',
+                                    fontSize: '0.8125rem',
                                     cursor: isOutOfStock ? 'not-allowed' : 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    letterSpacing: '0.03em',
+                                    letterSpacing: '0.04em',
                                     padding: 0,
                                     position: 'relative',
                                     opacity: isOutOfStock ? 0.45 : 1,
@@ -494,7 +525,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                                 src={colorImgUrl}
                                 alt={value}
                                 fill
-                                sizes="70px"
+                                sizes="64px"
                                 style={{ objectFit: 'cover' }}
                               />
                             ) : (
@@ -526,6 +557,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                     })}
                   </div>
 
+
                   {/* SIZE GUIDE link — below size buttons, maroon underlined */}
                   {option.name.toLowerCase() === 'size' && sgTypes.length > 0 && (
                     <button
@@ -544,7 +576,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                         textDecoration: 'underline',
                         cursor: 'pointer',
                         padding: 0,
-                        marginTop: '12px',
+                        marginTop: '6px',
                         display: 'block',
                       }}
                     >
@@ -800,6 +832,8 @@ export default function ProductInfo({ product, onColourChange }: Props) {
       )}
 
       {sizeGuideOpen && (
+
+
         <div className="size-guide-modal-overlay" onClick={() => setSizeGuideOpen(false)}>
           <div className="size-guide-modal-card" onClick={(e) => e.stopPropagation()}>
             <button className="size-guide-close-btn" onClick={() => setSizeGuideOpen(false)} aria-label="Close size guide">

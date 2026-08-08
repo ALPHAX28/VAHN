@@ -45,7 +45,7 @@ export default function OrdersPage() {
   useEffect(() => {
     if (!loading && !user) {
       router.push('/');
-      openAuthModal('login');
+      openAuthModal();
       return;
     }
 

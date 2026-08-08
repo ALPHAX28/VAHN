@@ -48,7 +48,7 @@ export default function CartDrawer() {
     closeCart();
 
     if (!user) {
-      openAuthModal('login', () => {
+      openAuthModal(() => {
         router.push('/checkout');
       });
       return;

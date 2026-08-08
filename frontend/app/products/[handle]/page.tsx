@@ -50,6 +50,10 @@ export default async function ProductPage({ params }: Props) {
       <ProductHighlights product={product} />
 
 
+
+
+
+
       {/* Lookbook / "How He Wears It" Section */}
       {product.lookbook && product.lookbook.length > 0 && (
         <section className="lookbook-section">

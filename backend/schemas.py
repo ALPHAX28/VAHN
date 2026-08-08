@@ -215,39 +215,177 @@ class CartUpdateItemPayload(BaseModel):
     quantity: int
 
 # ============================================================
-# User Auth & Profile Schemas
+# User Auth & Profile Schemas (Phone-First OTP Flow)
 # ============================================================
 
-class UserRegisterRequest(BaseModel):
-    email: str
-    password: str
-    full_name: str
+PHONE_REGEX = re.compile(r'^\+[1-9]\d{6,14}$')
+
+def validate_phone_str(v: str) -> str:
+    """
+    Accepts:
+      - E.164 format: +919876543210
+      - 10-digit Indian mobile: 9876543210 (auto-prefixed with +91)
+    """
+    import re as _re
+    cleaned = _re.sub(r'[\s\-\(\)]', '', v.strip())
+    if _re.match(r'^[6-9]\d{9}$', cleaned):
+        cleaned = '+91' + cleaned
+    if not PHONE_REGEX.match(cleaned):
+        raise ValueError(
+            "Invalid phone number. Enter a 10-digit Indian mobile number or E.164 format (e.g. +919876543210)."
+        )
+    return cleaned
+
+
+class PhoneLookupRequest(BaseModel):
+    """Check if a phone number is already registered."""
+    phone: str
+
+    @field_validator('phone')
+    @classmethod
+    def check_phone(cls, v: str) -> str:
+        return validate_phone_str(v)
+
+
+class SendOTPRequest(BaseModel):
+    """
+    Unified register + login OTP send.
+    - If phone exists: OTP sent for login (full_name/email ignored).
+    - If phone is new: full_name and email are required.
+    """
+    phone: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+
+    @field_validator('phone')
+    @classmethod
+    def check_phone(cls, v: str) -> str:
+        return validate_phone_str(v)
 
     @field_validator('email')
     @classmethod
-    def check_email(cls, v: str) -> str:
+    def check_email(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v.strip() == '':
+            return None
         return validate_email_str(v)
 
-class UserLoginRequest(BaseModel):
-    email: str
-    password: str
 
-    @field_validator('email')
-    @classmethod
-    def check_email(cls, v: str) -> str:
-        return validate_email_str(v)
-
-class OTPVerifyRequest(BaseModel):
-    email: str
+class VerifyOTPRequest(BaseModel):
+    """Verify OTP and complete login/registration."""
+    phone: str
     otp_code: str
+    otp_token: str  # HMAC-signed token returned by send-otp endpoint
 
-    @field_validator('email')
+    @field_validator('phone')
     @classmethod
-    def check_email(cls, v: str) -> str:
-        return validate_email_str(v)
+    def check_phone(cls, v: str) -> str:
+        return validate_phone_str(v)
+
+    @field_validator('otp_code')
+    @classmethod
+    def check_otp(cls, v: str) -> str:
+        if not re.match(r'^\d{6}$', v.strip()):
+            raise ValueError("OTP must be exactly 6 digits.")
+        return v.strip()
+
+
+class AdminSendOTPRequest(BaseModel):
+    """
+    Admin unified OTP send.
+    - If phone exists as admin: OTP for login.
+    - If phone not found as admin: access denied (no self-registration).
+    """
+    phone: str
+
+    @field_validator('phone')
+    @classmethod
+    def check_phone(cls, v: str) -> str:
+        return validate_phone_str(v)
+
+
+class AdminVerifyOTPRequest(BaseModel):
+    """Admin OTP verification."""
+    phone: str
+    otp_code: str
+    otp_token: str
+
+    @field_validator('phone')
+    @classmethod
+    def check_phone(cls, v: str) -> str:
+        return validate_phone_str(v)
+
+    @field_validator('otp_code')
+    @classmethod
+    def check_otp(cls, v: str) -> str:
+        if not re.match(r'^\d{6}$', v.strip()):
+            raise ValueError("OTP must be exactly 6 digits.")
+        return v.strip()
+
 
 class ProfileUpdateRequest(BaseModel):
     full_name: str
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class UserSchema(BaseModel):
+    id: int
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    full_name: str
+    is_verified: bool
+    created_at: Optional[str] = None
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserSchema
+
+
+# ============================================================
+# Admin Auth Schemas (kept for seed.py compatibility)
+# ============================================================
+
+class AdminRegisterRequest(BaseModel):
+    """Used internally / by seed scripts only. Not exposed in UI."""
+    email: str
+    phone: str
+    password: str
+    full_name: str
+    admin_secret: str
+
+    @field_validator('email')
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
+
+    @field_validator('phone')
+    @classmethod
+    def check_phone(cls, v: str) -> str:
+        return validate_phone_str(v)
+
+
+class AdminLoginRequest(BaseModel):
+    """Legacy — kept for backward compatibility."""
+    email: str
+    password: str
+
+    @field_validator('email')
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
+
+
+
+
+
+# ============================================================
+# Restock Subscription Schema
+# ============================================================
 
 class RestockSubscriptionCreate(BaseModel):
     email: str
@@ -261,22 +399,6 @@ class RestockSubscriptionCreate(BaseModel):
     @classmethod
     def check_email(cls, v: str) -> str:
         return validate_email_str(v)
-
-class PasswordChangeRequest(BaseModel):
-    current_password: str
-    new_password: str
-
-class UserSchema(BaseModel):
-    id: int
-    email: str
-    full_name: str
-    is_verified: bool
-    created_at: Optional[str] = None
-
-class AuthResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: UserSchema
 
 # ============================================================
 # Order Schemas

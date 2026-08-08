@@ -7,7 +7,8 @@ const getEndpoint = (path: string) => `${getApiBaseUrl()}${path}`;
 
 interface AdminUser {
   id: number;
-  email: string;
+  phone?: string;
+  email?: string;
   full_name: string;
   role: string;
   is_verified: boolean;
@@ -21,9 +22,9 @@ interface AdminAuthState {
 }
 
 interface AdminAuthContextValue extends AdminAuthState {
-  adminLogin: (email: string, password: string) => Promise<{ email: string }>;
-  adminRegister: (email: string, password: string, fullName: string, adminSecret: string) => Promise<{ email: string }>;
-  adminVerifyOtp: (email: string, otp: string, mode: "login" | "register") => Promise<void>;
+  adminCheckPhone: (phone: string) => Promise<{ exists: boolean; is_admin: boolean }>;
+  adminSendOTP: (phone: string) => Promise<{ otp_token: string }>;
+  adminVerifyOTP: (phone: string, otpCode: string, otpToken: string) => Promise<void>;
   adminLogout: () => void;
   getAdminHeaders: () => { Authorization: string; "Content-Type": string };
 }
@@ -47,11 +48,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         setAdminToken(savedToken);
         setAdminUser(JSON.parse(savedUser));
       }
-    } catch {
-      // ignore
-    } finally {
-      setIsAdminLoading(false);
-    }
+    } catch { /* ignore */ }
+    finally { setIsAdminLoading(false); }
   }, []);
 
   const persistAdmin = useCallback((token: string, user: AdminUser) => {
@@ -73,43 +71,40 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     "Content-Type": "application/json",
   }), [adminToken]);
 
-  const adminRegister = useCallback(async (email: string, password: string, fullName: string, adminSecret: string) => {
-    const res = await fetch(getEndpoint('/admin/auth/register'), {
+  const adminCheckPhone = useCallback(async (phone: string) => {
+    const res = await fetch(getEndpoint("/admin/auth/check-phone"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, full_name: fullName, admin_secret: adminSecret }),
+      body: JSON.stringify({ phone }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Registration failed");
-    return { email: data.email };
+    if (!res.ok) throw new Error(data.detail || "Failed to check phone");
+    return data as { exists: boolean; is_admin: boolean };
   }, []);
 
-  const adminLogin = useCallback(async (email: string, password: string) => {
-    const res = await fetch(getEndpoint('/admin/auth/login'), {
+  const adminSendOTP = useCallback(async (phone: string) => {
+    const res = await fetch(getEndpoint("/admin/auth/send-otp"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ phone }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Login failed");
-    return { email: data.email };
+    if (!res.ok) throw new Error(data.detail || "Failed to send OTP");
+    return data as { otp_token: string };
   }, []);
 
-  const adminVerifyOtp = useCallback(async (email: string, otp: string, mode: "login" | "register") => {
-    const endpoint = mode === "login"
-      ? getEndpoint('/admin/auth/login-verify-otp')
-      : getEndpoint('/admin/auth/verify-otp');
-
-    const res = await fetch(endpoint, {
+  const adminVerifyOTP = useCallback(async (phone: string, otpCode: string, otpToken: string) => {
+    const res = await fetch(getEndpoint("/admin/auth/verify-otp"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, otp_code: otp }),
+      body: JSON.stringify({ phone, otp_code: otpCode, otp_token: otpToken }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "OTP verification failed");
 
     const user: AdminUser = {
       id: data.user.id,
+      phone: data.user.phone,
       email: data.user.email,
       full_name: data.user.full_name,
       role: "admin",
@@ -124,9 +119,9 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       adminToken,
       isAdminLoading,
       isAdminAuthenticated: !!adminToken && !!adminUser,
-      adminLogin,
-      adminRegister,
-      adminVerifyOtp,
+      adminCheckPhone,
+      adminSendOTP,
+      adminVerifyOTP,
       adminLogout,
       getAdminHeaders,
     }}>

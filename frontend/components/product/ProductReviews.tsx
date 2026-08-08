@@ -145,13 +145,13 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
                 </svg>
               </button>
               {showFilterDropdown && (
-                <div style={{ position: 'absolute', right: 0, top: '48px', zIndex: 10, background: 'white', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '8px', width: '160px', boxShadow: 'var(--shadow-md)' }}>
+                <div style={{ position: 'absolute', right: 0, top: '48px', zIndex: 10, background: 'white', border: '1px solid var(--color-border)', borderRadius: 0, padding: '8px', width: '160px', boxShadow: 'var(--shadow-md)' }}>
                   <div style={{ fontWeight: 600, fontSize: '0.75rem', padding: '6px 8px', textTransform: 'uppercase', color: 'var(--color-grey-dark)' }}>Filter by Rating</div>
                   {(['all', 5, 4, 3, 2, 1] as const).map((r) => (
                     <button
                       key={r}
                       onClick={() => { setFilterRating(r); setShowFilterDropdown(false); }}
-                      style={{ display: 'block', width: '100%', padding: '8px', textAlign: 'left', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', backgroundColor: filterRating === r ? 'var(--color-grey-light)' : 'transparent', borderRadius: '4px' }}
+                      style={{ display: 'block', width: '100%', padding: '8px', textAlign: 'left', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', backgroundColor: filterRating === r ? 'var(--color-grey-light)' : 'transparent', borderRadius: 0 }}
                     >
                       {r === 'all' ? 'All Ratings' : `${r} Stars`}
                     </button>
@@ -173,7 +173,7 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
                 </svg>
               </button>
               {showSortDropdown && (
-                <div style={{ position: 'absolute', right: 0, top: '48px', zIndex: 10, background: 'white', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '8px', width: '180px', boxShadow: 'var(--shadow-md)' }}>
+                <div style={{ position: 'absolute', right: 0, top: '48px', zIndex: 10, background: 'white', border: '1px solid var(--color-border)', borderRadius: 0, padding: '8px', width: '180px', boxShadow: 'var(--shadow-md)' }}>
                   <div style={{ fontWeight: 600, fontSize: '0.75rem', padding: '6px 8px', textTransform: 'uppercase', color: 'var(--color-grey-dark)' }}>Sort by</div>
                   {([
                     { value: 'newest', label: 'Newest First' },
@@ -184,7 +184,7 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
                     <button
                       key={opt.value}
                       onClick={() => { setSortBy(opt.value); setShowSortDropdown(false); }}
-                      style={{ display: 'block', width: '100%', padding: '8px', textAlign: 'left', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', backgroundColor: sortBy === opt.value ? 'var(--color-grey-light)' : 'transparent', borderRadius: '4px' }}
+                      style={{ display: 'block', width: '100%', padding: '8px', textAlign: 'left', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', backgroundColor: sortBy === opt.value ? 'var(--color-grey-light)' : 'transparent', borderRadius: 0 }}
                     >
                       {opt.label}
                     </button>
@@ -283,7 +283,8 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
 
         {/* Reviews List */}
         {sortedReviews.length === 0 ? (
-          <div style={{ background: 'var(--color-white)', padding: '40px', textAlign: 'center', borderRadius: '8px', color: 'var(--color-grey-dark)' }}>
+          <div style={{ background: 'var(--color-white)', padding: '40px', textAlign: 'center', borderRadius: 0, color: 'var(--color-grey-dark)' }}>
+
             No reviews found matching the selected rating.
           </div>
         ) : (

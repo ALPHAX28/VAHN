@@ -11,8 +11,13 @@ from sqlalchemy import func
 from database import Base, engine, get_db
 import models
 import schemas
-from email_service import send_otp_email, send_order_confirmation_email, send_restock_notification_email
-from auth_utils import generate_salt, hash_password, verify_password, create_access_token, get_current_user, get_current_admin
+from email_service import send_order_confirmation_email, send_restock_notification_email
+from sms_service import send_otp_sms
+from auth_utils import (
+    generate_salt, hash_password, verify_password,
+    create_access_token, get_current_user, get_current_admin,
+    create_otp_token, verify_otp_token, check_rate_limit, normalize_phone
+)
 from storage import storage
 
 import asyncio
@@ -532,131 +537,137 @@ def remove_cart_item(cart_id: str, item_id: str, db: Session = Depends(get_db)):
     return build_cart_schema(cart, db)
 
 # ============================================================
-# User Authentication & Profile Routes (Strict Pydantic Validation)
+# User Authentication & Profile Routes (Phone-First OTP Flow)
 # ============================================================
 
 def generate_6digit_otp() -> str:
+    """Generate a cryptographically secure 6-digit OTP."""
     return "".join([str(secrets.randbelow(10)) for _ in range(6)])
 
-@app.post("/api/auth/register")
-def register(payload: schemas.UserRegisterRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    email = payload.email.strip().lower()
-    existing_user = db.query(models.User).filter_by(email=email).first()
-    if existing_user:
-        if existing_user.is_verified:
-            raise HTTPException(status_code=400, detail="Account with this email already exists. Please log in.")
-        # Re-send OTP for unverified user
-        otp = generate_6digit_otp()
-        existing_user.otp_code = otp
-        existing_user.otp_expires_at = datetime.utcnow() + timedelta(minutes=10)
-        existing_user.full_name = payload.full_name
-        salt = generate_salt()
-        existing_user.salt = salt
-        existing_user.password_hash = hash_password(payload.password, salt)
-        db.commit()
-        background_tasks.add_task(send_otp_email, email, otp, subject="Your VAHN Sign-Up Verification Code")
-        return {"message": "Verification code sent to your email.", "email": email}
-
-    salt = generate_salt()
-    pwd_hash = hash_password(payload.password, salt)
-    otp = generate_6digit_otp()
-
-    user = models.User(
-        email=email,
-        password_hash=pwd_hash,
-        salt=salt,
-        full_name=payload.full_name,
-        is_verified=False,
-        otp_code=otp,
-        otp_expires_at=datetime.utcnow() + timedelta(minutes=10)
+def _user_schema(user: models.User) -> schemas.UserSchema:
+    return schemas.UserSchema(
+        id=user.id,
+        phone=user.phone,
+        email=user.email,
+        full_name=user.full_name,
+        is_verified=user.is_verified,
+        created_at=user.created_at.strftime("%b %d, %Y") if user.created_at else None,
     )
-    db.add(user)
-    db.commit()
 
-    background_tasks.add_task(send_otp_email, email, otp, subject="Your VAHN Sign-Up Verification Code")
-    return {"message": "Verification code sent to your email.", "email": email}
+@app.post("/api/auth/check-phone")
+def check_phone(payload: schemas.PhoneLookupRequest, db: Session = Depends(get_db)):
+    """
+    Probe whether a phone number is already registered.
+    Returns {exists: bool} — no OTP sent, no side effects.
+    """
+    phone = normalize_phone(payload.phone)
+    user = db.query(models.User).filter(
+        models.User.phone == phone,
+        models.User.role == "customer"
+    ).first()
+    return {"exists": user is not None}
+
+@app.post("/api/auth/send-otp")
+def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
+    """
+    Unified register + login: send OTP to phone.
+    - Existing user: OTP sent immediately.
+    - New user: full_name + email required; user record created (unverified) then OTP sent.
+    Rate limited: max 3 per 10 min per phone.
+    """
+    phone = normalize_phone(payload.phone)
+    check_rate_limit(phone)  # Raises 429 if too many requests
+
+    user = db.query(models.User).filter(
+        models.User.phone == phone,
+        models.User.role == "customer"
+    ).first()
+
+    if user:
+        # Existing user — login flow
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="Your account has been suspended. Contact support.")
+        otp = generate_6digit_otp()
+        otp_token = create_otp_token(phone, otp)
+        send_otp_sms(phone, otp)
+        return {"otp_token": otp_token, "is_new_user": False}
+    else:
+        # New user — register flow: validate required fields
+        if not payload.full_name or not payload.full_name.strip():
+            raise HTTPException(
+                status_code=422,
+                detail="Full name is required to create your account."
+            )
+        if not payload.email:
+            raise HTTPException(
+                status_code=422,
+                detail="Email address is required to create your account."
+            )
+        # Check if email already taken
+        email = payload.email.strip().lower()
+        existing_email = db.query(models.User).filter_by(email=email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=400,
+                detail="This email address is already registered. Try a different email."
+            )
+
+        # Create user record (is_verified=False until OTP confirmed)
+        new_user = models.User(
+            phone=phone,
+            email=email,
+            full_name=payload.full_name.strip(),
+            role="customer",
+            is_verified=False,
+            phone_verified=False,
+        )
+        db.add(new_user)
+        db.commit()
+
+        otp = generate_6digit_otp()
+        otp_token = create_otp_token(phone, otp)
+        send_otp_sms(phone, otp)
+        return {"otp_token": otp_token, "is_new_user": True}
 
 @app.post("/api/auth/verify-otp", response_model=schemas.AuthResponse)
-def verify_otp(payload: schemas.OTPVerifyRequest, db: Session = Depends(get_db)):
-    email = payload.email.strip().lower()
-    user = db.query(models.User).filter_by(email=email).first()
+def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db)):
+    """
+    Verify OTP for customer login/registration.
+    - Validates HMAC-signed token (5-min expiry, max 5 attempts).
+    - On success: marks user verified, returns JWT access token.
+    """
+    phone = normalize_phone(payload.phone)
+
+    # HMAC token verification (raises HTTPException on failure)
+    verify_otp_token(phone, payload.otp_code, payload.otp_token)
+
+    user = db.query(models.User).filter(
+        models.User.phone == phone,
+        models.User.role == "customer"
+    ).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
-
-    if not user.otp_code or user.otp_code != payload.otp_code:
-        raise HTTPException(status_code=400, detail="Invalid verification code. Please check and try again.")
-
-    if user.otp_expires_at and datetime.utcnow() > user.otp_expires_at:
-        raise HTTPException(status_code=400, detail="Verification code has expired. Please request a new code.")
+        raise HTTPException(status_code=404, detail="Account not found. Please start over.")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Your account has been suspended.")
 
     user.is_verified = True
-    user.otp_code = None
-    user.otp_expires_at = None
+    user.phone_verified = True
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(user.id, user.email, role=user.role)
-    user_schema = schemas.UserSchema(
-        id=user.id,
-        email=user.email,
-        full_name=user.full_name,
-        is_verified=user.is_verified
-    )
-    return schemas.AuthResponse(access_token=token, token_type="bearer", user=user_schema)
-
-@app.post("/api/auth/login")
-def login(payload: schemas.UserLoginRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    email = payload.email.strip().lower()
-    user = db.query(models.User).filter_by(email=email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="No account found with this email. Please register below.")
-    if not verify_password(payload.password, user.password_hash, user.salt):
-        raise HTTPException(status_code=401, detail="Incorrect password. Please try again.")
-
-    otp = generate_6digit_otp()
-    user.otp_code = otp
-    user.otp_expires_at = datetime.utcnow() + timedelta(minutes=10)
-    db.commit()
-
-    background_tasks.add_task(send_otp_email, email, otp, subject="Your VAHN Login Verification Code")
-    return {"message": "Verification code sent to your email.", "email": email}
-
-@app.post("/api/auth/login-verify-otp", response_model=schemas.AuthResponse)
-def login_verify_otp(payload: schemas.OTPVerifyRequest, db: Session = Depends(get_db)):
-    return verify_otp(payload, db)
+    token = create_access_token(user.id, user.email or "", role="customer")
+    return schemas.AuthResponse(access_token=token, token_type="bearer", user=_user_schema(user))
 
 @app.get("/api/auth/me", response_model=schemas.UserSchema)
 def get_me(current_user: models.User = Depends(get_current_user)):
-    return schemas.UserSchema(
-        id=current_user.id,
-        email=current_user.email,
-        full_name=current_user.full_name,
-        is_verified=current_user.is_verified
-    )
+    return _user_schema(current_user)
 
 @app.put("/api/auth/profile", response_model=schemas.UserSchema)
 def update_profile(payload: schemas.ProfileUpdateRequest, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     current_user.full_name = payload.full_name.strip()
     db.commit()
     db.refresh(current_user)
-    return schemas.UserSchema(
-        id=current_user.id,
-        email=current_user.email,
-        full_name=current_user.full_name,
-        is_verified=current_user.is_verified
-    )
-
-@app.put("/api/auth/change-password")
-def change_password(payload: schemas.PasswordChangeRequest, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if not verify_password(payload.current_password, current_user.password_hash, current_user.salt):
-        raise HTTPException(status_code=400, detail="Current password is incorrect.")
-
-    new_salt = generate_salt()
-    new_hash = hash_password(payload.new_password, new_salt)
-    current_user.salt = new_salt
-    current_user.password_hash = new_hash
-    db.commit()
-    return {"message": "Password changed successfully."}
+    return _user_schema(current_user)
 
 # ============================================================
 # Order & Checkout Routes (Strict Pydantic Validation)
@@ -1005,102 +1016,84 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
 
 
 # ============================================================
-# ADMIN AUTH ROUTES
+# ADMIN AUTH ROUTES (Phone-OTP Flow — No UI registration, admin accounts seeded directly)
 # ============================================================
 
-ADMIN_REGISTRATION_SECRET = os.getenv("ADMIN_REGISTRATION_SECRET", "vahn-admin-secret-2026")
+@app.post("/api/admin/auth/check-phone")
+def admin_check_phone(payload: schemas.AdminSendOTPRequest, db: Session = Depends(get_db)):
+    """
+    Check if a phone number is registered as an admin.
+    Returns {exists: bool, is_admin: bool}.
+    """
+    phone = normalize_phone(payload.phone)
+    user = db.query(models.User).filter(
+        models.User.phone == phone,
+        models.User.role == "admin"
+    ).first()
+    return {"exists": user is not None, "is_admin": user is not None}
 
-@app.post("/api/admin/auth/register")
-def admin_register(payload: schemas.AdminRegisterRequest, db: Session = Depends(get_db)):
-    if payload.admin_secret != ADMIN_REGISTRATION_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid admin registration secret.")
+@app.post("/api/admin/auth/send-otp")
+def admin_send_otp(payload: schemas.AdminSendOTPRequest, db: Session = Depends(get_db)):
+    """
+    Send login OTP to an admin phone number.
+    Admin accounts are NOT self-registerable — they must be seeded.
+    Rate limited: max 3 per 10 min per phone.
+    """
+    phone = normalize_phone(payload.phone)
+    check_rate_limit(phone)
 
-    email = payload.email.strip().lower()
-    existing = db.query(models.User).filter_by(email=email).first()
-    if existing:
-        if existing.is_verified:
-            raise HTTPException(
-                status_code=400,
-                detail="An account with this email is already registered. Please sign in instead."
-            )
-        if existing.role != "admin":
-            raise HTTPException(
-                status_code=400,
-                detail="This email is registered as a customer account."
-            )
-        otp = generate_6digit_otp()
-        existing.otp_code = otp
-        existing.otp_expires_at = datetime.utcnow() + timedelta(minutes=10)
-        salt = generate_salt()
-        existing.salt = salt
-        existing.password_hash = hash_password(payload.password, salt)
-        existing.full_name = payload.full_name
-        db.commit()
-        send_otp_email(email, otp, subject="VAHN Admin Registration — Verification Code")
-        return {"message": "OTP sent to your email.", "email": email}
+    user = db.query(models.User).filter(
+        models.User.phone == phone,
+        models.User.role == "admin"
+    ).first()
+    if not user:
+        raise HTTPException(
+            status_code=403,
+            detail="This phone number is not authorized for admin access. Contact the system administrator."
+        )
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Admin account is suspended.")
 
-    salt = generate_salt()
     otp = generate_6digit_otp()
-    user = models.User(
-        email=email,
-        password_hash=hash_password(payload.password, salt),
-        salt=salt,
-        full_name=payload.full_name,
-        role="admin",
-        is_verified=False,
-        otp_code=otp,
-        otp_expires_at=datetime.utcnow() + timedelta(minutes=10)
-    )
-    db.add(user)
-    db.commit()
-    send_otp_email(email, otp, subject="VAHN Admin Registration — Verification Code")
-    return {"message": "OTP sent to your email.", "email": email}
+    otp_token = create_otp_token(phone, otp)
+    send_otp_sms(phone, otp)
+    return {"otp_token": otp_token}
 
 @app.post("/api/admin/auth/verify-otp", response_model=schemas.AuthResponse)
-def admin_verify_otp(payload: schemas.OTPVerifyRequest, db: Session = Depends(get_db)):
-    email = payload.email.strip().lower()
-    user = db.query(models.User).filter_by(email=email).first()
-    if not user or user.role != "admin":
+def admin_verify_otp(payload: schemas.AdminVerifyOTPRequest, db: Session = Depends(get_db)):
+    """
+    Verify admin OTP. HMAC-signed token — OTP never stored in DB.
+    On success: returns JWT token with role=admin.
+    """
+    phone = normalize_phone(payload.phone)
+    verify_otp_token(phone, payload.otp_code, payload.otp_token)
+
+    user = db.query(models.User).filter(
+        models.User.phone == phone,
+        models.User.role == "admin"
+    ).first()
+    if not user:
         raise HTTPException(status_code=404, detail="Admin account not found.")
-    if not user.otp_code or user.otp_code != payload.otp_code:
-        raise HTTPException(status_code=400, detail="Invalid OTP code.")
-    if user.otp_expires_at and datetime.utcnow() > user.otp_expires_at:
-        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new one.")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Admin account is suspended.")
 
     user.is_verified = True
-    user.otp_code = None
-    user.otp_expires_at = None
+    user.phone_verified = True
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(user.id, user.email, role="admin")
+    token = create_access_token(user.id, user.email or "", role="admin")
     return schemas.AuthResponse(
         access_token=token,
         token_type="bearer",
-        user=schemas.UserSchema(id=user.id, email=user.email, full_name=user.full_name, is_verified=user.is_verified)
+        user=schemas.UserSchema(
+            id=user.id,
+            phone=user.phone,
+            email=user.email,
+            full_name=user.full_name,
+            is_verified=user.is_verified
+        )
     )
-
-@app.post("/api/admin/auth/login")
-def admin_login(payload: schemas.AdminLoginRequest, db: Session = Depends(get_db)):
-    email = payload.email.strip().lower()
-    user = db.query(models.User).filter_by(email=email).first()
-    if not user or user.role != "admin":
-        raise HTTPException(status_code=404, detail="No admin account found with this email.")
-    if not user.is_active:
-        raise HTTPException(status_code=403, detail="Admin account is suspended.")
-    if not verify_password(payload.password, user.password_hash, user.salt):
-        raise HTTPException(status_code=401, detail="Incorrect password.")
-
-    otp = generate_6digit_otp()
-    user.otp_code = otp
-    user.otp_expires_at = datetime.utcnow() + timedelta(minutes=10)
-    db.commit()
-    send_otp_email(email, otp, subject="VAHN Admin Login — Verification Code")
-    return {"message": "OTP sent to your email.", "email": email}
-
-@app.post("/api/admin/auth/login-verify-otp", response_model=schemas.AuthResponse)
-def admin_login_verify_otp(payload: schemas.OTPVerifyRequest, db: Session = Depends(get_db)):
-    return admin_verify_otp(payload, db)
 
 @app.get("/api/admin/auth/me")
 def admin_me(admin: models.User = Depends(get_current_admin)):

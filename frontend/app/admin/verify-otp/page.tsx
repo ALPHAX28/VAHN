@@ -6,11 +6,11 @@ import { useAdminAuth } from "@/context/AdminAuthContext";
 import Image from "next/image";
 
 function AdminVerifyOtpInner() {
-  const { adminVerifyOtp } = useAdminAuth();
+  const { adminVerifyOTP } = useAdminAuth();
   const router = useRouter();
   const params = useSearchParams();
-  const email = params.get("email") || "";
-  const mode = (params.get("mode") || "login") as "login" | "register";
+  const phone = params.get("phone") || "";
+  const otpToken = params.get("otp_token") || "";
 
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
@@ -48,10 +48,11 @@ function AdminVerifyOtpInner() {
     e.preventDefault();
     const otp = digits.join("");
     if (otp.length < 6) { setError("Please enter all 6 digits."); return; }
+    if (!otpToken) { setError("Missing session token. Please try logging in again."); return; }
     setError("");
     setLoading(true);
     try {
-      await adminVerifyOtp(email, otp, mode);
+      await adminVerifyOTP(phone, otp, otpToken);
       router.push("/admin/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Invalid OTP");
@@ -69,7 +70,7 @@ function AdminVerifyOtpInner() {
         </div>
         <h1 className="admin-auth-title">Verify your identity</h1>
         <p className="admin-auth-subtitle">
-          We sent a 6-digit code to <strong>{email}</strong>
+          We sent a 6-digit code to <strong>{phone}</strong>
         </p>
 
         <form onSubmit={handleSubmit} className="admin-auth-form">

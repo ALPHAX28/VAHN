@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { MapPinIcon, UserIcon, LockIcon, ChevronRightIcon } from '@/components/icons/Icons';
 
 export default function ProfilePage() {
-  const { user, updateProfile, changePassword, loading, openAuthModal } = useAuth();
+  const { user, updateProfile, loading, openAuthModal } = useAuth();
   const router = useRouter();
 
   const [fullName, setFullName] = useState('');
@@ -15,17 +15,11 @@ export default function ProfilePage() {
   const [profileErr, setProfileErr] = useState('');
   const [profileLoading, setProfileLoading] = useState(false);
 
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordMsg, setPasswordMsg] = useState('');
-  const [passwordErr, setPasswordErr] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/');
-      openAuthModal('login');
+      openAuthModal();
     } else if (user) {
       setFullName(user.full_name);
     }
@@ -55,31 +49,6 @@ export default function ProfilePage() {
     }
   };
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordMsg('');
-    setPasswordErr('');
-    if (newPassword !== confirmPassword) {
-      setPasswordErr('New password and confirmation do not match.');
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPasswordErr('Password must be at least 6 characters long.');
-      return;
-    }
-    setPasswordLoading(true);
-    try {
-      await changePassword(currentPassword, newPassword);
-      setPasswordMsg('Password changed successfully.');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (err: unknown) {
-      setPasswordErr(err instanceof Error ? err.message : 'Failed to change password.');
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
 
   return (
     <div className="account-page-container">
@@ -144,58 +113,32 @@ export default function ProfilePage() {
           </form>
         </div>
 
-        {/* Change Password Card */}
+        {/* Auth Method Info Card */}
         <div className="account-card" style={{ border: "2px solid #000" }}>
-          {/* Card Header */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 14, borderBottom: "2px solid #000", marginBottom: 4 }}>
             <div style={{ width: 32, height: 32, background: "#000", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <LockIcon size={16} color="#fff" />
             </div>
             <div>
-              <h2 style={{ fontSize: "0.85rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.07em" }}>Security & Password</h2>
-              <p style={{ fontSize: "0.72rem", color: "#888", margin: 0 }}>Change your account password</p>
+              <h2 style={{ fontSize: "0.85rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.07em" }}>Account Access</h2>
+              <p style={{ fontSize: "0.72rem", color: "#888", margin: 0 }}>How you sign in to VAHN</p>
             </div>
           </div>
-
-          {passwordMsg && (
-            <div style={{ borderLeft: "4px solid #16a34a", background: "#f0fdf4", color: "#15803d", padding: "11px 14px", fontSize: "0.83rem", fontWeight: 700 }}>
-              {passwordMsg}
+          <div style={{ padding: "12px 0", display: "flex", alignItems: "flex-start", gap: 12 }}>
+            <div style={{ width: 40, height: 40, background: "#f0fdf4", border: "1px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.56a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+              </svg>
             </div>
-          )}
-          {passwordErr && (
-            <div style={{ borderLeft: "4px solid #dc2626", background: "#fef2f2", color: "#dc2626", padding: "11px 14px", fontSize: "0.83rem", fontWeight: 700 }}>
-              {passwordErr}
+            <div>
+              <p style={{ fontSize: "0.88rem", fontWeight: 700, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Phone OTP Sign-In</p>
+              <p style={{ fontSize: "0.78rem", color: "#555", margin: 0, lineHeight: 1.5 }}>
+                Your account uses secure phone-based OTP verification. Sign in anytime with the phone number <strong>{user?.phone || "on your account"}</strong>.
+              </p>
             </div>
-          )}
-
-          <form onSubmit={handleChangePassword} className="auth-form">
-            <div className="auth-input-group">
-              <label className="auth-label">Current Password</label>
-              <input type="password" required placeholder="••••••••"
-                value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
-                className="auth-input" style={{ borderRadius: 0 }}
-              />
-            </div>
-            <div className="auth-input-group">
-              <label className="auth-label">New Password</label>
-              <input type="password" required placeholder="••••••••"
-                value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-                className="auth-input" style={{ borderRadius: 0 }}
-              />
-            </div>
-            <div className="auth-input-group">
-              <label className="auth-label">Confirm New Password</label>
-              <input type="password" required placeholder="••••••••"
-                value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                className="auth-input" style={{ borderRadius: 0 }}
-              />
-            </div>
-            <button type="submit" disabled={passwordLoading} className="auth-submit-btn"
-              style={{ borderRadius: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              {passwordLoading ? 'Updating...' : 'Update Password'}
-            </button>
-          </form>
+          </div>
         </div>
+
 
         {/* Delivery Addresses Shortcut Card */}
         <div style={{ gridColumn: "1 / -1" }}>

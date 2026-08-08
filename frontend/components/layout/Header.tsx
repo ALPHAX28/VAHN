@@ -175,7 +175,7 @@ export default function Header() {
                   if (user) {
                     setUserDropdownOpen(!userDropdownOpen);
                   } else {
-                    openAuthModal('login');
+                    openAuthModal();
                   }
                 }}
               >
