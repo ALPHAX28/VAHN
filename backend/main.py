@@ -301,17 +301,16 @@ def get_collection(handle: str, db: Session = Depends(get_db)):
     if not coll:
         raise HTTPException(status_code=404, detail="Collection not found")
     
-    # Map products — SCRUM-34: only show available products on storefront
+    # Map products — SCRUM-34: return all products in collection; unavailable ones render as Out of Stock
     product_edges = []
     for idx, p in enumerate(coll.products):
-        if not p.available_for_sale:
-            continue  # Skip unavailable products from storefront collections
         product_edges.append(
             schemas.ProductEdge(
                 node=db_product_to_schema(p),
                 cursor=f"cursor-{idx+1}"
             )
         )
+
 
 
     return schemas.CollectionSchema(
@@ -1905,16 +1904,19 @@ def admin_list_reviews(
     page_size: int = 20,
     search: Optional[str] = None,
     is_hidden: Optional[bool] = None,
+    rating: Optional[int] = None,
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     q = db.query(models.ProductReview).options(selectinload(models.ProductReview.product))
     if search:
         q = q.filter(
-            (models.ProductReview.author.ilike(f"%{search}%")) | (models.ProductReview.content.ilike(f"%{search}%"))
+            (models.ProductReview.author.ilike(f"%{search}%")) | (models.ProductReview.content.ilike(f"%{search}%")) | (models.ProductReview.title.ilike(f"%{search}%"))
         )
     if is_hidden is not None:
         q = q.filter(models.ProductReview.is_hidden == is_hidden)
+    if rating is not None:
+        q = q.filter(models.ProductReview.rating == rating)
     total = q.count()
     reviews = q.order_by(models.ProductReview.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     items = [
@@ -1940,11 +1942,15 @@ def admin_list_product_reviews(
     product_id: int,
     page: int = 1,
     page_size: int = 20,
+    rating: Optional[int] = None,
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     q = db.query(models.ProductReview).filter_by(product_id=product_id)
+    if rating is not None:
+        q = q.filter(models.ProductReview.rating == rating)
     total = q.count()
+
     reviews = q.order_by(models.ProductReview.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     product = db.query(models.Product).filter_by(id=product_id).first()
     product_title = product.title if product else ""

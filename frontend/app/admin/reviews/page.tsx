@@ -39,11 +39,12 @@ export default function AdminReviewsPage() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [hiddenFilter, setHiddenFilter] = useState<boolean | undefined>(undefined);
+  const [ratingFilter, setRatingFilter] = useState<number | undefined>(undefined);
   const [page, setPage] = useState(1);
 
   const cachePath = selectedProduct 
-    ? `/admin/products/${selectedProduct.productId}/reviews?page=${page}` 
-    : `/admin/reviews?page=${page}${hiddenFilter !== undefined ? `&is_hidden=${hiddenFilter}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
+    ? `/admin/products/${selectedProduct.productId}/reviews?page=${page}${ratingFilter !== undefined ? `&rating=${ratingFilter}` : ""}` 
+    : `/admin/reviews?page=${page}${hiddenFilter !== undefined ? `&is_hidden=${hiddenFilter}` : ""}${ratingFilter !== undefined ? `&rating=${ratingFilter}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
   const cacheKey = adminToken ? `admin:${adminToken.slice(0, 10)}:${cachePath}` : "";
   const initialData = cacheKey ? clientCache.get<PaginatedResponse<AdminReview>>(cacheKey) : null;
 
@@ -74,17 +75,18 @@ export default function AdminReviewsPage() {
     try {
       if (selectedProduct) {
         // Fetch reviews specifically for the selected product
-        const res = await getProductReviews(adminToken, selectedProduct.productId, page);
+        const res = await getProductReviews(adminToken, selectedProduct.productId, page, ratingFilter);
         setReviewsData(res);
       } else {
         // Fetch all reviews
-        const res = await getAdminReviews(adminToken, { page, search: search || undefined, is_hidden: hiddenFilter });
+        const res = await getAdminReviews(adminToken, { page, search: search || undefined, is_hidden: hiddenFilter, rating: ratingFilter });
         setReviewsData(res);
       }
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { loadReviews(!!initialData); }, [adminToken, page, search, hiddenFilter, selectedProduct]);
+  useEffect(() => { loadReviews(!!initialData); }, [adminToken, page, search, hiddenFilter, ratingFilter, selectedProduct]);
+
 
   // Group reviews by product for Product-Wise overview
   const productGroupsMap = new Map<number, ProductReviewGroup>();
@@ -271,20 +273,50 @@ export default function AdminReviewsPage() {
       {(viewMode === "all" || selectedProduct) && (
         <>
           {/* Filters Bar */}
-          <div className="admin-filters-row">
+          <div className="admin-filters-row" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <div className="admin-status-tabs">
-              <button className={`admin-status-tab ${hiddenFilter === undefined ? "admin-status-tab--active" : ""}`} onClick={() => { setHiddenFilter(undefined); setPage(1); }}>All</button>
+              <button className={`admin-status-tab ${hiddenFilter === undefined ? "admin-status-tab--active" : ""}`} onClick={() => { setHiddenFilter(undefined); setPage(1); }}>All Visibility</button>
               <button className={`admin-status-tab ${hiddenFilter === false ? "admin-status-tab--active" : ""}`} onClick={() => { setHiddenFilter(false); setPage(1); }}>Visible</button>
               <button className={`admin-status-tab ${hiddenFilter === true ? "admin-status-tab--active" : ""}`} onClick={() => { setHiddenFilter(true); setPage(1); }}>Hidden</button>
             </div>
 
+            <select
+              className="admin-form-select"
+              style={{ width: 160 }}
+              value={ratingFilter === undefined ? "" : ratingFilter}
+              onChange={(e) => {
+                const val = e.target.value;
+                setRatingFilter(val ? Number(val) : undefined);
+                setPage(1);
+              }}
+            >
+              <option value="">All Ratings</option>
+              <option value="5">5 Stars (★★★★★)</option>
+              <option value="4">4 Stars (★★★★☆)</option>
+              <option value="3">3 Stars (★★★☆☆)</option>
+              <option value="2">2 Stars (★★☆☆☆)</option>
+              <option value="1">1 Star (★☆☆☆☆)</option>
+            </select>
+
             {!selectedProduct && (
-              <form className="admin-search-bar" onSubmit={e => { e.preventDefault(); setSearch(searchInput); setPage(1); }}>
-                <input type="text" className="admin-search-input" placeholder="Search by author or content..." value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+              <form className="admin-search-bar" style={{ flex: 1, minWidth: 260 }} onSubmit={e => { e.preventDefault(); setSearch(searchInput); setPage(1); }}>
+                <input
+                  type="text"
+                  className="admin-search-input"
+                  placeholder="Search by author or content..."
+                  value={searchInput}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setSearchInput(val);
+                    if (!val.trim()) { setSearch(""); setPage(1); }
+                  }}
+                />
                 <button type="submit" className="admin-btn admin-btn--secondary">Search</button>
+                {search && <button type="button" className="admin-btn admin-btn--ghost" onClick={() => { setSearch(""); setSearchInput(""); setPage(1); }}>Clear</button>}
               </form>
             )}
           </div>
+
 
           <div className="admin-card">
             {loading ? (

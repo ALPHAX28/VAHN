@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useAdminAuth } from "@/context/AdminAuthContext";
-import { getAdminProducts, deleteAdminProduct, type AdminProductSummary, type PaginatedResponse } from "@/lib/api/admin";
+import { getAdminProducts, updateAdminProduct, deleteAdminProduct, type AdminProductSummary, type PaginatedResponse } from "@/lib/api/admin";
+
 import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 import Image from "next/image";
@@ -43,13 +44,16 @@ export default function AdminProductsPage() {
     setPage(1);
   }
 
-  async function handleDeactivate(id: number) {
-    if (!adminToken || !confirm("Deactivate this product?")) return;
-    await deleteAdminProduct(adminToken, id, false);
+  async function handleToggleActivate(id: number, currentStatus: boolean) {
+    if (!adminToken) return;
+    const action = currentStatus ? "deactivate" : "activate";
+    if (!confirm(`Are you sure you want to ${action} this product?`)) return;
+    await updateAdminProduct(adminToken, id, { available_for_sale: !currentStatus });
     load();
   }
 
   async function handleDelete(id: number) {
+
     if (!adminToken || !confirm("Permanently DELETE this product? This cannot be undone.")) return;
     await deleteAdminProduct(adminToken, id, true);
     load();
@@ -138,10 +142,20 @@ export default function AdminProductsPage() {
                           <Link href={`/admin/products/${p.id}`} className="admin-icon-btn" title="Edit">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           </Link>
-                          <button className="admin-icon-btn admin-icon-btn--warning" title="Deactivate" onClick={() => handleDeactivate(p.id)}>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                          <button
+                            className={`admin-icon-btn ${p.available_for_sale ? "admin-icon-btn--warning" : ""}`}
+                            style={{ color: p.available_for_sale ? "#d32f2f" : "#2e7d32" }}
+                            title={p.available_for_sale ? "Deactivate product" : "Activate product"}
+                            onClick={() => handleToggleActivate(p.id, p.available_for_sale)}
+                          >
+                            {p.available_for_sale ? (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                            ) : (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            )}
                           </button>
                           <button className="admin-icon-btn admin-icon-btn--danger" title="Delete permanently" onClick={() => handleDelete(p.id)}>
+
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                           </button>
                         </div>
@@ -204,9 +218,19 @@ export default function AdminProductsPage() {
                     <Link href={`/admin/products/${p.id}`} className="admin-btn admin-btn--primary" style={{ flex: 1, padding: "8px 12px", fontSize: "0.8rem" }}>
                       Edit Product ✏️
                     </Link>
-                    <button className="admin-icon-btn admin-icon-btn--warning" title="Deactivate" onClick={() => handleDeactivate(p.id)}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    <button
+                      className={`admin-icon-btn ${p.available_for_sale ? "admin-icon-btn--warning" : ""}`}
+                      style={{ color: p.available_for_sale ? "#d32f2f" : "#2e7d32" }}
+                      title={p.available_for_sale ? "Deactivate product" : "Activate product"}
+                      onClick={() => handleToggleActivate(p.id, p.available_for_sale)}
+                    >
+                      {p.available_for_sale ? (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                      ) : (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      )}
                     </button>
+
                     <button className="admin-icon-btn admin-icon-btn--danger" title="Delete permanently" onClick={() => handleDelete(p.id)}>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                     </button>

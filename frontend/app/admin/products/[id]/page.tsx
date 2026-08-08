@@ -639,10 +639,31 @@ export default function AdminProductDetailPage() {
         </div>
         <div className="admin-header-actions">
           <Link href={`/products/${product.handle}`} target="_blank" className="admin-btn admin-btn--ghost">View on store ↗</Link>
+          <button
+            type="button"
+            className="admin-btn admin-btn--secondary"
+            style={{
+              borderColor: editForm.available_for_sale ? "#d32f2f" : "#2e7d32",
+              color: editForm.available_for_sale ? "#d32f2f" : "#2e7d32",
+              background: editForm.available_for_sale ? "rgba(211, 47, 47, 0.06)" : "rgba(46, 125, 50, 0.06)",
+              fontWeight: 700,
+            }}
+            onClick={async () => {
+              const newStatus = !editForm.available_for_sale;
+              setEditForm((prev) => ({ ...prev, available_for_sale: newStatus }));
+              if (adminToken && product) {
+                await updateAdminProduct(adminToken, product.id, { available_for_sale: newStatus });
+                await loadProduct();
+              }
+            }}
+          >
+            {editForm.available_for_sale ? "Deactivate" : "Activate"}
+          </button>
           <button className="admin-btn admin-btn--primary" onClick={handleSaveAll} disabled={saving}>
             {saving ? <span className="admin-btn-spinner" /> : "Save Changes"}
           </button>
         </div>
+
       </div>
 
       {error && (

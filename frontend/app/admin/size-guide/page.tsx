@@ -48,6 +48,7 @@ export default function AdminSizeGuidePage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  const [modalError, setModalError] = useState("");
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   const load = useCallback(async () => {
@@ -62,17 +63,20 @@ export default function AdminSizeGuidePage() {
   function openCreate() {
     const maxOrder = types.length > 0 ? Math.max(...types.map((t) => t.display_order)) + 1 : 0;
     setDraft({ ...emptyType(), display_order: maxOrder });
+    setModalError("");
     setEditingId("new");
   }
 
   function openEdit(t: SizeGuideType) {
     setDraft({ name: t.name, unit_label: t.unit_label ?? "", is_visible: t.is_visible, display_order: t.display_order, diagram_image_url: t.diagram_image_url, columns: [...t.columns], rows: t.rows.map((r) => ({ ...r })), measuring_tips: t.measuring_tips.map((tip) => ({ ...tip })) });
+    setModalError("");
     setEditingId(t.id);
   }
 
   async function handleSave() {
-    if (!adminToken || !draft.name.trim()) { setError("Name is required."); return; }
-    setSaving(true); setError("");
+    if (!adminToken) return;
+    if (!draft.name.trim()) { setModalError("Measurement type name is required."); return; }
+    setSaving(true); setModalError("");
     try {
       const unitLabel = draft.unit_label || undefined;
       const unitLabelNullable = draft.unit_label || null;
@@ -84,9 +88,10 @@ export default function AdminSizeGuidePage() {
         showToast("Measurement type updated!");
       }
       setEditingId(null); await load();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Save failed."); }
+    } catch (e: unknown) { setModalError(e instanceof Error ? e.message : "Save failed."); }
     finally { setSaving(false); }
   }
+
 
   async function toggleVisibility(t: SizeGuideType) {
     if (!adminToken) return;
@@ -181,7 +186,36 @@ export default function AdminSizeGuidePage() {
                   <div style={{ fontWeight:700,fontSize:"0.9375rem" }}>{t.name}</div>
                   <div style={{ fontSize:"0.75rem",color:"#888",marginTop:2 }}>{t.columns.length} columns · {t.rows.length} rows · {t.measuring_tips.length} tips</div>
                 </div>
-                <button onClick={() => toggleVisibility(t)} style={{ padding:"4px 12px",borderRadius:20,border:"none",fontWeight:700,fontSize:"0.7rem",letterSpacing:"0.06em",textTransform:"uppercase",cursor:"pointer",background:t.is_visible?"#dcfce7":"#f3f4f6",color:t.is_visible?"#166534":"#6b7280" }}>{t.is_visible ? "Visible" : "Hidden"}</button>
+                <button
+                  onClick={() => toggleVisibility(t)}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 20,
+                    border: "none",
+                    fontWeight: 700,
+                    fontSize: "0.75rem",
+                    letterSpacing: "0.04em",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    background: t.is_visible ? "#dcfce7" : "#f3f4f6",
+                    color: t.is_visible ? "#166534" : "#6b7280",
+                  }}
+                  title={t.is_visible ? "Hide from Storefront" : "Show on Storefront"}
+                >
+                  {t.is_visible ? (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <span>Visible</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                      <span>Hidden</span>
+                    </>
+                  )}
+                </button>
                 <button className="admin-btn admin-btn--secondary" onClick={() => openEdit(t)}>Edit</button>
                 <button onClick={() => setConfirmDeleteId(t.id)} style={{ background:"none",border:"1px solid #fca5a5",color:"#dc2626",padding:"6px 14px",borderRadius:4,cursor:"pointer",fontWeight:600,fontSize:"0.8125rem" }}>Delete</button>
               </div>
@@ -201,7 +235,14 @@ export default function AdminSizeGuidePage() {
       {editingId !== null && (
         <div style={{ position:"fixed",inset:0,zIndex:500,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"24px 16px" }} onClick={(e) => { if (e.target === e.currentTarget) setEditingId(null); }}>
           <div style={{ background:"#fff",borderRadius:8,width:"100%",maxWidth:820,padding:28,boxShadow:"0 16px 48px rgba(0,0,0,0.18)" }}>
-            <h2 style={{ fontWeight:800,fontSize:"1.125rem",marginBottom:24 }}>{editingId === "new" ? "Add Measurement Type" : "Edit Measurement Type"}</h2>
+            <h2 style={{ fontWeight:800,fontSize:"1.125rem",marginBottom:16 }}>{editingId === "new" ? "Add Measurement Type" : "Edit Measurement Type"}</h2>
+            {modalError && (
+              <div className="admin-alert admin-alert--error" style={{ marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <span>{modalError}</span>
+                <button onClick={() => setModalError("")} style={{ background:"none",border:"none",color:"inherit",cursor:"pointer",fontSize:"1rem",fontWeight:700 }}>✕</button>
+              </div>
+            )}
+
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24 }}>
               <div className="admin-form-group">
                 <label className="admin-form-label">Name *</label>

@@ -96,8 +96,9 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
   });
 
   return (
-    <section className="reviews-section">
+    <section id="product-reviews" className="reviews-section">
       <div className="container">
+
         {/* Header and Controls */}
         <div className="reviews-header-container">
           <div>

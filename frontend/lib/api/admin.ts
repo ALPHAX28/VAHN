@@ -364,16 +364,21 @@ export const deleteAdminUser = (token: string, id: number) =>
 // Reviews
 // ============================================================
 
-export const getAdminReviews = (token: string, params?: { page?: number; search?: string; is_hidden?: boolean }) => {
+export const getAdminReviews = (token: string, params?: { page?: number; search?: string; is_hidden?: boolean; rating?: number }) => {
   const q = new URLSearchParams();
   if (params?.page) q.set("page", String(params.page));
   if (params?.search) q.set("search", params.search);
   if (params?.is_hidden !== undefined) q.set("is_hidden", String(params.is_hidden));
+  if (params?.rating !== undefined) q.set("rating", String(params.rating));
   return adminFetch<PaginatedResponse<AdminReview>>(`/admin/reviews?${q}`, token);
 };
 
-export const getProductReviews = (token: string, productId: number, page = 1) =>
-  adminFetch<PaginatedResponse<AdminReview>>(`/admin/products/${productId}/reviews?page=${page}`, token);
+export const getProductReviews = (token: string, productId: number, page = 1, rating?: number) => {
+  const q = new URLSearchParams({ page: String(page) });
+  if (rating !== undefined) q.set("rating", String(rating));
+  return adminFetch<PaginatedResponse<AdminReview>>(`/admin/products/${productId}/reviews?${q}`, token);
+};
+
 
 export const createAdminReview = (token: string, productId: number, data: object) =>
   adminFetch<AdminReview>(`/admin/products/${productId}/reviews`, token, { method: "POST", body: JSON.stringify(data) });

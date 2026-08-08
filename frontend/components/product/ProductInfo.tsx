@@ -278,7 +278,17 @@ export default function ProductInfo({ product, onColourChange }: Props) {
       <h1 className="product-title-h1">{product.title}</h1>
 
       {/* Reviews Summary */}
-      <div className="product-rating-summary" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem' }}>
+      <div
+        className="product-rating-summary"
+        onClick={() => {
+          const el = document.getElementById('product-reviews');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }}
+        style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', cursor: 'pointer' }}
+        title="Jump to Customer Reviews"
+      >
         <div className="rating-stars" style={{ display: 'flex', gap: '3px' }}>
           {[1, 2, 3, 4, 5].map((star) => (
             <svg
@@ -297,6 +307,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
         <span style={{ color: 'var(--color-grey-dark)' }}>|</span>
         <span style={{ color: 'var(--color-grey-dark)', textDecoration: 'underline' }}>{totalReviews} reviews</span>
       </div>
+
 
       {/* Price & Discount */}
       <div className="product-price-display" style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0 16px', flexWrap: 'wrap' }}>
