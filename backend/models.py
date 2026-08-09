@@ -48,8 +48,12 @@ class Product(Base):
     gst_percent = Column(Float, default=12.0, nullable=False)  # GST % (e.g. 5, 12, 18, 28)
     shipping_rate = Column(Float, nullable=True)               # Per-product flat shipping fee (None = use global rule)
     size_guide_type_ids = Column(JSON, default=list, nullable=True) # List of SizeGuideType IDs for this product
+    size_fit_details = Column(Text, nullable=True)     # Accordion: Size and fit text
+    care_instructions = Column(Text, nullable=True)    # Accordion: Care instructions text
+    product_details = Column(Text, nullable=True)      # Accordion: Details / specs text
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 
     # Relationships
     collections = relationship("Collection", secondary=collection_product_association, back_populates="products")
@@ -166,12 +170,19 @@ class UserAddress(Base):
     last_name = Column(String, nullable=False)
     street_address = Column(String, nullable=False)
     apartment = Column(String, nullable=True)
+    house_flat_no = Column(String, nullable=True)
+    building_name = Column(String, nullable=True)
+    floor_no = Column(String, nullable=True)
+    block_wing = Column(String, nullable=True)
     city = Column(String, nullable=False)
+
     state = Column(String, nullable=False)
     pincode = Column(String, nullable=False) # 6-digit Indian PIN Code
     country = Column(String, default="India") # Fixed to India
     phone = Column(String, nullable=False)
+    email = Column(String, nullable=True)     # Contact email address for delivery
     latitude = Column(Float, nullable=True)
+
     longitude = Column(Float, nullable=True)
     is_default = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)

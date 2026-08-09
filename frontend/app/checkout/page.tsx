@@ -18,11 +18,12 @@ import {
   BriefcaseIcon,
   AlertCircleIcon,
   CheckIcon,
-  TruckIcon
+  TruckIcon,
+  EditIcon
 } from "@/components/icons/Icons";
 
 export default function CheckoutPage() {
-  const { user, token } = useAuth();
+  const { user, token, openAuthModal } = useAuth();
   const { cart, clearCart } = useCart();
   const router = useRouter();
 
@@ -31,6 +32,8 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [showAddressModal, setShowAddressModal] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
+
 
   const [placingOrder, setPlacingOrder] = useState(false);
   const [error, setError] = useState("");
@@ -118,16 +121,21 @@ export default function CheckoutPage() {
         <p style={{ color: "#555", fontSize: "0.9rem", margin: "0 0 24px", lineHeight: 1.6 }}>
           Log in to access your saved delivery addresses and order history.
         </p>
-        <Link href="/account/login" style={{
-          display: "inline-block", background: "#000", color: "#fff",
-          padding: "14px 32px", fontWeight: 900, textDecoration: "none",
-          textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.85rem"
-        }}>
+        <button
+          type="button"
+          onClick={() => openAuthModal()}
+          style={{
+            display: "inline-block", background: "#000", color: "#fff",
+            padding: "14px 32px", fontWeight: 900, border: "none", cursor: "pointer",
+            textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.85rem"
+          }}
+        >
           Sign In Now →
-        </Link>
+        </button>
       </div>
     );
   }
+
 
   if (!cartLines.length && step === "address") {
     return (
@@ -236,8 +244,12 @@ export default function CheckoutPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowAddressModal(true)}
+                    onClick={() => {
+                      setEditingAddress(null);
+                      setShowAddressModal(true);
+                    }}
                     style={{
+
                       background: "#000", color: "#fff", border: "none",
                       padding: "8px 18px", fontSize: "0.78rem", fontWeight: 900,
                       cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em",
@@ -308,26 +320,50 @@ export default function CheckoutPage() {
                               }} />
 
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                {/* Name + label row */}
-                                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
-                                  <span style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000" }}>
-                                    {addr.first_name} {addr.last_name}
-                                  </span>
-                                  <span style={{
-                                    background: "#000", color: "#fff",
-                                    padding: "2px 8px", fontSize: "0.65rem", fontWeight: 900,
-                                    textTransform: "uppercase", letterSpacing: "0.06em",
-                                    display: "inline-flex", alignItems: "center", gap: 4
-                                  }}>
-                                    {addr.label === "Home" ? <HomeIcon size={10} color="#fff" /> : addr.label === "Work" || addr.label === "Office" ? <BriefcaseIcon size={10} color="#fff" /> : <MapPinIcon size={10} color="#fff" />}
-                                    {addr.label}
-                                  </span>
-                                  {addr.is_default && (
-                                    <span style={{ background: "#f0fdf4", border: "1px solid #16a34a", color: "#15803d", padding: "2px 7px", fontSize: "0.62rem", fontWeight: 900, letterSpacing: "0.06em" }}>
-                                      DEFAULT
+                                {/* Name + label + Edit row */}
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 12 }}>
+                                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                    <span style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000" }}>
+                                      {addr.first_name} {addr.last_name}
                                     </span>
-                                  )}
+                                    <span style={{
+                                      background: "#000", color: "#fff",
+                                      padding: "2px 8px", fontSize: "0.65rem", fontWeight: 900,
+                                      textTransform: "uppercase", letterSpacing: "0.06em",
+                                      display: "inline-flex", alignItems: "center", gap: 4
+                                    }}>
+                                      {addr.label === "Home" ? <HomeIcon size={10} color="#fff" /> : addr.label === "Work" || addr.label === "Office" ? <BriefcaseIcon size={10} color="#fff" /> : <MapPinIcon size={10} color="#fff" />}
+                                      {addr.label}
+                                    </span>
+                                    {addr.is_default && (
+                                      <span style={{ background: "#f0fdf4", border: "1px solid #16a34a", color: "#15803d", padding: "2px 7px", fontSize: "0.62rem", fontWeight: 900, letterSpacing: "0.06em" }}>
+                                        DEFAULT
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingAddress(addr);
+                                      setShowAddressModal(true);
+                                    }}
+                                    style={{
+                                      background: "#fff", border: "1px solid #000", color: "#000",
+                                      padding: "4px 10px", fontSize: "0.7rem", fontWeight: 800,
+                                      cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em",
+                                      display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0,
+                                      transition: "background 0.15s"
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = "#f3f4f6"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = "#fff"; }}
+                                  >
+                                    <EditIcon size={12} color="#000" />
+                                    Edit
+                                  </button>
                                 </div>
+
+
 
                                 {/* Address lines */}
                                 <p style={{ fontSize: "0.875rem", color: "#333", margin: "0 0 3px", lineHeight: 1.5 }}>
@@ -598,13 +634,18 @@ export default function CheckoutPage() {
         <AddressModal
           token={token}
           isOpen={showAddressModal}
-          onClose={() => setShowAddressModal(false)}
-          onSuccess={(newAddr) => {
-            loadAddresses();
-            setSelectedAddressId(newAddr.id);
+          onClose={() => {
+            setShowAddressModal(false);
+            setEditingAddress(null);
           }}
+          onSuccess={(savedAddr) => {
+            loadAddresses();
+            setSelectedAddressId(savedAddr.id);
+          }}
+          initialAddress={editingAddress}
         />
       )}
+
     </div>
   );
 }

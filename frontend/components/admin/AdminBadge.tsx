@@ -18,16 +18,19 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 interface AdminBadgeProps {
-  label: string;
+  label?: string;
+  children?: React.ReactNode;
   variant?: string;
 }
 
-export default function AdminBadge({ label, variant }: AdminBadgeProps) {
-  const key = variant || label;
-  const cls = STATUS_STYLES[key] || "admin-badge--grey";
+export default function AdminBadge({ label, children, variant }: AdminBadgeProps) {
+  const text = label || (typeof children === "string" ? children : "");
+  const key = variant || text;
+  const cls = STATUS_STYLES[key] || STATUS_STYLES[text.toLowerCase()] || "admin-badge--grey";
   return (
     <span className={`admin-badge ${cls}`}>
-      {label}
+      {children || label}
     </span>
   );
 }
+

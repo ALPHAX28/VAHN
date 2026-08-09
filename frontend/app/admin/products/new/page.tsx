@@ -28,6 +28,9 @@ export default function NewProductPage() {
   const [form, setForm] = useState({
     title: "",
     description: "",
+    size_fit_details: "",
+    care_instructions: "",
+    product_details: "",
     vendor: "VAHN",
     product_type: "Jersey",
     available_for_sale: true,
@@ -37,6 +40,7 @@ export default function NewProductPage() {
     gst_percent: 12,
     shipping_rate: null as number | null,
   });
+
 
   // Dynamic Options lists for Product Type, Fit, Kit Type, Activity
   const [productTypeOptions, setProductTypeOptions] = useState(["Jersey", "T-Shirt", "Hoodie", "Sweatshirt", "Pants", "Shorts", "Jacket", "Accessories", "Streetwear", "Footwear"]);
@@ -408,7 +412,11 @@ export default function NewProductPage() {
         gst_percent: form.gst_percent,
         shipping_rate: form.shipping_rate,
         size_guide_type_ids: selectedSizeGuideIds,
+        size_fit_details: form.size_fit_details,
+        care_instructions: form.care_instructions,
+        product_details: form.product_details,
       });
+
 
 
       // 2. Save Product Colour Groups into Database
@@ -557,30 +565,62 @@ export default function NewProductPage() {
                 <label className="admin-form-label">Product Tags</label>
                 <AdminTagInput tags={tags} onChange={setTags} />
               </div>
+            </div>
+          </div>
 
+          {/* Product Accordions Section */}
+          <div className="admin-card">
+            <h2 className="admin-card-section-title">Product Information Accordions</h2>
+            <p className="admin-page-subtitle" style={{ marginBottom: 16, fontSize: "0.8rem" }}>
+              Configure content for the four expandable accordions on the Product Details Page (PDP).
+            </p>
+            <div className="admin-form-grid">
               <div className="admin-form-group admin-form-group--full">
-                <label className="admin-form-label">Product Details & Story (Displayed in DETAILS Accordion)</label>
+                <label className="admin-form-label">1. Description (Displayed in DESCRIPTION Accordion)</label>
                 <textarea
                   className="admin-form-textarea"
-                  rows={3}
-                  placeholder="e.g. Made with care and unconditionally loved by our customers. This signature bestseller exceeds all expectations..."
+                  rows={4}
+                  placeholder="e.g. A classic training tee ready for everything from cardio to weights. No matter how intense the workout, you'll stay dry and focused..."
                   value={form.description}
                   onChange={updateForm("description")}
                 />
               </div>
 
               <div className="admin-form-group admin-form-group--full">
-                <label className="admin-form-label">Size & Fit Features (Displayed in SIZE & FIT Accordion — One bullet per line)</label>
+                <label className="admin-form-label">2. Size & Fit Details (Displayed in SIZE & FIT Accordion)</label>
                 <textarea
                   className="admin-form-textarea"
                   rows={4}
-                  placeholder={`e.g.\nHeavyweight 360gsm organic cotton blend\nBespoke relaxed oversized silhouette\nSignature embroidered branding on chest\nRibbed crewneck collar`}
-                  value={sizeFitInput}
-                  onChange={e => setSizeFitInput(e.target.value)}
+                  placeholder="e.g. Slim fit design. Model is 6'1 wearing size L. Fits true to size with tailored shoulder seams..."
+                  value={form.size_fit_details}
+                  onChange={updateForm("size_fit_details")}
+                />
+              </div>
+
+              <div className="admin-form-group admin-form-group--full">
+                <label className="admin-form-label">3. Care Instructions (Displayed in CARE Accordion)</label>
+                <textarea
+                  className="admin-form-textarea"
+                  rows={3}
+                  placeholder="e.g. Machine wash cold delicate cycle. Do not bleach. Do not tumble dry. Touch up with cool iron..."
+                  value={form.care_instructions}
+                  onChange={updateForm("care_instructions")}
+                />
+              </div>
+
+              <div className="admin-form-group admin-form-group--full">
+                <label className="admin-form-label">4. Details & Specifications (Displayed in DETAILS Accordion)</label>
+                <textarea
+                  className="admin-form-textarea"
+                  rows={4}
+                  placeholder="e.g. 100% Recycled Polyester. AEROREADY moisture-wicking technology. Crewneck collar. Imported."
+                  value={form.product_details}
+                  onChange={updateForm("product_details")}
                 />
               </div>
             </div>
           </div>
+
 
           {/* PRICING & TAX */}
           <div className="admin-card">

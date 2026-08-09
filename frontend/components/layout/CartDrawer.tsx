@@ -113,8 +113,8 @@ export default function CartDrawer() {
                   Add items to get started.
                 </p>
               </div>
-              <Link href="/collections/vahn-beginning" className="btn btn-primary" onClick={closeCart}>
-                Shop Collection
+              <Link href="/collections" className="btn btn-primary" onClick={closeCart}>
+                Explore Collections
               </Link>
             </div>
           ) : (

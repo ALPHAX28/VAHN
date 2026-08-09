@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Product, ProductVariant, Money } from '@/lib/api/types';
@@ -69,8 +70,12 @@ export default function ProductInfo({ product, onColourChange }: Props) {
   const { addItem, updateItem, lines } = useCart();
   const [adding, setAdding] = useState(false);
   const [addedMessage, setAddedMessage] = useState('');
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  const [isDescOpen, setIsDescOpen] = useState(true); // Open by default like PDF spec
   const [isFitOpen, setIsFitOpen] = useState(false);
+  const [isCareOpen, setIsCareOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   // Dynamic size guide types fetched from the API
   const [sgTypes, setSgTypes] = useState<SizeGuideType[]>([]);
@@ -90,8 +95,6 @@ export default function ProductInfo({ product, onColourChange }: Props) {
       .catch(() => { setSgTypes([]); });
   }, [product.sizeGuideTypeIds]);
 
-
-
   const { detailsHtml, fitHtml } = (() => {
     // Strip empty <p> and <p> tags that contain only whitespace
     const rawHtml = (product.descriptionHtml || '').replace(/<p>\s*<\/p>/gi, '').trim();
@@ -107,6 +110,13 @@ export default function ProductInfo({ product, onColourChange }: Props) {
     return { detailsHtml: details, fitHtml: fit };
   })();
 
+  // Resolve content for the 4 dynamic accordions
+  const descriptionContent = (product.description || '').trim() || detailsHtml;
+  const sizeFitContent = (product.sizeFitDetails || product.size_fit_details || '').trim() || fitHtml || (product.fit ? `Fit: ${product.fit}` : '');
+  const careContent = (product.careInstructions || product.care_instructions || '').trim() || 'Machine wash cold delicate cycle inside out. Do not bleach. Tumble dry low. Cool iron if needed.';
+  const detailsContent = (product.productDetails || product.product_details || '').trim() || (product.vendor ? `${product.vendor} ${product.productType || 'Apparel'}` : '');
+
+
 
   // Restock Notification Modal State
   const [restockModalOpen, setRestockModalOpen] = useState(false);
@@ -114,9 +124,14 @@ export default function ProductInfo({ product, onColourChange }: Props) {
   const [restockSuccess, setRestockSuccess] = useState(false);
   const [restockSubmitting, setRestockSubmitting] = useState(false);
 
-  // Lock background scroll when Restock Modal is open
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    if (restockModalOpen) {
+    setMounted(true);
+  }, []);
+
+  // Lock background scroll when Size Guide or Restock Modal is open
+  useEffect(() => {
+    if (restockModalOpen || sizeGuideOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -124,7 +139,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [restockModalOpen]);
+  }, [restockModalOpen, sizeGuideOpen]);
 
   // Initialize selected options (Color pre-selected, Size unselected by default)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
@@ -687,19 +702,52 @@ export default function ProductInfo({ product, onColourChange }: Props) {
         )}
       </div>
 
-      {/* Dedicated Fixed-Height Accordions Scroll Container */}
-      {(detailsHtml || fitHtml) && (
-        <div className="product-accordions-wrapper">
-          {/* Details Accordion */}
-          {detailsHtml && (
-            <div 
-              className="product-details-accordion" 
-              style={{ 
-                borderBottom: fitHtml ? '1px solid var(--color-border)' : 'none',
+      {/* Dynamic 4-Field Product Accordions (Description, Size and fit, Care, Details) */}
+      <div className="product-accordions-wrapper" style={{ marginTop: '24px', borderTop: '1px solid var(--color-border)' }}>
+        {[
+          {
+            id: 'description',
+            title: 'Description',
+            content: descriptionContent,
+            isOpen: isDescOpen,
+            toggle: () => setIsDescOpen(!isDescOpen),
+          },
+          {
+            id: 'fit',
+            title: 'Size and fit',
+            content: sizeFitContent,
+            isOpen: isFitOpen,
+            toggle: () => setIsFitOpen(!isFitOpen),
+          },
+          {
+            id: 'care',
+            title: 'Care',
+            content: careContent,
+            isOpen: isCareOpen,
+            toggle: () => setIsCareOpen(!isCareOpen),
+          },
+          {
+            id: 'details',
+            title: 'Details',
+            content: detailsContent,
+            isOpen: isDetailsOpen,
+            toggle: () => setIsDetailsOpen(!isDetailsOpen),
+          },
+        ].map((acc) => {
+          if (!acc.content || !acc.content.trim()) return null;
+          const isHtml = acc.content.includes('<') && acc.content.includes('>');
+
+          return (
+            <div
+              key={acc.id}
+              className="product-details-accordion"
+              style={{
+                borderBottom: '1px solid var(--color-border)',
               }}
             >
               <button
-                onClick={() => setIsDetailsOpen(!isDetailsOpen)}
+                type="button"
+                onClick={acc.toggle}
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -707,7 +755,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                   alignItems: 'center',
                   background: 'none',
                   border: 'none',
-                  padding: '14px 0',
+                  padding: '16px 0',
                   cursor: 'pointer',
                   fontFamily: 'var(--font-ui)',
                   fontSize: '0.8125rem',
@@ -716,9 +764,9 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                   textTransform: 'uppercase',
                   color: 'var(--color-black)',
                 }}
-                aria-expanded={isDetailsOpen}
+                aria-expanded={acc.isOpen}
               >
-                <span>Details</span>
+                <span>{acc.title}</span>
                 <svg
                   viewBox="0 0 24 24"
                   width="18"
@@ -729,85 +777,37 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   style={{
-                    transform: isDetailsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transform: acc.isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                     transition: 'transform 0.3s ease',
                   }}
                 >
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </button>
-              
-              {isDetailsOpen && (
-                <div
-                  className="product-description"
-                  dangerouslySetInnerHTML={{ __html: detailsHtml }}
-                  style={{
-                    paddingBottom: '16px',
-                    fontSize: '0.9375rem',
-                    lineHeight: 1.6,
-                  }}
-                />
-              )}
-            </div>
-          )}
 
-          {/* Size & Fit Accordion */}
-          {fitHtml && (
-            <div className="product-details-accordion">
-              <button
-                onClick={() => setIsFitOpen(!isFitOpen)}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  background: 'none',
-                  border: 'none',
-                  padding: '14px 0',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-ui)',
-                  fontSize: '0.8125rem',
-                  fontWeight: 700,
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                  color: 'var(--color-black)',
-                }}
-                aria-expanded={isFitOpen}
-              >
-                <span>Size & Fit</span>
-                <svg
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    transform: isFitOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                    transition: 'transform 0.3s ease',
-                  }}
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-              
-              {isFitOpen && (
+              {acc.isOpen && (
                 <div
                   className="product-description"
-                  dangerouslySetInnerHTML={{ __html: fitHtml }}
                   style={{
                     paddingBottom: '16px',
                     fontSize: '0.9375rem',
                     lineHeight: 1.6,
+                    color: 'var(--color-black)',
+                    whiteSpace: isHtml ? 'normal' : 'pre-line',
                   }}
-                />
+                >
+                  {isHtml ? (
+                    <div dangerouslySetInnerHTML={{ __html: acc.content }} />
+                  ) : (
+                    <span>{acc.content}</span>
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
-      )}
+          );
+        })}
+      </div>
+
 
       {/* Tags */}
       {product.tags.length > 0 && (
@@ -831,9 +831,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
         </div>
       )}
 
-      {sizeGuideOpen && (
-
-
+      {mounted && sizeGuideOpen && createPortal(
         <div className="size-guide-modal-overlay" onClick={() => setSizeGuideOpen(false)}>
           <div className="size-guide-modal-card" onClick={(e) => e.stopPropagation()}>
             <button className="size-guide-close-btn" onClick={() => setSizeGuideOpen(false)} aria-label="Close size guide">
@@ -941,17 +939,18 @@ export default function ProductInfo({ product, onColourChange }: Props) {
               );
             })()}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 
       {/* Restock Notification Modal */}
-      {restockModalOpen && (
+      {mounted && restockModalOpen && createPortal(
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            zIndex: 9999,
+            zIndex: 999999,
             background: 'rgba(0,0,0,0.65)',
             backdropFilter: 'blur(5px)',
             display: 'flex',
@@ -1107,7 +1106,8 @@ export default function ProductInfo({ product, onColourChange }: Props) {
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -8,13 +8,14 @@ import AddressModal from "@/components/address/AddressModal";
 import Link from "next/link";
 import {
   MapPinIcon, HomeIcon, BriefcaseIcon, PhoneIcon,
-  CheckIcon, TrashIcon, StarIcon
+  CheckIcon, TrashIcon, StarIcon, EditIcon
 } from "@/components/icons/Icons";
 
 import { clientCache } from "@/lib/api/cache";
 
 export default function AccountAddressesPage() {
-  const { user, token } = useAuth();
+  const { user, token, openAuthModal } = useAuth();
+
 
   const cacheKey = token ? `storefront:/users/me/addresses` : "";
   const initialAddresses = cacheKey ? clientCache.get<UserAddress[]>(cacheKey) : null;
@@ -22,8 +23,10 @@ export default function AccountAddressesPage() {
   const [addresses, setAddresses] = useState<UserAddress[]>(initialAddresses || []);
   const [loading, setLoading] = useState(!initialAddresses);
   const [showModal, setShowModal] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [settingDefaultId, setSettingDefaultId] = useState<number | null>(null);
+
 
   useEffect(() => {
     if (!token) {
@@ -77,19 +80,25 @@ export default function AccountAddressesPage() {
         <h2 style={{ fontSize: "1.3rem", fontWeight: 900, textTransform: "uppercase", margin: "0 0 10px" }}>
           Sign In to View Addresses
         </h2>
-        <Link href="/account/login" style={{
-          display: "inline-block", background: "#000", color: "#fff",
-          padding: "12px 28px", fontWeight: 900, textDecoration: "none",
-          textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.82rem", marginTop: 8
-        }}>
+        <button
+          type="button"
+          onClick={() => openAuthModal()}
+          style={{
+            display: "inline-block", background: "#000", color: "#fff",
+            padding: "12px 28px", fontWeight: 900, border: "none", cursor: "pointer",
+            textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.82rem", marginTop: 8
+          }}
+        >
           Sign In →
-        </Link>
+        </button>
+
       </div>
     );
   }
 
   return (
     <div className="account-page-container">
+
       {/* Page Header */}
       <div className="account-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
         <div>
@@ -106,30 +115,36 @@ export default function AccountAddressesPage() {
 
         {addresses.length > 0 && (
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setEditingAddress(null);
+              setShowModal(true);
+            }}
             style={{
               background: "#000", color: "#fff", border: "none",
               padding: "12px 22px", fontWeight: 900, fontSize: "0.82rem",
               cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.06em",
-              display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0
+              display: "inline-flex", alignItems: "center", gap: 8,
+              transition: "background 0.15s"
             }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#222"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "#000"; }}
           >
-            <span style={{ fontSize: "1rem", lineHeight: 1 }}>+</span>
-            Add New Address
+            + Add New Address
           </button>
         )}
       </div>
 
+      {/* Main Content */}
       {loading ? (
-        <div style={{ textAlign: "center", padding: "80px 0" }}>
-          <div style={{ width: 36, height: 36, border: "3px solid #000", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-          <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#666", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Loading your addresses...
-          </span>
+        <div style={{ textAlign: "center", padding: "64px 0", color: "#888" }}>
+          <div style={{ width: 32, height: 32, border: "3px solid #000", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
+          <span style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Loading saved addresses...</span>
         </div>
       ) : addresses.length === 0 ? (
-        /* Empty state */
-        <div style={{ background: "#fff", border: "2px dashed #000", padding: "64px 24px", textAlign: "center" }}>
+        <div style={{
+          background: "#fff", border: "2px solid #000",
+          padding: "48px 24px", textAlign: "center"
+        }}>
           <div style={{
             width: 60, height: 60, border: "2px solid #000", background: "#f8fafc",
             display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px"
@@ -143,7 +158,10 @@ export default function AccountAddressesPage() {
             Add your primary Indian delivery address for faster checkout and order tracking.
           </p>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setEditingAddress(null);
+              setShowModal(true);
+            }}
             style={{
               background: "#000", color: "#fff", border: "none",
               padding: "14px 32px", fontWeight: 900, fontSize: "0.875rem",
@@ -154,26 +172,23 @@ export default function AccountAddressesPage() {
           </button>
         </div>
       ) : (
-        /* Address Grid */
-        <div className="vahn-addresses-grid">
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+          gap: 20
+        }}>
           {addresses.map(addr => (
             <div
               key={addr.id}
               style={{
                 background: "#fff",
-                border: addr.is_default ? "2px solid #000" : "1px solid #e5e5e5",
+                border: addr.is_default ? "2px solid #000" : "1px solid #e5e7eb",
+                boxShadow: addr.is_default ? "3px 3px 0px #000" : "none",
                 display: "flex", flexDirection: "column",
-                transition: "border-color 0.2s, box-shadow 0.2s",
-                boxShadow: addr.is_default ? "4px 4px 0px #000" : "none"
+                position: "relative", transition: "all 0.15s ease"
               }}
             >
-              {/* Card top accent bar for default */}
-              {addr.is_default && (
-                <div style={{ height: 4, background: "#000", width: "100%" }} />
-              )}
-
               <div style={{ padding: "20px 20px 0" }}>
-                {/* Label + Default badge row */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                   <span style={{
                     background: "#000", color: "#fff",
@@ -202,19 +217,17 @@ export default function AccountAddressesPage() {
                   )}
                 </div>
 
-                {/* Recipient name */}
                 <h3 style={{ fontSize: "1.05rem", fontWeight: 900, margin: "0 0 8px", color: "#000" }}>
                   {addr.first_name} {addr.last_name}
                 </h3>
 
-                {/* Address lines */}
                 <p style={{ fontSize: "0.875rem", color: "#333", margin: "0 0 3px", lineHeight: 1.5 }}>
                   {addr.street_address}{addr.apartment ? `, ${addr.apartment}` : ""}
                 </p>
                 <p style={{ fontSize: "0.85rem", color: "#555", margin: "0 0 8px" }}>
                   {addr.city}, {addr.state} — <strong style={{ color: "#000" }}>{addr.pincode}</strong>
                 </p>
-                <p style={{ fontSize: "0.82rem", color: "#777", margin: "0 0 0", display: "flex", alignItems: "center", gap: 5 }}>
+                <p style={{ fontSize: "0.82rem", color: "#777", margin: "0 0 16px", display: "flex", alignItems: "center", gap: 5 }}>
                   <PhoneIcon size={12} color="#888" />
                   {addr.phone}
                 </p>
@@ -226,6 +239,25 @@ export default function AccountAddressesPage() {
                 borderTop: "1px solid #f0f0f0",
                 display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap"
               }}>
+                <button
+                  onClick={() => {
+                    setEditingAddress(addr);
+                    setShowModal(true);
+                  }}
+                  style={{
+                    background: "none", border: "1px solid #000", color: "#000",
+                    padding: "7px 14px", fontSize: "0.75rem", fontWeight: 800,
+                    cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em",
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    transition: "background 0.15s"
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#f3f4f6"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "none"; }}
+                >
+                  <EditIcon size={13} color="#000" />
+                  Edit
+                </button>
+
                 {!addr.is_default && (
                   <button
                     onClick={() => handleSetDefault(addr.id)}
@@ -272,8 +304,12 @@ export default function AccountAddressesPage() {
         <AddressModal
           token={token}
           isOpen={showModal}
-          onClose={() => setShowModal(false)}
+          onClose={() => {
+            setShowModal(false);
+            setEditingAddress(null);
+          }}
           onSuccess={() => loadAddresses()}
+          initialAddress={editingAddress}
         />
       )}
     </div>

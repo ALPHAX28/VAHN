@@ -11,7 +11,11 @@ from sqlalchemy import func
 from database import Base, engine, get_db
 import models
 import schemas
-from email_service import send_order_confirmation_email, send_restock_notification_email
+from email_service import (
+    send_order_confirmation_email, send_restock_notification_email,
+    send_account_suspended_email, send_account_reactivated_email, send_account_deleted_email
+)
+
 from sms_service import send_otp_sms
 from auth_utils import (
     generate_salt, hash_password, verify_password,
@@ -228,8 +232,15 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
         activity=prod.activity,
         gstPercent=prod.gst_percent if prod.gst_percent is not None else 12.0,
         shippingRate=prod.shipping_rate,
-        sizeGuideTypeIds=prod.size_guide_type_ids or []
+        sizeGuideTypeIds=prod.size_guide_type_ids or [],
+        sizeFitDetails=prod.size_fit_details,
+        careInstructions=prod.care_instructions,
+        productDetails=prod.product_details,
+        size_fit_details=prod.size_fit_details,
+        care_instructions=prod.care_instructions,
+        product_details=prod.product_details
     )
+
 
 # ---- ENDPOINTS ----
 
@@ -296,6 +307,23 @@ def create_review(handle: str, review_in: schemas.ReviewCreate, db: Session = De
         content=db_review.content,
         verified=db_review.verified
     )
+
+@app.get("/api/collections", response_model=List[schemas.CollectionListItemSchema])
+def list_collections(db: Session = Depends(get_db)):
+    colls = db.query(models.Collection).options(
+        selectinload(models.Collection.products)
+    ).all()
+    return [
+        schemas.CollectionListItemSchema(
+            id=f"gid://shopify/Collection/{c.id}",
+            handle=c.handle,
+            title=c.title,
+            description=c.description or "",
+            image=schemas.ImageNode(url=c.image_url, altText=c.image_alt) if c.image_url else None,
+            products_count=len(c.products)
+        )
+        for c in colls
+    ]
 
 @app.get("/api/collections/{handle}", response_model=schemas.CollectionSchema)
 def get_collection(handle: str, db: Session = Depends(get_db)):
@@ -586,11 +614,13 @@ def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
     if user:
         # Existing user — login flow
         if not user.is_active:
-            raise HTTPException(status_code=403, detail="Your account has been suspended. Contact support.")
+            reason_msg = f" Reason: {user.suspension_reason}." if user.suspension_reason else ""
+            raise HTTPException(status_code=403, detail=f"Your account has been suspended by administration.{reason_msg} Please contact support for assistance.")
         otp = generate_6digit_otp()
         otp_token = create_otp_token(phone, otp)
         send_otp_sms(phone, otp)
         return {"otp_token": otp_token, "is_new_user": False}
+
     else:
         # New user — register flow: validate required fields
         if not payload.full_name or not payload.full_name.strip():
@@ -648,7 +678,9 @@ def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db))
     if not user:
         raise HTTPException(status_code=404, detail="Account not found. Please start over.")
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="Your account has been suspended.")
+        reason_msg = f" Reason: {user.suspension_reason}." if user.suspension_reason else ""
+        raise HTTPException(status_code=403, detail=f"Your account has been suspended by administration.{reason_msg} Please contact support for assistance.")
+
 
     user.is_verified = True
     user.phone_verified = True
@@ -730,6 +762,7 @@ def build_order_schema(order: models.Order) -> schemas.OrderSchema:
 
 @app.get("/api/user/addresses", response_model=List[schemas.UserAddressSchema])
 def get_user_addresses(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+
     addresses = db.query(models.UserAddress).filter_by(user_id=current_user.id).order_by(models.UserAddress.is_default.desc(), models.UserAddress.created_at.desc()).all()
     return [
         schemas.UserAddressSchema(
@@ -740,11 +773,16 @@ def get_user_addresses(current_user: models.User = Depends(get_current_user), db
             last_name=a.last_name,
             street_address=a.street_address,
             apartment=a.apartment,
+            house_flat_no=a.house_flat_no,
+            building_name=a.building_name,
+            floor_no=a.floor_no,
+            block_wing=a.block_wing,
             city=a.city,
             state=a.state,
             pincode=a.pincode,
             country=a.country or "India",
             phone=a.phone,
+            email=a.email,
             latitude=a.latitude,
             longitude=a.longitude,
             is_default=a.is_default,
@@ -754,7 +792,6 @@ def get_user_addresses(current_user: models.User = Depends(get_current_user), db
 
 @app.post("/api/user/addresses", response_model=schemas.UserAddressSchema)
 def create_user_address(payload: schemas.UserAddressCreateRequest, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Strict India Check
     if payload.country.strip().lower() not in ["india", "in"]:
         raise HTTPException(status_code=400, detail="Shipping is currently only available within India.")
 
@@ -762,7 +799,6 @@ def create_user_address(payload: schemas.UserAddressCreateRequest, current_user:
     if not re.match(r'^[1-9][0-9]{5}$', payload.pincode.strip()):
         raise HTTPException(status_code=400, detail="Please enter a valid 6-digit Indian PIN Code (e.g. 400001).")
 
-    # If first address or set as default, update others
     existing_count = db.query(models.UserAddress).filter_by(user_id=current_user.id).count()
     is_default = payload.is_default or existing_count == 0
 
@@ -776,11 +812,16 @@ def create_user_address(payload: schemas.UserAddressCreateRequest, current_user:
         last_name=payload.last_name.strip(),
         street_address=payload.street_address.strip(),
         apartment=payload.apartment.strip() if payload.apartment else None,
+        house_flat_no=payload.house_flat_no.strip() if payload.house_flat_no else None,
+        building_name=payload.building_name.strip() if payload.building_name else None,
+        floor_no=payload.floor_no.strip() if payload.floor_no else None,
+        block_wing=payload.block_wing.strip() if payload.block_wing else None,
         city=payload.city.strip(),
         state=payload.state.strip(),
         pincode=payload.pincode.strip(),
         country="India",
         phone=payload.phone.strip(),
+        email=payload.email.strip() if payload.email else None,
         latitude=payload.latitude,
         longitude=payload.longitude,
         is_default=is_default
@@ -797,11 +838,79 @@ def create_user_address(payload: schemas.UserAddressCreateRequest, current_user:
         last_name=addr.last_name,
         street_address=addr.street_address,
         apartment=addr.apartment,
+        house_flat_no=addr.house_flat_no,
+        building_name=addr.building_name,
+        floor_no=addr.floor_no,
+        block_wing=addr.block_wing,
         city=addr.city,
         state=addr.state,
         pincode=addr.pincode,
         country=addr.country,
         phone=addr.phone,
+        email=addr.email,
+        latitude=addr.latitude,
+        longitude=addr.longitude,
+        is_default=addr.is_default,
+        created_at=addr.created_at.strftime("%b %d, %Y")
+    )
+
+@app.put("/api/user/addresses/{address_id}", response_model=schemas.UserAddressSchema)
+def update_user_address(address_id: int, payload: schemas.UserAddressCreateRequest, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    addr = db.query(models.UserAddress).filter_by(id=address_id, user_id=current_user.id).first()
+    if not addr:
+        raise HTTPException(status_code=404, detail="Address not found.")
+
+    if payload.country.strip().lower() not in ["india", "in"]:
+        raise HTTPException(status_code=400, detail="Shipping is currently only available within India.")
+
+    import re
+    if not re.match(r'^[1-9][0-9]{5}$', payload.pincode.strip()):
+        raise HTTPException(status_code=400, detail="Please enter a valid 6-digit Indian PIN Code (e.g. 400001).")
+
+    if payload.is_default and not addr.is_default:
+        db.query(models.UserAddress).filter_by(user_id=current_user.id).update({"is_default": False})
+        addr.is_default = True
+
+    addr.label = payload.label or "Home"
+    addr.first_name = payload.first_name.strip()
+    addr.last_name = payload.last_name.strip()
+    addr.street_address = payload.street_address.strip()
+    addr.apartment = payload.apartment.strip() if payload.apartment else None
+    addr.house_flat_no = payload.house_flat_no.strip() if payload.house_flat_no else None
+    addr.building_name = payload.building_name.strip() if payload.building_name else None
+    addr.floor_no = payload.floor_no.strip() if payload.floor_no else None
+    addr.block_wing = payload.block_wing.strip() if payload.block_wing else None
+    addr.city = payload.city.strip()
+    addr.state = payload.state.strip()
+    addr.pincode = payload.pincode.strip()
+    addr.phone = payload.phone.strip()
+    addr.email = payload.email.strip() if payload.email else None
+    if payload.latitude is not None:
+        addr.latitude = payload.latitude
+    if payload.longitude is not None:
+        addr.longitude = payload.longitude
+
+    db.commit()
+    db.refresh(addr)
+
+    return schemas.UserAddressSchema(
+        id=addr.id,
+        user_id=addr.user_id,
+        label=addr.label,
+        first_name=addr.first_name,
+        last_name=addr.last_name,
+        street_address=addr.street_address,
+        apartment=addr.apartment,
+        house_flat_no=addr.house_flat_no,
+        building_name=addr.building_name,
+        floor_no=addr.floor_no,
+        block_wing=addr.block_wing,
+        city=addr.city,
+        state=addr.state,
+        pincode=addr.pincode,
+        country=addr.country,
+        phone=addr.phone,
+        email=addr.email,
         latitude=addr.latitude,
         longitude=addr.longitude,
         is_default=addr.is_default,
@@ -809,7 +918,9 @@ def create_user_address(payload: schemas.UserAddressCreateRequest, current_user:
     )
 
 @app.put("/api/user/addresses/{address_id}/default")
+
 def set_default_address(address_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+
     addr = db.query(models.UserAddress).filter_by(id=address_id, user_id=current_user.id).first()
     if not addr:
         raise HTTPException(status_code=404, detail="Address not found.")
@@ -1255,7 +1366,10 @@ def admin_create_product(
         activity=payload.activity,
         gst_percent=payload.gst_percent,
         shipping_rate=payload.shipping_rate,
-        size_guide_type_ids=payload.size_guide_type_ids or []
+        size_guide_type_ids=payload.size_guide_type_ids or [],
+        size_fit_details=payload.size_fit_details,
+        care_instructions=payload.care_instructions,
+        product_details=payload.product_details
     )
     db.add(product)
     db.flush()
@@ -1365,7 +1479,11 @@ def _admin_product_detail(product: models.Product) -> schemas.AdminProductDetail
         gst_percent=product.gst_percent if product.gst_percent is not None else 12.0,
         shipping_rate=product.shipping_rate,
         size_guide_type_ids=product.size_guide_type_ids or [],
+        size_fit_details=product.size_fit_details,
+        care_instructions=product.care_instructions,
+        product_details=product.product_details,
         variants=[
+
             schemas.AdminVariantSchema(
                 id=v.id,
                 title=v.title,
@@ -1816,17 +1934,60 @@ def admin_get_user(
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    user = db.query(models.User).options(selectinload(models.User.orders)).filter_by(id=user_id).first()
+    user = db.query(models.User).options(
+        selectinload(models.User.orders).selectinload(models.Order.items),
+        selectinload(models.User.addresses)
+    ).filter_by(id=user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    orders_count = len(user.orders)
-    recent_orders = [
-        {"id": o.id, "status": o.status, "total_amount": o.total_amount, "created_at": o.created_at.strftime("%b %d, %Y")}
-        for o in sorted(user.orders, key=lambda o: o.created_at, reverse=True)[:5]
+
+    user_orders = sorted(user.orders or [], key=lambda o: o.created_at, reverse=True)
+    total_spend = sum(o.total_amount for o in user_orders if o.status != "CANCELLED")
+
+    # Determine phone number
+    user_phone = getattr(user, 'phone', None)
+    if not user_phone and user.addresses:
+        user_phone = user.addresses[0].phone
+
+    orders_list = [
+        {
+            "id": o.id,
+            "status": o.status,
+            "total_amount": o.total_amount,
+            "currency": o.currency,
+            "created_at": o.created_at.strftime("%b %d, %Y %I:%M %p"),
+            "items_count": len(o.items or []),
+            "items_summary": ", ".join(i.product_title for i in (o.items or [])[:2]) + (f" + {len(o.items) - 2} more" if len(o.items or []) > 2 else "")
+        }
+        for o in user_orders
     ]
+
+    addresses_list = [
+        {
+            "id": a.id,
+            "label": a.label or "Home",
+            "first_name": a.first_name,
+            "last_name": a.last_name,
+            "street_address": a.street_address,
+            "apartment": a.apartment,
+            "house_flat_no": a.house_flat_no,
+            "building_name": a.building_name,
+            "floor_no": a.floor_no,
+            "block_wing": a.block_wing,
+            "city": a.city,
+            "state": a.state,
+            "pincode": a.pincode,
+            "phone": a.phone,
+            "email": a.email,
+            "is_default": a.is_default
+        }
+        for a in (user.addresses or [])
+    ]
+
     return {
         "id": user.id,
         "email": user.email,
+        "phone": user_phone,
         "full_name": user.full_name,
         "role": user.role,
         "is_verified": user.is_verified,
@@ -1834,14 +1995,18 @@ def admin_get_user(
         "suspended_at": user.suspended_at.strftime("%b %d, %Y") if user.suspended_at else None,
         "suspension_reason": user.suspension_reason,
         "created_at": user.created_at.strftime("%b %d, %Y"),
-        "orders_count": orders_count,
-        "recent_orders": recent_orders
+        "orders_count": len(user_orders),
+        "total_spend": total_spend,
+        "addresses": addresses_list,
+        "orders": orders_list
     }
+
 
 @app.put("/api/admin/users/{user_id}/suspend")
 def admin_suspend_user(
     user_id: int,
     payload: schemas.UserSuspendRequest,
+    background_tasks: BackgroundTasks,
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
@@ -1854,11 +2019,16 @@ def admin_suspend_user(
     user.suspended_at = datetime.utcnow()
     user.suspension_reason = payload.reason
     db.commit()
-    return {"message": f"User {user.email} suspended."}
+
+    if user.email:
+        background_tasks.add_task(send_account_suspended_email, user.email, user.full_name or "", payload.reason or "")
+
+    return {"message": f"User {user.email or user.id} suspended."}
 
 @app.put("/api/admin/users/{user_id}/reactivate")
 def admin_reactivate_user(
     user_id: int,
+    background_tasks: BackgroundTasks,
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
@@ -1869,11 +2039,16 @@ def admin_reactivate_user(
     user.suspended_at = None
     user.suspension_reason = None
     db.commit()
-    return {"message": f"User {user.email} reactivated."}
+
+    if user.email:
+        background_tasks.add_task(send_account_reactivated_email, user.email, user.full_name or "")
+
+    return {"message": f"User {user.email or user.id} reactivated."}
 
 @app.delete("/api/admin/users/{user_id}")
 def admin_delete_user(
     user_id: int,
+    background_tasks: BackgroundTasks,
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
@@ -1882,9 +2057,18 @@ def admin_delete_user(
     user = db.query(models.User).filter_by(id=user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    user_email = user.email
+    user_name = user.full_name or ""
+
     db.delete(user)
     db.commit()
-    return {"message": f"User deleted permanently."}
+
+    if user_email:
+        background_tasks.add_task(send_account_deleted_email, user_email, user_name)
+
+    return {"message": "User deleted permanently."}
+
 
 
 # ============================================================

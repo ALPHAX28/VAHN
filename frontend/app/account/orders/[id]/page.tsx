@@ -43,7 +43,7 @@ function numberToWordsINR(amount: number): string {
 
 export default function CustomerOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: orderId } = use(params);
-  const { token, user } = useAuth();
+  const { token, user, openAuthModal } = useAuth();
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,12 +73,17 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         <h2 style={{ fontSize: "1.3rem", fontWeight: 900, textTransform: "uppercase", margin: "0 0 16px" }}>
           Please Sign In
         </h2>
-        <Link href="/account/login" style={{ color: "#000", fontWeight: 800, textDecoration: "underline" }}>
+        <button
+          type="button"
+          onClick={() => openAuthModal()}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "#000", fontWeight: 800, textDecoration: "underline", fontSize: "0.9rem" }}
+        >
           Sign In →
-        </Link>
+        </button>
       </div>
     );
   }
+
 
   if (loading) {
     return (

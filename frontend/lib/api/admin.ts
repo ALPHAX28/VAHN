@@ -58,8 +58,12 @@ export interface AdminProductDetail extends AdminProductSummary {
   variants: AdminVariant[];
   colour_groups: ColourGroup[];
   size_guide_type_ids?: number[];
+  size_fit_details?: string | null;
+  care_instructions?: string | null;
+  product_details?: string | null;
   updated_at: string | null;
 }
+
 
 
 export interface AdminOrder {
@@ -111,6 +115,43 @@ export interface AdminUser {
   created_at: string;
   orders_count: number;
 }
+
+export interface AdminUserAddress {
+  id: number;
+  label: string;
+  first_name: string;
+  last_name: string;
+  street_address: string;
+  apartment?: string | null;
+  house_flat_no?: string | null;
+  building_name?: string | null;
+  floor_no?: string | null;
+  block_wing?: string | null;
+  city: string;
+  state: string;
+  pincode: string;
+  phone: string;
+  email?: string | null;
+  is_default: boolean;
+}
+
+export interface AdminUserOrder {
+  id: string;
+  status: string;
+  total_amount: number;
+  currency: string;
+  created_at: string;
+  items_count: number;
+  items_summary: string;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  phone?: string | null;
+  total_spend: number;
+  addresses: AdminUserAddress[];
+  orders: AdminUserOrder[];
+}
+
 
 export interface AdminReview {
   id: number;
@@ -349,7 +390,8 @@ export const getAdminUsers = (token: string, params?: { page?: number; search?: 
 };
 
 export const getAdminUser = (token: string, id: number) =>
-  adminFetch<AdminUser & { recent_orders: object[] }>(`/admin/users/${id}`, token);
+  adminFetch<AdminUserDetail>(`/admin/users/${id}`, token);
+
 
 export const suspendUser = (token: string, id: number, reason?: string) =>
   adminFetch<{ message: string }>(`/admin/users/${id}/suspend`, token, { method: "PUT", body: JSON.stringify({ reason }) });

@@ -281,3 +281,207 @@ def send_restock_notification_email(to_email: str, product_title: str, product_h
     except Exception as e:
         print(f"[EMAIL SERVICE ERROR] Failed to send restock email via Brevo SMTP: {e}")
         return False
+
+
+def send_account_suspended_email(to_email: str, name: str = "", reason: str = "") -> bool:
+    """
+    Sends an Account Suspension email notification to the customer.
+    """
+    if not to_email:
+        return False
+
+    smtp_host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "").strip()
+    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
+    from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahn.com")
+    from_name = os.getenv("EMAILS_FROM_NAME", "VAHN Official")
+    site_url = os.getenv("FRONTEND_URL", "https://vahn.vercel.app").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+
+    customer_name = name or to_email
+    reason_html = f"<div style='background:#fef2f2; border-left:4px solid #dc2626; padding:12px 16px; margin:20px 0; color:#b91c1c; font-size:14px;'><strong>Reason:</strong> {reason}</div>" if reason else ""
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><title>Important: Account Suspended</title></head>
+    <body style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background-color:#f7f7f7; margin:0; padding:40px 20px;">
+      <div style="max-width:520px; margin:0 auto; background:#ffffff; padding:40px; border:1px solid #e2e2e2;">
+        <div style="text-align:center; margin-bottom:24px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height:28px; width:auto; border:0;" />
+        </div>
+        <div style="text-align:center; margin-bottom:20px;">
+          <span style="background:#dc2626; color:#fff; font-size:11px; font-weight:800; padding:4px 12px; letter-spacing:0.15em; text-transform:uppercase;">ACCOUNT SUSPENDED</span>
+        </div>
+        <p style="font-size:15px; color:#333; line-height:1.6;">Dear {customer_name},</p>
+        <p style="font-size:14px; color:#555; line-height:1.6;">Your VAHN account has been suspended by our administration team. You will not be able to log in or place new orders while your account is suspended.</p>
+        {reason_html}
+        <p style="font-size:13px; color:#666; line-height:1.6; margin-top:24px;">If you believe this is an error or would like to appeal this decision, please reply to this email or contact support.</p>
+        <hr style="border:none; border-top:1px solid #eeeeee; margin:32px 0;">
+        <p style="font-size:11px; color:#aaaaaa; text-align:center; text-transform:uppercase; letter-spacing:0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    print(f"\n==========================================")
+    print(f"  [SUSPENSION EMAIL RECIPIENT]: {to_email}")
+    print(f"  [CUSTOMER NAME]: {customer_name}")
+    print(f"  [SUSPENSION REASON]: {reason or 'N/A'}")
+    print(f"==========================================\n")
+
+    if not smtp_user or not smtp_password:
+        return True
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = "Important Notice: Your VAHN Account Has Been Suspended"
+        msg["From"] = f"{from_name} <{from_email}>"
+        msg["To"] = to_email
+        msg.set_content(f"Dear {customer_name}, your VAHN account has been suspended. Reason: {reason or 'N/A'}")
+        msg.add_alternative(html_content, subtype="html")
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[EMAIL SERVICE ERROR] Failed to send suspension email: {e}")
+        return False
+
+
+def send_account_reactivated_email(to_email: str, name: str = "") -> bool:
+    """
+    Sends an Account Reactivation email notification to the customer.
+    """
+    if not to_email:
+        return False
+
+    smtp_host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "").strip()
+    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
+    from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahn.com")
+    from_name = os.getenv("EMAILS_FROM_NAME", "VAHN Official")
+    site_url = os.getenv("FRONTEND_URL", "https://vahn.vercel.app").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+
+    customer_name = name or to_email
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><title>Account Reactivated</title></head>
+    <body style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background-color:#f7f7f7; margin:0; padding:40px 20px;">
+      <div style="max-width:520px; margin:0 auto; background:#ffffff; padding:40px; border:1px solid #e2e2e2;">
+        <div style="text-align:center; margin-bottom:24px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height:28px; width:auto; border:0;" />
+        </div>
+        <div style="text-align:center; margin-bottom:20px;">
+          <span style="background:#16a34a; color:#fff; font-size:11px; font-weight:800; padding:4px 12px; letter-spacing:0.15em; text-transform:uppercase;">ACCOUNT REACTIVATED</span>
+        </div>
+        <p style="font-size:15px; color:#333; line-height:1.6;">Dear {customer_name},</p>
+        <p style="font-size:14px; color:#555; line-height:1.6;">Good news! Your VAHN account has been successfully reactivated. You can now log back in and continue shopping.</p>
+        <div style="text-align:center; margin:32px 0;">
+          <a href="{site_url}" style="background:#000; color:#fff; text-decoration:none; font-size:13px; font-weight:800; padding:14px 32px; letter-spacing:0.15em; text-transform:uppercase;">LOG IN TO VAHN &rarr;</a>
+        </div>
+        <hr style="border:none; border-top:1px solid #eeeeee; margin:32px 0;">
+        <p style="font-size:11px; color:#aaaaaa; text-align:center; text-transform:uppercase; letter-spacing:0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    print(f"\n==========================================")
+    print(f"  [REACTIVATION EMAIL RECIPIENT]: {to_email}")
+    print(f"  [CUSTOMER NAME]: {customer_name}")
+    print(f"==========================================\n")
+
+    if not smtp_user or not smtp_password:
+        return True
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = "Welcome Back! Your VAHN Account Has Been Reactivated"
+        msg["From"] = f"{from_name} <{from_email}>"
+        msg["To"] = to_email
+        msg.set_content(f"Dear {customer_name}, your VAHN account has been reactivated. You can log in at {site_url}")
+        msg.add_alternative(html_content, subtype="html")
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[EMAIL SERVICE ERROR] Failed to send reactivation email: {e}")
+        return False
+
+
+def send_account_deleted_email(to_email: str, name: str = "") -> bool:
+    """
+    Sends an Account Deletion notification email to the customer.
+    """
+    if not to_email:
+        return False
+
+    smtp_host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "").strip()
+    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
+    from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahn.com")
+    from_name = os.getenv("EMAILS_FROM_NAME", "VAHN Official")
+    site_url = os.getenv("FRONTEND_URL", "https://vahn.vercel.app").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+
+    customer_name = name or to_email
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><title>Account Deleted</title></head>
+    <body style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background-color:#f7f7f7; margin:0; padding:40px 20px;">
+      <div style="max-width:520px; margin:0 auto; background:#ffffff; padding:40px; border:1px solid #e2e2e2;">
+        <div style="text-align:center; margin-bottom:24px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height:28px; width:auto; border:0;" />
+        </div>
+        <div style="text-align:center; margin-bottom:20px;">
+          <span style="background:#000; color:#fff; font-size:11px; font-weight:800; padding:4px 12px; letter-spacing:0.15em; text-transform:uppercase;">ACCOUNT DELETED</span>
+        </div>
+        <p style="font-size:15px; color:#333; line-height:1.6;">Dear {customer_name},</p>
+        <p style="font-size:14px; color:#555; line-height:1.6;">This email confirms that your VAHN customer account and personal data have been removed from our database by administration.</p>
+        <p style="font-size:13px; color:#666; line-height:1.6; margin-top:20px;">Thank you for being part of VAHN. If you have any questions, feel free to contact us.</p>
+        <hr style="border:none; border-top:1px solid #eeeeee; margin:32px 0;">
+        <p style="font-size:11px; color:#aaaaaa; text-align:center; text-transform:uppercase; letter-spacing:0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    print(f"\n==========================================")
+    print(f"  [DELETION EMAIL RECIPIENT]: {to_email}")
+    print(f"  [CUSTOMER NAME]: {customer_name}")
+    print(f"==========================================\n")
+
+    if not smtp_user or not smtp_password:
+        return True
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = "Notice: Your VAHN Customer Account Has Been Deleted"
+        msg["From"] = f"{from_name} <{from_email}>"
+        msg["To"] = to_email
+        msg.set_content(f"Dear {customer_name}, your VAHN account has been removed.")
+        msg.add_alternative(html_content, subtype="html")
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[EMAIL SERVICE ERROR] Failed to send deletion email: {e}")
+        return False
+

@@ -130,6 +130,9 @@ export default function AdminProductDetailPage() {
       setEditForm({
         title: p.title,
         description: p.description || "",
+        size_fit_details: p.size_fit_details || "",
+        care_instructions: p.care_instructions || "",
+        product_details: p.product_details || "",
         vendor: p.vendor,
         product_type: p.product_type || "",
         tags: p.tags || [],
@@ -141,6 +144,7 @@ export default function AdminProductDetailPage() {
         shipping_rate: p.shipping_rate ?? null,
         size_guide_type_ids: p.size_guide_type_ids || [],
       });
+
       setEditSizeFitInput(extractBullets(p.description_html || ""));
       setLocalGroups(p.colour_groups || []);
       setDeletedGroupIds(new Set());
@@ -181,6 +185,9 @@ export default function AdminProductDetailPage() {
     if (!product) return false;
     const titleChanged = editForm.title !== undefined && editForm.title.trim() !== product.title;
     const descChanged = editForm.description !== undefined && editForm.description !== (product.description || "");
+    const sizeFitDetailsChanged = editForm.size_fit_details !== undefined && editForm.size_fit_details !== (product.size_fit_details || "");
+    const careInstructionsChanged = editForm.care_instructions !== undefined && editForm.care_instructions !== (product.care_instructions || "");
+    const productDetailsChanged = editForm.product_details !== undefined && editForm.product_details !== (product.product_details || "");
     const vendorChanged = editForm.vendor !== undefined && editForm.vendor !== product.vendor;
     const typeChanged = editForm.product_type !== undefined && editForm.product_type !== (product.product_type || "");
     const fitChanged = editForm.fit !== undefined && editForm.fit !== (product.fit || "");
@@ -193,11 +200,12 @@ export default function AdminProductDetailPage() {
     const sgChanged = JSON.stringify(editForm.size_guide_type_ids ?? []) !== JSON.stringify(product.size_guide_type_ids ?? []);
 
     return Boolean(
-      titleChanged || descChanged || vendorChanged || typeChanged ||
-      fitChanged || kitChanged || actChanged || availChanged ||
+      titleChanged || descChanged || sizeFitDetailsChanged || careInstructionsChanged || productDetailsChanged ||
+      vendorChanged || typeChanged || fitChanged || kitChanged || actChanged || availChanged ||
       gstChanged || shipChanged || bulletsChanged || sgChanged
     );
   }, [product, editForm, editSizeFitInput, initialBullets]);
+
 
   const isVariantsDirty = useMemo(() => {
     return Boolean(
@@ -953,20 +961,35 @@ export default function AdminProductDetailPage() {
             </div>
           </div>
 
-          {/* — CONTENT — */}
+          {/* — PRODUCT ACCORDIONS — */}
           <div className="admin-card">
-            <h2 className="admin-card-section-title">Content & Story</h2>
+            <h2 className="admin-card-section-title">Product Information Accordions</h2>
+            <p className="admin-page-subtitle" style={{ marginBottom: 16, fontSize: "0.8rem" }}>
+              Configure content for the four expandable accordions on the Product Details Page (PDP).
+            </p>
             <div className="admin-form-grid">
               <div className="admin-form-group admin-form-group--full">
-                <label className="admin-form-label">Product Details & Story <span style={{ fontWeight: 400, fontSize: "0.72rem" }}>(Displayed in DETAILS Accordion)</span></label>
-                <textarea className="admin-form-textarea" rows={4} placeholder="Product description & story..." value={editForm.description || ""} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+                <label className="admin-form-label">1. Description <span style={{ fontWeight: 400, fontSize: "0.72rem" }}>(Displayed in DESCRIPTION Accordion)</span></label>
+                <textarea className="admin-form-textarea" rows={4} placeholder="e.g. A classic training tee ready for everything from cardio to weights..." value={editForm.description || ""} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
               </div>
+
               <div className="admin-form-group admin-form-group--full">
-                <label className="admin-form-label">Size & Fit Features <span style={{ fontWeight: 400, fontSize: "0.72rem" }}>(Displayed in SIZE & FIT Accordion — One bullet per line)</span></label>
-                <textarea className="admin-form-textarea" rows={5} placeholder="One bullet per line..." value={editSizeFitInput} onChange={e => setEditSizeFitInput(e.target.value)} />
+                <label className="admin-form-label">2. Size & Fit Details <span style={{ fontWeight: 400, fontSize: "0.72rem" }}>(Displayed in SIZE & FIT Accordion)</span></label>
+                <textarea className="admin-form-textarea" rows={4} placeholder="e.g. Slim fit design. Model is 6'1 wearing size L. Fits true to size with tailored shoulder seams..." value={editForm.size_fit_details || ""} onChange={e => setEditForm(f => ({ ...f, size_fit_details: e.target.value }))} />
+              </div>
+
+              <div className="admin-form-group admin-form-group--full">
+                <label className="admin-form-label">3. Care Instructions <span style={{ fontWeight: 400, fontSize: "0.72rem" }}>(Displayed in CARE Accordion)</span></label>
+                <textarea className="admin-form-textarea" rows={3} placeholder="e.g. Machine wash cold delicate cycle. Do not bleach. Do not tumble dry. Touch up with cool iron..." value={editForm.care_instructions || ""} onChange={e => setEditForm(f => ({ ...f, care_instructions: e.target.value }))} />
+              </div>
+
+              <div className="admin-form-group admin-form-group--full">
+                <label className="admin-form-label">4. Details & Specifications <span style={{ fontWeight: 400, fontSize: "0.72rem" }}>(Displayed in DETAILS Accordion)</span></label>
+                <textarea className="admin-form-textarea" rows={4} placeholder="e.g. 100% Recycled Polyester. AEROREADY moisture-wicking technology. Crewneck collar. Imported." value={editForm.product_details || ""} onChange={e => setEditForm(f => ({ ...f, product_details: e.target.value }))} />
               </div>
             </div>
           </div>
+
         </div>
       )}
 

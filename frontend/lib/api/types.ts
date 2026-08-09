@@ -61,7 +61,14 @@ export interface Product {
   gstPercent?: number | null;
   shippingRate?: number | null;
   sizeGuideTypeIds?: number[];
+  sizeFitDetails?: string | null;
+  careInstructions?: string | null;
+  productDetails?: string | null;
+  size_fit_details?: string | null;
+  care_instructions?: string | null;
+  product_details?: string | null;
 }
+
 
 export interface LookbookItem {
   id: string;
@@ -94,6 +101,16 @@ export interface Collection {
     filters: Filter[];
   };
 }
+
+export interface CollectionListItem {
+  id: string;
+  handle: string;
+  title: string;
+  description: string;
+  image: Image | null;
+  products_count: number;
+}
+
 
 export interface Filter {
   id: string;
@@ -214,16 +231,23 @@ export interface UserAddress {
   last_name: string;
   street_address: string;
   apartment?: string | null;
+  house_flat_no?: string | null;
+  building_name?: string | null;
+  floor_no?: string | null;
+  block_wing?: string | null;
   city: string;
+
   state: string;
   pincode: string;
   country: string;
   phone: string;
+  email?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   is_default: boolean;
   created_at: string;
 }
+
 
 export interface OrderItem {
   id: string;

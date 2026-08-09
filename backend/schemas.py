@@ -122,9 +122,15 @@ class ProductSchema(BaseModel):
     fit: Optional[str] = None
     kitType: Optional[str] = None
     activity: Optional[str] = None
-    gstPercent: Optional[float] = 12.0
     shippingRate: Optional[float] = None
     sizeGuideTypeIds: List[int] = []
+    sizeFitDetails: Optional[str] = None
+    careInstructions: Optional[str] = None
+    productDetails: Optional[str] = None
+    size_fit_details: Optional[str] = None
+    care_instructions: Optional[str] = None
+    product_details: Optional[str] = None
+
 
 class ProductEdge(BaseModel):
     node: ProductSchema
@@ -160,6 +166,15 @@ class CollectionSchema(BaseModel):
     image: Optional[ImageNode] = None
     seo: SEO
     products: CollectionProductsConnection
+
+class CollectionListItemSchema(BaseModel):
+    id: str
+    handle: str
+    title: str
+    description: str
+    image: Optional[ImageNode] = None
+    products_count: int
+
 
 # ---- Cart schemas ----
 
@@ -410,11 +425,16 @@ class UserAddressCreateRequest(BaseModel):
     last_name: str
     street_address: str
     apartment: Optional[str] = None
+    house_flat_no: Optional[str] = None
+    building_name: Optional[str] = None
+    floor_no: Optional[str] = None
+    block_wing: Optional[str] = None
     city: str
     state: str
     pincode: str
     country: str = "India"
     phone: str
+    email: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     is_default: bool = False
@@ -444,15 +464,22 @@ class UserAddressSchema(BaseModel):
     last_name: str
     street_address: str
     apartment: Optional[str]
+    house_flat_no: Optional[str] = None
+    building_name: Optional[str] = None
+    floor_no: Optional[str] = None
+    block_wing: Optional[str] = None
     city: str
     state: str
     pincode: str
     country: str
     phone: str
+    email: Optional[str] = None
     latitude: Optional[float]
     longitude: Optional[float]
     is_default: bool
     created_at: str
+
+
 
 class ShippingAddress(BaseModel):
     name: Optional[str] = "Customer"
@@ -632,6 +659,9 @@ class ProductCreateRequest(BaseModel):
     gst_percent: float = 12.0
     shipping_rate: Optional[float] = None
     size_guide_type_ids: Optional[List[int]] = []
+    size_fit_details: Optional[str] = ""
+    care_instructions: Optional[str] = ""
+    product_details: Optional[str] = ""
     variants: List[VariantCreateRequest] = []
 
 class ProductUpdateRequest(BaseModel):
@@ -654,6 +684,9 @@ class ProductUpdateRequest(BaseModel):
     gst_percent: Optional[float] = None
     shipping_rate: Optional[float] = None
     size_guide_type_ids: Optional[List[int]] = None
+    size_fit_details: Optional[str] = None
+    care_instructions: Optional[str] = None
+    product_details: Optional[str] = None
 
 class AdminVariantSchema(BaseModel):
     id: str
@@ -704,7 +737,11 @@ class AdminProductDetail(BaseModel):
     gst_percent: float
     shipping_rate: Optional[float]
     size_guide_type_ids: List[int] = []
+    size_fit_details: Optional[str] = None
+    care_instructions: Optional[str] = None
+    product_details: Optional[str] = None
     variants: List[AdminVariantSchema]
+
     colour_groups: List[ColourGroupSchema]
     created_at: Optional[str]
     updated_at: Optional[str]

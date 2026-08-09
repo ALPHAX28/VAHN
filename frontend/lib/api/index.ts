@@ -3,6 +3,7 @@ import { fetchAPI } from './client';
 import type {
   Product,
   Collection,
+  CollectionListItem,
   Cart,
   Blog,
   Article,
@@ -58,10 +59,8 @@ export async function getCollection(
   return fetchAPI<Collection>(`/collections/${handle}`).catch(() => null);
 }
 
-export async function getCollections(): Promise<Collection[]> {
-  // Return list with the default collection
-  const beginning = await getCollection('vahn-beginning');
-  return beginning ? [beginning] : [];
+export async function getCollections(): Promise<CollectionListItem[]> {
+  return fetchAPI<CollectionListItem[]>('/collections', { cache: 'no-store' }).catch(() => []);
 }
 
 // ---- Cart ----
@@ -162,7 +161,7 @@ export async function getMenu(_handle: string): Promise<Menu | null> {
   return {
     items: [
       { id: 'menu-home', title: 'Home', url: '/', items: [] },
-      { id: 'menu-shop', title: 'Shop', url: '/collections/vahn-beginning', items: [] },
+      { id: 'menu-shop', title: 'Shop', url: '/collections', items: [] },
       { id: 'menu-about', title: 'Our Story', url: '/pages/about', items: [] }
     ]
   };
@@ -207,6 +206,15 @@ export async function createUserAddress(token: string, data: Partial<import('./t
     body: data
   });
 }
+
+export async function updateUserAddress(token: string, addressId: number, data: Partial<import('./types').UserAddress>): Promise<import('./types').UserAddress> {
+  return fetchAPI<import('./types').UserAddress>(`/user/addresses/${addressId}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    body: data
+  });
+}
+
 
 export async function setDefaultAddress(token: string, addressId: number): Promise<void> {
   return fetchAPI<void>(`/user/addresses/${addressId}/default`, {

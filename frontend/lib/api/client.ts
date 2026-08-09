@@ -69,18 +69,39 @@ export async function fetchAPI<T>(
     const res = await fetch(url, fetchOptions);
 
     if (!res.ok) {
-      throw new Error(`API error: ${res.status} ${res.statusText} on ${path}`);
+      let detailMsg = "";
+      try {
+        const errJson = await res.clone().json();
+        if (errJson && errJson.detail) {
+          detailMsg = typeof errJson.detail === "string" ? errJson.detail : JSON.stringify(errJson.detail);
+        }
+      } catch { /* ignore */ }
+
+      const finalMsg = detailMsg || `API error: ${res.status} ${res.statusText} on ${path}`;
+
+      if (res.status === 403 && typeof window !== "undefined") {
+        if (finalMsg.toLowerCase().includes("suspend") || finalMsg.toLowerCase().includes("account")) {
+          localStorage.removeItem("vahn_auth_token");
+          localStorage.removeItem("vahn_auth_user");
+          window.dispatchEvent(new CustomEvent("vahn_auth_suspended", { detail: { message: finalMsg } }));
+        }
+      }
+
+      throw new Error(finalMsg);
     }
 
     return res.json();
+
   };
 
-  if (method === 'GET') {
+  if (method === 'GET' && cache !== 'no-store') {
     const cacheKey = `storefront:${path}`;
     return clientCache.fetchWithCache<T>(cacheKey, networkFetcher);
   }
 
   const result = await networkFetcher();
-  clientCache.invalidate('storefront:');
+  if (method !== 'GET') {
+    clientCache.invalidate('storefront:');
+  }
   return result;
 }

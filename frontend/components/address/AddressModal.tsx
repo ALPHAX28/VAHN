@@ -1,8 +1,7 @@
-"use client";
-
 import React, { useState, useEffect } from "react";
 import type { UserAddress } from "@/lib/api/types";
-import { createUserAddress } from "@/lib/api";
+import { createUserAddress, updateUserAddress } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import {
   MapPinIcon,
   SearchIcon,
@@ -30,6 +29,7 @@ interface AddressModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (newAddress: UserAddress) => void;
+  initialAddress?: UserAddress | null;
 }
 
 interface LocationSuggestion {
@@ -48,7 +48,6 @@ interface LocationSuggestion {
   };
 }
 
-// Reusable form input styling
 const inputStyle: React.CSSProperties = {
   width: "100%",
   background: "#fff",
@@ -72,7 +71,9 @@ const labelStyle: React.CSSProperties = {
   marginBottom: 6
 };
 
-export default function AddressModal({ token, isOpen, onClose, onSuccess }: AddressModalProps) {
+export default function AddressModal({ token, isOpen, onClose, onSuccess, initialAddress }: AddressModalProps) {
+  const { user } = useAuth();
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -88,20 +89,19 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Search tab state
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [autofilled, setAutofilled] = useState(false);
 
-  // Dwelling type for manual entry
   const [dwellingType, setDwellingType] = useState<"apartment" | "house">("apartment");
 
-  // Form State
   const [form, setForm] = useState({
     label: "Home",
     first_name: "",
     last_name: "",
+    phone: "",
+    email: "",
     house_flat_no: "",
     floor_no: "",
     building_name: "",
@@ -111,9 +111,83 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
     state: "Maharashtra",
     pincode: "",
     country: "India",
-    phone: "",
     is_default: true,
   });
+
+  // Populate form if initialAddress (edit mode) or auto-fill user info (create mode)
+  useEffect(() => {
+    if (isOpen && initialAddress) {
+      let hNo = initialAddress.house_flat_no || "";
+      let bName = initialAddress.building_name || initialAddress.apartment || "";
+      let flNo = initialAddress.floor_no || "";
+      let bWing = initialAddress.block_wing || "";
+      let sAddr = initialAddress.street_address || "";
+
+      // Parse legacy concatenated street_address into individual input fields if not stored separately
+      if (!hNo && sAddr) {
+        const flatMatch = sAddr.match(/(?:Flat|House No\.)\s*([^,]+)/i);
+        if (flatMatch) {
+          hNo = flatMatch[1].trim();
+          sAddr = sAddr.replace(/(?:Flat|House No\.)\s*([^,]+)(?:,\s*)?/i, "");
+        }
+
+        const floorMatch = sAddr.match(/Floor\s*([^,]+)/i);
+        if (floorMatch) {
+          flNo = floorMatch[1].trim();
+          sAddr = sAddr.replace(/Floor\s*([^,]+)(?:,\s*)?/i, "");
+        }
+
+        const wingMatch = sAddr.match(/Wing\s*([^,]+)/i);
+        if (wingMatch) {
+          bWing = wingMatch[1].trim();
+          sAddr = sAddr.replace(/Wing\s*([^,]+)(?:,\s*)?/i, "");
+        }
+
+        if (bName && sAddr.toLowerCase().includes(bName.toLowerCase())) {
+          const escBName = bName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          sAddr = sAddr.replace(new RegExp(escBName + '(?:,\\s*)?', 'i'), "");
+        }
+
+        sAddr = sAddr.replace(/^[,\s]+|[,\s]+$/g, "");
+      }
+
+      setForm({
+        label: initialAddress.label || "Home",
+        first_name: initialAddress.first_name || "",
+        last_name: initialAddress.last_name || "",
+        phone: initialAddress.phone || "",
+        email: initialAddress.email || "",
+        house_flat_no: hNo,
+        floor_no: flNo,
+        building_name: bName,
+        block_wing: bWing,
+        street_address: sAddr,
+        city: initialAddress.city || "Mumbai",
+        state: initialAddress.state || "Maharashtra",
+        pincode: initialAddress.pincode || "",
+        country: "India",
+        is_default: initialAddress.is_default,
+      });
+      setActiveTab("manual");
+    } else if (isOpen && user) {
+      setForm(f => {
+        let fName = f.first_name;
+        let lName = f.last_name;
+        if (!fName && user.full_name) {
+          const parts = user.full_name.trim().split(" ");
+          fName = parts[0] || "";
+          lName = parts.slice(1).join(" ") || "";
+        }
+        return {
+          ...f,
+          phone: f.phone || user.phone || "",
+          email: f.email || user.email || "",
+          first_name: fName,
+          last_name: lName,
+        };
+      });
+    }
+  }, [isOpen, initialAddress, user]);
 
   useEffect(() => {
     if (!searchQuery.trim() || searchQuery.length < 3) {
@@ -167,7 +241,6 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
     setSuggestions([]);
     setSearchQuery(place.display_name);
     setAutofilled(true);
-    // Switch to manual tab for house/flat number completion
     setActiveTab("manual");
   };
 
@@ -186,7 +259,6 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
       return;
     }
 
-    // Combine street address
     let finalStreet = form.street_address.trim();
     if (dwellingType === "apartment") {
       const parts = [
@@ -213,20 +285,29 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
 
     setLoading(true);
     try {
-      const created = await createUserAddress(token, {
+      const payload = {
         label: form.label,
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         street_address: finalStreet,
-        apartment: dwellingType === "apartment" ? form.building_name : "",
+        apartment: dwellingType === "apartment" ? form.building_name.trim() : "",
+        house_flat_no: form.house_flat_no.trim() || undefined,
+        building_name: form.building_name.trim() || undefined,
+        floor_no: form.floor_no.trim() || undefined,
+        block_wing: form.block_wing.trim() || undefined,
         city: form.city.trim(),
         state: form.state.trim(),
         pincode: form.pincode.trim(),
         country: "India",
         phone: form.phone.trim(),
+        email: form.email.trim() || undefined,
         is_default: form.is_default
-      });
-      onSuccess(created);
+      };
+
+      const result = initialAddress
+        ? await updateUserAddress(token, initialAddress.id, payload)
+        : await createUserAddress(token, payload);
+      onSuccess(result);
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save delivery address.");
@@ -252,7 +333,6 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
           position: "relative", display: "flex", flexDirection: "column"
         }}
       >
-        {/* Modal Header */}
         <div style={{
           padding: "20px 24px 16px",
           borderBottom: "2px solid #000",
@@ -260,157 +340,151 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
           position: "sticky", top: 0, background: "#fff", zIndex: 10
         }}>
           <div>
-            <h2 style={{ fontSize: "1.15rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.03em" }}>
-              Add Delivery Address
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.04em", margin: 0 }}>
+              {initialAddress ? "Edit Delivery Address" : "Add Delivery Address"}
             </h2>
-            <p style={{ fontSize: "0.78rem", color: "#888", margin: "3px 0 0" }}>
+            <p style={{ fontSize: "0.75rem", color: "#666", margin: "2px 0 0" }}>
               Shipping restricted to Indian locations only.
             </p>
           </div>
+
           <button
+            type="button"
             onClick={onClose}
             style={{
-              background: "#000", color: "#fff", border: "none",
-              width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", flexShrink: 0, transition: "background 0.15s"
+              background: "#000", border: "none", color: "#fff",
+              width: 32, height: 32, cursor: "pointer", display: "flex",
+              alignItems: "center", justifyContent: "center", transition: "opacity 0.15s"
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = "#333"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "#000"; }}
           >
-            <XIcon size={16} color="#fff" />
+            <XIcon size={18} color="#fff" />
           </button>
         </div>
 
-        <div style={{ padding: "20px 24px 24px", flex: 1 }}>
-          {/* Error Banner */}
+        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
           {error && (
             <div style={{
-              borderLeft: "4px solid #dc2626", background: "#fef2f2", color: "#dc2626",
-              padding: "12px 14px", fontSize: "0.84rem", marginBottom: 18,
-              display: "flex", alignItems: "center", gap: 8, fontWeight: 700
+              background: "#fee2e2", border: "1px solid #ef4444", color: "#991b1b",
+              padding: "10px 14px", fontSize: "0.82rem", fontWeight: 700,
+              display: "flex", alignItems: "center", gap: 8
             }}>
-              <AlertCircleIcon size={15} color="#dc2626" />
-              <span>{error}</span>
+              <AlertCircleIcon size={16} color="#991b1b" />
+              {error}
             </div>
           )}
 
-          {/* Tab Bar */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", border: "2px solid #000", marginBottom: 22 }}>
+          <div style={{ display: "flex", borderBottom: "2px solid #e5e7eb" }}>
             <button
               type="button"
               onClick={() => setActiveTab("search")}
               style={{
-                background: activeTab === "search" ? "#000" : "#fff",
-                color: activeTab === "search" ? "#fff" : "#000",
-                border: "none",
-                borderRight: "1px solid #000",
-                padding: "12px 8px", fontWeight: 900, fontSize: "0.78rem",
-                textTransform: "uppercase", letterSpacing: "0.06em",
-                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-                transition: "all 0.15s"
+                flex: 1, padding: "10px", fontSize: "0.82rem", fontWeight: 900,
+                textTransform: "uppercase", letterSpacing: "0.05em", background: "none", border: "none",
+                borderBottom: activeTab === "search" ? "3px solid #000" : "3px solid transparent",
+                color: activeTab === "search" ? "#000" : "#888", cursor: "pointer", transition: "all 0.15s",
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8
               }}
             >
-              <SearchIcon size={14} color={activeTab === "search" ? "#fff" : "#000"} />
-              Auto-Search
+              <SearchIcon size={15} color={activeTab === "search" ? "#000" : "#888"} />
+              Search Locality
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("manual")}
               style={{
-                background: activeTab === "manual" ? "#000" : "#fff",
-                color: activeTab === "manual" ? "#fff" : "#000",
-                border: "none",
-                padding: "12px 8px", fontWeight: 900, fontSize: "0.78rem",
-                textTransform: "uppercase", letterSpacing: "0.06em",
-                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-                transition: "all 0.15s"
+                flex: 1, padding: "10px", fontSize: "0.82rem", fontWeight: 900,
+                textTransform: "uppercase", letterSpacing: "0.05em", background: "none", border: "none",
+                borderBottom: activeTab === "manual" ? "3px solid #000" : "3px solid transparent",
+                color: activeTab === "manual" ? "#000" : "#888", cursor: "pointer", transition: "all 0.15s",
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8
               }}
             >
-              <BuildingIcon size={14} color={activeTab === "manual" ? "#fff" : "#000"} />
-              Manual Entry
+              <BuildingIcon size={15} color={activeTab === "manual" ? "#000" : "#888"} />
+              Enter Manually
             </button>
+
           </div>
 
-          {/* TAB 1: AUTO-SEARCH */}
           {activeTab === "search" && (
-            <div>
-              <label style={labelStyle}>Search area, city or landmark in India</label>
-              <div style={{ position: "relative", marginBottom: 8 }}>
-                <div style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
-                  <SearchIcon size={15} color="#9ca3af" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ position: "relative" }}>
+                <label style={labelStyle}>Search Area / Landmark / PIN Code</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    placeholder="e.g. Bandra West, Mumbai or 400050..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    style={{ ...inputStyle, paddingLeft: 38 }}
+                  />
+                  <div style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }}>
+                    <SearchIcon size={16} color="#666" />
+                  </div>
                 </div>
-                <input
-                  type="text"
-                  placeholder="e.g. Bandra West Mumbai, Connaught Place Delhi..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  style={{ ...inputStyle, paddingLeft: 38, border: "1px solid #000" }}
-                  onFocus={e => { e.currentTarget.style.outline = "2px solid #000"; e.currentTarget.style.outlineOffset = "1px"; }}
-                  onBlur={e => { e.currentTarget.style.outline = "none"; }}
-                />
+
                 {searching && (
-                  <div style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }}>
-                    <div style={{ width: 16, height: 16, border: "2px solid #000", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                  <div style={{ fontSize: "0.78rem", color: "#666", marginTop: 6, fontWeight: 600 }}>
+                    Searching locations across India...
+                  </div>
+                )}
+
+                {suggestions.length > 0 && (
+                  <div style={{
+                    position: "absolute", left: 0, right: 0, top: "100%", marginTop: 4,
+                    background: "#fff", border: "2px solid #000", zIndex: 50,
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.15)", maxHeight: 240, overflowY: "auto"
+                  }}>
+                    {suggestions.map((sugg) => (
+                      <button
+                        key={sugg.place_id}
+                        type="button"
+                        onClick={() => handleSelectSuggestion(sugg)}
+                        style={{
+                          width: "100%", textAlign: "left", padding: "12px 14px",
+                          background: "#fff", border: "none", borderBottom: "1px solid #eee",
+                          fontSize: "0.82rem", color: "#000", cursor: "pointer", fontWeight: 600,
+                          display: "flex", alignItems: "flex-start", gap: 10, transition: "background 0.1s"
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#f8fafc"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "#fff"; }}
+                      >
+                        <MapPinIcon size={16} color="#000" style={{ flexShrink: 0, marginTop: 2 }} />
+                        <span>{sugg.display_name}</span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* Suggestions dropdown */}
-              {suggestions.length > 0 && (
-                <div style={{ border: "1px solid #000", borderTop: "none", maxHeight: 220, overflowY: "auto" }}>
-                  {suggestions.map(s => (
-                    <div
-                      key={s.place_id}
-                      onClick={() => handleSelectSuggestion(s)}
-                      style={{
-                        padding: "11px 14px", borderBottom: "1px solid #f3f4f6",
-                        cursor: "pointer", fontSize: "0.85rem", color: "#000",
-                        display: "flex", alignItems: "flex-start", gap: 10, transition: "background 0.1s"
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "#f8fafc"; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = "#fff"; }}
-                    >
-                      <MapPinIcon size={15} color="#666" style={{ marginTop: 1, flexShrink: 0 } as React.CSSProperties} />
-                      <span style={{ lineHeight: 1.4 }}>{s.display_name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Info callout */}
               <div style={{
-                marginTop: 16, background: "#f0f9ff", border: "1px solid #0ea5e9",
-                padding: "12px 14px", display: "flex", gap: 10, alignItems: "flex-start"
+                background: "#f8fafc", border: "1px solid #e2e8f0", padding: 14,
+                display: "flex", gap: 10, alignItems: "flex-start"
               }}>
-                <div style={{ width: 18, height: 18, background: "#0ea5e9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                  <span style={{ color: "#fff", fontSize: "0.7rem", fontWeight: 900 }}>i</span>
+                <MapPinIcon size={16} color="#000" style={{ flexShrink: 0, marginTop: 2 }} />
+                <div style={{ fontSize: "0.78rem", color: "#475569", lineHeight: 1.45 }}>
+                  <strong>How auto-fill works:</strong> Select your area above to automatically fill city, state, PIN code, and locality, then complete your flat/house details in the next step.
                 </div>
-                <p style={{ fontSize: "0.8rem", color: "#0369a1", margin: 0, lineHeight: 1.5 }}>
-                  Select a suggestion to auto-fill street, city, state & PIN code. You'll then enter your flat/house number in the next step.
-                </p>
               </div>
 
               {autofilled && (
-                <div style={{
-                  marginTop: 12, background: "#f0fdf4", border: "1px solid #16a34a",
-                  padding: "12px 14px", display: "flex", gap: 10, alignItems: "center"
-                }}>
-                  <div style={{ width: 18, height: 18, background: "#16a34a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <span style={{ color: "#fff", fontSize: "0.75rem", fontWeight: 900 }}>✓</span>
-                  </div>
-                  <p style={{ fontSize: "0.8rem", color: "#15803d", margin: 0, fontWeight: 700 }}>
-                    Location auto-filled! Switch to Manual Entry to add your flat/house number.
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("manual")}
+                  style={{
+                    background: "#000", color: "#fff", border: "none", padding: "12px",
+                    fontWeight: 900, fontSize: "0.85rem", cursor: "pointer",
+                    textTransform: "uppercase", letterSpacing: "0.05em", width: "100%"
+                  }}
+                >
+                  Continue to Complete Address Details →
+                </button>
               )}
             </div>
           )}
 
-          {/* TAB 2: MANUAL ENTRY */}
           {activeTab === "manual" && (
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 
-              {/* Address Label */}
               <div>
                 <label style={labelStyle}>Address Label</label>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -441,7 +515,58 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
                 </div>
               </div>
 
-              {/* Dwelling Type Toggle */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>First Name *</label>
+                  <input
+                    type="text" required placeholder="e.g. Rahul" value={form.first_name}
+                    onChange={e => updateField("first_name", e.target.value)}
+                    style={inputStyle}
+                    onFocus={e => { e.currentTarget.style.borderColor = "#000"; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = "#d1d5db"; }}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Last Name *</label>
+                  <input
+                    type="text" required placeholder="e.g. Sharma" value={form.last_name}
+                    onChange={e => updateField("last_name", e.target.value)}
+                    style={inputStyle}
+                    onFocus={e => { e.currentTarget.style.borderColor = "#000"; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = "#d1d5db"; }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <PhoneIcon size={11} color="#555" /> Mobile Number *
+                    </span>
+                  </label>
+                  <input
+                    type="tel" required placeholder="+91 98765 43210"
+                    value={form.phone}
+                    onChange={e => updateField("phone", e.target.value)}
+                    style={inputStyle}
+                    onFocus={e => { e.currentTarget.style.borderColor = "#000"; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = "#d1d5db"; }}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Email Address (for order updates)</label>
+                  <input
+                    type="email" placeholder="name@example.com"
+                    value={form.email}
+                    onChange={e => updateField("email", e.target.value)}
+                    style={inputStyle}
+                    onFocus={e => { e.currentTarget.style.borderColor = "#000"; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = "#d1d5db"; }}
+                  />
+                </div>
+              </div>
+
               <div>
                 <label style={labelStyle}>Property Type</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -459,7 +584,6 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
                     <BuildingIcon size={16} color="#000" />
                     <div style={{ textAlign: "left" }}>
                       <div style={{ fontSize: "0.78rem", fontWeight: 900, textTransform: "uppercase" }}>Flat / Apartment</div>
-                      <div style={{ fontSize: "0.65rem", color: "#888", fontWeight: 600 }}>Complex / Society</div>
                     </div>
                   </button>
                   <button
@@ -476,13 +600,11 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
                     <HouseIcon size={16} color="#000" />
                     <div style={{ textAlign: "left" }}>
                       <div style={{ fontSize: "0.78rem", fontWeight: 900, textTransform: "uppercase" }}>House / Villa</div>
-                      <div style={{ fontSize: "0.65rem", color: "#888", fontWeight: 600 }}>Independent property</div>
                     </div>
                   </button>
                 </div>
               </div>
 
-              {/* Flat/House Details */}
               {dwellingType === "apartment" ? (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <div>
@@ -535,7 +657,7 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
                   <div>
                     <label style={labelStyle}>House / Plot No. *</label>
                     <input
-                      type="text" required placeholder="e.g. 12 or Plot 5"
+                      type="text" required placeholder="e.g. 12"
                       value={form.house_flat_no}
                       onChange={e => updateField("house_flat_no", e.target.value)}
                       style={inputStyle}
@@ -557,7 +679,6 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
                 </div>
               )}
 
-              {/* Street / Area */}
               <div>
                 <label style={labelStyle}>Street / Area / Locality *</label>
                 <input
@@ -570,31 +691,6 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
                 />
               </div>
 
-              {/* Recipient Name */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>First Name *</label>
-                  <input
-                    type="text" required value={form.first_name}
-                    onChange={e => updateField("first_name", e.target.value)}
-                    style={inputStyle}
-                    onFocus={e => { e.currentTarget.style.borderColor = "#000"; }}
-                    onBlur={e => { e.currentTarget.style.borderColor = "#d1d5db"; }}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>Last Name *</label>
-                  <input
-                    type="text" required value={form.last_name}
-                    onChange={e => updateField("last_name", e.target.value)}
-                    style={inputStyle}
-                    onFocus={e => { e.currentTarget.style.borderColor = "#000"; }}
-                    onBlur={e => { e.currentTarget.style.borderColor = "#d1d5db"; }}
-                  />
-                </div>
-              </div>
-
-              {/* City + State */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={labelStyle}>City / Town *</label>
@@ -620,48 +716,18 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
                 </div>
               </div>
 
-              {/* PIN + Phone */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>PIN Code (6 digits) *</label>
-                  <input
-                    type="text" required maxLength={6} placeholder="400001"
-                    value={form.pincode}
-                    onChange={e => updateField("pincode", e.target.value.replace(/\D/g, ""))}
-                    style={inputStyle}
-                    onFocus={e => { e.currentTarget.style.borderColor = "#000"; }}
-                    onBlur={e => { e.currentTarget.style.borderColor = "#d1d5db"; }}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                      <PhoneIcon size={11} color="#555" /> Mobile Number *
-                    </span>
-                  </label>
-                  <input
-                    type="tel" required placeholder="+91 98765 43210"
-                    value={form.phone}
-                    onChange={e => updateField("phone", e.target.value)}
-                    style={inputStyle}
-                    onFocus={e => { e.currentTarget.style.borderColor = "#000"; }}
-                    onBlur={e => { e.currentTarget.style.borderColor = "#d1d5db"; }}
-                  />
-                </div>
+              <div>
+                <label style={labelStyle}>PIN Code (6 digits) *</label>
+                <input
+                  type="text" required maxLength={6} placeholder="400001"
+                  value={form.pincode}
+                  onChange={e => updateField("pincode", e.target.value.replace(/\D/g, ""))}
+                  style={inputStyle}
+                  onFocus={e => { e.currentTarget.style.borderColor = "#000"; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = "#d1d5db"; }}
+                />
               </div>
 
-              {/* India-only note */}
-              <div style={{
-                background: "#fafafa", border: "1px solid #e5e5e5",
-                padding: "10px 14px", display: "flex", gap: 8, alignItems: "center"
-              }}>
-                <MapPinIcon size={13} color="#888" />
-                <span style={{ fontSize: "0.75rem", color: "#888", fontWeight: 700 }}>
-                  Shipping available within India only · 6-digit PIN Code required
-                </span>
-              </div>
-
-              {/* Form Actions */}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 4 }}>
                 <button
                   type="button" onClick={onClose}
@@ -685,8 +751,9 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess }: Addr
                     textTransform: "uppercase", letterSpacing: "0.05em", transition: "background 0.2s"
                   }}
                 >
-                  {loading ? "Saving..." : "Save Address →"}
+                  {loading ? "Saving..." : initialAddress ? "Update Address →" : "Save Address →"}
                 </button>
+
               </div>
             </form>
           )}

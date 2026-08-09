@@ -1,9 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { getCollection } from '@/lib/api';
+import { getCollection, getCollections } from '@/lib/api';
 import ProductCard from '@/components/collection/ProductCard';
 import CollectionFilters from '@/components/collection/CollectionFilters';
+import type { CollectionListItem } from '@/lib/api/types';
+
+export const dynamic = 'force-dynamic';
 
 interface Props {
   params: Promise<{ handle: string }>;
@@ -15,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const collection = await getCollection(handle).catch(() => null);
   if (!collection) return { title: 'Collection Not Found' };
   return {
-    title: collection.seo.title ?? collection.title,
+    title: `${collection.seo.title ?? collection.title} — VAHN`,
     description: collection.seo.description ?? collection.description.slice(0, 160),
   };
 }
@@ -36,98 +40,266 @@ export default async function CollectionPage({ params, searchParams }: Props) {
     }
   });
 
-  const collection = await getCollection(handle, {
-    first: 24,
-    sortKey,
-    reverse,
-    filters: filters.length > 0 ? filters : undefined,
-  }).catch(() => null);
+  const [collection, allCollections] = await Promise.all([
+    getCollection(handle, {
+      first: 24,
+      sortKey,
+      reverse,
+      filters: filters.length > 0 ? filters : undefined,
+    }).catch(() => null),
+    getCollections().catch(() => []),
+  ]);
 
   if (!collection) notFound();
 
   const products = collection.products.edges.map((e) => e.node);
   const availableFilters = collection.products.filters ?? [];
-
-  // Special: catalogue page card (from collection.json)
-  const isCatalogueCollection = handle === 'vahn-beginning';
+  const hasImage = !!collection.image;
+  const otherCollections = allCollections.filter((c: CollectionListItem) => c.handle !== handle);
 
   return (
     <>
-      {/* Collection header */}
+      {/* ── Immersive Collection Header ── */}
       <div
         style={{
-          background: 'var(--color-grey-light)',
-          borderBottom: '1px solid var(--color-border)',
-          padding: 'var(--space-2xl) var(--space-xl)',
+          position: 'relative',
+          minHeight: 340,
+          display: 'flex',
+          alignItems: 'flex-end',
+          overflow: 'hidden',
+          background: hasImage ? undefined : 'linear-gradient(135deg, #0a0a12 0%, #12131A 60%, #1a1040 100%)',
         }}
       >
-        <div style={{ maxWidth: 'var(--page-width)', margin: '0 auto' }}>
-          <p className="section-title">Collection</p>
-          <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(2rem, 5vw, 5rem)', marginTop: '8px' }}>
+        {/* Background image */}
+        {hasImage && collection.image && (
+          <Image
+            src={collection.image.url}
+            alt={collection.image.altText ?? collection.title}
+            fill
+            priority
+            sizes="100vw"
+            style={{ objectFit: 'cover', objectPosition: 'center 30%' }}
+          />
+        )}
+
+        {/* Dark gradient overlay */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: hasImage
+              ? 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.1) 100%)'
+              : 'none',
+          }}
+        />
+
+        {/* Grid overlay for no-image state */}
+        {!hasImage && (
+          <div
+            style={{
+              position: 'absolute', inset: 0, opacity: 0.04,
+              backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)',
+              backgroundSize: '60px 60px',
+            }}
+          />
+        )}
+
+        {/* Content */}
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 2,
+            maxWidth: 'var(--page-width)',
+            width: '100%',
+            margin: '0 auto',
+            padding: 'var(--space-2xl) var(--space-xl) var(--space-xl)',
+          }}
+        >
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <Link
+              href="/collections"
+              style={{
+                fontFamily: 'var(--font-ui)',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.5)',
+                textDecoration: 'none',
+              }}
+            >
+              Shop
+            </Link>
+            <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.72rem' }}>›</span>
+            <span
+              style={{
+                fontFamily: 'var(--font-ui)',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.7)',
+              }}
+            >
+              {collection.title}
+            </span>
+          </div>
+
+          {/* Collection title */}
+          <h1
+            style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: 'clamp(2.2rem, 6vw, 5rem)',
+              textTransform: 'uppercase',
+              color: '#ffffff',
+              lineHeight: 1,
+              letterSpacing: '0.01em',
+              marginBottom: collection.description ? 16 : 0,
+            }}
+          >
             {collection.title}
           </h1>
+
           {collection.description && (
-            <p style={{ marginTop: '16px', maxWidth: '600px', color: 'var(--color-grey-dark)', fontFamily: 'var(--font-body)' }}>
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '1rem',
+                color: 'rgba(255,255,255,0.65)',
+                maxWidth: 560,
+                lineHeight: 1.65,
+                marginBottom: 0,
+              }}
+            >
               {collection.description}
             </p>
           )}
         </div>
       </div>
 
-      {/* Catalogue card for vahn-beginning */}
-      {isCatalogueCollection && (
-        <div style={{ maxWidth: 'var(--page-width)', margin: '24px auto 0', padding: '0 var(--space-xl)' }}>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--color-grey-dark)', fontStyle: 'italic', fontFamily: 'var(--font-body)' }}>
-            Our Catalogue
-          </p>
-          <a
-            href="https://drive.google.com/file/d/1otQab6q8TzPgdPtEdZcdK3iRfv8-09c-/view?usp=sharing"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="catalogue-card"
-            style={{ maxWidth: '400px', display: 'block', marginTop: '12px' }}
-          >
-            <div style={{ aspectRatio: '4/3', background: 'var(--color-navy)', display: 'flex', alignItems: 'flex-end', padding: '24px', position: 'relative' }}>
-              <div>
-                <p className="catalogue-card-title">VAHN Bespoke Teamwear 2025</p>
-                <p className="catalogue-card-desc">Click to download ↗</p>
-              </div>
-            </div>
-          </a>
+      {/* ── Collection Switcher Bar ── */}
+      {allCollections.length > 1 && (
+        <div style={{ background: '#f8f8fb', borderBottom: '1px solid var(--color-grey-mid)', padding: '12px var(--space-xl)', overflowX: 'auto' }}>
+          <div style={{ maxWidth: 'var(--page-width)', margin: '0 auto', display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}>
+            <span style={{ fontFamily: 'var(--font-ui)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-grey-dark)', marginRight: 6 }}>
+              Collections:
+            </span>
+            <Link
+              href="/collections"
+              style={{
+                fontFamily: 'var(--font-ui)',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                padding: '6px 14px',
+                borderRadius: 20,
+                background: 'transparent',
+                border: '1px solid var(--color-grey-mid)',
+                color: 'var(--color-grey-dark)',
+                textDecoration: 'none',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              All Collections ({allCollections.length})
+            </Link>
+            {allCollections.map((c: CollectionListItem) => {
+              const isActive = c.handle === handle;
+              return (
+                <Link
+                  key={c.id}
+                  href={`/collections/${c.handle}`}
+                  style={{
+                    fontFamily: 'var(--font-ui)',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    padding: '6px 16px',
+                    borderRadius: 20,
+                    background: isActive ? 'var(--color-navy)' : '#ffffff',
+                    border: `1px solid ${isActive ? 'var(--color-navy)' : 'var(--color-grey-mid)'}`,
+                    color: isActive ? '#ffffff' : 'var(--color-black)',
+                    textDecoration: 'none',
+                    transition: 'all 0.2s ease',
+                    boxShadow: isActive ? '0 2px 8px rgba(58, 54, 153, 0.25)' : 'none',
+                  }}
+                >
+                  {c.title} ({c.products_count})
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {/* Grid */}
+      {/* ── Products Section ── */}
       <div style={{ maxWidth: 'var(--page-width)', margin: '0 auto', padding: 'var(--space-xl) var(--space-xl)' }}>
         <div style={{ display: 'flex', gap: 'var(--space-xl)', alignItems: 'flex-start' }}>
+
           {/* Filters sidebar */}
           {availableFilters.length > 0 && (
-            <aside style={{ width: '240px', flexShrink: 0 }}>
+            <aside style={{ width: 240, flexShrink: 0 }}>
               <CollectionFilters filters={availableFilters} />
             </aside>
           )}
 
-          {/* Products */}
-          <div style={{ flex: 1 }}>
-            {/* Sort bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)' }}>
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-grey-dark)' }}>
-                {products.length} product{products.length !== 1 ? 's' : ''}
-              </p>
+          {/* Products column */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+
+            {/* Sort / count bar */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 'var(--space-lg)',
+                paddingBottom: 'var(--space-md)',
+                borderBottom: '1px solid var(--color-grey-mid)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'var(--color-navy)',
+                    color: '#fff',
+                    fontFamily: 'var(--font-ui)',
+                    fontWeight: 700,
+                    fontSize: '0.72rem',
+                    letterSpacing: '0.06em',
+                    padding: '4px 10px',
+                    minWidth: 32,
+                  }}
+                >
+                  {products.length}
+                </span>
+                <p style={{ fontFamily: 'var(--font-ui)', fontSize: '0.82rem', color: 'var(--color-grey-dark)', margin: 0 }}>
+                  Product{products.length !== 1 ? 's' : ''} in this collection
+                </p>
+              </div>
+
               <form id="sort-form" method="get">
                 <select
                   name="sort"
                   defaultValue={sortKey}
+                  form="sort-form"
                   style={{
                     border: '1px solid var(--color-border)',
+                    borderRadius: 2,
                     padding: '8px 12px',
                     fontFamily: 'var(--font-ui)',
-                    fontSize: '0.875rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
                     background: 'var(--color-white)',
                     cursor: 'pointer',
                     outline: 'none',
+                    color: 'var(--color-black)',
+                    letterSpacing: '0.04em',
                   }}
-                  form="sort-form"
                 >
                   <option value="MANUAL">Featured</option>
                   <option value="BEST_SELLING">Best Selling</option>
@@ -138,24 +310,69 @@ export default async function CollectionPage({ params, searchParams }: Props) {
               </form>
             </div>
 
+            {/* Products grid or empty state */}
             {products.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 'var(--space-3xl)' }}>
-                <p style={{ fontSize: '1.125rem', marginBottom: '8px' }}>No products found</p>
-                <p style={{ color: 'var(--color-grey-dark)', fontSize: '0.875rem' }}>
-                  Try adjusting your filters or browse all products.
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: 'var(--space-3xl) var(--space-md)',
+                  border: '1px dashed var(--color-border)',
+                  background: 'var(--color-grey-light)',
+                }}
+              >
+                <div
+                  style={{
+                    width: 56, height: 56,
+                    background: 'var(--color-grey-mid)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    margin: '0 auto 20px',
+                  }}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5">
+                    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </div>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '1rem', fontWeight: 600, marginBottom: 8 }}>
+                  No products found in this collection
                 </p>
+                <p style={{ color: 'var(--color-grey-dark)', fontSize: '0.875rem', marginBottom: 24 }}>
+                  Add products from the Admin Panel or explore our other collections below.
+                </p>
+                <Link
+                  href="/collections"
+                  style={{
+                    display: 'inline-block',
+                    background: 'var(--color-navy)',
+                    color: '#fff',
+                    padding: '10px 24px',
+                    fontFamily: 'var(--font-ui)',
+                    fontWeight: 700,
+                    fontSize: '0.78rem',
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    textDecoration: 'none',
+                  }}
+                >
+                  View All Collections →
+                </Link>
               </div>
             ) : (
-              <div className="product-grid">
-                {products.map((p) => (
-                  <ProductCard key={p.id} product={p} />
+              <div className="product-grid collection-product-grid">
+                {products.map((p, i) => (
+                  <div
+                    key={p.id}
+                    className="collection-product-item"
+                    style={{ animationDelay: `${Math.min(i * 0.05, 0.4)}s` }}
+                  >
+                    <ProductCard product={p} />
+                  </div>
                 ))}
               </div>
             )}
 
             {/* Pagination */}
             {collection.products.pageInfo.hasNextPage && (
-              <div className="pagination">
+              <div className="pagination" style={{ marginTop: 'var(--space-xl)' }}>
                 <Link
                   href={`?after=${collection.products.pageInfo.endCursor}`}
                   className="pagination-btn"
@@ -167,6 +384,86 @@ export default async function CollectionPage({ params, searchParams }: Props) {
           </div>
         </div>
       </div>
+
+      {/* ── Explore Other Collections ── */}
+      {otherCollections.length > 0 && (
+        <div style={{ background: '#f8f8fc', borderTop: '1px solid var(--color-grey-mid)', padding: 'var(--space-2xl) var(--space-xl)' }}>
+          <div style={{ maxWidth: 'var(--page-width)', margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-xl)' }}>
+              <div>
+                <p style={{ fontFamily: 'var(--font-ui)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-grey-dark)', margin: 0 }}>
+                  Explore More
+                </p>
+                <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.8rem', textTransform: 'uppercase', margin: '4px 0 0', letterSpacing: '0.02em' }}>
+                  Other Collections
+                </h2>
+              </div>
+              <Link
+                href="/collections"
+                style={{
+                  fontFamily: 'var(--font-ui)',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-navy)',
+                  textDecoration: 'none',
+                }}
+              >
+                All Collections ({allCollections.length}) →
+              </Link>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 360px), 1fr))',
+                gap: 'var(--space-lg)',
+              }}
+            >
+              {otherCollections.map((c: CollectionListItem) => (
+                <Link
+                  key={c.id}
+                  href={`/collections/${c.handle}`}
+                  style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      border: '1px solid var(--color-grey-mid)',
+                      padding: 20,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 16,
+                      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                    }}
+                    className="other-collection-card"
+                  >
+                    <div style={{ width: 80, height: 80, position: 'relative', overflow: 'hidden', background: 'var(--color-navy)', flexShrink: 0 }}>
+                      {c.image ? (
+                        <Image src={c.image.url} alt={c.title} fill style={{ objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-heading)', fontSize: '1.1rem' }}>
+                          VAHN
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={{ fontFamily: 'var(--font-ui)', fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', margin: '0 0 4px', letterSpacing: '0.04em' }}>
+                        {c.title}
+                      </h3>
+                      <p style={{ fontFamily: 'var(--font-ui)', fontSize: '0.78rem', color: 'var(--color-grey-dark)', margin: 0 }}>
+                        {c.products_count} Product{c.products_count !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <span style={{ fontSize: '1.2rem', color: 'var(--color-navy)' }}>→</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

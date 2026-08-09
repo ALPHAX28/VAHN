@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getApiBaseUrl } from '@/lib/api/client';
+import SuspensionModal from '@/components/auth/SuspensionModal';
 
 const getEndpoint = (path: string) => `${getApiBaseUrl()}${path}`;
 
@@ -39,6 +40,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [successCallback, setSuccessCallback] = useState<(() => void) | null>(null);
 
+  const [suspensionNotice, setSuspensionNotice] = useState<{ isOpen: boolean; message: string }>({
+    isOpen: false,
+    message: ""
+  });
+
+  const triggerSuspensionNotice = (message: string) => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('vahn_auth_token');
+    localStorage.removeItem('vahn_auth_user');
+    setSuspensionNotice({ isOpen: true, message });
+  };
+
+  const handleCloseSuspensionModal = () => {
+    setSuspensionNotice({ isOpen: false, message: "" });
+    if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/account') || window.location.pathname.startsWith('/checkout'))) {
+      window.location.href = '/';
+    }
+  };
+
   useEffect(() => {
     const savedToken = localStorage.getItem('vahn_auth_token');
     const savedUser = localStorage.getItem('vahn_auth_user');
@@ -47,7 +68,83 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try { setUser(JSON.parse(savedUser)); } catch { /* ignore */ }
     }
     setLoading(false);
+
+    // Cross-tab logout listener (if token cleared in one tab, sync across all tabs)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'vahn_auth_token' && !e.newValue) {
+        setToken(null);
+        setUser(null);
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/account')) {
+          window.location.href = '/';
+        }
+      }
+    };
+
+    // Custom event listener for API 403 suspension responses
+    const handleSuspension = (e: Event) => {
+      const customEvent = e as CustomEvent<{ message?: string }>;
+      const msg = customEvent.detail?.message || "Your account access has been restricted by administration.";
+      triggerSuspensionNotice(msg);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('vahn_auth_suspended', handleSuspension);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('vahn_auth_suspended', handleSuspension);
+    };
   }, []);
+
+  // Periodic active session validator (polls /auth/me every 6s & on window focus)
+  useEffect(() => {
+    if (!token) return;
+
+    let isChecking = false;
+    const validateSession = async () => {
+      if (isChecking) return;
+      isChecking = true;
+      try {
+        const res = await fetch(getEndpoint('/auth/me'), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!res.ok) {
+          if (res.status === 403 || res.status === 401 || res.status === 404) {
+            let errorMsg = "Your account status has changed or has been restricted.";
+            try {
+              const errData = await res.json();
+              if (errData && errData.detail) errorMsg = errData.detail;
+            } catch { /* ignore */ }
+
+            triggerSuspensionNotice(errorMsg);
+          }
+        } else {
+          const freshUser = await res.json();
+          setUser(freshUser);
+          localStorage.setItem('vahn_auth_user', JSON.stringify(freshUser));
+        }
+      } catch {
+        // Network error — do not log out on temporary offline state
+      } finally {
+        isChecking = false;
+      }
+    };
+
+    validateSession();
+
+    const onFocus = () => validateSession();
+    window.addEventListener('focus', onFocus);
+
+    const interval = setInterval(validateSession, 6000);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      clearInterval(interval);
+    };
+  }, [token]);
+
+
+
 
   const openAuthModal = (onSuccess?: () => void) => {
     if (onSuccess) setSuccessCallback(() => onSuccess);
@@ -142,9 +239,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout, updateProfile, getAuthHeaders,
     }}>
       {children}
+      <SuspensionModal
+        isOpen={suspensionNotice.isOpen}
+        message={suspensionNotice.message}
+        onClose={handleCloseSuspensionModal}
+      />
     </AuthContext.Provider>
   );
 }
+
 
 export function useAuth() {
   const context = useContext(AuthContext);

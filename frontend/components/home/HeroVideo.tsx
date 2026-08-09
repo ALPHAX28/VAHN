@@ -72,8 +72,8 @@ export default function HeroVideo() {
           this is where it starts
         </h1>
         <Link
-          href="/collections/vahn-beginning"
-          className="btn btn-white"
+          href="/collections"
+          className="btn btn-secondary"
           style={{ letterSpacing: '0.12em' }}
         >
           Shop Collection
