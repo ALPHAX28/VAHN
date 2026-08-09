@@ -811,7 +811,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
 
       {/* Tags */}
       {product.tags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-lg)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '14px' }}>
           {product.tags.map((tag) => (
             <Link
               key={tag}
