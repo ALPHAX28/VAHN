@@ -415,9 +415,10 @@ export const getAdminReviews = (token: string, params?: { page?: number; search?
   return adminFetch<PaginatedResponse<AdminReview>>(`/admin/reviews?${q}`, token);
 };
 
-export const getProductReviews = (token: string, productId: number, page = 1, rating?: number) => {
+export const getProductReviews = (token: string, productId: number, page = 1, rating?: number, is_hidden?: boolean) => {
   const q = new URLSearchParams({ page: String(page) });
   if (rating !== undefined) q.set("rating", String(rating));
+  if (is_hidden !== undefined) q.set("is_hidden", String(is_hidden));
   return adminFetch<PaginatedResponse<AdminReview>>(`/admin/products/${productId}/reviews?${q}`, token);
 };
 

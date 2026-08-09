@@ -2120,10 +2120,13 @@ def admin_list_product_reviews(
     page: int = 1,
     page_size: int = 20,
     rating: Optional[int] = None,
+    is_hidden: Optional[bool] = None,
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     q = db.query(models.ProductReview).filter_by(product_id=product_id)
+    if is_hidden is not None:
+        q = q.filter(models.ProductReview.is_hidden == is_hidden)
     if rating is not None:
         q = q.filter(models.ProductReview.rating == rating)
     total = q.count()

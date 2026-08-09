@@ -43,7 +43,7 @@ export default function AdminReviewsPage() {
   const [page, setPage] = useState(1);
 
   const cachePath = selectedProduct 
-    ? `/admin/products/${selectedProduct.productId}/reviews?page=${page}${ratingFilter !== undefined ? `&rating=${ratingFilter}` : ""}` 
+    ? `/admin/products/${selectedProduct.productId}/reviews?page=${page}${ratingFilter !== undefined ? `&rating=${ratingFilter}` : ""}${hiddenFilter !== undefined ? `&is_hidden=${hiddenFilter}` : ""}` 
     : `/admin/reviews?page=${page}${hiddenFilter !== undefined ? `&is_hidden=${hiddenFilter}` : ""}${ratingFilter !== undefined ? `&rating=${ratingFilter}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
   const cacheKey = adminToken ? `admin:${adminToken.slice(0, 10)}:${cachePath}` : "";
   const initialData = cacheKey ? clientCache.get<PaginatedResponse<AdminReview>>(cacheKey) : null;
@@ -74,8 +74,8 @@ export default function AdminReviewsPage() {
     if (!isSilent && !reviewsData) setLoading(true);
     try {
       if (selectedProduct) {
-        // Fetch reviews specifically for the selected product
-        const res = await getProductReviews(adminToken, selectedProduct.productId, page, ratingFilter);
+        // Fetch reviews specifically for the selected product with filters
+        const res = await getProductReviews(adminToken, selectedProduct.productId, page, ratingFilter, hiddenFilter);
         setReviewsData(res);
       } else {
         // Fetch all reviews
