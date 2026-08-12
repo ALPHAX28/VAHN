@@ -1419,6 +1419,28 @@ export default function AdminProductDetailPage() {
       {/* Colour Groups Tab */}
       {activeTab === "Colour Groups" && (
         <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* SCRUM-53: Add new section at TOP */}
+          <div style={{ paddingBottom: 16, borderBottom: "1px solid var(--admin-card-border)" }}>
+            <h3 style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: 12 }}>+ Add New Colour Group</h3>
+            <div className="admin-form-group" style={{ maxWidth: 320 }}>
+              <label className="admin-form-label">Colour Name</label>
+              <input type="text" className="admin-form-input" placeholder="e.g. Yellow" value={newGroup.colour_value} onChange={e => setNewGroup(g => ({ ...g, colour_value: e.target.value }))} />
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <AdminImageUploader
+                key={newGroupUploaderKey}
+                endpoint="productImage"
+                label="Upload Initial Images for New Group"
+                onUploadComplete={imgs => setNewGroupImages(imgs.map(img => ({ url: img.url, altText: newGroup.colour_value })))}
+              />
+            </div>
+            <button className="admin-btn admin-btn--primary" style={{ marginTop: 12 }} onClick={handleAddGroup}>Save New Colour Group</button>
+          </div>
+
+          {/* SCRUM-53: Existing records below */}
+          {localGroups.length === 0 && (
+            <p style={{ color: "var(--admin-text-muted)", fontSize: "0.875rem", textAlign: "center", padding: "16px 0" }}>No colour groups yet. Add one above.</p>
+          )}
           {localGroups.map(g => (
             <div key={g.id} style={{ border: "1px solid var(--admin-card-border)", padding: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -1435,23 +1457,6 @@ export default function AdminProductDetailPage() {
               />
             </div>
           ))}
-
-          <div style={{ paddingTop: 16, borderTop: "1px solid var(--admin-card-border)" }}>
-            <h3 style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: 12 }}>+ Add New Colour Group</h3>
-            <div className="admin-form-group" style={{ maxWidth: 320 }}>
-              <label className="admin-form-label">Colour Name</label>
-              <input type="text" className="admin-form-input" placeholder="e.g. Yellow" value={newGroup.colour_value} onChange={e => setNewGroup(g => ({ ...g, colour_value: e.target.value }))} />
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <AdminImageUploader
-                key={newGroupUploaderKey}
-                endpoint="productImage"
-                label="Upload Initial Images for New Group"
-                onUploadComplete={imgs => setNewGroupImages(imgs.map(img => ({ url: img.url, altText: newGroup.colour_value })))}
-              />
-            </div>
-            <button className="admin-btn admin-btn--primary" style={{ marginTop: 12 }} onClick={handleAddGroup}>Save New Colour Group</button>
-          </div>
         </div>
       )}
 

@@ -49,7 +49,7 @@ export default function AdminSizeGuidePage() {
   const [uploading, setUploading] = useState(false);
 
   const [modalError, setModalError] = useState("");
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3500); };
 
   const load = useCallback(async () => {
     if (!adminToken) return;
@@ -153,7 +153,16 @@ export default function AdminSizeGuidePage() {
 
   return (
     <div className="admin-page">
-      {toast && (<div style={{ position:"fixed",bottom:24,right:24,zIndex:9999,background:"#1a1a1a",color:"#fff",padding:"12px 20px",borderRadius:6,fontWeight:600,fontSize:"0.875rem",boxShadow:"0 4px 16px rgba(0,0,0,0.3)" }}>{toast}</div>)}
+      {/* SCRUM-52: Consistent success notification at top */}
+      {toast && (
+        <div className="admin-alert admin-alert--success" style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {toast}
+          </span>
+          <button onClick={() => setToast("")} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 700, fontSize: "1rem" }}>✕</button>
+        </div>
+      )}
       <div className="admin-page-header">
         <div>
           <h1 className="admin-page-title">Size Guide</h1>

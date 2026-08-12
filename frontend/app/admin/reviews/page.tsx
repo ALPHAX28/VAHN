@@ -174,6 +174,16 @@ export default function AdminReviewsPage() {
     <div className="admin-page">
       <div className="admin-page-header">
         <div>
+          {/* SCRUM-35: Back button always on the LEFT, above page title */}
+          {selectedProduct && (
+            <button
+              className="admin-btn-inline-link"
+              onClick={() => { setSelectedProduct(null); setPage(1); }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 8, fontSize: "0.8125rem", color: "var(--admin-text-secondary)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: 0 }}
+            >
+              ← Back to All Products
+            </button>
+          )}
           <h1 className="admin-page-title">
             {selectedProduct ? `Reviews: ${selectedProduct.productTitle}` : "Reviews Moderation"}
           </h1>
@@ -185,16 +195,7 @@ export default function AdminReviewsPage() {
         </div>
 
         <div className="admin-header-actions">
-          {selectedProduct ? (
-            <>
-              <button
-                className="admin-btn admin-btn--ghost"
-                onClick={() => { setSelectedProduct(null); setPage(1); }}
-              >
-                ← Back to All Products
-              </button>
-            </>
-          ) : (
+          {!selectedProduct && (
             <div className="admin-status-tabs">
               <button
                 className={`admin-status-tab ${viewMode === "products" ? "admin-status-tab--active" : ""}`}
