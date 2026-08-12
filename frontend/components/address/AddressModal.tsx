@@ -116,7 +116,9 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
 
   // Populate form if initialAddress (edit mode) or auto-fill user info (create mode)
   useEffect(() => {
-    if (isOpen && initialAddress) {
+    if (!isOpen) return;
+
+    if (initialAddress) {
       let hNo = initialAddress.house_flat_no || "";
       let bName = initialAddress.building_name || initialAddress.apartment || "";
       let flNo = initialAddress.floor_no || "";
@@ -169,25 +171,34 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
         is_default: initialAddress.is_default,
       });
       setActiveTab("manual");
-    } else if (isOpen && user) {
-      setForm(f => {
-        let fName = f.first_name;
-        let lName = f.last_name;
-        if (!fName && user.full_name) {
-          const parts = user.full_name.trim().split(" ");
-          fName = parts[0] || "";
-          lName = parts.slice(1).join(" ") || "";
-        }
-        return {
-          ...f,
-          phone: f.phone || user.phone || "",
-          email: f.email || user.email || "",
-          first_name: fName,
-          last_name: lName,
-        };
+    } else {
+      let fName = "";
+      let lName = "";
+      if (user?.full_name) {
+        const parts = user.full_name.trim().split(" ");
+        fName = parts[0] || "";
+        lName = parts.slice(1).join(" ") || "";
+      }
+      setForm({
+        label: "Home",
+        first_name: fName,
+        last_name: lName,
+        phone: user?.phone || "",
+        email: user?.email || "",
+        house_flat_no: "",
+        floor_no: "",
+        building_name: "",
+        block_wing: "",
+        street_address: "",
+        city: "Mumbai",
+        state: "Maharashtra",
+        pincode: "",
+        country: "India",
+        is_default: true,
       });
+      setActiveTab("search");
     }
-  }, [isOpen, initialAddress, user]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!searchQuery.trim() || searchQuery.length < 3) {
@@ -283,6 +294,15 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
       return;
     }
 
+    let formattedPhone = form.phone.trim().replace(/[\s\-\(\)]/g, '');
+    if (/^\d{10}$/.test(formattedPhone)) {
+      formattedPhone = '+91' + formattedPhone;
+    } else if (/^91\d{10}$/.test(formattedPhone)) {
+      formattedPhone = '+' + formattedPhone;
+    }
+
+    setForm(f => ({ ...f, phone: formattedPhone }));
+
     setLoading(true);
     try {
       const payload = {
@@ -299,7 +319,7 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
         state: form.state.trim(),
         pincode: form.pincode.trim(),
         country: "India",
-        phone: form.phone.trim(),
+        phone: formattedPhone,
         email: form.email.trim() || undefined,
         is_default: form.is_default
       };

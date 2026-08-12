@@ -36,16 +36,21 @@ PHONE_E164_RE = re.compile(r'^\+[1-9]\d{6,14}$')
 def normalize_phone(phone: str) -> str:
     """
     Strip spaces/dashes and ensure E.164 format.
+    Auto-prefixes +91 for 10-digit mobile numbers if missing.
     Raises ValueError if invalid.
     """
     cleaned = re.sub(r'[\s\-\(\)]', '', phone.strip())
-    # Auto-prefix India +91 for 10-digit numbers
-    if re.match(r'^[6-9]\d{9}$', cleaned):
+    if re.match(r'^\d{10}$', cleaned):
         cleaned = '+91' + cleaned
+    elif re.match(r'^91\d{10}$', cleaned):
+        cleaned = '+' + cleaned
+    elif not cleaned.startswith('+') and re.match(r'^\d{10,12}$', cleaned):
+        cleaned = '+' + cleaned
+
     if not PHONE_E164_RE.match(cleaned):
         raise ValueError(
             "Invalid phone number. Use E.164 format (e.g. +919876543210) "
-            "or a 10-digit Indian mobile number."
+            "or a 10-digit mobile number."
         )
     return cleaned
 

@@ -22,12 +22,13 @@ interface AuthContextType {
   isAuthModalOpen: boolean;
   openAuthModal: (onSuccess?: () => void) => void;
   closeAuthModal: () => void;
-  // Phone-first OTP flow
+  // Email-first OTP flow
+  checkEmail: (email: string) => Promise<{ exists: boolean }>;
   checkPhone: (phone: string) => Promise<{ exists: boolean }>;
-  sendOTP: (phone: string, fullName?: string, email?: string) => Promise<{ otp_token: string; is_new_user: boolean }>;
-  verifyOTP: (phone: string, otpCode: string, otpToken: string) => Promise<void>;
+  sendOTP: (email: string, fullName?: string, phone?: string) => Promise<{ otp_token: string; is_new_user: boolean }>;
+  verifyOTP: (email: string, otpCode: string, otpToken: string) => Promise<void>;
   logout: () => void;
-  updateProfile: (fullName: string) => Promise<void>;
+  updateProfile: (fullName?: string, phone?: string) => Promise<void>;
   getAuthHeaders: () => Record<string, string>;
 }
 
@@ -162,6 +163,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return headers;
   };
 
+  const checkEmail = async (email: string): Promise<{ exists: boolean }> => {
+    const res = await fetch(getEndpoint('/auth/check-email'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Failed to check email');
+    }
+    return res.json();
+  };
+
   const checkPhone = async (phone: string): Promise<{ exists: boolean }> => {
     const res = await fetch(getEndpoint('/auth/check-phone'), {
       method: 'POST',
@@ -175,11 +189,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res.json();
   };
 
-  const sendOTP = async (phone: string, fullName?: string, email?: string): Promise<{ otp_token: string; is_new_user: boolean }> => {
+  const sendOTP = async (email: string, fullName?: string, phone?: string): Promise<{ otp_token: string; is_new_user: boolean }> => {
     const res = await fetch(getEndpoint('/auth/send-otp'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, full_name: fullName, email }),
+      body: JSON.stringify({ email, full_name: fullName, phone }),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -188,11 +202,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res.json();
   };
 
-  const verifyOTP = async (phone: string, otpCode: string, otpToken: string): Promise<void> => {
+  const verifyOTP = async (email: string, otpCode: string, otpToken: string): Promise<void> => {
     const res = await fetch(getEndpoint('/auth/verify-otp'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, otp_code: otpCode, otp_token: otpToken }),
+      body: JSON.stringify({ email, otp_code: otpCode, otp_token: otpToken }),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -216,11 +230,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('vahn_auth_user');
   };
 
-  const updateProfile = async (fullName: string): Promise<void> => {
+  const updateProfile = async (fullName?: string, phone?: string): Promise<void> => {
     const res = await fetch(getEndpoint('/auth/profile'), {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ full_name: fullName }),
+      body: JSON.stringify({ full_name: fullName, phone }),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -235,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       user, token, loading, isAuthModalOpen,
       openAuthModal, closeAuthModal,
-      checkPhone, sendOTP, verifyOTP,
+      checkEmail, checkPhone, sendOTP, verifyOTP,
       logout, updateProfile, getAuthHeaders,
     }}>
       {children}

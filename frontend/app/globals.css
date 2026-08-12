@@ -280,6 +280,20 @@ input, textarea, select {
   transform: translateY(-1px);
 }
 
+.btn-hero-cta {
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--color-white) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+}
+
+.btn-hero-cta:hover {
+  background: var(--color-white) !important;
+  color: var(--color-black) !important;
+  border-color: var(--color-white) !important;
+  transform: translateY(-1px);
+}
+
 
 .btn-navy {
   background: var(--color-navy);

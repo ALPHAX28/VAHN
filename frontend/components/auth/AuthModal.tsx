@@ -5,6 +5,15 @@ import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 
 // ── Icons ────────────────────────────────────────────────────
+function MailIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+      <polyline points="22,6 12,13 2,6" />
+    </svg>
+  );
+}
+
 function PhoneIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -39,16 +48,16 @@ function BackIcon() {
 }
 
 // ── Step machine ─────────────────────────────────────────────
-type Step = 'phone' | 'details' | 'otp';
+type Step = 'email' | 'details' | 'otp';
 
 export default function AuthModal() {
-  const { isAuthModalOpen, closeAuthModal, checkPhone, sendOTP, verifyOTP } = useAuth();
+  const { isAuthModalOpen, closeAuthModal, checkEmail, sendOTP, verifyOTP } = useAuth();
 
   // State
-  const [step, setStep] = useState<Step>('phone');
-  const [phone, setPhone] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [otpToken, setOtpToken] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
@@ -58,22 +67,22 @@ export default function AuthModal() {
   const [showExtraFields, setShowExtraFields] = useState(false);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const phoneRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
 
   // Reset on open
   useEffect(() => {
     if (isAuthModalOpen) {
       document.body.style.overflow = 'hidden';
-      setStep('phone');
-      setPhone('');
-      setFullName('');
+      setStep('email');
       setEmail('');
+      setFullName('');
+      setPhone('');
       setOtpToken('');
       setOtpDigits(['', '', '', '', '', '']);
       setError('');
       setLoading(false);
       setShowExtraFields(false);
-      setTimeout(() => phoneRef.current?.focus(), 120);
+      setTimeout(() => emailRef.current?.focus(), 120);
     } else {
       document.body.style.overflow = '';
     }
@@ -90,25 +99,28 @@ export default function AuthModal() {
 
   if (!isAuthModalOpen) return null;
 
-  // ── Step 1 — Phone entry ──────────────────────────────────
-  const handlePhoneContinue = async (e: React.FormEvent) => {
+  // ── Step 1 — Email entry ──────────────────────────────────
+  const handleEmailContinue = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const trimmed = phone.trim();
-    if (!trimmed) { setError('Please enter your phone number.'); return; }
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
 
     setLoading(true);
     try {
-      const result = await checkPhone(trimmed);
+      const result = await checkEmail(trimmed);
       if (result.exists) {
-        // Existing user — go straight to OTP
+        // Existing user — send OTP to email directly
         const { otp_token } = await sendOTP(trimmed);
         setOtpToken(otp_token);
         setIsNewUser(false);
         setStep('otp');
         setTimeout(() => otpRefs.current[0]?.focus(), 120);
       } else {
-        // New user — reveal name + email fields
+        // New user — prompt for Full Name AND Phone (required)
         setIsNewUser(true);
         setShowExtraFields(true);
         setStep('details');
@@ -125,13 +137,17 @@ export default function AuthModal() {
     e.preventDefault();
     setError('');
     if (!fullName.trim()) { setError('Please enter your full name.'); return; }
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError('Please enter a valid email address.');
-      return;
-    }
+    if (!phone.trim()) { setError('Please enter your phone number.'); return; }
+
     setLoading(true);
     try {
-      const { otp_token } = await sendOTP(phone.trim(), fullName.trim(), email.trim());
+      let formattedPhone = phone.trim().replace(/[\s\-\(\)]/g, '');
+      if (/^\d{10}$/.test(formattedPhone)) {
+        formattedPhone = '+91' + formattedPhone;
+      } else if (/^91\d{10}$/.test(formattedPhone)) {
+        formattedPhone = '+' + formattedPhone;
+      }
+      const { otp_token } = await sendOTP(email.trim().toLowerCase(), fullName.trim(), formattedPhone);
       setOtpToken(otp_token);
       setStep('otp');
       setTimeout(() => otpRefs.current[0]?.focus(), 120);
@@ -171,7 +187,7 @@ export default function AuthModal() {
     setError('');
     setLoading(true);
     try {
-      await verifyOTP(phone.trim(), code, otpToken);
+      await verifyOTP(email.trim().toLowerCase(), code, otpToken);
       // success — modal closes automatically via context
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Verification failed');
@@ -185,10 +201,16 @@ export default function AuthModal() {
     setError('');
     setLoading(true);
     try {
+      let formattedPhone = phone.trim().replace(/[\s\-\(\)]/g, '');
+      if (/^\d{10}$/.test(formattedPhone)) {
+        formattedPhone = '+91' + formattedPhone;
+      } else if (/^91\d{10}$/.test(formattedPhone)) {
+        formattedPhone = '+' + formattedPhone;
+      }
       const { otp_token } = await sendOTP(
-        phone.trim(),
+        email.trim().toLowerCase(),
         isNewUser ? fullName.trim() : undefined,
-        isNewUser ? email.trim() : undefined,
+        isNewUser ? formattedPhone : undefined,
       );
       setOtpToken(otp_token);
       setOtpDigits(['', '', '', '', '', '']);
@@ -216,32 +238,32 @@ export default function AuthModal() {
           <Image src="/assets/logo.png" alt="VAHN" width={90} height={22} style={{ objectFit: 'contain', height: 'auto' }} />
         </div>
 
-        {/* ── STEP: Phone ──────────────────────────────── */}
-        {step === 'phone' && (
+        {/* ── STEP: Email ──────────────────────────────── */}
+        {step === 'email' && (
           <>
             <h2 className="auth-modal-title">Sign in to VAHN</h2>
-            <p className="auth-modal-subtitle">Enter your phone number to continue</p>
+            <p className="auth-modal-subtitle">Enter your email address to continue</p>
 
             {error && <div className="auth-error-banner">{error}</div>}
 
-            <form onSubmit={handlePhoneContinue} className="auth-form">
+            <form onSubmit={handleEmailContinue} className="auth-form">
               <div className="auth-input-group">
-                <label className="auth-label" htmlFor="auth-phone">Phone Number</label>
+                <label className="auth-label" htmlFor="auth-email">Email Address</label>
                 <div className="auth-input-icon-wrapper">
-                  <span className="auth-input-icon"><PhoneIcon /></span>
+                  <span className="auth-input-icon"><MailIcon /></span>
                   <input
-                    id="auth-phone"
-                    ref={phoneRef}
-                    type="tel"
+                    id="auth-email"
+                    ref={emailRef}
+                    type="email"
                     className="auth-input auth-input--with-icon"
-                    placeholder="+91 98765 43210"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    autoComplete="tel"
+                    placeholder="name@example.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    autoComplete="email"
                     required
                   />
                 </div>
-                <span className="auth-input-hint">We'll send a verification code to this number</span>
+                <span className="auth-input-hint">We'll send a verification code to this email</span>
               </div>
 
               <button type="submit" className="auth-submit-btn" disabled={loading}>
@@ -256,13 +278,13 @@ export default function AuthModal() {
         {/* ── STEP: Details (new user) ──────────────── */}
         {step === 'details' && (
           <>
-            <button className="auth-back-btn" onClick={() => { setStep('phone'); setError(''); setShowExtraFields(false); }}>
-              <BackIcon /><span>Change number</span>
+            <button className="auth-back-btn" onClick={() => { setStep('email'); setError(''); setShowExtraFields(false); }}>
+              <BackIcon /><span>Change email</span>
             </button>
 
             <h2 className="auth-modal-title">Create your account</h2>
             <p className="auth-modal-subtitle">
-              <strong>{phone}</strong> is new to VAHN — tell us a bit about yourself
+              <strong>{email}</strong> is new to VAHN — please complete your details
             </p>
 
             {error && <div className="auth-error-banner">{error}</div>}
@@ -270,7 +292,7 @@ export default function AuthModal() {
             <div className={`auth-extra-fields ${showExtraFields ? 'auth-extra-fields--visible' : ''}`}>
               <form onSubmit={handleDetailsSend} className="auth-form">
                 <div className="auth-input-group">
-                  <label className="auth-label" htmlFor="auth-name">Full Name</label>
+                  <label className="auth-label" htmlFor="auth-name">Full Name *</label>
                   <input
                     id="auth-name"
                     type="text"
@@ -284,16 +306,19 @@ export default function AuthModal() {
                 </div>
 
                 <div className="auth-input-group">
-                  <label className="auth-label" htmlFor="auth-email">Email Address</label>
-                  <input
-                    id="auth-email"
-                    type="email"
-                    className="auth-input"
-                    placeholder="name@example.com"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    required
-                  />
+                  <label className="auth-label" htmlFor="auth-phone">Phone Number *</label>
+                  <div className="auth-input-icon-wrapper">
+                    <span className="auth-input-icon"><PhoneIcon /></span>
+                    <input
+                      id="auth-phone"
+                      type="tel"
+                      className="auth-input auth-input--with-icon"
+                      placeholder="+91 98765 43210"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
 
                 <button type="submit" className="auth-submit-btn" disabled={loading}>
@@ -309,13 +334,13 @@ export default function AuthModal() {
         {/* ── STEP: OTP ────────────────────────────────── */}
         {step === 'otp' && (
           <>
-            <button className="auth-back-btn" onClick={() => { setStep(isNewUser ? 'details' : 'phone'); setError(''); setOtpDigits(['', '', '', '', '', '']); }}>
+            <button className="auth-back-btn" onClick={() => { setStep(isNewUser ? 'details' : 'email'); setError(''); setOtpDigits(['', '', '', '', '', '']); }}>
               <BackIcon /><span>Go back</span>
             </button>
 
             <h2 className="auth-modal-title">Enter verification code</h2>
             <p className="auth-modal-subtitle">
-              A 6-digit code was sent to <strong>{phone}</strong>
+              A 6-digit code was sent to <strong>{email}</strong>
             </p>
 
             {error && <div className="auth-error-banner">{error}</div>}
@@ -353,7 +378,7 @@ export default function AuthModal() {
               </div>
 
               <p className="auth-otp-note">
-                Code expires in 5 minutes. Check your SMS messages.
+                Code expires in 5 minutes. Please check your email inbox.
               </p>
             </form>
           </>

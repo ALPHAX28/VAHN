@@ -6,10 +6,11 @@ import { useAdminAuth } from "@/context/AdminAuthContext";
 import Image from "next/image";
 
 // ── Icons ────────────────────────────────────────────────────
-function PhoneIcon() {
+function MailIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.56a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+      <polyline points="22,6 12,13 2,6" />
     </svg>
   );
 }
@@ -22,25 +23,25 @@ function BackIcon() {
   );
 }
 
-type Step = "phone" | "otp";
+type Step = "email" | "otp";
 
 export default function AdminLoginPage() {
-  const { adminCheckPhone, adminSendOTP, adminVerifyOTP } = useAdminAuth();
+  const { adminSendOTP, adminVerifyOTP } = useAdminAuth();
   const router = useRouter();
 
-  const [step, setStep] = useState<Step>("phone");
-  const [phone, setPhone] = useState("");
+  const [step, setStep] = useState<Step>("email");
+  const [email, setEmail] = useState("");
   const [otpToken, setOtpToken] = useState("");
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
 
-  const phoneRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    phoneRef.current?.focus();
+    emailRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -50,12 +51,15 @@ export default function AdminLoginPage() {
     return () => clearInterval(id);
   }, [step]);
 
-  // ── Step 1: Phone → send OTP ──────────────────────────────
-  const handlePhoneSubmit = async (e: React.FormEvent) => {
+  // ── Step 1: Email → send OTP ──────────────────────────────
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const trimmed = phone.trim();
-    if (!trimmed) { setError("Please enter your phone number."); return; }
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -99,7 +103,7 @@ export default function AdminLoginPage() {
     setError("");
     setLoading(true);
     try {
-      await adminVerifyOTP(phone.trim(), code, otpToken);
+      await adminVerifyOTP(email.trim().toLowerCase(), code, otpToken);
       router.push("/admin/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Verification failed");
@@ -113,7 +117,7 @@ export default function AdminLoginPage() {
     setError("");
     setLoading(true);
     try {
-      const { otp_token } = await adminSendOTP(phone.trim());
+      const { otp_token } = await adminSendOTP(email.trim().toLowerCase());
       setOtpToken(otp_token);
       setOtpDigits(["", "", "", "", "", ""]);
       setResendTimer(30);
@@ -135,31 +139,31 @@ export default function AdminLoginPage() {
           <span className="admin-auth-logo-badge">Admin</span>
         </div>
 
-        {/* ── STEP: Phone ──────────────────────────────── */}
-        {step === "phone" && (
+        {/* ── STEP: Email ──────────────────────────────── */}
+        {step === "email" && (
           <>
             <h1 className="admin-auth-title">Admin Access</h1>
-            <p className="admin-auth-subtitle">Enter your registered phone number</p>
+            <p className="admin-auth-subtitle">Enter your registered email address</p>
 
             {error && <div className="admin-auth-error">{error}</div>}
 
-            <form onSubmit={handlePhoneSubmit} className="admin-auth-form">
+            <form onSubmit={handleEmailSubmit} className="admin-auth-form">
               <div className="admin-form-group">
-                <label className="admin-form-label" htmlFor="admin-phone">Phone Number</label>
+                <label className="admin-form-label" htmlFor="admin-email">Email Address</label>
                 <div className="admin-form-input-wrapper">
                   <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--color-text-muted)", display: "flex" }}>
-                    <PhoneIcon />
+                    <MailIcon />
                   </span>
                   <input
-                    id="admin-phone"
-                    ref={phoneRef}
-                    type="tel"
+                    id="admin-email"
+                    ref={emailRef}
+                    type="email"
                     className="admin-form-input"
                     style={{ paddingLeft: 36 }}
-                    placeholder="+91 98765 43210"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    autoComplete="tel"
+                    placeholder="admin@vahn.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    autoComplete="email"
                     required
                   />
                 </div>
@@ -185,15 +189,15 @@ export default function AdminLoginPage() {
           <>
             <button
               className="admin-auth-back-btn"
-              onClick={() => { setStep("phone"); setError(""); setOtpDigits(["", "", "", "", "", ""]); }}
+              onClick={() => { setStep("email"); setError(""); setOtpDigits(["", "", "", "", "", ""]); }}
               style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)", fontSize: 13, padding: 0, marginBottom: 16 }}
             >
-              <BackIcon /><span>Change number</span>
+              <BackIcon /><span>Change email</span>
             </button>
 
             <h1 className="admin-auth-title">Verify identity</h1>
             <p className="admin-auth-subtitle">
-              Code sent to <strong>{phone}</strong>
+              Code sent to <strong>{email}</strong>
             </p>
 
             {error && <div className="admin-auth-error">{error}</div>}

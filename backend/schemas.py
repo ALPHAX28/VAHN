@@ -243,17 +243,32 @@ def validate_phone_str(v: str) -> str:
     """
     import re as _re
     cleaned = _re.sub(r'[\s\-\(\)]', '', v.strip())
-    if _re.match(r'^[6-9]\d{9}$', cleaned):
+    if _re.match(r'^\d{10}$', cleaned):
         cleaned = '+91' + cleaned
+    elif _re.match(r'^91\d{10}$', cleaned):
+        cleaned = '+' + cleaned
+    elif not cleaned.startswith('+') and _re.match(r'^\d{10,12}$', cleaned):
+        cleaned = '+' + cleaned
+
     if not PHONE_REGEX.match(cleaned):
         raise ValueError(
-            "Invalid phone number. Enter a 10-digit Indian mobile number or E.164 format (e.g. +919876543210)."
+            "Invalid phone number. Enter a 10-digit mobile number or E.164 format (e.g. +919876543210)."
         )
     return cleaned
 
 
+class EmailLookupRequest(BaseModel):
+    """Check if an email address is already registered."""
+    email: str
+
+    @field_validator('email')
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
+
+
 class PhoneLookupRequest(BaseModel):
-    """Check if a phone number is already registered."""
+    """Legacy check if a phone number is registered."""
     phone: str
 
     @field_validator('phone')
@@ -264,37 +279,37 @@ class PhoneLookupRequest(BaseModel):
 
 class SendOTPRequest(BaseModel):
     """
-    Unified register + login OTP send.
-    - If phone exists: OTP sent for login (full_name/email ignored).
-    - If phone is new: full_name and email are required.
+    Unified register + login OTP send via Email.
+    - If email exists: OTP sent to email for login.
+    - If email is new: full_name and phone are required for registration, then OTP sent to email.
     """
-    phone: str
+    email: str
     full_name: Optional[str] = None
-    email: Optional[str] = None
-
-    @field_validator('phone')
-    @classmethod
-    def check_phone(cls, v: str) -> str:
-        return validate_phone_str(v)
+    phone: Optional[str] = None
 
     @field_validator('email')
     @classmethod
-    def check_email(cls, v: Optional[str]) -> Optional[str]:
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
+
+    @field_validator('phone')
+    @classmethod
+    def check_phone(cls, v: Optional[str]) -> Optional[str]:
         if v is None or v.strip() == '':
             return None
-        return validate_email_str(v)
+        return validate_phone_str(v)
 
 
 class VerifyOTPRequest(BaseModel):
     """Verify OTP and complete login/registration."""
-    phone: str
+    email: str
     otp_code: str
     otp_token: str  # HMAC-signed token returned by send-otp endpoint
 
-    @field_validator('phone')
+    @field_validator('email')
     @classmethod
-    def check_phone(cls, v: str) -> str:
-        return validate_phone_str(v)
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
 
     @field_validator('otp_code')
     @classmethod
@@ -306,28 +321,28 @@ class VerifyOTPRequest(BaseModel):
 
 class AdminSendOTPRequest(BaseModel):
     """
-    Admin unified OTP send.
-    - If phone exists as admin: OTP for login.
-    - If phone not found as admin: access denied (no self-registration).
+    Admin unified OTP send via Email.
+    - If email exists as admin: OTP sent to admin email.
+    - If email not found as admin: access denied.
     """
-    phone: str
+    email: str
 
-    @field_validator('phone')
+    @field_validator('email')
     @classmethod
-    def check_phone(cls, v: str) -> str:
-        return validate_phone_str(v)
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
 
 
 class AdminVerifyOTPRequest(BaseModel):
-    """Admin OTP verification."""
-    phone: str
+    """Admin OTP verification via Email."""
+    email: str
     otp_code: str
     otp_token: str
 
-    @field_validator('phone')
+    @field_validator('email')
     @classmethod
-    def check_phone(cls, v: str) -> str:
-        return validate_phone_str(v)
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
 
     @field_validator('otp_code')
     @classmethod
@@ -338,7 +353,15 @@ class AdminVerifyOTPRequest(BaseModel):
 
 
 class ProfileUpdateRequest(BaseModel):
-    full_name: str
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+
+    @field_validator('phone')
+    @classmethod
+    def check_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v.strip() == '':
+            return None
+        return validate_phone_str(v)
 
 
 class PasswordChangeRequest(BaseModel):

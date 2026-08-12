@@ -11,17 +11,21 @@ export default function ProfilePage() {
   const router = useRouter();
 
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [profileMsg, setProfileMsg] = useState('');
   const [profileErr, setProfileErr] = useState('');
   const [profileLoading, setProfileLoading] = useState(false);
 
+  const initializedRef = React.useRef(false);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/');
       openAuthModal();
-    } else if (user) {
-      setFullName(user.full_name);
+    } else if (user && !initializedRef.current) {
+      setFullName(user.full_name || '');
+      setPhone(user.phone || '');
+      initializedRef.current = true;
     }
   }, [user, loading, router, openAuthModal]);
 
@@ -39,11 +43,20 @@ export default function ProfilePage() {
     setProfileMsg('');
     setProfileErr('');
     setProfileLoading(true);
+
+    let formattedPhone = phone.trim().replace(/[\s\-\(\)]/g, '');
+    if (/^\d{10}$/.test(formattedPhone)) {
+      formattedPhone = '+91' + formattedPhone;
+    } else if (/^91\d{10}$/.test(formattedPhone)) {
+      formattedPhone = '+' + formattedPhone;
+    }
+
     try {
-      await updateProfile(fullName);
-      setProfileMsg('Profile name updated successfully.');
+      await updateProfile(fullName, formattedPhone || undefined);
+      setPhone(formattedPhone);
+      setProfileMsg('Profile updated successfully.');
     } catch (err: unknown) {
-      setProfileErr(err instanceof Error ? err.message : 'Failed to update profile name.');
+      setProfileErr(err instanceof Error ? err.message : 'Failed to update profile.');
     } finally {
       setProfileLoading(false);
     }
@@ -70,7 +83,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <h2 style={{ fontSize: "0.85rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.07em" }}>Personal Details</h2>
-              <p style={{ fontSize: "0.72rem", color: "#888", margin: 0 }}>Your account name and email</p>
+              <p style={{ fontSize: "0.72rem", color: "#888", margin: 0 }}>Your account name, phone number, and email</p>
             </div>
           </div>
 
@@ -89,14 +102,15 @@ export default function ProfilePage() {
             <div className="auth-input-group">
               <label className="auth-label">Email Address</label>
               <input
-                type="email" disabled value={user.email}
+                type="email" disabled value={user.email || ''}
                 className="auth-input disabled"
                 style={{ borderRadius: 0, background: "#f8fafc", color: "#888", cursor: "not-allowed" }}
               />
               <p style={{ fontSize: "0.72rem", color: "#aaa", margin: "4px 0 0", fontStyle: "italic" }}>
-                Email cannot be changed
+                Email cannot be changed (used for OTP login)
               </p>
             </div>
+
             <div className="auth-input-group">
               <label className="auth-label">Full Name</label>
               <input
@@ -106,6 +120,21 @@ export default function ProfilePage() {
                 style={{ borderRadius: 0 }}
               />
             </div>
+
+            <div className="auth-input-group">
+              <label className="auth-label">Phone Number</label>
+              <input
+                type="tel" required value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                className="auth-input"
+                style={{ borderRadius: 0 }}
+              />
+              <p style={{ fontSize: "0.72rem", color: "#888", margin: "4px 0 0" }}>
+                10-digit mobile number (e.g. 9876543210 — auto +91)
+              </p>
+            </div>
+
             <button type="submit" disabled={profileLoading} className="auth-submit-btn"
               style={{ borderRadius: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>
               {profileLoading ? 'Saving...' : 'Save Profile Changes'}
@@ -127,13 +156,14 @@ export default function ProfilePage() {
           <div style={{ padding: "12px 0", display: "flex", alignItems: "flex-start", gap: 12 }}>
             <div style={{ width: 40, height: 40, background: "#f0fdf4", border: "1px solid #bbf7d0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.56a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                <polyline points="22,6 12,13 2,6" />
               </svg>
             </div>
             <div>
-              <p style={{ fontSize: "0.88rem", fontWeight: 700, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Phone OTP Sign-In</p>
+              <p style={{ fontSize: "0.88rem", fontWeight: 700, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Email OTP Sign-In</p>
               <p style={{ fontSize: "0.78rem", color: "#555", margin: 0, lineHeight: 1.5 }}>
-                Your account uses secure phone-based OTP verification. Sign in anytime with the phone number <strong>{user?.phone || "on your account"}</strong>.
+                Your account uses secure email-based OTP verification. Sign in anytime with your email address <strong>{user?.email || "on your account"}</strong>.
               </p>
             </div>
           </div>

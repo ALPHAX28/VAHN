@@ -12,7 +12,7 @@ from database import Base, engine, get_db
 import models
 import schemas
 from email_service import (
-    send_order_confirmation_email, send_restock_notification_email,
+    send_otp_email, send_order_confirmation_email, send_restock_notification_email,
     send_account_suspended_email, send_account_reactivated_email, send_account_deleted_email
 )
 
@@ -582,12 +582,21 @@ def _user_schema(user: models.User) -> schemas.UserSchema:
         created_at=user.created_at.strftime("%b %d, %Y") if user.created_at else None,
     )
 
-@app.post("/api/auth/check-phone")
-def check_phone(payload: schemas.PhoneLookupRequest, db: Session = Depends(get_db)):
+@app.post("/api/auth/check-email")
+def check_email(payload: schemas.EmailLookupRequest, db: Session = Depends(get_db)):
     """
-    Probe whether a phone number is already registered.
+    Probe whether an email address is already registered.
     Returns {exists: bool} — no OTP sent, no side effects.
     """
+    email = payload.email.strip().lower()
+    user = db.query(models.User).filter(
+        models.User.email == email,
+        models.User.role == "customer"
+    ).first()
+    return {"exists": user is not None}
+
+@app.post("/api/auth/check-phone")
+def check_phone(payload: schemas.PhoneLookupRequest, db: Session = Depends(get_db)):
     phone = normalize_phone(payload.phone)
     user = db.query(models.User).filter(
         models.User.phone == phone,
@@ -598,16 +607,16 @@ def check_phone(payload: schemas.PhoneLookupRequest, db: Session = Depends(get_d
 @app.post("/api/auth/send-otp")
 def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
     """
-    Unified register + login: send OTP to phone.
-    - Existing user: OTP sent immediately.
-    - New user: full_name + email required; user record created (unverified) then OTP sent.
-    Rate limited: max 3 per 10 min per phone.
+    Unified register + login: send OTP to Email.
+    - Existing user: OTP sent to registered email immediately.
+    - New user: full_name and phone are REQUIRED; user record created (unverified) then OTP sent to email.
+    Rate limited: max 3 per 10 min per email.
     """
-    phone = normalize_phone(payload.phone)
-    check_rate_limit(phone)  # Raises 429 if too many requests
+    email = payload.email.strip().lower()
+    check_rate_limit(email)  # Raises 429 if too many requests
 
     user = db.query(models.User).filter(
-        models.User.phone == phone,
+        models.User.email == email,
         models.User.role == "customer"
     ).first()
 
@@ -617,62 +626,64 @@ def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
             reason_msg = f" Reason: {user.suspension_reason}." if user.suspension_reason else ""
             raise HTTPException(status_code=403, detail=f"Your account has been suspended by administration.{reason_msg} Please contact support for assistance.")
         otp = generate_6digit_otp()
-        otp_token = create_otp_token(phone, otp)
-        send_otp_sms(phone, otp)
+        otp_token = create_otp_token(email, otp)
+        send_otp_email(email, otp, subject="Your VAHN Verification Code")
         return {"otp_token": otp_token, "is_new_user": False}
 
     else:
-        # New user — register flow: validate required fields
+        # New user — register flow: full_name AND phone are REQUIRED
         if not payload.full_name or not payload.full_name.strip():
             raise HTTPException(
                 status_code=422,
                 detail="Full name is required to create your account."
             )
-        if not payload.email:
+        if not payload.phone or not payload.phone.strip():
             raise HTTPException(
                 status_code=422,
-                detail="Email address is required to create your account."
+                detail="Phone number is required to create your account."
             )
-        # Check if email already taken
-        email = payload.email.strip().lower()
-        existing_email = db.query(models.User).filter_by(email=email).first()
-        if existing_email:
+
+        phone = normalize_phone(payload.phone)
+        # Check if phone is already registered to another account
+        existing_phone = db.query(models.User).filter_by(phone=phone).first()
+        if existing_phone:
             raise HTTPException(
                 status_code=400,
-                detail="This email address is already registered. Try a different email."
+                detail="This phone number is already registered to another account. Please use a different phone number."
             )
 
         # Create user record (is_verified=False until OTP confirmed)
         new_user = models.User(
-            phone=phone,
             email=email,
+            phone=phone,
             full_name=payload.full_name.strip(),
             role="customer",
             is_verified=False,
+            email_verified=False,
             phone_verified=False,
         )
         db.add(new_user)
         db.commit()
 
         otp = generate_6digit_otp()
-        otp_token = create_otp_token(phone, otp)
-        send_otp_sms(phone, otp)
+        otp_token = create_otp_token(email, otp)
+        send_otp_email(email, otp, subject="Your VAHN Welcome Verification Code")
         return {"otp_token": otp_token, "is_new_user": True}
 
 @app.post("/api/auth/verify-otp", response_model=schemas.AuthResponse)
 def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db)):
     """
-    Verify OTP for customer login/registration.
+    Verify OTP for customer login/registration via Email.
     - Validates HMAC-signed token (5-min expiry, max 5 attempts).
     - On success: marks user verified, returns JWT access token.
     """
-    phone = normalize_phone(payload.phone)
+    email = payload.email.strip().lower()
 
     # HMAC token verification (raises HTTPException on failure)
-    verify_otp_token(phone, payload.otp_code, payload.otp_token)
+    verify_otp_token(email, payload.otp_code, payload.otp_token)
 
     user = db.query(models.User).filter(
-        models.User.phone == phone,
+        models.User.email == email,
         models.User.role == "customer"
     ).first()
     if not user:
@@ -681,9 +692,8 @@ def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db))
         reason_msg = f" Reason: {user.suspension_reason}." if user.suspension_reason else ""
         raise HTTPException(status_code=403, detail=f"Your account has been suspended by administration.{reason_msg} Please contact support for assistance.")
 
-
     user.is_verified = True
-    user.phone_verified = True
+    user.email_verified = True
     db.commit()
     db.refresh(user)
 
@@ -696,7 +706,23 @@ def get_me(current_user: models.User = Depends(get_current_user)):
 
 @app.put("/api/auth/profile", response_model=schemas.UserSchema)
 def update_profile(payload: schemas.ProfileUpdateRequest, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    current_user.full_name = payload.full_name.strip()
+    if payload.full_name and payload.full_name.strip():
+        current_user.full_name = payload.full_name.strip()
+
+    if payload.phone and payload.phone.strip():
+        phone = normalize_phone(payload.phone)
+        # Check if phone is taken by ANOTHER user
+        existing_phone_user = db.query(models.User).filter(
+            models.User.phone == phone,
+            models.User.id != current_user.id
+        ).first()
+        if existing_phone_user:
+            raise HTTPException(
+                status_code=400,
+                detail="This phone number is already registered to another account."
+            )
+        current_user.phone = phone
+
     db.commit()
     db.refresh(current_user)
     return _user_schema(current_user)
@@ -1127,15 +1153,24 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
 
 
 # ============================================================
-# ADMIN AUTH ROUTES (Phone-OTP Flow — No UI registration, admin accounts seeded directly)
+# ADMIN AUTH ROUTES (Email-OTP Flow — No UI registration, admin accounts seeded directly)
 # ============================================================
 
-@app.post("/api/admin/auth/check-phone")
-def admin_check_phone(payload: schemas.AdminSendOTPRequest, db: Session = Depends(get_db)):
+@app.post("/api/admin/auth/check-email")
+def admin_check_email(payload: schemas.AdminSendOTPRequest, db: Session = Depends(get_db)):
     """
-    Check if a phone number is registered as an admin.
+    Check if an email address is registered as an admin.
     Returns {exists: bool, is_admin: bool}.
     """
+    email = payload.email.strip().lower()
+    user = db.query(models.User).filter(
+        models.User.email == email,
+        models.User.role == "admin"
+    ).first()
+    return {"exists": user is not None, "is_admin": user is not None}
+
+@app.post("/api/admin/auth/check-phone")
+def admin_check_phone(payload: schemas.PhoneLookupRequest, db: Session = Depends(get_db)):
     phone = normalize_phone(payload.phone)
     user = db.query(models.User).filter(
         models.User.phone == phone,
@@ -1146,41 +1181,41 @@ def admin_check_phone(payload: schemas.AdminSendOTPRequest, db: Session = Depend
 @app.post("/api/admin/auth/send-otp")
 def admin_send_otp(payload: schemas.AdminSendOTPRequest, db: Session = Depends(get_db)):
     """
-    Send login OTP to an admin phone number.
+    Send login OTP to an admin email address.
     Admin accounts are NOT self-registerable — they must be seeded.
-    Rate limited: max 3 per 10 min per phone.
+    Rate limited: max 3 per 10 min per email.
     """
-    phone = normalize_phone(payload.phone)
-    check_rate_limit(phone)
+    email = payload.email.strip().lower()
+    check_rate_limit(email)
 
     user = db.query(models.User).filter(
-        models.User.phone == phone,
+        models.User.email == email,
         models.User.role == "admin"
     ).first()
     if not user:
         raise HTTPException(
             status_code=403,
-            detail="This phone number is not authorized for admin access. Contact the system administrator."
+            detail="This email address is not authorized for admin access. Contact the system administrator."
         )
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Admin account is suspended.")
 
     otp = generate_6digit_otp()
-    otp_token = create_otp_token(phone, otp)
-    send_otp_sms(phone, otp)
+    otp_token = create_otp_token(email, otp)
+    send_otp_email(email, otp, subject="Your VAHN Admin Access Code")
     return {"otp_token": otp_token}
 
 @app.post("/api/admin/auth/verify-otp", response_model=schemas.AuthResponse)
 def admin_verify_otp(payload: schemas.AdminVerifyOTPRequest, db: Session = Depends(get_db)):
     """
-    Verify admin OTP. HMAC-signed token — OTP never stored in DB.
+    Verify admin OTP sent via Email. HMAC-signed token — OTP never stored in DB.
     On success: returns JWT token with role=admin.
     """
-    phone = normalize_phone(payload.phone)
-    verify_otp_token(phone, payload.otp_code, payload.otp_token)
+    email = payload.email.strip().lower()
+    verify_otp_token(email, payload.otp_code, payload.otp_token)
 
     user = db.query(models.User).filter(
-        models.User.phone == phone,
+        models.User.email == email,
         models.User.role == "admin"
     ).first()
     if not user:
@@ -1189,7 +1224,7 @@ def admin_verify_otp(payload: schemas.AdminVerifyOTPRequest, db: Session = Depen
         raise HTTPException(status_code=403, detail="Admin account is suspended.")
 
     user.is_verified = True
-    user.phone_verified = True
+    user.email_verified = True
     db.commit()
     db.refresh(user)
 
@@ -1197,13 +1232,7 @@ def admin_verify_otp(payload: schemas.AdminVerifyOTPRequest, db: Session = Depen
     return schemas.AuthResponse(
         access_token=token,
         token_type="bearer",
-        user=schemas.UserSchema(
-            id=user.id,
-            phone=user.phone,
-            email=user.email,
-            full_name=user.full_name,
-            is_verified=user.is_verified
-        )
+        user=_user_schema(user)
     )
 
 @app.get("/api/admin/auth/me")

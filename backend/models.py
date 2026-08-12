@@ -141,7 +141,8 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=True)  # nullable: phone-only users may not provide email
+    email = Column(String, unique=True, index=True, nullable=True)
+    email_verified = Column(Boolean, default=False, nullable=False)
     phone = Column(String, unique=True, index=True, nullable=True)  # E.164 format e.g. +919876543210
     phone_verified = Column(Boolean, default=False, nullable=False)
     password_hash = Column(String, nullable=True)  # nullable: OTP-only flow

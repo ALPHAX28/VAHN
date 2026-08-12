@@ -22,9 +22,10 @@ interface AdminAuthState {
 }
 
 interface AdminAuthContextValue extends AdminAuthState {
+  adminCheckEmail: (email: string) => Promise<{ exists: boolean; is_admin: boolean }>;
   adminCheckPhone: (phone: string) => Promise<{ exists: boolean; is_admin: boolean }>;
-  adminSendOTP: (phone: string) => Promise<{ otp_token: string }>;
-  adminVerifyOTP: (phone: string, otpCode: string, otpToken: string) => Promise<void>;
+  adminSendOTP: (email: string) => Promise<{ otp_token: string }>;
+  adminVerifyOTP: (email: string, otpCode: string, otpToken: string) => Promise<void>;
   adminLogout: () => void;
   getAdminHeaders: () => { Authorization: string; "Content-Type": string };
 }
@@ -71,6 +72,17 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     "Content-Type": "application/json",
   }), [adminToken]);
 
+  const adminCheckEmail = useCallback(async (email: string) => {
+    const res = await fetch(getEndpoint("/admin/auth/check-email"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Failed to check email");
+    return data as { exists: boolean; is_admin: boolean };
+  }, []);
+
   const adminCheckPhone = useCallback(async (phone: string) => {
     const res = await fetch(getEndpoint("/admin/auth/check-phone"), {
       method: "POST",
@@ -82,22 +94,22 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     return data as { exists: boolean; is_admin: boolean };
   }, []);
 
-  const adminSendOTP = useCallback(async (phone: string) => {
+  const adminSendOTP = useCallback(async (email: string) => {
     const res = await fetch(getEndpoint("/admin/auth/send-otp"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ email }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Failed to send OTP");
     return data as { otp_token: string };
   }, []);
 
-  const adminVerifyOTP = useCallback(async (phone: string, otpCode: string, otpToken: string) => {
+  const adminVerifyOTP = useCallback(async (email: string, otpCode: string, otpToken: string) => {
     const res = await fetch(getEndpoint("/admin/auth/verify-otp"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, otp_code: otpCode, otp_token: otpToken }),
+      body: JSON.stringify({ email, otp_code: otpCode, otp_token: otpToken }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "OTP verification failed");
@@ -119,6 +131,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       adminToken,
       isAdminLoading,
       isAdminAuthenticated: !!adminToken && !!adminUser,
+      adminCheckEmail,
       adminCheckPhone,
       adminSendOTP,
       adminVerifyOTP,
