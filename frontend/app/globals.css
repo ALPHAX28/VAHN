@@ -3,7 +3,39 @@
    Brand: Teamwear / Sportswear
    ==================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Tilt+Warp&family=Instrument+Serif:ital@0;1&family=Urbanist:wght@300;400;500;600;700&family=Dela+Gothic+One&display=swap');
+/* ---- Self-hosted Fonts (SCRUM-50) ---- */
+
+/* Hanken Grotesk — Primary Font (Variable) */
+@font-face {
+  font-family: 'Hanken Grotesk';
+  src: url('/fonts/hanken-grotesk/HankenGrotesk-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Hanken Grotesk';
+  src: url('/fonts/hanken-grotesk/HankenGrotesk-Italic-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Lora — Secondary Font / Body (Variable) */
+@font-face {
+  font-family: 'Lora';
+  src: url('/fonts/Lora/Lora-VariableFont_wght.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Lora';
+  src: url('/fonts/Lora/Lora-Italic-VariableFont_wght.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: italic;
+  font-display: swap;
+}
 
 /* ---- CSS Custom Properties ---- */
 
@@ -30,12 +62,12 @@
 
   --color-surface: var(--color-grey-light);
 
-  /* Typography */
-  --font-heading: 'Tilt Warp', sans-serif;
-  --font-body: 'Urbanist', sans-serif;
-  --font-sub: 'Urbanist', sans-serif;
-  --font-accent: 'Dela Gothic One', sans-serif;
-  --font-ui: 'Urbanist', sans-serif;
+  /* Typography — SCRUM-50: Hanken Grotesk (Primary) + Lora (Secondary) */
+  --font-heading: 'Hanken Grotesk', sans-serif;   /* H1, H2: Bold + ALL CAPS; H3+: Regular */
+  --font-body: 'Lora', Georgia, serif;             /* Body text: NEVER all-caps */
+  --font-sub: 'Hanken Grotesk', sans-serif;
+  --font-accent: 'Hanken Grotesk', sans-serif;
+  --font-ui: 'Hanken Grotesk', sans-serif;
 
   /* Spacing */
   --space-xs: 4px;
@@ -102,11 +134,23 @@ body {
 
 /* ---- Typography ---- */
 
-h1, h2, h3, h4, h5, h6 {
+/* SCRUM-50: H1 & H2 — Hanken Grotesk Bold, ALL CAPS, -25 tracking */
+h1, h2 {
   font-family: var(--font-heading);
-  line-height: 1.1;
+  font-weight: 700;
+  line-height: 1.05;
   text-transform: uppercase;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+  color: var(--color-heading);
+}
+
+/* SCRUM-50: H3–H6 — Hanken Grotesk Regular, natural case, -25 tracking */
+h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  line-height: 1.2;
+  text-transform: none;
+  letter-spacing: -0.025em;
   color: var(--color-heading);
 }
 
@@ -115,12 +159,16 @@ h2 { font-size: clamp(2rem, 4vw, 4rem); }
 h3 { font-size: clamp(1.5rem, 3vw, 3rem); }
 h4 { font-size: clamp(1.25rem, 2vw, 2rem); }
 h5 { font-size: 1.125rem; }
-h6 { font-size: 0.875rem; font-family: var(--font-ui); font-weight: 600; }
+h6 { font-size: 0.875rem; font-weight: 600; }
 
+/* SCRUM-50: Body paragraphs — Lora, NEVER uppercase */
 p {
   font-family: var(--font-body);
   font-size: 1rem;
+  font-weight: 400;
   line-height: 1.7;
+  text-transform: none;
+  letter-spacing: normal;
   color: var(--color-text);
 }
 
@@ -4614,7 +4662,7 @@ input, textarea, select {
   display: flex;
   min-height: 100vh;
   background: var(--admin-content-bg);
-  font-family: var(--font-ui, 'Urbanist', system-ui, sans-serif);
+  font-family: var(--font-ui, 'Hanken Grotesk', system-ui, sans-serif);
 }
 
 .admin-main {
