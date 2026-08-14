@@ -45,11 +45,11 @@ type CartAction =
   | { type: 'CLOSE_DRAWER' }
   | { type: 'OPTIMISTIC_UPDATE_QUANTITY'; lineId: string; quantity: number }
   | { type: 'OPTIMISTIC_REMOVE'; lineId: string }
-  | { type: 'OPTIMISTIC_ADD'; line: CartLine; checkoutUrl: string };
+  | { type: 'OPTIMISTIC_ADD'; line: CartLine; checkoutUrl: string; openDrawer?: boolean };
 
 interface CartContextValue extends CartState {
   isLoading: boolean;
-  addItem: (merchandiseId: string, quantity: number, displayData?: AddItemDisplayData) => void;
+  addItem: (merchandiseId: string, quantity: number, displayData?: AddItemDisplayData, openDrawer?: boolean) => void;
   updateItem: (lineId: string, quantity: number) => void;
   removeItem: (lineId: string) => void;
   clearCart: () => void;
@@ -125,7 +125,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     }
 
     case 'OPTIMISTIC_ADD': {
-      // Open drawer immediately
+      const shouldOpen = action.openDrawer !== false;
       if (!state.cart || state.cart.id === 'temp') {
         const tempCart: Cart = {
           id: 'temp',
@@ -139,7 +139,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
             totalTaxAmount: { amount: '0.00', currencyCode: action.line.cost.totalAmount.currencyCode },
           },
         };
-        return { ...state, cart: tempCart, isOpen: true };
+        return { ...state, cart: tempCart, isOpen: shouldOpen ? true : state.isOpen };
       }
       // Merge into existing cart
       const exists = state.cart.lines.edges.find(
@@ -166,7 +166,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return {
         ...state,
         cart: recalcCart({ ...state.cart, lines: { edges: updatedEdges } }),
-        isOpen: true,
+        isOpen: shouldOpen ? true : state.isOpen,
       };
     }
 
@@ -330,7 +330,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
    * addItem — optimistic add to cart
    */
   const addItem = useCallback(
-    (merchandiseId: string, quantity: number, displayData?: AddItemDisplayData) => {
+    (merchandiseId: string, quantity: number, displayData?: AddItemDisplayData, openDrawer = true) => {
       const unitAmount = displayData ? parseFloat(displayData.price.amount) * quantity : 0;
       const currencyCode = displayData?.price.currencyCode ?? 'INR';
 
@@ -362,6 +362,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         type: 'OPTIMISTIC_ADD',
         line: optimisticLine,
         checkoutUrl: state.cart?.checkoutUrl ?? '',
+        openDrawer,
       });
 
       triggerSync();

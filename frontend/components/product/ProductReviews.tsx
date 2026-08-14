@@ -54,6 +54,10 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
       setRating(5);
       setContent('');
       setShowForm(false);
+      // SCRUM-55: Refresh page so top review count in ProductInfo and server ratings are fully synced
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
     } catch (err: any) {
       setError(err.message || 'An error occurred. Please try again.');
     } finally {

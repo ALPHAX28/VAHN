@@ -7,6 +7,7 @@ import { getAdminProducts, createAdminProduct, createColourGroup } from "@/lib/a
 import { adminListSizeGuide, type SizeGuideType } from "@/lib/api/sizeGuide";
 import AdminImageUploader, { type UploadedImage } from "@/components/admin/AdminImageUploader";
 import AdminTagInput from "@/components/admin/AdminTagInput";
+import AdminLookbookManager, { type LookbookItem, uploadPendingLookbookImages } from "@/components/admin/AdminLookbookManager";
 
 const STANDARD_SIZES = ["S", "M", "L", "XL", "2XL", "3XL"];
 
@@ -23,6 +24,7 @@ export default function NewProductPage() {
   const [error, setError] = useState("");
   const [allSizeGuides, setAllSizeGuides] = useState<SizeGuideType[]>([]);
   const [selectedSizeGuideIds, setSelectedSizeGuideIds] = useState<number[]>([]);
+  const [lookbookItems, setLookbookItems] = useState<LookbookItem[]>([]);
 
 
   const [form, setForm] = useState({
@@ -391,6 +393,9 @@ export default function NewProductPage() {
       const sizeFitBullets = sizeFitInput.split("\n").map(b => b.trim()).filter(Boolean);
       const descriptionHtml = `<p>${form.description}</p>${sizeFitBullets.length > 0 ? `<ul>${sizeFitBullets.map(b => `<li>${b}</li>`).join("")}</ul>` : ""}`;
 
+      // Upload any pending Lookbook image files to cloud now upon explicit Save & Publish
+      const uploadedLookbook = await uploadPendingLookbookImages(lookbookItems);
+
       // 1. Create main Product
       const product = await createAdminProduct(adminToken, {
         title: form.title,
@@ -402,6 +407,7 @@ export default function NewProductPage() {
         tags,
         options,
         images: allImages,
+        lookbook: uploadedLookbook,
         variants,
         available_for_sale: form.available_for_sale,
         fit: form.fit || null,
@@ -1037,6 +1043,14 @@ export default function NewProductPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* LOOKBOOK SECTION ("HOW HE WEARS IT") */}
+          <div className="admin-card">
+            <AdminLookbookManager
+              items={lookbookItems}
+              onChange={setLookbookItems}
+            />
           </div>
         </div>
 

@@ -25,7 +25,7 @@ export async function getProducts(_options?: {
   after?: string;
 }): Promise<{ products: Product[]; hasNextPage: boolean; endCursor: string | null }> {
   try {
-    const products = await fetchAPI<Product[]>('/products');
+    const products = await fetchAPI<Product[]>('/products', { cache: 'no-store' });
     return {
       products,
       hasNextPage: false,
@@ -40,8 +40,11 @@ export async function getProducts(_options?: {
   }
 }
 
-export async function getProductRecommendations(_productId: string): Promise<Product[]> {
-  return fetchAPI<Product[]>('/products').catch(() => []);
+export async function getProductRecommendations(productId: string, handle?: string): Promise<Product[]> {
+  const products = await fetchAPI<Product[]>('/products', { cache: 'no-store' }).catch(() => []);
+  const cleanId = (id: string) => id.replace(/^gid:\/\/shopify\/Product\//, '');
+  const targetId = cleanId(productId);
+  return products.filter((p) => cleanId(p.id) !== targetId && (!handle || p.handle !== handle));
 }
 
 // ---- Collections ----
@@ -56,7 +59,7 @@ export async function getCollection(
     filters?: Record<string, string>[];
   } = {}
 ): Promise<Collection | null> {
-  return fetchAPI<Collection>(`/collections/${handle}`).catch(() => null);
+  return fetchAPI<Collection>(`/collections/${handle}`, { cache: 'no-store' }).catch(() => null);
 }
 
 export async function getCollections(): Promise<CollectionListItem[]> {

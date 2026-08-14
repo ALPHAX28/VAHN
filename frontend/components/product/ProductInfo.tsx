@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import type { Product, ProductVariant, Money } from '@/lib/api/types';
 import { useCart, type AddItemDisplayData } from '@/context/CartContext';
 import { formatMoney } from '@/lib/utils';
@@ -66,10 +67,12 @@ function getVariantFromOptions(
 
 
 export default function ProductInfo({ product, onColourChange }: Props) {
+  const router = useRouter();
   const variants = product.variants.edges.map((e) => e.node);
-  const { addItem, updateItem, lines } = useCart();
+  const { addItem, updateItem, closeCart, lines } = useCart();
   const [adding, setAdding] = useState(false);
   const [addedMessage, setAddedMessage] = useState('');
+  const [buyingNow, setBuyingNow] = useState(false);
 
   const [isDescOpen, setIsDescOpen] = useState(true); // Open by default like PDF spec
   const [isFitOpen, setIsFitOpen] = useState(false);
@@ -325,6 +328,36 @@ export default function ProductInfo({ product, onColourChange }: Props) {
     }, 2000);
   };
 
+  const handleBuyNow = async () => {
+    if (!isSizeSelected) return;
+    if (!selectedVariant || !available || buyingNow) return;
+
+    try {
+      setBuyingNow(true);
+      // If item is not in cart yet, add 1 quantity without opening drawer
+      if (!cartItem || cartItem.quantity === 0) {
+        const displayData: AddItemDisplayData = {
+          productTitle: product.title,
+          productHandle: product.handle,
+          variantTitle: selectedVariant.title !== 'Default Title' ? selectedVariant.title : product.title,
+          price: selectedVariant.price,
+          image: selectedVariant.image ?? product.featuredImage,
+          selectedOptions: selectedVariant.selectedOptions,
+          quantityAvailable: selectedVariant.quantityAvailable,
+        };
+        await addItem(selectedVariant.id, 1, displayData, false);
+      }
+      closeCart();
+      router.push('/checkout');
+    } catch (err) {
+      console.error('Error during buy now checkout:', err);
+      closeCart();
+      router.push('/checkout');
+    } finally {
+      setBuyingNow(false);
+    }
+  };
+
   const reviewsList = product.reviews ?? [];
   const avgRating = reviewsList.length > 0 
     ? (reviewsList.reduce((sum, r) => sum + r.rating, 0) / reviewsList.length).toFixed(1) 
@@ -427,8 +460,32 @@ export default function ProductInfo({ product, onColourChange }: Props) {
             {sortedOptions.map((option) => {
               const isColour = option.name.toLowerCase() === 'colour' || option.name.toLowerCase() === 'color';
 
-              // Always sort size options from smallest to largest (3XS, 2XS, XS, S, M, L, XL...)
-              const displayValues = !isColour ? sortSizeValues(option.values) : option.values;
+              // Only show sizes that exist for the selected Colour
+              const displayValues = (() => {
+                if (isColour) {
+                  return option.values;
+                }
+                const selectedColour = selectedOptions['Colour'] || selectedOptions['Color'] || selectedOptions['colour'] || selectedOptions['color'];
+                if (selectedColour) {
+                  const matchingVariants = variants.filter((v) =>
+                    v.selectedOptions.some(
+                      (opt) => (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value.trim().toLowerCase() === selectedColour.trim().toLowerCase()
+                    )
+                  );
+                  const validOptionValues = new Set<string>();
+                  matchingVariants.forEach((v) => {
+                    v.selectedOptions.forEach((opt) => {
+                      if (opt.name.toLowerCase() === option.name.toLowerCase()) {
+                        validOptionValues.add(opt.value);
+                      }
+                    });
+                  });
+                  if (validOptionValues.size > 0) {
+                    return sortSizeValues(Array.from(validOptionValues));
+                  }
+                }
+                return sortSizeValues(option.values);
+              })();
 
 
               // Inline stock info for size option (shown when size selected and ≤5 remaining)
@@ -468,10 +525,9 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                     className="variant-options"
                     style={{
                       display: 'flex',
-                      flexWrap: isColour ? 'wrap' : 'nowrap',
-                      gap: isColour ? '8px' : '3px',
+                      flexWrap: 'wrap',
+                      gap: isColour ? '8px' : '4px',
                       width: '100%',
-                      maxWidth: isColour ? '100%' : '380px',
                     }}
                   >
                     {displayValues.map((value) => {
@@ -494,7 +550,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                       const isSelected = selectedOptions[option.name] === value;
 
                       return (
-                        <div key={value} className="size-option-wrap" style={{ flex: !isColour ? 1 : 'none' }}>
+                        <div key={value} className="size-option-wrap" style={{ flex: 'none' }}>
                           <button
                             type="button"
                             className={`variant-option ${isSelected ? 'active' : ''} ${isOutOfStock ? 'unavailable out-of-stock' : ''} ${isColour ? 'colour-swatch' : 'size-btn'}`}
@@ -515,7 +571,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
                                   }
                                 : !isColour
                                 ? {
-                                    width: '100%',
+                                    width: '100px',
                                     height: '42px',
                                     background: isSelected ? '#000000' : '#ebedf0',
                                     color: isSelected ? '#ffffff' : '#333333',
@@ -614,8 +670,8 @@ export default function ProductInfo({ product, onColourChange }: Props) {
 
 
 
-      {/* Add to cart / Restock alert */}
-      <div className="product-add-to-cart-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Add to cart / Restock alert / Buy now buttons */}
+      <div className="product-add-to-cart-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {isCurrentSelectionOutOfStock ? (
           <button
             type="button"
@@ -647,58 +703,88 @@ export default function ProductInfo({ product, onColourChange }: Props) {
               Notify Me When Restocked
             </span>
           </button>
-        ) : cartItem ? (
-          <div className="btn-qty-selector">
-            <button
-              onClick={() => updateItem(cartItem.id, cartItem.quantity - 1)}
-              className="btn-qty-selector-btn"
-              aria-label="Decrease quantity"
-            >
-              —
-            </button>
-            <span className="btn-qty-selector-value">
-              {cartItem.quantity}
-            </span>
-            <button
-              onClick={() => {
-                if (selectedVariant?.quantityAvailable !== undefined && cartItem.quantity >= selectedVariant.quantityAvailable) {
-                  return;
-                }
-                updateItem(cartItem.id, cartItem.quantity + 1);
-              }}
-              className={`btn-qty-selector-btn ${selectedVariant?.quantityAvailable !== undefined && cartItem.quantity >= selectedVariant.quantityAvailable ? 'disabled' : ''}`}
-              disabled={selectedVariant?.quantityAvailable !== undefined && cartItem.quantity >= selectedVariant.quantityAvailable}
-              aria-label="Increase quantity"
-            >
-              +
-            </button>
-          </div>
         ) : (
-          <button
-            className={`btn-add-to-cart ${!isSizeSelected || !available || adding ? 'disabled' : ''}`}
-            onClick={handleAddToCart}
-            disabled={!isSizeSelected || !available || adding}
-            aria-label={!isSizeSelected ? 'Select a size' : available ? 'Add to cart' : 'Sold out'}
-          >
-            <span className="btn-add-to-cart-text">
-              {adding ? (
-                <span className="loading-spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white', width: '16px', height: '16px', display: 'inline-block' }} />
-              ) : addedMessage ? (
-                <>
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', marginRight: '4px' }}>
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  {addedMessage}
-                </>
-              ) : !isSizeSelected ? (
-                isColourOutOfStock ? 'OUT OF STOCK' : 'Select a Size'
-              ) : available ? (
-                'Add to Cart'
-              ) : (
-                'OUT OF STOCK'
-              )}
-            </span>
-          </button>
+          <>
+            {/* Primary Action: Add to Cart (or Qty Selector if in cart) */}
+            {cartItem && cartItem.quantity > 0 ? (
+              <div className="btn-qty-selector">
+                <button
+                  onClick={() => updateItem(cartItem.id, cartItem.quantity - 1)}
+                  className="btn-qty-selector-btn"
+                  aria-label="Decrease quantity"
+                >
+                  —
+                </button>
+                <span className="btn-qty-selector-value">
+                  {cartItem.quantity}
+                </span>
+                <button
+                  onClick={() => {
+                    if (selectedVariant?.quantityAvailable !== undefined && cartItem.quantity >= selectedVariant.quantityAvailable) {
+                      return;
+                    }
+                    updateItem(cartItem.id, cartItem.quantity + 1);
+                  }}
+                  className={`btn-qty-selector-btn ${selectedVariant?.quantityAvailable !== undefined && cartItem.quantity >= selectedVariant.quantityAvailable ? 'disabled' : ''}`}
+                  disabled={selectedVariant?.quantityAvailable !== undefined && cartItem.quantity >= selectedVariant.quantityAvailable}
+                  aria-label="Increase quantity"
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <button
+                className={`btn-add-to-cart ${!isSizeSelected || !available || adding ? 'disabled' : ''}`}
+                onClick={handleAddToCart}
+                disabled={!isSizeSelected || !available || adding}
+                aria-label={!isSizeSelected ? 'Select a size' : available ? 'Add to cart' : 'Sold out'}
+              >
+                <span className="btn-add-to-cart-text">
+                  {adding ? (
+                    <span className="loading-spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white', width: '16px', height: '16px', display: 'inline-block' }} />
+                  ) : addedMessage ? (
+                    <>
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', marginRight: '4px' }}>
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      {addedMessage}
+                    </>
+                  ) : !isSizeSelected ? (
+                    isColourOutOfStock ? 'OUT OF STOCK' : 'Select a Size'
+                  ) : available ? (
+                    'Add to Cart'
+                  ) : (
+                    'OUT OF STOCK'
+                  )}
+                </span>
+              </button>
+            )}
+
+            {/* Secondary Action: Buy Now / Proceed to Checkout button */}
+            <button
+              type="button"
+              className={`btn-buy-it-now ${!isSizeSelected || !available || buyingNow ? 'disabled' : ''}`}
+              onClick={handleBuyNow}
+              disabled={!isSizeSelected || !available || buyingNow}
+              aria-label={cartItem && cartItem.quantity > 0 ? 'Proceed to Checkout' : 'Buy Now'}
+            >
+              <span className="btn-buy-it-now-text">
+                {buyingNow ? (
+                  <span className="loading-spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white', width: '16px', height: '16px', display: 'inline-block' }} />
+                ) : cartItem && cartItem.quantity > 0 ? (
+                  <>
+                    <span>Proceed to Checkout</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                      <polyline points="12 5 19 12 12 19" />
+                    </svg>
+                  </>
+                ) : (
+                  'Buy Now'
+                )}
+              </span>
+            </button>
+          </>
         )}
       </div>
 

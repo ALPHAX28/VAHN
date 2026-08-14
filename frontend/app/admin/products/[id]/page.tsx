@@ -14,8 +14,9 @@ import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 import Image from "next/image";
 import { adminListSizeGuide, type SizeGuideType } from "@/lib/api/sizeGuide";
+import AdminLookbookManager, { type LookbookItem, uploadPendingLookbookImages } from "@/components/admin/AdminLookbookManager";
 
-const TABS = ["Details", "Variants", "Colour Groups", "Reviews"];
+const TABS = ["Details", "Variants", "Colour Groups", "Lookbook", "Reviews"];
 const FIT_OPTIONS = ["SLIM", "REGULAR", "RELAXED FIT", "OVERSIZED"];
 
 const KIT_OPTIONS = ["JERSEY", "HOME", "SIGNATURE"];
@@ -96,10 +97,11 @@ export default function AdminProductDetailPage() {
   const [newGroupImages, setNewGroupImages] = useState<{ url: string; altText: string }[]>([]);
   const [newGroupUploaderKey, setNewGroupUploaderKey] = useState(0);
 
-  // Buffered Local States for Colour Groups & Gallery Images (0 backend calls until Save!)
+  // Buffered Local States for Colour Groups & Gallery Images & Lookbook (0 backend calls until Save!)
   const [localGroups, setLocalGroups] = useState<ColourGroup[]>([]);
   const [deletedGroupIds, setDeletedGroupIds] = useState<Set<number>>(new Set());
   const [localGallery, setLocalGallery] = useState<UploadedImage[]>([]);
+  const [localLookbook, setLocalLookbook] = useState<LookbookItem[]>([]);
 
   // Reviews
   const [reviews, setReviews] = useState<AdminReview[]>([]);
@@ -149,6 +151,7 @@ export default function AdminProductDetailPage() {
       setLocalGroups(p.colour_groups || []);
       setDeletedGroupIds(new Set());
       setLocalGallery((p.images || []).map((img, i) => ({ url: img.url, key: img.url, name: `Image ${i + 1}` })));
+      setLocalLookbook(p.lookbook || []);
 
       // Dynamically accumulate all Product Types from DB (excluding deleted ones)
       let deletedTypes: string[] = [];
@@ -234,20 +237,28 @@ export default function AdminProductDetailPage() {
     return JSON.stringify(origUrls) !== JSON.stringify(localUrls);
   }, [product, localGallery]);
 
+  const isLookbookDirty = useMemo(() => {
+    if (!product) return false;
+    const origStr = JSON.stringify(product.lookbook || []);
+    const localStr = JSON.stringify(localLookbook || []);
+    return origStr !== localStr;
+  }, [product, localLookbook]);
+
   const isReviewsDirty = useMemo(() => {
     return Boolean(newReview.author.trim() !== "" || newReview.content.trim() !== "");
   }, [newReview]);
 
-  const isPageDirty = isDetailsDirty || isVariantsDirty || isGroupsDirty || isImagesDirty || isReviewsDirty;
+  const isPageDirty = isDetailsDirty || isVariantsDirty || isGroupsDirty || isImagesDirty || isLookbookDirty || isReviewsDirty;
 
   const isCurrentTabDirty = useMemo(() => {
     if (activeTab === "Details") return isDetailsDirty;
     if (activeTab === "Variants") return isVariantsDirty;
     if (activeTab === "Colour Groups") return isGroupsDirty;
     if (activeTab === "Images") return isImagesDirty;
+    if (activeTab === "Lookbook") return isLookbookDirty;
     if (activeTab === "Reviews") return isReviewsDirty;
     return false;
-  }, [activeTab, isDetailsDirty, isVariantsDirty, isGroupsDirty, isImagesDirty, isReviewsDirty]);
+  }, [activeTab, isDetailsDirty, isVariantsDirty, isGroupsDirty, isImagesDirty, isLookbookDirty, isReviewsDirty]);
 
   const handleDiscardChanges = useCallback(() => {
     setError("");
@@ -272,6 +283,7 @@ export default function AdminProductDetailPage() {
     setLocalGroups(product.colour_groups || []);
     setDeletedGroupIds(new Set());
     setLocalGallery((product.images || []).map((img, i) => ({ url: img.url, key: img.url, name: `Image ${i + 1}` })));
+    setLocalLookbook(product.lookbook || []);
     setNewVariant({ title: "", colour: "", size: "", price_amount: 0, compare_at_price_amount: "", inventory_quantity: 0, available_for_sale: true, image_url: "" });
     setEditingVariant(null);
     setVariantEdits({});
@@ -300,12 +312,18 @@ export default function AdminProductDetailPage() {
 
       const imagesPayload = isImagesDirty ? localGallery.map((img, i) => ({ url: img.url, altText: product.title })) : undefined;
 
+      // Upload any pending Lookbook image files to cloud now upon explicit Save
+      const uploadedLookbook = await uploadPendingLookbookImages(localLookbook);
+
       await updateAdminProduct(adminToken, productId, {
         ...editForm,
         description_html,
         ...(imagesPayload ? { images: imagesPayload } : {}),
+        lookbook: uploadedLookbook,
         tags: Array.isArray(editForm.tags) ? editForm.tags : (editForm.tags as unknown as string || "").split(",").map((t: string) => t.trim()),
       });
+
+      setLocalLookbook(uploadedLookbook);
 
       // Persist deleted colour groups
       for (const gid of Array.from(deletedGroupIds)) {
@@ -338,7 +356,26 @@ export default function AdminProductDetailPage() {
     } finally {
       setSaving(false);
     }
-  }, [adminToken, product, productId, editForm, editSizeFitInput, isImagesDirty, localGallery, deletedGroupIds, localGroups, newGroup, newGroupImages]);
+  }, [adminToken, product, productId, editForm, editSizeFitInput, isImagesDirty, localGallery, localLookbook, deletedGroupIds, localGroups, newGroup, newGroupImages, allSizeGuides]);
+
+  // Direct save helper for Lookbook changes
+  const handleSaveLookbookDirect = useCallback(async () => {
+    if (!adminToken || !product) return;
+    setSaving(true);
+    setError("");
+    try {
+      const uploadedLookbook = await uploadPendingLookbookImages(localLookbook);
+      await updateAdminProduct(adminToken, productId, { lookbook: uploadedLookbook });
+      setLocalLookbook(uploadedLookbook);
+      await loadProduct();
+      setSuccess("Lookbook cards saved successfully!");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to save lookbook cards");
+    } finally {
+      setSaving(false);
+    }
+  }, [adminToken, product, productId, localLookbook]);
 
   // Sync with global UnsavedChangesContext
   useEffect(() => {
@@ -363,7 +400,7 @@ export default function AdminProductDetailPage() {
         }
       }
 
-      if (isDetailsDirty || isGroupsDirty) {
+      if (isDetailsDirty || isGroupsDirty || isImagesDirty || isLookbookDirty || !isVariantsDirty) {
         await handleSave();
       }
 
@@ -374,7 +411,7 @@ export default function AdminProductDetailPage() {
     } finally {
       setSaving(false);
     }
-  }, [isVariantsDirty, editingVariant, newVariant, variantEdits, isDetailsDirty, isGroupsDirty, handleSave, handleSaveVariant, handleAddVariant]);
+  }, [isVariantsDirty, editingVariant, newVariant, variantEdits, isDetailsDirty, isGroupsDirty, isImagesDirty, isLookbookDirty, handleSave, handleSaveVariant, handleAddVariant]);
 
   function handleTabClick(nextTab: string) {
     if (nextTab === activeTab) return;
@@ -668,7 +705,13 @@ export default function AdminProductDetailPage() {
             {editForm.available_for_sale ? "Deactivate" : "Activate"}
           </button>
           <button className="admin-btn admin-btn--primary" onClick={handleSaveAll} disabled={saving}>
-            {saving ? <span className="admin-btn-spinner" /> : "Save Changes"}
+            {saving ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <span className="admin-btn-spinner" /> Saving...
+              </span>
+            ) : (
+              "Save Changes"
+            )}
           </button>
         </div>
 
@@ -698,6 +741,7 @@ export default function AdminProductDetailPage() {
             (tab === "Details" && isDetailsDirty) ||
             (tab === "Variants" && isVariantsDirty) ||
             (tab === "Colour Groups" && isGroupsDirty) ||
+            (tab === "Lookbook" && isLookbookDirty) ||
             (tab === "Reviews" && isReviewsDirty);
           return (
             <button key={tab} className={`admin-tab ${activeTab === tab ? "admin-tab--active" : ""}`} onClick={() => handleTabClick(tab)}>
@@ -1460,6 +1504,15 @@ export default function AdminProductDetailPage() {
         </div>
       )}
 
+      {/* Lookbook Tab */}
+      {activeTab === "Lookbook" && (
+        <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <AdminLookbookManager
+            items={localLookbook}
+            onChange={setLocalLookbook}
+          />
+        </div>
+      )}
 
       {/* Reviews Tab */}
       {activeTab === "Reviews" && (

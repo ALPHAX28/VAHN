@@ -125,11 +125,18 @@ try {
   const currentOutput = execSync(`"${pythonBin}" -m alembic current`, { cwd: backendDir }).toString();
   const headsOutput = execSync(`"${pythonBin}" -m alembic heads`, { cwd: backendDir }).toString();
 
-  const currentMatch = currentOutput.match(/([a-f0-9]{12})/);
-  const headMatch = headsOutput.match(/([a-f0-9]{12})/);
+  const getRev = (out) => {
+    const lines = out.split(/\r?\n/).filter(l => !l.startsWith('INFO') && l.trim().length > 0);
+    if (!lines.length) return null;
+    const match = lines[0].match(/^([a-zA-Z0-9_]+)/);
+    return match ? match[1] : null;
+  };
 
-  if (currentMatch && headMatch && currentMatch[1] === headMatch[1]) {
-    console.log(`\x1b[32m✔ Database migrations are up-to-date (${currentMatch[1]})\x1b[0m`);
+  const currentRev = getRev(currentOutput);
+  const headRev = getRev(headsOutput);
+
+  if (currentRev && headRev && currentRev === headRev) {
+    console.log(`\x1b[32m✔ Database migrations are up-to-date (${currentRev})\x1b[0m`);
   } else {
     console.log('\x1b[33m⚠ Pending database migrations detected. Applying latest Alembic revision...\x1b[0m');
     execSync(`"${pythonBin}" -m alembic upgrade head`, { cwd: backendDir, stdio: 'inherit' });

@@ -35,7 +35,7 @@ export default async function ProductPage({ params }: Props) {
   const product = await getProduct(handle).catch(() => null);
   if (!product) notFound();
 
-  const recommendations = await getProductRecommendations(product.id).catch(() => []);
+  const recommendations = await getProductRecommendations(product.id, product.handle).catch(() => []);
 
   const images = product.images.edges.map((e) => e.node);
 

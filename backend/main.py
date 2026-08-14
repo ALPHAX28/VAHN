@@ -82,10 +82,8 @@ async def add_cache_control_header(request, call_next):
         path = request.url.path
         if "/admin/" in path:
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-        elif path.startswith("/api/products/"):
-            response.headers["Cache-Control"] = "no-cache, must-revalidate"
         elif path.startswith("/api/products") or path.startswith("/api/collections"):
-            response.headers["Cache-Control"] = "public, max-age=5, s-maxage=10, stale-while-revalidate=30"
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 
 # Helper function to convert DB model to schemas.ProductSchema
