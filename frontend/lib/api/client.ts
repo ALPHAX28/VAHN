@@ -5,27 +5,25 @@
 export function getApiBaseUrl(): string {
   // BROWSER (client-side):
   if (typeof window !== 'undefined') {
-    // If running locally on localhost, use localhost backend API
+    // If running locally on localhost port 3000 without proxy, fallback to :8000/api
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/+$/, '');
+      if (window.location.port === '3000') {
+        return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api').replace(/\/+$/, '');
+      }
     }
-    // In production browser, use relative same-origin path '/api/backend/api' so all requests
-    // are strictly same-origin (zero CORS issues and zero preflight redirects!)
-    return '/api/backend/api';
+    // In production browser (via IP or domain through Caddy reverse proxy), use '/api'
+    return '/api';
   }
 
-  // SERVER-SIDE (SSR / Build time):
-  if (process.env.NEXT_PUBLIC_API_URL) {
+  // SERVER-SIDE (SSR / Build time inside container):
+  if (process.env.INTERNAL_API_URL) {
+    return process.env.INTERNAL_API_URL.replace(/\/+$/, '');
+  }
+  if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.startsWith('http')) {
     return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
   }
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/api/backend/api`;
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}/api/backend/api`;
-  }
 
-  return 'http://localhost:8000/api';
+  return 'http://backend:8000/api';
 }
 
 
