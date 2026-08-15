@@ -664,8 +664,28 @@ export default function AdminProductDetailPage() {
   }
 
   function handleDeleteGroupLocal(groupId: number) {
+    const groupToDelete = localGroups.find(g => g.id === groupId);
+    const colourName = groupToDelete?.colour_value?.trim();
+
     setLocalGroups(prev => prev.filter(g => g.id !== groupId));
     setDeletedGroupIds(prev => new Set(prev).add(groupId));
+
+    if (colourName && product) {
+      const lowerColour = colourName.toLowerCase();
+      setProduct(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          variants: prev.variants.filter(v => {
+            const optMatch = v.selected_options?.some(
+              opt => (opt.name.toLowerCase() === "colour" || opt.name.toLowerCase() === "color") && opt.value.trim().toLowerCase() === lowerColour
+            );
+            const titleMatch = v.title.split("/")[0].trim().toLowerCase() === lowerColour;
+            return !optMatch && !titleMatch;
+          })
+        };
+      });
+    }
   }
 
   async function handleAddGroup() {

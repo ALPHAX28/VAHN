@@ -1735,6 +1735,8 @@ def admin_delete_colour_group(
     if not group:
         raise HTTPException(status_code=404, detail="Colour group not found")
 
+    colour_val = group.colour_value.strip().lower() if group.colour_value else ""
+
     # Delete images from AWS S3
     if group.images and isinstance(group.images, list):
         group_images_to_delete = []
@@ -1745,9 +1747,28 @@ def admin_delete_colour_group(
                 group_images_to_delete.append(img)
         storage.delete_files(group_images_to_delete)
 
+    # Cascade-delete all variants associated with this colour
+    if colour_val:
+        variants = db.query(models.ProductVariant).filter_by(product_id=product_id).all()
+        for v in variants:
+            is_match = False
+            if v.selected_options and isinstance(v.selected_options, list):
+                for opt in v.selected_options:
+                    if isinstance(opt, dict) and opt.get("name", "").lower() in ["colour", "color"]:
+                        if str(opt.get("value", "")).strip().lower() == colour_val:
+                            is_match = True
+                            break
+            if not is_match and v.title:
+                parts = v.title.split("/")
+                if len(parts) > 0 and parts[0].strip().lower() == colour_val:
+                    is_match = True
+            
+            if is_match:
+                db.delete(v)
+
     db.delete(group)
     db.commit()
-    return {"message": "Colour group and associated images deleted."}
+    return {"message": "Colour group and associated variants deleted."}
 
 
 # ============================================================
