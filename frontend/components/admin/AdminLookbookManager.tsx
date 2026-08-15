@@ -101,8 +101,7 @@ export default function AdminLookbookManager({
   }
 
   // Save Item in Modal (Local update only - NO auto-save or upload to backend)
-  function handleSaveItem(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSaveItem() {
     setFormError("");
 
     const trimmedTitle = title.trim();
@@ -500,7 +499,7 @@ export default function AdminLookbookManager({
               </div>
             )}
 
-            <form onSubmit={handleSaveItem}>
+            <div>
               {/* Image Selection / Preview */}
               <div className="admin-form-group" style={{ marginBottom: "16px" }}>
                 <label className="admin-form-label" style={{ fontWeight: 600 }}>
@@ -691,13 +690,14 @@ export default function AdminLookbookManager({
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="button"
                   className="admin-btn admin-btn--primary"
+                  onClick={handleSaveItem}
                 >
                   {editingId ? "Apply Changes" : "Add Card"}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

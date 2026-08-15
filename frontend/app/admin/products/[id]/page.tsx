@@ -1545,6 +1545,8 @@ export default function AdminProductDetailPage() {
                 key={newGroupUploaderKey}
                 endpoint="productImage"
                 label="Upload Initial Images for New Group"
+                existingImages={newGroupImages}
+                onReorderExisting={imgs => setNewGroupImages(imgs)}
                 onUploadComplete={imgs => setNewGroupImages(imgs)}
               />
             </div>
