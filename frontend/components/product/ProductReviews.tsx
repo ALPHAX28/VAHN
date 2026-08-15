@@ -292,7 +292,7 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
             No reviews found matching the selected rating.
           </div>
         ) : (
-          <div style={{ position: 'relative', paddingBottom: sortedReviews.length > visibleCount ? '80px' : '0' }}>
+          <div>
             <div className="reviews-grid">
               {sortedReviews.slice(0, visibleCount).map((review) => {
                 const isLong = review.content.length > 150;
@@ -350,7 +350,7 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
             </div>
 
             {sortedReviews.length > visibleCount && (
-              <div className="reviews-fade-overlay">
+              <div className="reviews-load-more-wrapper" style={{ display: 'flex', justifyContent: 'center', marginTop: '28px' }}>
                 <button
                   onClick={() => setVisibleCount((prev) => prev + 6)}
                   className="reviews-load-more-btn"

@@ -63,7 +63,7 @@ export default async function ProductPage({ params }: Props) {
 
       {/* Product Recommendations */}
       {recommendations.length > 0 && (
-        <section className="section">
+        <section className="product-recommendations-section" style={{ padding: 'var(--space-xl) 0', borderTop: '1px solid var(--color-border)' }}>
           <div style={{ maxWidth: 'var(--page-width)', margin: '0 auto', padding: '0 var(--space-xl)' }}>
             <div className="section-header" style={{ padding: 0, marginBottom: 'var(--space-xl)' }}>
               <div>
