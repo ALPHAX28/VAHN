@@ -14,17 +14,18 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
   const gridRef = useRef<HTMLDivElement>(null);
-  const [collapsedHeight, setCollapsedHeight] = useState<number | null>(null);
-
-  // Measure exact 2x2 grid height when collapsed to lock outer container height when expanded
-  useEffect(() => {
-    if (!showAllImages && gridRef.current) {
-      const h = gridRef.current.clientHeight;
-      if (h > 0) {
-        setCollapsedHeight(h);
-      }
+  const toggleShowMore = () => {
+    if (!showAllImages) {
+      setShowAllImages(true);
+      setTimeout(() => {
+        // Smoothly scroll down slightly to bring the newly expanded images into immediate view
+        window.scrollBy({ top: 380, behavior: 'smooth' });
+      }, 60);
+    } else {
+      setShowAllImages(false);
+      gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [showAllImages]);
+  };
 
   const displayImages = showAllImages ? images : images.slice(0, 4);
 
@@ -74,28 +75,18 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
   return (
     <>
       <div className="product-gallery">
-        {/* Desktop: Adidas-style 2-Column Grid */}
+        {/* Desktop: 2-Column Grid with Portrait 3:4 Aspect Ratio */}
         <div className="adidas-gallery-desktop">
-          <div
-            ref={gridRef}
-            className="adidas-grid-container"
-            style={
-              showAllImages && collapsedHeight
-                ? {
-                    maxHeight: `${collapsedHeight}px`,
-                    overflowY: 'auto',
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
-                  }
-                : {}
-            }
-          >
+          <div ref={gridRef} className="adidas-grid-container">
             {displayImages.map((img, i) => (
               <div
                 key={i}
                 className="adidas-grid-item"
                 onClick={() => openLightbox(i)}
-                style={{ cursor: 'pointer' }}
+                style={{
+                  cursor: 'pointer',
+                  animation: i >= 4 ? 'fadeIn 0.35s ease-out' : undefined,
+                }}
               >
                 <Image
                   src={img.url}
@@ -109,15 +100,15 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
             ))}
           </div>
 
-          {/* "Show More" Button for Desktop Grid */}
+          {/* "Show More / Show Less" Button for Desktop Grid */}
           {images.length > 4 && (
             <div className="adidas-show-more-wrapper">
               <button
                 className="adidas-show-more-btn"
-                onClick={() => setShowAllImages(!showAllImages)}
+                onClick={toggleShowMore}
                 aria-expanded={showAllImages}
               >
-                <span>{showAllImages ? 'Show less' : 'Show more'}</span>
+                <span>{showAllImages ? 'Show less' : `Show more (+${images.length - 4})`}</span>
                 <svg
                   viewBox="0 0 24 24"
                   width="18"

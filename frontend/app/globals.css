@@ -1296,7 +1296,7 @@ input, textarea, select {
 
 .product-gallery-main-container {
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 3 / 4;
   position: relative;
   background: var(--color-grey-light);
   overflow: hidden;
@@ -3163,7 +3163,7 @@ input, textarea, select {
 .adidas-grid-item {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 3 / 4;
   background: var(--color-grey-light);
   overflow: hidden;
 }
