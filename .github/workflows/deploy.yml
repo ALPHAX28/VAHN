@@ -177,7 +177,7 @@ jobs:
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script_stop: true
           script: |
-            cd /home/ubuntu/shopify-migration/nextjs-vahn
+            cd /home/ubuntu/VAHN
             git pull origin main
 
             # Update production .env if secret is configured

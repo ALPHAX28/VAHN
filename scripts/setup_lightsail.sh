@@ -71,12 +71,13 @@ sudo ufw --force enable
 echo "✔ Firewall configured."
 
 # 6. Make scripts executable & install S3 Backup Cron
-BACKUP_SCRIPT="/home/ubuntu/shopify-migration/nextjs-vahn/scripts/backup_db_to_s3.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_SCRIPT="${SCRIPT_DIR}/backup_db_to_s3.sh"
 if [ -f "$BACKUP_SCRIPT" ]; then
     chmod +x "$BACKUP_SCRIPT"
     # Add to crontab if not already present
     (crontab -l 2>/dev/null | grep -v "$BACKUP_SCRIPT" ; echo "0 * * * * $BACKUP_SCRIPT >/dev/null 2>&1") | crontab -
-    echo "✔ Hourly S3 Database Backup cron job installed."
+    echo "✔ Hourly S3 Database Backup cron job installed ($BACKUP_SCRIPT)."
 fi
 
 echo "============================================================"
