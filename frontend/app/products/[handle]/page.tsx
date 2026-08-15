@@ -8,6 +8,7 @@ import ProductReviews from '@/components/product/ProductReviews';
 
 
 import ProductHighlights from '@/components/product/ProductHighlights';
+import ProductLookbook from '@/components/product/ProductLookbook';
 
 interface Props {
   params: Promise<{ handle: string }>;
@@ -55,39 +56,7 @@ export default async function ProductPage({ params }: Props) {
 
 
       {/* Lookbook / "How He Wears It" Section */}
-      {product.lookbook && product.lookbook.length > 0 && (
-        <section className="lookbook-section">
-          <div className="container">
-            <div className="section-header" style={{ padding: 0, marginBottom: 'var(--space-md)' }}>
-              <div>
-                <p className="section-title">Inspiration</p>
-                <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2.5rem)', marginTop: '4px' }}>
-                  How He Wears It
-                </h2>
-              </div>
-            </div>
-            <div className="lookbook-grid">
-              {product.lookbook.map((item) => (
-                <div key={item.id} className="lookbook-card">
-                  <div className="lookbook-image-container">
-                    <Image
-                      src={item.imageUrl}
-                      alt={item.title}
-                      fill
-                      sizes="(min-width: 1024px) 25vw, (min-width: 576px) 50vw, 100vw"
-                      className="lookbook-image"
-                    />
-                  </div>
-                  <div className="lookbook-info">
-                    <h3 className="lookbook-title">{item.title}</h3>
-                    <p className="lookbook-desc">{item.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      <ProductLookbook lookbook={product.lookbook || []} />
 
       {/* Customer Reviews Section */}
       <ProductReviews initialReviews={product.reviews || []} productHandle={product.handle} />
