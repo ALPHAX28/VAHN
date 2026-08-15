@@ -75,67 +75,69 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
             </h2>
           </div>
 
-          {/* Carousel Arrows (Visible when items exceed 4) */}
-          <div
-            className="lookbook-nav-controls"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => handleScroll('left')}
-              disabled={!canScrollLeft}
-              aria-label="Previous lookbook items"
+          {/* Carousel Arrows (Visible ONLY when items exceed 4) */}
+          {showNavButtons && (
+            <div
+              className="lookbook-nav-controls"
               style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '50%',
-                border: '1px solid var(--color-grey-mid, #e5e7eb)',
-                background: '#ffffff',
-                color: 'var(--color-black, #111827)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                cursor: canScrollLeft ? 'pointer' : 'not-allowed',
-                opacity: canScrollLeft ? 1 : 0.35,
-                transition: 'all 0.2s ease',
-                boxShadow: canScrollLeft ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                gap: '8px',
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleScroll('left')}
+                disabled={!canScrollLeft}
+                aria-label="Previous lookbook items"
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  border: '1px solid var(--color-grey-mid, #e5e7eb)',
+                  background: '#ffffff',
+                  color: 'var(--color-black, #111827)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: canScrollLeft ? 'pointer' : 'not-allowed',
+                  opacity: canScrollLeft ? 1 : 0.35,
+                  transition: 'all 0.2s ease',
+                  boxShadow: canScrollLeft ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleScroll('right')}
-              disabled={!canScrollRight}
-              aria-label="Next lookbook items"
-              style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '50%',
-                border: '1px solid var(--color-grey-mid, #e5e7eb)',
-                background: '#ffffff',
-                color: 'var(--color-black, #111827)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: canScrollRight ? 'pointer' : 'not-allowed',
-                opacity: canScrollRight ? 1 : 0.35,
-                transition: 'all 0.2s ease',
-                boxShadow: canScrollRight ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => handleScroll('right')}
+                disabled={!canScrollRight}
+                aria-label="Next lookbook items"
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  border: '1px solid var(--color-grey-mid, #e5e7eb)',
+                  background: '#ffffff',
+                  color: 'var(--color-black, #111827)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: canScrollRight ? 'pointer' : 'not-allowed',
+                  opacity: canScrollRight ? 1 : 0.35,
+                  transition: 'all 0.2s ease',
+                  boxShadow: canScrollRight ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Lookbook Horizontal Track */}
