@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useUploadThing } from "@/lib/uploadthing";
 import Image from "next/image";
+import { uploadMultipleFilesToS3, type S3UploadedImage } from "@/lib/s3";
 
 export interface UploadedImage {
   url: string;
@@ -11,7 +11,8 @@ export interface UploadedImage {
 }
 
 interface AdminImageUploaderProps {
-  endpoint: "productImage" | "lookbookImage" | "collectionImage";
+  endpoint?: "productImage" | "lookbookImage" | "collectionImage" | string;
+  folder?: string;
   onUploadComplete: (images: UploadedImage[]) => void;
   maxImages?: number;
   existingImages?: UploadedImage[];
@@ -20,7 +21,7 @@ interface AdminImageUploaderProps {
 }
 
 export default function AdminImageUploader({
-  endpoint,
+  folder = "products",
   onUploadComplete,
   maxImages = 10,
   existingImages = [],
@@ -36,38 +37,39 @@ export default function AdminImageUploader({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverCardIndex, setDragOverCardIndex] = useState<number | null>(null);
 
-  const { startUpload } = useUploadThing(endpoint, {
-    onClientUploadComplete: (res) => {
-      const images = (res || []).map(f => ({
-        url: (f as { ufsUrl?: string; url: string }).ufsUrl || f.url,
-        key: f.key,
-        name: f.name,
-      }));
-      const currentList = existingImages.length > 0 ? existingImages : localUploadedImages;
-      const next = [...currentList, ...images];
-      setLocalUploadedImages(next);
-      onUploadComplete(next);
-      setUploading(false);
-    },
-    onUploadError: (err) => {
-      setError(err.message || "Upload failed");
-      setUploading(false);
-    },
-  });
-
   async function handleFiles(files: File[]) {
     if (files.length === 0) return;
     const allowed = files.filter(f => f.type.startsWith("image/")).slice(0, maxImages);
-    if (allowed.length === 0) { setError("Please select image files only."); return; }
+    if (allowed.length === 0) {
+      setError("Please select image files only.");
+      return;
+    }
+
     setError("");
     setUploading(true);
-    await startUpload(allowed);
+
+    try {
+      const uploaded: S3UploadedImage[] = await uploadMultipleFilesToS3(allowed, folder);
+      const formatted: UploadedImage[] = uploaded.map(u => ({
+        url: u.url,
+        key: u.key,
+        name: u.name,
+      }));
+
+      const currentList = existingImages.length > 0 ? existingImages : localUploadedImages;
+      const next = [...currentList, ...formatted];
+      setLocalUploadedImages(next);
+      onUploadComplete(next);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to upload to S3");
+    } finally {
+      setUploading(false);
+    }
   }
 
   function handleZoneDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOverZone(false);
-    // If dropping files from computer
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFiles(Array.from(e.dataTransfer.files));
     }
@@ -129,6 +131,8 @@ export default function AdminImageUploader({
     setDragOverCardIndex(null);
   }
 
+  const inputId = `admin-file-input-${label.replace(/\s+/g, '-')}`;
+
   return (
     <div className="admin-uploader">
       <label className="admin-uploader-label">{label}</label>
@@ -139,13 +143,13 @@ export default function AdminImageUploader({
         onDragOver={e => { e.preventDefault(); setDragOverZone(true); }}
         onDragLeave={() => setDragOverZone(false)}
         onDrop={handleZoneDrop}
-        onClick={() => document.getElementById(`admin-file-input-${label.replace(/\s+/g, '-')}`)?.click()}
+        onClick={() => document.getElementById(inputId)?.click()}
         role="button"
         tabIndex={0}
-        onKeyDown={e => e.key === "Enter" && document.getElementById(`admin-file-input-${label.replace(/\s+/g, '-')}`)?.click()}
+        onKeyDown={e => e.key === "Enter" && document.getElementById(inputId)?.click()}
       >
         <input
-          id={`admin-file-input-${label.replace(/\s+/g, '-')}`}
+          id={inputId}
           type="file"
           accept="image/*"
           multiple={maxImages > 1}
@@ -156,7 +160,7 @@ export default function AdminImageUploader({
         {uploading ? (
           <div className="admin-uploader-uploading">
             <div className="admin-upload-spinner" />
-            <span>Uploading & Optimising...</span>
+            <span>Uploading to S3...</span>
           </div>
         ) : (
           <div className="admin-uploader-placeholder">
@@ -167,7 +171,7 @@ export default function AdminImageUploader({
             <span className="admin-uploader-hint">
               Bulk drag & drop files or <span className="admin-uploader-click">click to browse</span>
             </span>
-            <span className="admin-uploader-info">PNG, JPG, WebP — max 4MB each</span>
+            <span className="admin-uploader-info">PNG, JPG, WebP (Amazon S3 Storage)</span>
           </div>
         )}
       </div>

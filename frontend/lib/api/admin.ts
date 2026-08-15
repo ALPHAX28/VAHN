@@ -432,9 +432,23 @@ export const updateAdminReview = (token: string, id: number, data: object) =>
 export const deleteAdminReview = (token: string, id: number) =>
   adminFetch<{ message: string }>(`/admin/reviews/${id}`, token, { method: "DELETE" });
 
-// ============================================================
-// Media Assets
-// ============================================================
+export interface PresignedUrlResponse {
+  provider: string;
+  upload_url: string;
+  public_url: string;
+  key: string;
+  bucket: string;
+  region: string;
+}
+
+export const getS3PresignedUrl = (
+  token: string,
+  params: { filename: string; mime_type: string; folder?: string }
+) =>
+  adminFetch<PresignedUrlResponse>("/admin/media/presigned-url", token, {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
 
 export const getAdminMedia = (token: string, page = 1) =>
   adminFetch<PaginatedResponse<MediaAsset>>(`/admin/media?page=${page}`, token);
@@ -444,3 +458,4 @@ export const confirmMediaAsset = (token: string, data: { url: string; key?: stri
 
 export const deleteMediaAsset = (token: string, id: number) =>
   adminFetch<{ message: string }>(`/admin/media/${id}`, token, { method: "DELETE" });
+

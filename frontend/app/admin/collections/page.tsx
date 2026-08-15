@@ -9,7 +9,7 @@ import {
   type AdminCollection, type AdminProductSummary, type PaginatedResponse
 } from "@/lib/api/admin";
 import { clientCache } from "@/lib/api/cache";
-import { uploadFiles } from "@/lib/uploadthing";
+import { uploadFileToS3 } from "@/lib/s3";
 
 export default function AdminCollectionsPage() {
   const { adminToken } = useAdminAuth();
@@ -157,19 +157,9 @@ export default function AdminCollectionsPage() {
 
       // Upload image ONLY when Save / Update Collection is clicked
       if (stagedImageFile) {
-        try {
-          const res = await uploadFiles("collectionImage", { files: [stagedImageFile] });
-          if (res && res[0]) {
-            finalImageUrl = (res[0] as { ufsUrl?: string; url: string }).ufsUrl || res[0].url;
-          }
-        } catch (err: unknown) {
-          console.warn("UploadThing upload skipped/failed, using data URL fallback:", err);
-          finalImageUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(stagedImageFile);
-          });
+        const uploaded = await uploadFileToS3(stagedImageFile, "collections", adminToken);
+        if (uploaded.url) {
+          finalImageUrl = uploaded.url;
         }
       }
 

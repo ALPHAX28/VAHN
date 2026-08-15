@@ -2235,6 +2235,20 @@ def admin_delete_review(
 # ADMIN MEDIA UPLOAD
 # ============================================================
 
+@app.post("/api/admin/media/presigned-url", response_model=schemas.PresignedUrlResponse)
+def admin_get_presigned_url(
+    payload: schemas.PresignedUrlRequest,
+    admin: models.User = Depends(get_current_admin),
+):
+    res = storage.get_presigned_upload_url(
+        filename=payload.filename,
+        mime=payload.mime_type,
+        folder=payload.folder or "products"
+    )
+    if "error" in res:
+        raise HTTPException(status_code=500, detail=f"S3 Presigned URL generation failed: {res['error']}")
+    return res
+
 @app.post("/api/admin/media/confirm")
 def admin_confirm_media(
     payload: schemas.MediaAssetConfirmRequest,

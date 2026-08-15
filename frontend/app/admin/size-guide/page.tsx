@@ -12,6 +12,7 @@ import {
   type SizeGuideType,
   type MeasuringTip,
 } from "@/lib/api/sizeGuide";
+import { uploadFileToS3 } from "@/lib/s3";
 
 function DiagramSVG() {
   return (
@@ -120,16 +121,17 @@ export default function AdminSizeGuidePage() {
     const file = e.target.files?.[0];
     if (!file || !adminToken) return;
     setUploading(true);
+    setError("");
     try {
-      const formData = new FormData();
-      formData.append("files", file);
-      const res = await fetch("/api/uploadthing", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Upload failed");
-      const data = await res.json();
-      const url = data?.[0]?.url ?? data?.data?.[0]?.url ?? null;
-      if (url) setDraft((d) => ({ ...d, diagram_image_url: url }));
-    } catch { setError("Image upload failed."); }
-    finally { setUploading(false); }
+      const uploaded = await uploadFileToS3(file, "size-guides", adminToken);
+      if (uploaded.url) {
+        setDraft((d) => ({ ...d, diagram_image_url: uploaded.url }));
+      }
+    } catch {
+      setError("Image upload to S3 failed.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   function addColumn() {

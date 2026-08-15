@@ -1,23 +1,41 @@
-name: prod-vahn
+name: vahn-prod
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: vahn-caddy-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3 QUIC support
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - vahn-network
+
   db:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: vahn-postgres-db-prod
     restart: always
     environment:
-      POSTGRES_USER: vahn_user
-      POSTGRES_PASSWORD: vahn_pass
-      POSTGRES_DB: vahn_db
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${DB_USER:-vahn_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-vahn_pass}
+      POSTGRES_DB: ${DB_NAME:-vahn_db}
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vahn_user -d vahn_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-vahn_user} -d ${DB_NAME:-vahn_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - vahn-network
 
   backend:
     build:
@@ -28,14 +46,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+pg8000://vahn_user:vahn_pass@db:5432/vahn_db
+      - DATABASE_URL=postgresql+pg8000://${DB_USER:-vahn_user}:${DB_PASSWORD:-vahn_pass}@db:5432/${DB_NAME:-vahn_db}
       - HOST=0.0.0.0
       - PORT=8000
     env_file:
       - ./backend/.env
+    networks:
+      - vahn-network
 
   frontend:
     build:
@@ -45,13 +63,21 @@ services:
     restart: always
     depends_on:
       - backend
-    ports:
-      - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+      - NEXT_PUBLIC_API_URL=https://vahnsports.com/api
       - PORT=3000
       - HOSTNAME=0.0.0.0
+    networks:
+      - vahn-network
 
 volumes:
   postgres_prod_data:
     name: vahn_db_prod_data
+  caddy_data:
+    name: vahn_caddy_data
+  caddy_config:
+    name: vahn_caddy_config
+
+networks:
+  vahn-network:
+    name: vahn_prod_network

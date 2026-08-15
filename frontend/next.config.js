@@ -3,6 +3,20 @@ const nextConfig = {
   output: 'standalone',
   images: {
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'vahn.s3.ap-south-2.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'vahnsports.com',
+      },
+    ],
   },
   async headers() {
     return [

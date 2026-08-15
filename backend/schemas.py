@@ -902,13 +902,26 @@ class AdminReviewSchema(BaseModel):
 # Media Asset Schemas
 # ============================================================
 
+class PresignedUrlRequest(BaseModel):
+    filename: str
+    mime_type: str
+    folder: Optional[str] = "products"
+
+class PresignedUrlResponse(BaseModel):
+    provider: str
+    upload_url: str
+    public_url: str
+    key: str
+    bucket: str
+    region: str
+
 class MediaAssetConfirmRequest(BaseModel):
     url: str
     key: Optional[str] = None
     size: Optional[int] = None
     mime_type: Optional[str] = None
     alt_text: Optional[str] = None
-    provider: str = "uploadthing"
+    provider: str = "s3"
 
 class MediaAssetSchema(BaseModel):
     id: int

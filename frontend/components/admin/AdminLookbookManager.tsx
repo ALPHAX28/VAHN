@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import Image from "next/image";
-import { uploadFiles } from "@/lib/uploadthing";
+import { uploadFileToS3 } from "@/lib/s3";
 
 export interface LookbookItem {
   id: string;
@@ -13,7 +13,7 @@ export interface LookbookItem {
 }
 
 /**
- * Uploads any pending local files before saving to the database.
+ * Uploads any pending local files directly to Amazon S3 before saving to the database.
  * Call this inside handleSave / handleSaveAll.
  */
 export async function uploadPendingLookbookImages(items: LookbookItem[]): Promise<LookbookItem[]> {
@@ -21,14 +21,13 @@ export async function uploadPendingLookbookImages(items: LookbookItem[]): Promis
 
   for (const item of items) {
     if (item.file) {
-      const uploadRes = await uploadFiles("lookbookImage", { files: [item.file] });
-      const uploadedUrl = (uploadRes?.[0] as { ufsUrl?: string; url: string })?.ufsUrl || uploadRes?.[0]?.url;
-      if (!uploadedUrl) {
+      const uploaded = await uploadFileToS3(item.file, "lookbook");
+      if (!uploaded.url) {
         throw new Error(`Failed to upload photo for lookbook card "${item.title}".`);
       }
       result.push({
         id: item.id,
-        imageUrl: uploadedUrl,
+        imageUrl: uploaded.url,
         title: item.title,
         description: item.description,
       });
