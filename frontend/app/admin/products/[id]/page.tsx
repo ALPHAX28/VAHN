@@ -9,7 +9,7 @@ import {
   createAdminReview, getProductReviews, deleteAdminReview, updateAdminReview, type AdminReview
 } from "@/lib/api/admin";
 import { useUnsavedChanges } from "@/context/UnsavedChangesContext";
-import AdminImageUploader, { type UploadedImage } from "@/components/admin/AdminImageUploader";
+import AdminImageUploader, { type UploadedImage, uploadPendingImages } from "@/components/admin/AdminImageUploader";
 import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 import Image from "next/image";
@@ -310,7 +310,9 @@ export default function AdminProductDetailPage() {
       const fitPart = bullets.length > 0 ? `<ul>${bullets.map(b => `<li>${b}</li>`).join("")}</ul>` : "";
       const description_html = descPart + fitPart;
 
-      const imagesPayload = isImagesDirty ? localGallery.map((img, i) => ({ url: img.url, altText: product.title })) : undefined;
+      // Upload any pending Gallery images to S3
+      const uploadedGallery = isImagesDirty ? await uploadPendingImages(localGallery, "products", adminToken) : localGallery;
+      const imagesPayload = isImagesDirty ? uploadedGallery.map((img) => ({ url: img.url, altText: product.title })) : undefined;
 
       // Upload any pending Lookbook image files to cloud now upon explicit Save
       const uploadedLookbook = await uploadPendingLookbookImages(localLookbook);
@@ -324,25 +326,40 @@ export default function AdminProductDetailPage() {
       });
 
       setLocalLookbook(uploadedLookbook);
+      if (isImagesDirty) {
+        setLocalGallery(uploadedGallery);
+      }
 
       // Persist deleted colour groups
       for (const gid of Array.from(deletedGroupIds)) {
         try { await deleteColourGroup(adminToken, productId, gid); } catch (e) { console.error(e); }
       }
 
-      // Persist updated colour group images/names
+      // Persist updated colour group images/names (uploading any pending images)
       for (const g of localGroups) {
         const origGroup = product.colour_groups.find(og => og.id === g.id);
-        if (!origGroup || JSON.stringify(origGroup.images) !== JSON.stringify(g.images) || origGroup.colour_value !== g.colour_value) {
-          await updateColourGroup(adminToken, productId, g.id, { colour_value: g.colour_value, images: g.images });
+        const uploadedGroupImages = await uploadPendingImages(
+          g.images.map(img => ({ url: img.url, key: img.url, name: g.colour_value, file: (img as any).file })),
+          "products",
+          adminToken
+        );
+        const formattedImages = uploadedGroupImages.map(img => ({ url: img.url, altText: `${g.colour_value} photo` }));
+
+        if (!origGroup || JSON.stringify(origGroup.images) !== JSON.stringify(formattedImages) || origGroup.colour_value !== g.colour_value) {
+          await updateColourGroup(adminToken, productId, g.id, { colour_value: g.colour_value, images: formattedImages });
         }
       }
 
       // Persist new colour group if filled
       if (newGroup.colour_value.trim()) {
+        const uploadedNewGroupImages = await uploadPendingImages(
+          newGroupImages.map(img => ({ url: img.url, key: img.url, name: newGroup.colour_value, file: (img as any).file })),
+          "products",
+          adminToken
+        );
         await createColourGroup(adminToken, productId, {
           colour_value: newGroup.colour_value.trim(),
-          images: newGroupImages,
+          images: uploadedNewGroupImages.map(img => ({ url: img.url, altText: `${newGroup.colour_value} photo` })),
           display_order: newGroup.display_order
         });
         setNewGroup({ colour_value: "", display_order: 0 });

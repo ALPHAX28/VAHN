@@ -124,9 +124,13 @@ export default function ProfilePage() {
             <div className="auth-input-group">
               <label className="auth-label">Phone Number</label>
               <input
-                type="tel" required value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 98765 43210"
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="10-digit mobile number"
                 className="auth-input"
                 style={{ borderRadius: 0 }}
               />

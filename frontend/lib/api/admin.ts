@@ -459,3 +459,35 @@ export const confirmMediaAsset = (token: string, data: { url: string; key?: stri
 export const deleteMediaAsset = (token: string, id: number) =>
   adminFetch<{ message: string }>(`/admin/media/${id}`, token, { method: "DELETE" });
 
+export const uploadMediaDirect = async (
+  token: string,
+  file: File,
+  folder: string = "products"
+): Promise<{ url: string; key: string; name: string; size: number }> => {
+  const baseUrl = getApiBaseUrl();
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("folder", folder);
+
+  const res = await fetch(`${baseUrl}/admin/media/upload`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    let errDetail = "Upload failed";
+    try {
+      const err = await res.json();
+      errDetail = err.detail || err.message || errDetail;
+    } catch {
+      errDetail = `Upload failed with HTTP ${res.status}`;
+    }
+    throw new Error(errDetail);
+  }
+
+  return res.json();
+};
+

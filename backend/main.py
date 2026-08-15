@@ -2,7 +2,7 @@ import secrets
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session, selectinload
@@ -613,13 +613,10 @@ def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
     email = payload.email.strip().lower()
     check_rate_limit(email)  # Raises 429 if too many requests
 
-    user = db.query(models.User).filter(
-        models.User.email == email,
-        models.User.role == "customer"
-    ).first()
+    user = db.query(models.User).filter(models.User.email == email).first()
 
-    if user:
-        # Existing user — login flow
+    if user and user.is_verified:
+        # Existing verified user — login flow
         if not user.is_active:
             reason_msg = f" Reason: {user.suspension_reason}." if user.suspension_reason else ""
             raise HTTPException(status_code=403, detail=f"Your account has been suspended by administration.{reason_msg} Please contact support for assistance.")
@@ -629,7 +626,7 @@ def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
         return {"otp_token": otp_token, "is_new_user": False}
 
     else:
-        # New user — register flow: full_name AND phone are REQUIRED
+        # New user / unverified registration flow: full_name AND phone are REQUIRED
         if not payload.full_name or not payload.full_name.strip():
             raise HTTPException(
                 status_code=422,
@@ -641,27 +638,53 @@ def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
                 detail="Phone number is required to create your account."
             )
 
-        phone = normalize_phone(payload.phone)
-        # Check if phone is already registered to another account
-        existing_phone = db.query(models.User).filter_by(phone=phone).first()
+        try:
+            phone = normalize_phone(payload.phone)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+        # Check if phone is already registered to another verified account
+        existing_phone = db.query(models.User).filter(
+            models.User.phone == phone,
+            models.User.email != email,
+            models.User.is_verified == True
+        ).first()
         if existing_phone:
             raise HTTPException(
                 status_code=400,
                 detail="This phone number is already registered to another account. Please use a different phone number."
             )
 
-        # Create user record (is_verified=False until OTP confirmed)
-        new_user = models.User(
-            email=email,
-            phone=phone,
-            full_name=payload.full_name.strip(),
-            role="customer",
-            is_verified=False,
-            email_verified=False,
-            phone_verified=False,
-        )
-        db.add(new_user)
-        db.commit()
+        try:
+            if user:
+                # Update existing unverified user record
+                user.phone = phone
+                user.full_name = payload.full_name.strip()
+                user.role = "customer"
+                db.commit()
+            else:
+                # Clean up any stale unverified record with this phone number
+                db.query(models.User).filter(
+                    models.User.phone == phone,
+                    models.User.is_verified == False
+                ).delete()
+                db.commit()
+
+                # Create new user record (is_verified=False until OTP confirmed)
+                new_user = models.User(
+                    email=email,
+                    phone=phone,
+                    full_name=payload.full_name.strip(),
+                    role="customer",
+                    is_verified=False,
+                    email_verified=False,
+                    phone_verified=False,
+                )
+                db.add(new_user)
+                db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Failed to initialize account registration. Please try again.")
 
         otp = generate_6digit_otp()
         otp_token = create_otp_token(email, otp)
@@ -1476,9 +1499,37 @@ def admin_delete_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     if hard_delete:
+        # Collect all S3 images associated with this product
+        s3_images_to_delete = []
+        if product.featured_image_url:
+            s3_images_to_delete.append(product.featured_image_url)
+        if product.images and isinstance(product.images, list):
+            for img in product.images:
+                if isinstance(img, dict) and img.get("url"):
+                    s3_images_to_delete.append(img["url"])
+                elif isinstance(img, str):
+                    s3_images_to_delete.append(img)
+        if product.lookbook and isinstance(product.lookbook, list):
+            for item in product.lookbook:
+                if isinstance(item, dict) and item.get("imageUrl"):
+                    s3_images_to_delete.append(item["imageUrl"])
+        for group in (product.colour_groups or []):
+            if group.images and isinstance(group.images, list):
+                for g_img in group.images:
+                    if isinstance(g_img, dict) and g_img.get("url"):
+                        s3_images_to_delete.append(g_img["url"])
+                    elif isinstance(g_img, str):
+                        s3_images_to_delete.append(g_img)
+        for variant in (product.variants or []):
+            if variant.image_url:
+                s3_images_to_delete.append(variant.image_url)
+
+        # Permanently delete files from AWS S3
+        storage.delete_files(s3_images_to_delete)
+
         db.delete(product)
         db.commit()
-        return {"message": "Product permanently deleted."}
+        return {"message": "Product and associated media permanently deleted."}
     else:
         product.available_for_sale = False
         db.commit()
@@ -1691,9 +1742,20 @@ def admin_delete_colour_group(
     group = db.query(models.ProductColourGroup).filter_by(id=group_id, product_id=product_id).first()
     if not group:
         raise HTTPException(status_code=404, detail="Colour group not found")
+
+    # Delete images from AWS S3
+    if group.images and isinstance(group.images, list):
+        group_images_to_delete = []
+        for img in group.images:
+            if isinstance(img, dict) and img.get("url"):
+                group_images_to_delete.append(img["url"])
+            elif isinstance(img, str):
+                group_images_to_delete.append(img)
+        storage.delete_files(group_images_to_delete)
+
     db.delete(group)
     db.commit()
-    return {"message": "Colour group deleted."}
+    return {"message": "Colour group and associated images deleted."}
 
 
 # ============================================================
@@ -1772,6 +1834,11 @@ def admin_delete_collection(
     col = db.query(models.Collection).filter_by(id=collection_id).first()
     if not col:
         raise HTTPException(status_code=404, detail="Collection not found")
+
+    # Delete image from AWS S3
+    if col.image_url:
+        storage.delete_file(col.image_url)
+
     db.delete(col)
     db.commit()
     return {"message": "Collection deleted."}
@@ -1898,7 +1965,7 @@ def _admin_order_detail(order: models.Order) -> schemas.AdminOrderSchema:
         shipping_address=order.shipping_address,
         created_at=order.created_at.strftime("%Y-%m-%dT%H:%M:%S") if order.created_at else "",
         updated_at=order.updated_at.strftime("%Y-%m-%dT%H:%M:%S") if order.updated_at else None,
-        user_id=order.user.id if order.user else 0,
+        user_id=order.user.id if order.user else (order.user_id or 0),
         user_email=order.user.email if order.user else "",
         user_name=order.user.full_name if order.user else "",
         items=[
@@ -2249,6 +2316,43 @@ def admin_get_presigned_url(
         raise HTTPException(status_code=500, detail=f"S3 Presigned URL generation failed: {res['error']}")
     return res
 
+
+@app.post("/api/admin/media/upload")
+async def admin_upload_media_direct(
+    file: UploadFile = File(...),
+    folder: str = Form("products"),
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    try:
+        content = await file.read()
+        mime = file.content_type or "application/octet-stream"
+        safe_filename = file.filename or "media_asset"
+        key = storage.generate_key(safe_filename, folder=folder)
+        public_url = storage.upload_file_bytes(content, key, mime)
+
+        # Create MediaAsset record
+        asset = models.MediaAsset(
+            url=public_url,
+            provider="s3",
+            key=key,
+            size=len(content),
+            mime_type=mime,
+            uploaded_by_id=admin.id
+        )
+        db.add(asset)
+        db.commit()
+
+        return {
+            "url": public_url,
+            "key": key,
+            "name": safe_filename,
+            "size": len(content)
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Server S3 upload failed: {str(e)}")
+
 @app.post("/api/admin/media/confirm")
 def admin_confirm_media(
     payload: schemas.MediaAssetConfirmRequest,
@@ -2308,9 +2412,16 @@ def admin_delete_media(
     asset = db.query(models.MediaAsset).filter_by(id=asset_id).first()
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
+
+    # Delete file from AWS S3
+    if asset.key:
+        storage.delete_file(asset.key)
+    elif asset.url:
+        storage.delete_file(asset.url)
+
     db.delete(asset)
     db.commit()
-    return {"message": "Asset record deleted."}
+    return {"message": "Asset and file deleted from storage."}
 
 
 # ============================================================
@@ -2476,6 +2587,11 @@ def admin_delete_size_guide_type(
     sg = db.query(models.SizeGuideType).filter_by(id=sg_id).first()
     if not sg:
         raise HTTPException(status_code=404, detail="Size guide type not found")
+
+    # Delete diagram image from AWS S3
+    if sg.diagram_image_url:
+        storage.delete_file(sg.diagram_image_url)
+
     db.delete(sg)
     db.commit()
 

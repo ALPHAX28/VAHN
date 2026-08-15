@@ -795,7 +795,7 @@ export default function ProductInfo({ product, onColourChange }: Props) {
       </div>
 
       {/* Dynamic 4-Field Product Accordions (Description, Size and fit, Care, Details) */}
-      <div className="product-accordions-wrapper" style={{ marginTop: '24px', borderTop: '1px solid var(--color-border)' }}>
+      <div className="product-accordions-wrapper" style={{ marginTop: '24px' }}>
         {[
           {
             id: 'description',

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import { getAdminProducts, createAdminProduct, createColourGroup } from "@/lib/api/admin";
 import { adminListSizeGuide, type SizeGuideType } from "@/lib/api/sizeGuide";
-import AdminImageUploader, { type UploadedImage } from "@/components/admin/AdminImageUploader";
+import AdminImageUploader, { type UploadedImage, uploadPendingImages } from "@/components/admin/AdminImageUploader";
 import AdminTagInput from "@/components/admin/AdminTagInput";
 import AdminLookbookManager, { type LookbookItem, uploadPendingLookbookImages } from "@/components/admin/AdminLookbookManager";
 
@@ -348,8 +348,24 @@ export default function NewProductPage() {
     setLoading(true);
 
     try {
-      const allColours = colourGroups.map(g => g.colour_value.trim());
-      const allSizes = [...new Set(colourGroups.flatMap(g => Object.keys(g.sizes)))];
+      // 1. Upload any pending Featured Thumbnail image to S3
+      const uploadedFeatured = await uploadPendingImages(featuredThumbnail, "products", adminToken);
+
+      // 2. Upload any pending Colour Group images to S3
+      const uploadedColourGroups: ColourGroupForm[] = [];
+      for (const group of colourGroups) {
+        const uploadedGroupImages = await uploadPendingImages(group.images, "products", adminToken);
+        uploadedColourGroups.push({
+          ...group,
+          images: uploadedGroupImages,
+        });
+      }
+
+      // 3. Upload any pending Lookbook image files to S3
+      const uploadedLookbook = await uploadPendingLookbookImages(lookbookItems);
+
+      const allColours = uploadedColourGroups.map(g => g.colour_value.trim());
+      const allSizes = [...new Set(uploadedColourGroups.flatMap(g => Object.keys(g.sizes)))];
 
       const options = [
         { id: "colour", name: "Colour", values: allColours },
@@ -367,7 +383,7 @@ export default function NewProductPage() {
         selected_options: Array<{ name: string; value: string }>;
       }> = [];
 
-      for (const group of colourGroups) {
+      for (const group of uploadedColourGroups) {
         const colourName = group.colour_value.trim();
         const primaryImage = group.images[0]?.url || null;
 
@@ -387,14 +403,11 @@ export default function NewProductPage() {
         }
       }
 
-      const allImages = colourGroups.flatMap(g => g.images.map(img => ({ url: img.url, altText: `${g.colour_value} image` })));
+      const allImages = uploadedColourGroups.flatMap(g => g.images.map(img => ({ url: img.url, altText: `${g.colour_value} image` })));
       const autoHandle = `${form.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
 
       const sizeFitBullets = sizeFitInput.split("\n").map(b => b.trim()).filter(Boolean);
       const descriptionHtml = `<p>${form.description}</p>${sizeFitBullets.length > 0 ? `<ul>${sizeFitBullets.map(b => `<li>${b}</li>`).join("")}</ul>` : ""}`;
-
-      // Upload any pending Lookbook image files to cloud now upon explicit Save & Publish
-      const uploadedLookbook = await uploadPendingLookbookImages(lookbookItems);
 
       // 1. Create main Product
       const product = await createAdminProduct(adminToken, {
@@ -413,7 +426,7 @@ export default function NewProductPage() {
         fit: form.fit || null,
         kit_type: form.kit_type || null,
         activity: form.activity || null,
-        featured_image_url: featuredThumbnail[0]?.url || allImages[0]?.url || null,
+        featured_image_url: uploadedFeatured[0]?.url || allImages[0]?.url || null,
         featured_image_alt: form.title,
         gst_percent: form.gst_percent,
         shipping_rate: form.shipping_rate,
@@ -423,11 +436,9 @@ export default function NewProductPage() {
         product_details: form.product_details,
       });
 
-
-
       // 2. Save Product Colour Groups into Database
-      for (let i = 0; i < colourGroups.length; i++) {
-        const g = colourGroups[i];
+      for (let i = 0; i < uploadedColourGroups.length; i++) {
+        const g = uploadedColourGroups[i];
         await createColourGroup(adminToken, product.id, {
           colour_value: g.colour_value.trim(),
           images: g.images.map(img => ({ url: img.url, altText: `${g.colour_value} photo` })),

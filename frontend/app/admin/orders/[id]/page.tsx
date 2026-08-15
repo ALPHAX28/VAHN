@@ -125,15 +125,25 @@ export default function AdminOrderDetailPage() {
           <div className="admin-card">
             <h2 className="admin-card-title">Customer</h2>
             <div className="admin-order-customer">
-              <div className="admin-order-customer-name">{order.user_name}</div>
-              <div className="admin-order-customer-email">{order.user_email}</div>
-              <Link
-                href={`/admin/users?search=${encodeURIComponent(order.user_email)}`}
-                className="admin-btn admin-btn--secondary"
-                style={{ marginTop: 10, display: "inline-flex", textDecoration: "none", fontSize: "0.8125rem" }}
-              >
-                View Customer Profile →
-              </Link>
+              <div className="admin-order-customer-name">{order.user_name || "Customer"}</div>
+              {order.user_email && <div className="admin-order-customer-email">{order.user_email}</div>}
+              {order.user_id ? (
+                <Link
+                  href={`/admin/users/${order.user_id}`}
+                  className="admin-btn admin-btn--secondary"
+                  style={{ marginTop: 10, display: "inline-flex", textDecoration: "none", fontSize: "0.8125rem" }}
+                >
+                  View Customer Profile →
+                </Link>
+              ) : order.user_email ? (
+                <Link
+                  href={`/admin/users?search=${encodeURIComponent(order.user_email)}`}
+                  className="admin-btn admin-btn--secondary"
+                  style={{ marginTop: 10, display: "inline-flex", textDecoration: "none", fontSize: "0.8125rem" }}
+                >
+                  View Customer Profile →
+                </Link>
+              ) : null}
             </div>
           </div>
 

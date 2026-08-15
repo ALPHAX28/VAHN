@@ -157,6 +157,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSuccessCallback(null);
   };
 
+function formatApiError(errData: any, defaultMsg = 'An error occurred'): string {
+  if (!errData) return defaultMsg;
+  if (typeof errData === 'string') return errData;
+  if (typeof errData.detail === 'string') return errData.detail;
+  if (Array.isArray(errData.detail) && errData.detail.length > 0) {
+    return errData.detail.map((d: any) => d.msg || (typeof d === 'string' ? d : JSON.stringify(d))).join(', ');
+  }
+  if (typeof errData.message === 'string') return errData.message;
+  if (typeof errData.error === 'string') return errData.error;
+  return defaultMsg;
+}
+
   const getAuthHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -170,8 +182,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({ email }),
     });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to check email');
+      let errMsg = 'Failed to check email';
+      try {
+        const err = await res.json();
+        errMsg = formatApiError(err, errMsg);
+      } catch {
+        errMsg = `Server error (${res.status}). Please try again.`;
+      }
+      throw new Error(errMsg);
     }
     return res.json();
   };
@@ -183,8 +201,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({ phone }),
     });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to check phone');
+      let errMsg = 'Failed to check phone';
+      try {
+        const err = await res.json();
+        errMsg = formatApiError(err, errMsg);
+      } catch {
+        errMsg = `Server error (${res.status}). Please try again.`;
+      }
+      throw new Error(errMsg);
     }
     return res.json();
   };
@@ -196,8 +220,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({ email, full_name: fullName, phone }),
     });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to send OTP');
+      let errMsg = 'Failed to send OTP';
+      try {
+        const err = await res.json();
+        errMsg = formatApiError(err, errMsg);
+      } catch {
+        errMsg = `Server error (${res.status}). Please try again.`;
+      }
+      throw new Error(errMsg);
     }
     return res.json();
   };
@@ -209,8 +239,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({ email, otp_code: otpCode, otp_token: otpToken }),
     });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Verification failed');
+      let errMsg = 'Verification failed';
+      try {
+        const err = await res.json();
+        errMsg = formatApiError(err, errMsg);
+      } catch {
+        errMsg = `Server error (${res.status}). Please try again.`;
+      }
+      throw new Error(errMsg);
     }
     const data = await res.json();
     setToken(data.access_token);
@@ -237,8 +273,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({ full_name: fullName, phone }),
     });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Profile update failed');
+      let errMsg = 'Profile update failed';
+      try {
+        const err = await res.json();
+        errMsg = formatApiError(err, errMsg);
+      } catch {
+        errMsg = `Server error (${res.status}). Please try again.`;
+      }
+      throw new Error(errMsg);
     }
     const updatedUser = await res.json();
     setUser(updatedUser);

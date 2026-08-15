@@ -2,12 +2,43 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { uploadMultipleFilesToS3, type S3UploadedImage } from "@/lib/s3";
+import { uploadFileToS3 } from "@/lib/s3";
 
 export interface UploadedImage {
   url: string;
   key: string;
   name: string;
+  file?: File;
+  isPending?: boolean;
+}
+
+/**
+ * Uploads any pending local files to Amazon S3.
+ * Call this inside handleSave / handleSubmit upon form submission.
+ */
+export async function uploadPendingImages(
+  images: UploadedImage[],
+  folder = "products",
+  adminToken?: string
+): Promise<UploadedImage[]> {
+  const result: UploadedImage[] = [];
+  for (const img of images) {
+    if (img.file) {
+      const uploaded = await uploadFileToS3(img.file, folder, adminToken);
+      result.push({
+        url: uploaded.url,
+        key: uploaded.key,
+        name: img.name || uploaded.name,
+      });
+    } else {
+      result.push({
+        url: img.url,
+        key: img.key || img.url,
+        name: img.name,
+      });
+    }
+  }
+  return result;
 }
 
 interface AdminImageUploaderProps {
@@ -37,7 +68,7 @@ export default function AdminImageUploader({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverCardIndex, setDragOverCardIndex] = useState<number | null>(null);
 
-  async function handleFiles(files: File[]) {
+  function handleFiles(files: File[]) {
     if (files.length === 0) return;
     const allowed = files.filter(f => f.type.startsWith("image/")).slice(0, maxImages);
     if (allowed.length === 0) {
@@ -46,24 +77,21 @@ export default function AdminImageUploader({
     }
 
     setError("");
-    setUploading(true);
+    const formatted: UploadedImage[] = allowed.map(file => ({
+      url: URL.createObjectURL(file),
+      key: "",
+      name: file.name,
+      file: file,
+      isPending: true,
+    }));
 
-    try {
-      const uploaded: S3UploadedImage[] = await uploadMultipleFilesToS3(allowed, folder);
-      const formatted: UploadedImage[] = uploaded.map(u => ({
-        url: u.url,
-        key: u.key,
-        name: u.name,
-      }));
-
-      const currentList = existingImages.length > 0 ? existingImages : localUploadedImages;
-      const next = [...currentList, ...formatted];
-      setLocalUploadedImages(next);
+    const currentList = existingImages.length > 0 ? existingImages : localUploadedImages;
+    const next = [...currentList, ...formatted].slice(0, maxImages);
+    setLocalUploadedImages(next);
+    if (onReorderExisting) {
+      onReorderExisting(next);
+    } else {
       onUploadComplete(next);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to upload to S3");
-    } finally {
-      setUploading(false);
     }
   }
 

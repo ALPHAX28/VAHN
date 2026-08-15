@@ -94,14 +94,68 @@ class S3Provider:
         )
         return self.get_public_url(key)
 
-    def delete_file(self, key: str) -> bool:
-        """Deletes a file by its storage key."""
+    def extract_key(self, key_or_url: Optional[str]) -> Optional[str]:
+        """Extract the S3 object key from an S3 URL or return the raw key."""
+        if not key_or_url or not isinstance(key_or_url, str):
+            return None
+        cleaned = key_or_url.strip()
+        if not cleaned:
+            return None
+
+        # If it's a full URL
+        if cleaned.startswith("http://") or cleaned.startswith("https://"):
+            import urllib.parse
+            parsed = urllib.parse.urlparse(cleaned)
+            path = parsed.path.lstrip("/")
+
+            # If path starts with bucket name: e.g. /vahn/products/...
+            if self.bucket and path.startswith(f"{self.bucket}/"):
+                path = path[len(self.bucket) + 1:]
+
+            decoded_key = urllib.parse.unquote(path)
+            return decoded_key if decoded_key else None
+
+        return cleaned
+
+    def delete_file(self, key_or_url: Optional[str]) -> bool:
+        """Deletes a file by its storage key or public S3 URL."""
+        key = self.extract_key(key_or_url)
+        if not key:
+            return False
         try:
             s3 = self._get_client()
             s3.delete_object(Bucket=self.bucket, Key=key)
             return True
-        except Exception:
+        except Exception as e:
+            print(f"[S3 DELETE] Failed to delete key '{key}': {e}")
             return False
+
+    def delete_files(self, keys_or_urls: list) -> int:
+        """Deletes multiple files from S3 given a list of keys or URLs."""
+        if not keys_or_urls:
+            return 0
+        valid_keys = [self.extract_key(k) for k in keys_or_urls if k]
+        valid_keys = list(set([k for k in valid_keys if k]))
+        if not valid_keys:
+            return 0
+
+        deleted_count = 0
+        try:
+            s3 = self._get_client()
+            for i in range(0, len(valid_keys), 1000):
+                chunk = valid_keys[i:i + 1000]
+                objects = [{"Key": k} for k in chunk]
+                s3.delete_objects(
+                    Bucket=self.bucket,
+                    Delete={"Objects": objects, "Quiet": True}
+                )
+                deleted_count += len(chunk)
+        except Exception as e:
+            print(f"[S3 BATCH DELETE] {e}")
+            for k in valid_keys:
+                if self.delete_file(k):
+                    deleted_count += 1
+        return deleted_count
 
 
 # Singleton instance

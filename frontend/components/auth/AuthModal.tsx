@@ -136,18 +136,26 @@ export default function AuthModal() {
   const handleDetailsSend = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!fullName.trim()) { setError('Please enter your full name.'); return; }
-    if (!phone.trim()) { setError('Please enter your phone number.'); return; }
+    const trimmedName = fullName.trim();
+    const cleanDigits = phone.replace(/\D/g, '');
+
+    if (!trimmedName) {
+      setError('Please enter your full name.');
+      return;
+    }
+    if (!cleanDigits) {
+      setError('Please enter your phone number.');
+      return;
+    }
+    if (cleanDigits.length !== 10) {
+      setError('Please enter a valid 10-digit mobile number.');
+      return;
+    }
 
     setLoading(true);
     try {
-      let formattedPhone = phone.trim().replace(/[\s\-\(\)]/g, '');
-      if (/^\d{10}$/.test(formattedPhone)) {
-        formattedPhone = '+91' + formattedPhone;
-      } else if (/^91\d{10}$/.test(formattedPhone)) {
-        formattedPhone = '+' + formattedPhone;
-      }
-      const { otp_token } = await sendOTP(email.trim().toLowerCase(), fullName.trim(), formattedPhone);
+      const formattedPhone = '+91' + cleanDigits;
+      const { otp_token } = await sendOTP(email.trim().toLowerCase(), trimmedName, formattedPhone);
       setOtpToken(otp_token);
       setStep('otp');
       setTimeout(() => otpRefs.current[0]?.focus(), 120);
@@ -312,10 +320,16 @@ export default function AuthModal() {
                     <input
                       id="auth-phone"
                       type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
                       className="auth-input auth-input--with-icon"
-                      placeholder="+91 98765 43210"
+                      placeholder="10-digit mobile number"
                       value={phone}
-                      onChange={e => setPhone(e.target.value)}
+                      onChange={e => {
+                        const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setPhone(digitsOnly);
+                        if (error) setError('');
+                      }}
                       required
                     />
                   </div>

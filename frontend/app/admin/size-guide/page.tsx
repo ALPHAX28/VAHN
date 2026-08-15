@@ -48,6 +48,7 @@ export default function AdminSizeGuidePage() {
   const [draft, setDraft] = useState<Omit<SizeGuideType, "id">>(emptyType());
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [diagramFile, setDiagramFile] = useState<File | null>(null);
 
   const [modalError, setModalError] = useState("");
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3500); };
@@ -64,12 +65,14 @@ export default function AdminSizeGuidePage() {
   function openCreate() {
     const maxOrder = types.length > 0 ? Math.max(...types.map((t) => t.display_order)) + 1 : 0;
     setDraft({ ...emptyType(), display_order: maxOrder });
+    setDiagramFile(null);
     setModalError("");
     setEditingId("new");
   }
 
   function openEdit(t: SizeGuideType) {
     setDraft({ name: t.name, unit_label: t.unit_label ?? "", is_visible: t.is_visible, display_order: t.display_order, diagram_image_url: t.diagram_image_url, columns: [...t.columns], rows: t.rows.map((r) => ({ ...r })), measuring_tips: t.measuring_tips.map((tip) => ({ ...tip })) });
+    setDiagramFile(null);
     setModalError("");
     setEditingId(t.id);
   }
@@ -79,16 +82,24 @@ export default function AdminSizeGuidePage() {
     if (!draft.name.trim()) { setModalError("Measurement type name is required."); return; }
     setSaving(true); setModalError("");
     try {
+      let diagramUrl = draft.diagram_image_url;
+      if (diagramFile) {
+        const uploaded = await uploadFileToS3(diagramFile, "size-guides", adminToken);
+        diagramUrl = uploaded.url;
+      }
+
       const unitLabel = draft.unit_label || undefined;
       const unitLabelNullable = draft.unit_label || null;
       if (editingId === "new") {
-        await adminCreateSizeGuideType(adminToken, { ...draft, unit_label: unitLabel });
+        await adminCreateSizeGuideType(adminToken, { ...draft, diagram_image_url: diagramUrl, unit_label: unitLabel });
         showToast("Measurement type created!");
       } else if (typeof editingId === "number") {
-        await adminUpdateSizeGuideType(adminToken, editingId, { ...draft, unit_label: unitLabelNullable });
+        await adminUpdateSizeGuideType(adminToken, editingId, { ...draft, diagram_image_url: diagramUrl, unit_label: unitLabelNullable });
         showToast("Measurement type updated!");
       }
-      setEditingId(null); await load();
+      setEditingId(null);
+      setDiagramFile(null);
+      await load();
     } catch (e: unknown) { setModalError(e instanceof Error ? e.message : "Save failed."); }
     finally { setSaving(false); }
   }
@@ -117,21 +128,16 @@ export default function AdminSizeGuidePage() {
     await adminReorderSizeGuide(adminToken, reordered.map((t) => ({ id: t.id, display_order: t.display_order })));
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !adminToken) return;
-    setUploading(true);
-    setError("");
-    try {
-      const uploaded = await uploadFileToS3(file, "size-guides", adminToken);
-      if (uploaded.url) {
-        setDraft((d) => ({ ...d, diagram_image_url: uploaded.url }));
-      }
-    } catch {
-      setError("Image upload to S3 failed.");
-    } finally {
-      setUploading(false);
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setModalError("Please select a valid image file (PNG, JPG, WebP).");
+      return;
     }
+    setDiagramFile(file);
+    setDraft((d) => ({ ...d, diagram_image_url: URL.createObjectURL(file) }));
+    setModalError("");
   }
 
   function addColumn() {
@@ -257,11 +263,11 @@ export default function AdminSizeGuidePage() {
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24 }}>
               <div className="admin-form-group">
                 <label className="admin-form-label">Name *</label>
-                <input className="admin-input" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="e.g. METRIC (CM)" />
+                <input className="admin-input" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="e.g. METRIC (CM)" style={{ fontSize: "0.8125rem", padding: "8px 12px" }} />
               </div>
               <div className="admin-form-group">
                 <label className="admin-form-label">Unit Label (optional)</label>
-                <input className="admin-input" value={draft.unit_label ?? ""} onChange={(e) => setDraft((d) => ({ ...d, unit_label: e.target.value }))} placeholder="e.g. cm or in" />
+                <input className="admin-input" value={draft.unit_label ?? ""} onChange={(e) => setDraft((d) => ({ ...d, unit_label: e.target.value }))} placeholder="e.g. cm or in" style={{ fontSize: "0.8125rem", padding: "8px 12px" }} />
               </div>
             </div>
             <div style={{ marginBottom:24 }}>
@@ -278,8 +284,8 @@ export default function AdminSizeGuidePage() {
                 </div>
                 <div style={{ flex:1 }}>
                   <input type="file" accept="image/*" id="diagram-upload" style={{ display:"none" }} onChange={handleImageUpload} />
-                  <label htmlFor="diagram-upload" className="admin-btn admin-btn--secondary" style={{ cursor:"pointer",display:"inline-block" }}>{uploading ? "Uploading…" : "Upload Image"}</label>
-                  {draft.diagram_image_url && (<button className="admin-btn" style={{ marginLeft:8,color:"#dc2626",border:"1px solid #fca5a5",background:"none" }} onClick={() => setDraft((d) => ({ ...d, diagram_image_url: null }))}>Remove</button>)}
+                  <label htmlFor="diagram-upload" className="admin-btn admin-btn--secondary" style={{ cursor:"pointer",display:"inline-block" }}>{draft.diagram_image_url ? "Change Image" : "Upload Image"}</label>
+                  {draft.diagram_image_url && (<button className="admin-btn" style={{ marginLeft:8,color:"#dc2626",border:"1px solid #fca5a5",background:"none" }} onClick={() => { setDiagramFile(null); setDraft((d) => ({ ...d, diagram_image_url: null })); }}>Remove</button>)}
                   <p style={{ fontSize:"0.75rem",color:"#888",marginTop:6 }}>Leave empty to use the built-in jersey SVG diagram.</p>
                 </div>
               </div>
@@ -332,8 +338,8 @@ export default function AdminSizeGuidePage() {
               <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
                 {draft.measuring_tips.map((tip, ti) => (
                   <div key={ti} style={{ display:"grid",gridTemplateColumns:"140px 1fr 32px",gap:8,alignItems:"flex-start" }}>
-                    <input className="admin-input" placeholder="Label (e.g. Chest)" value={tip.title} onChange={(e) => setTip(ti, "title", e.target.value)} style={{ margin:0 }} />
-                    <input className="admin-input" placeholder="Tip description…" value={tip.description} onChange={(e) => setTip(ti, "description", e.target.value)} style={{ margin:0 }} />
+                    <input className="admin-input" placeholder="Label (e.g. Chest)" value={tip.title} onChange={(e) => setTip(ti, "title", e.target.value)} style={{ margin:0, fontSize: "0.8125rem", padding: "8px 12px" }} />
+                    <input className="admin-input" placeholder="Tip description…" value={tip.description} onChange={(e) => setTip(ti, "description", e.target.value)} style={{ margin:0, fontSize: "0.8125rem", padding: "8px 12px" }} />
                     <button onClick={() => removeTip(ti)} style={{ background:"none",border:"none",cursor:"pointer",color:"#9ca3af",fontWeight:700,fontSize:"1rem",marginTop:8 }}>✕</button>
                   </div>
                 ))}
@@ -348,18 +354,56 @@ export default function AdminSizeGuidePage() {
         </div>
       )}
 
-      {confirmDeleteId !== null && (
-        <div style={{ position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:16 }}>
-          <div style={{ background:"#fff",borderRadius:8,padding:28,maxWidth:400,width:"100%",boxShadow:"0 16px 48px rgba(0,0,0,0.18)" }}>
-            <h3 style={{ fontWeight:800,marginBottom:12 }}>Delete measurement type?</h3>
-            <p style={{ color:"#555",fontSize:"0.9375rem",marginBottom:24 }}>This action cannot be undone.</p>
-            <div style={{ display:"flex",justifyContent:"flex-end",gap:10 }}>
-              <button className="admin-btn admin-btn--secondary" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
-              <button style={{ background:"#dc2626",color:"#fff",border:"none",padding:"8px 18px",borderRadius:4,cursor:"pointer",fontWeight:700 }} onClick={() => handleDelete(confirmDeleteId)}>Delete</button>
+      {confirmDeleteId !== null && (() => {
+        const targetType = types.find((t) => t.id === confirmDeleteId);
+        return (
+          <div style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 9999, padding: 20
+          }}>
+            <div style={{ background: "#fff", width: "100%", maxWidth: 460, padding: 28, border: "2px solid #dc2626", boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}>
+              <div style={{ width: 44, height: 44, background: "#fef2f2", border: "1px solid #fca5a5", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <h3 style={{ fontSize: "1.1rem", fontWeight: 900, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.04em", color: "#dc2626" }}>
+                Delete Measurement Type?
+              </h3>
+              <p style={{ fontSize: "0.85rem", color: "#555", margin: "0 0 20px", lineHeight: 1.5 }}>
+                Are you sure you want to delete {targetType ? <strong>{targetType.name}</strong> : "this measurement type"}? This action is permanent and cannot be undone.
+              </p>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(null)}
+                  style={{
+                    background: "#fff", border: "1px solid #000", padding: "10px 18px",
+                    fontSize: "0.8rem", fontWeight: 800, cursor: "pointer", textTransform: "uppercase"
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(confirmDeleteId)}
+                  style={{
+                    background: "#dc2626", color: "#fff", border: "none",
+                    padding: "10px 20px", fontSize: "0.8rem", fontWeight: 900,
+                    cursor: "pointer", textTransform: "uppercase"
+                  }}
+                >
+                  Permanently Delete
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

@@ -3098,7 +3098,6 @@ input, textarea, select {
 /* ---- Product Accordion Styles ---- */
 .product-accordions-wrapper {
   border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
   margin-top: var(--space-md);
 }
 
