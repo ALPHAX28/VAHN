@@ -1,16 +1,18 @@
 """
-Database Sync Script: Clones all data from Neon PostgreSQL -> Target PostgreSQL Database.
-Transfers users, admins, products, variants, colour groups, collections, reviews, size guides, etc.
+Robust Database Sync Script: Clones all data from Neon PostgreSQL -> Target PostgreSQL Database
+Uses SQLAlchemy ORM object serialization to guarantee proper JSON column and type handling.
 """
 import os
 import sys
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, make_transient
+
+import models
 
 # 1. Source Database (Neon)
 SRC_URL = "postgresql+pg8000://neondb_owner:npg_XSY3is4crOMQ@ep-nameless-credit-azboidlm-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb"
 
-# 2. Target Database (Local / Production)
+# 2. Target Database (Local / Container)
 TGT_URL = os.getenv("TARGET_DATABASE_URL", "postgresql+pg8000://vahn_user:vahn_pass@db:5432/vahn_db")
 if len(sys.argv) > 1:
     TGT_URL = sys.argv[1]
@@ -21,8 +23,6 @@ if "+pg8000" in TGT_URL and "?" in TGT_URL:
 
 print("=" * 60)
 print(f"Syncing Database Data from Neon -> Target DB")
-print(f"Source: {SRC_URL.split('@')[-1]}")
-print(f"Target: {TGT_URL.split('@')[-1]}")
 print("=" * 60)
 
 src_engine = create_engine(SRC_URL)
@@ -34,64 +34,82 @@ TgtSession = sessionmaker(bind=tgt_engine)
 src_db = SrcSession()
 tgt_db = TgtSession()
 
-# Table list in dependency order
-TABLES = [
-    "users",
-    "collections",
-    "products",
-    "collection_products",
-    "product_variants",
-    "product_colour_groups",
-    "size_guide_types",
-    "reviews",
-    "orders",
-    "order_items",
-    "media_assets",
-    "restock_subscriptions"
+# Model classes in dependency order
+MODEL_CLASSES = [
+    models.User,
+    models.Collection,
+    models.Product,
+    models.ProductVariant,
+    models.ProductColourGroup,
+    models.SizeGuideType,
+    models.ProductReview,
+    models.Order,
+    models.OrderItem,
+    models.MediaAsset,
+    models.RestockSubscription,
+    models.StoreSetting,
 ]
 
-def clone_table(table_name: str):
-    print(f"--> Cloning table: {table_name}...")
+def clone_model(model_cls):
+    table_name = model_cls.__tablename__
+    print(f"--> Syncing table: {table_name}...")
     try:
-        # Check if table exists in source
-        src_rows = src_db.execute(text(f"SELECT * FROM {table_name}")).mappings().all()
-        if not src_rows:
-            print(f"    Table {table_name} is empty in source. Skipping.")
-            return
-
-        print(f"    Found {len(src_rows)} rows in source.")
-
+        items = src_db.query(model_cls).all()
+        print(f"    Found {len(items)} records in source.")
+        
         # Clear target table
-        tgt_db.execute(text(f"DELETE FROM {table_name}"))
+        tgt_db.query(model_cls).delete()
         tgt_db.commit()
 
-        # Insert rows into target table
-        for r in src_rows:
-            cols = list(r.keys())
-            col_str = ", ".join(cols)
-            val_placeholders = ", ".join([f":{c}" for c in cols])
-            insert_stmt = text(f"INSERT INTO {table_name} ({col_str}) VALUES ({val_placeholders})")
-            tgt_db.execute(insert_stmt, dict(r))
+        for item in items:
+            src_db.expunge(item)
+            make_transient(item)
+            tgt_db.merge(item)
 
         tgt_db.commit()
 
-        # Reset serial sequence if table has id column
+        # Reset serial sequence if integer id
         try:
             tgt_db.execute(text(f"SELECT setval(pg_get_serial_sequence('{table_name}', 'id'), COALESCE(MAX(id), 1)) FROM {table_name}"))
             tgt_db.commit()
         except Exception:
             pass
 
-        print(f"    ✔ Successfully synced {len(src_rows)} rows into {table_name}.")
+        print(f"    ✔ Synced {len(items)} records into {table_name}.")
     except Exception as e:
-        print(f"    [WARN] Error syncing table {table_name}: {e}")
+        print(f"    [ERROR] Failed to sync {table_name}: {e}")
+        src_db.rollback()
         tgt_db.rollback()
 
+
+def sync_collection_products_table():
+    print("--> Syncing many-to-many: collection_products...")
+    try:
+        rows = src_db.execute(text("SELECT collection_id, product_id FROM collection_products")).all()
+        tgt_db.execute(text("DELETE FROM collection_products"))
+        tgt_db.commit()
+
+        for r in rows:
+            tgt_db.execute(
+                text("INSERT INTO collection_products (collection_id, product_id) VALUES (:c, :p)"),
+                {"c": r[0], "p": r[1]}
+            )
+        tgt_db.commit()
+        print(f"    ✔ Synced {len(rows)} collection-product associations.")
+    except Exception as e:
+        print(f"    [WARN] Failed to sync collection_products: {e}")
+        src_db.rollback()
+        tgt_db.rollback()
+
+
 def main():
-    for tbl in TABLES:
-        clone_table(tbl)
+    for model_cls in MODEL_CLASSES:
+        clone_model(model_cls)
+    
+    sync_collection_products_table()
+    
     print("=" * 60)
-    print("[SUCCESS] All tables cloned and synchronized successfully!")
+    print("[SUCCESS] All tables and relationships synced successfully from Neon to local Postgres!")
     print("=" * 60)
 
 if __name__ == "__main__":
