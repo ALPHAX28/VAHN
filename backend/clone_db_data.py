@@ -70,10 +70,11 @@ def clone_model(model_cls):
 
         # Reset serial sequence if integer id
         try:
-            tgt_db.execute(text(f"SELECT setval(pg_get_serial_sequence('{table_name}', 'id'), COALESCE(MAX(id), 1)) FROM {table_name}"))
-            tgt_db.commit()
+            if hasattr(model_cls, "id") and str(model_cls.id.type).upper().startswith("INT"):
+                tgt_db.execute(text(f"SELECT setval(pg_get_serial_sequence('{table_name}', 'id'), COALESCE(MAX(id), 1)) FROM {table_name}"))
+                tgt_db.commit()
         except Exception:
-            pass
+            tgt_db.rollback()
 
         print(f"    ✔ Synced {len(items)} records into {table_name}.")
     except Exception as e:
