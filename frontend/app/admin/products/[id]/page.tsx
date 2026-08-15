@@ -326,6 +326,7 @@ export default function AdminProductDetailPage() {
     setVariantEdits({});
     setNewGroup({ colour_value: "", display_order: 0 });
     setNewGroupImages([]);
+    setNewGroupUploaderKey(k => k + 1);
     setNewReview({ rating: 5, author: "", content: "", title: "", verified: true, is_approved: true });
   }, [product]);
 
@@ -401,6 +402,7 @@ export default function AdminProductDetailPage() {
         });
         setNewGroup({ colour_value: "", display_order: 0 });
         setNewGroupImages([]);
+        setNewGroupUploaderKey(k => k + 1);
       }
 
       await loadProduct();

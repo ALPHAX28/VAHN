@@ -55,7 +55,7 @@ export default function AdminImageUploader({
   folder = "products",
   onUploadComplete,
   maxImages = 10,
-  existingImages = [],
+  existingImages,
   onReorderExisting,
   label = "Upload Images",
 }: AdminImageUploaderProps) {
@@ -67,6 +67,9 @@ export default function AdminImageUploader({
   // Card Drag and Drop Reordering State
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverCardIndex, setDragOverCardIndex] = useState<number | null>(null);
+
+  const isControlled = existingImages !== undefined;
+  const displayedImages = isControlled ? existingImages : localUploadedImages;
 
   function handleFiles(files: File[]) {
     if (files.length === 0) return;
@@ -85,9 +88,11 @@ export default function AdminImageUploader({
       isPending: true,
     }));
 
-    const currentList = existingImages.length > 0 ? existingImages : localUploadedImages;
+    const currentList = displayedImages;
     const next = [...currentList, ...formatted].slice(0, maxImages);
-    setLocalUploadedImages(next);
+    if (!isControlled) {
+      setLocalUploadedImages(next);
+    }
     if (onReorderExisting) {
       onReorderExisting(next);
     } else {
@@ -103,16 +108,15 @@ export default function AdminImageUploader({
     }
   }
 
-  // Single unified list to render
-  const displayedImages = existingImages.length > 0 ? existingImages : localUploadedImages;
-
   function handleMove(fromIndex: number, toIndex: number) {
     if (toIndex < 0 || toIndex >= displayedImages.length) return;
     const next = [...displayedImages];
     const [moved] = next.splice(fromIndex, 1);
     next.splice(toIndex, 0, moved);
 
-    setLocalUploadedImages(next);
+    if (!isControlled) {
+      setLocalUploadedImages(next);
+    }
     if (onReorderExisting) {
       onReorderExisting(next);
     } else {
@@ -122,7 +126,9 @@ export default function AdminImageUploader({
 
   function handleRemove(index: number) {
     const next = displayedImages.filter((_, i) => i !== index);
-    setLocalUploadedImages(next);
+    if (!isControlled) {
+      setLocalUploadedImages(next);
+    }
     if (onReorderExisting) {
       onReorderExisting(next);
     } else {
@@ -182,7 +188,10 @@ export default function AdminImageUploader({
           accept="image/*"
           multiple={maxImages > 1}
           className="admin-uploader-input"
-          onChange={e => handleFiles(Array.from(e.target.files || []))}
+          onChange={e => {
+            handleFiles(Array.from(e.target.files || []));
+            e.target.value = "";
+          }}
           style={{ display: "none" }}
         />
         {uploading ? (
