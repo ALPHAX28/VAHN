@@ -93,10 +93,10 @@ jobs:
           echo "✔ Alembic migrations applied cleanly with zero errors!"
 
       # ------------------------------------------------------------
-      # Email Alerts: CI Checks Pass / Fail (Runs if SMTP secrets are set)
+      # Email Alerts: CI Checks Pass / Fail
       # ------------------------------------------------------------
       - name: Send Email — CI Checks Passed
-        if: success() && secrets.SMTP_USER != '' && secrets.NOTIFICATION_EMAIL != ''
+        if: success()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp-relay.brevo.com
@@ -122,7 +122,7 @@ jobs:
             </div>
 
       - name: Send Email — CI Checks Failed
-        if: failure() && secrets.SMTP_USER != '' && secrets.NOTIFICATION_EMAIL != ''
+        if: failure()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp-relay.brevo.com
@@ -149,12 +149,10 @@ jobs:
   deploy:
     name: Deploy to AWS Lightsail & Caddy
     needs: ci-checks
-    if: secrets.LIGHTSAIL_HOST != '' && secrets.LIGHTSAIL_SSH_KEY != ''
     runs-on: ubuntu-latest
 
     steps:
       - name: Send Email — Deployment Started
-        if: secrets.SMTP_USER != '' && secrets.NOTIFICATION_EMAIL != ''
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp-relay.brevo.com
@@ -175,7 +173,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ${{ secrets.LIGHTSAIL_USERNAME || 'ubuntu' }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script_stop: true
           script: |
@@ -212,7 +210,7 @@ jobs:
           echo "Warning: Health check endpoint did not return 200 within timeout."
 
       - name: Send Email — Deployment Succeeded
-        if: success() && secrets.SMTP_USER != '' && secrets.NOTIFICATION_EMAIL != ''
+        if: success()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp-relay.brevo.com
@@ -236,7 +234,7 @@ jobs:
             </div>
 
       - name: Send Email — Deployment Failed
-        if: failure() && secrets.SMTP_USER != '' && secrets.NOTIFICATION_EMAIL != ''
+        if: failure()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp-relay.brevo.com
