@@ -583,24 +583,18 @@ def _user_schema(user: models.User) -> schemas.UserSchema:
 @app.post("/api/auth/check-email")
 def check_email(payload: schemas.EmailLookupRequest, db: Session = Depends(get_db)):
     """
-    Probe whether an email address is already registered.
+    Probe whether an email address is already registered and verified.
     Returns {exists: bool} — no OTP sent, no side effects.
     """
     email = payload.email.strip().lower()
-    user = db.query(models.User).filter(
-        models.User.email == email,
-        models.User.role == "customer"
-    ).first()
-    return {"exists": user is not None}
+    user = db.query(models.User).filter(models.User.email == email).first()
+    return {"exists": user is not None and user.is_verified}
 
 @app.post("/api/auth/check-phone")
 def check_phone(payload: schemas.PhoneLookupRequest, db: Session = Depends(get_db)):
     phone = normalize_phone(payload.phone)
-    user = db.query(models.User).filter(
-        models.User.phone == phone,
-        models.User.role == "customer"
-    ).first()
-    return {"exists": user is not None}
+    user = db.query(models.User).filter(models.User.phone == phone).first()
+    return {"exists": user is not None and user.is_verified}
 
 @app.post("/api/auth/send-otp")
 def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
@@ -660,7 +654,8 @@ def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
                 # Update existing unverified user record
                 user.phone = phone
                 user.full_name = payload.full_name.strip()
-                user.role = "customer"
+                if not user.role:
+                    user.role = "customer"
                 db.commit()
             else:
                 # Clean up any stale unverified record with this phone number
@@ -703,10 +698,7 @@ def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db))
     # HMAC token verification (raises HTTPException on failure)
     verify_otp_token(email, payload.otp_code, payload.otp_token)
 
-    user = db.query(models.User).filter(
-        models.User.email == email,
-        models.User.role == "customer"
-    ).first()
+    user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="Account not found. Please start over.")
     if not user.is_active:
@@ -718,7 +710,7 @@ def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db))
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(user.id, user.email or "", role="customer")
+    token = create_access_token(user.id, user.email or "", role=user.role or "customer")
     return schemas.AuthResponse(access_token=token, token_type="bearer", user=_user_schema(user))
 
 @app.get("/api/auth/me", response_model=schemas.UserSchema)
