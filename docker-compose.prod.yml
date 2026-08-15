@@ -64,7 +64,7 @@ services:
     depends_on:
       - backend
     environment:
-      - NEXT_PUBLIC_API_URL=https://vahnsports.com/api
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api}
       - PORT=3000
       - HOSTNAME=0.0.0.0
     networks:

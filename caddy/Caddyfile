@@ -1,25 +1,20 @@
 # ============================================================
-# Caddyfile — Production Reverse Proxy for vahnsports.com
-# Automatic HTTPS via Let's Encrypt / ZeroSSL + HTTP/3 + Gzip
+# Caddyfile — Production Reverse Proxy
+# Works seamlessly on both Lightsail IP (http://19.x.x.x) AND Domain (https://vahnsports.com)
 # ============================================================
 
-{
-    email arnabdutta8986@gmail.com
-}
-
-vahnsports.com, www.vahnsports.com {
+# 1. Fallback & IP Access (Works immediately with http://<YOUR_IP>)
+:80 {
     encode gzip zstd
 
-    # Enhanced Security Headers
     header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
         X-XSS-Protection "1; mode=block"
         Referrer-Policy "strict-origin-when-cross-origin"
     }
 
-    # Backend API Endpoints (FastAPI)
+    # API Endpoints (FastAPI)
     handle /api/* {
         reverse_proxy backend:8000 {
             header_up Host {host}
@@ -30,6 +25,37 @@ vahnsports.com, www.vahnsports.com {
     }
 
     # Frontend Storefront & Admin (Next.js)
+    handle {
+        reverse_proxy frontend:3000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+}
+
+# 2. Production Domain (Automatic HTTPS active as soon as domain DNS points to this IP)
+vahnsports.com, www.vahnsports.com {
+    encode gzip zstd
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    handle /api/* {
+        reverse_proxy backend:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
     handle {
         reverse_proxy frontend:3000 {
             header_up Host {host}
