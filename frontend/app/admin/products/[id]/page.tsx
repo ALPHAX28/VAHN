@@ -443,10 +443,17 @@ export default function AdminProductDetailPage() {
     try {
       if (isVariantsDirty) {
         if (editingVariant) {
+          // Save inline edit of an existing variant
           await handleSaveVariant(editingVariant);
-        } else if (newVariant.colour.trim() && newVariant.size.trim() && newVariant.price_amount > 0) {
+        } else if (newVariant.colour.trim() || newVariant.size.trim() || newVariant.price_amount > 0 || newVariant.compare_at_price_amount !== "") {
+          // User has ANY variant form input → call handleAddVariant which will validate and either
+          // save the variant OR display a specific validation error. Either way, stop here so the
+          // user sees the error rather than a silent no-op.
+          setSaving(false);
           await handleAddVariant();
+          return;
         } else {
+          // Only inline variantEdits (e.g. stock changes in the table)
           const variantIds = Object.keys(variantEdits);
           for (const vid of variantIds) {
             await handleSaveVariant(vid);
@@ -454,7 +461,7 @@ export default function AdminProductDetailPage() {
         }
       }
 
-      if (isDetailsDirty || isGroupsDirty || isImagesDirty || isLookbookDirty || !isVariantsDirty) {
+      if (isDetailsDirty || isGroupsDirty || isImagesDirty || isLookbookDirty) {
         const saved = await handleSave();
         if (!saved) return;
       }
@@ -519,9 +526,13 @@ export default function AdminProductDetailPage() {
   async function handleAddVariant() {
     if (!adminToken || !product || addingVariant) return;
 
-    // ── Field validations ──
-    if (!newVariant.colour.trim() && !newVariant.size.trim()) {
-      setError("Please provide at least a Colour or a Size for the variant.");
+    // ── Field validations — ALL fields are mandatory ──
+    if (!newVariant.colour.trim()) {
+      setError("Please select a Colour for the variant.");
+      return;
+    }
+    if (!newVariant.size.trim()) {
+      setError("Please select a Size for the variant.");
       return;
     }
     if (!newVariant.price_amount || newVariant.price_amount <= 0) {

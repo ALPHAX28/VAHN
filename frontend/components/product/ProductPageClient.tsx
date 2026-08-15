@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useCallback } from 'react';
 import type { Product, Image as ShopifyImage } from '@/lib/api/types';
@@ -20,15 +20,30 @@ export default function ProductPageClient({ product, defaultImages }: Props) {
 
   const handleColourChange = useCallback(
     (colourValue: string) => {
-      if (!colourValue || !product.colourGroups?.length) {
+      if (!colourValue) {
+        // No colour selected at all → show product gallery
         setGalleryImages(defaultImages);
         return;
       }
+
+      if (!product.colourGroups?.length) {
+        // Product has no colour groups → show product gallery
+        setGalleryImages(defaultImages);
+        return;
+      }
+
       const colourGroup = product.colourGroups.find(
         (cg) => cg.colourValue.trim().toLowerCase() === colourValue.trim().toLowerCase()
       );
-      if (colourGroup && colourGroup.images && colourGroup.images.length > 0) {
-        // Map colour group images to ShopifyImage format and replace entire gallery
+
+      if (!colourGroup) {
+        // Colour not found in any group → fall back to product gallery
+        setGalleryImages(defaultImages);
+        return;
+      }
+
+      if (colourGroup.images && colourGroup.images.length > 0) {
+        // Colour group has images → show them
         const colourImages: ShopifyImage[] = colourGroup.images.map((img) => ({
           url: img.url,
           altText: img.altText || colourValue,
@@ -37,8 +52,8 @@ export default function ProductPageClient({ product, defaultImages }: Props) {
         }));
         setGalleryImages(colourImages);
       } else {
-        // Fallback to default product images if colour group has no images
-        setGalleryImages(defaultImages);
+        // Colour group exists but has NO images → show empty gallery (not the Blue/other images)
+        setGalleryImages([]);
       }
     },
     [product.colourGroups, defaultImages]
