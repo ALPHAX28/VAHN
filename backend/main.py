@@ -1737,15 +1737,14 @@ def admin_delete_colour_group(
 
     colour_val = group.colour_value.strip().lower() if group.colour_value else ""
 
-    # Delete images from AWS S3
+    # Collect images to delete from AWS S3
+    images_to_delete = []
     if group.images and isinstance(group.images, list):
-        group_images_to_delete = []
         for img in group.images:
             if isinstance(img, dict) and img.get("url"):
-                group_images_to_delete.append(img["url"])
+                images_to_delete.append(img["url"])
             elif isinstance(img, str):
-                group_images_to_delete.append(img)
-        storage.delete_files(group_images_to_delete)
+                images_to_delete.append(img)
 
     # Cascade-delete all variants associated with this colour
     if colour_val:
@@ -1764,11 +1763,16 @@ def admin_delete_colour_group(
                     is_match = True
             
             if is_match:
+                if v.image_url:
+                    images_to_delete.append(v.image_url)
                 db.delete(v)
+
+    if images_to_delete:
+        storage.delete_files(images_to_delete)
 
     db.delete(group)
     db.commit()
-    return {"message": "Colour group and associated variants deleted."}
+    return {"message": "Colour group, associated variants, and media deleted."}
 
 
 # ============================================================
