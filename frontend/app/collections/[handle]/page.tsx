@@ -178,62 +178,6 @@ export default async function CollectionPage({ params, searchParams }: Props) {
         </div>
       </div>
 
-      {/* ── Collection Switcher Bar ── */}
-      {allCollections.length > 1 && (
-        <div style={{ background: '#f8f8fb', borderBottom: '1px solid var(--color-grey-mid)', padding: '12px var(--space-xl)', overflowX: 'auto' }}>
-          <div style={{ maxWidth: 'var(--page-width)', margin: '0 auto', display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}>
-            <span style={{ fontFamily: 'var(--font-ui)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-grey-dark)', marginRight: 6 }}>
-              Collections:
-            </span>
-            <Link
-              href="/collections"
-              style={{
-                fontFamily: 'var(--font-ui)',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                padding: '6px 14px',
-                borderRadius: 20,
-                background: 'transparent',
-                border: '1px solid var(--color-grey-mid)',
-                color: 'var(--color-grey-dark)',
-                textDecoration: 'none',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              All Collections ({allCollections.length})
-            </Link>
-            {allCollections.map((c: CollectionListItem) => {
-              const isActive = c.handle === handle;
-              return (
-                <Link
-                  key={c.id}
-                  href={`/collections/${c.handle}`}
-                  style={{
-                    fontFamily: 'var(--font-ui)',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    padding: '6px 16px',
-                    borderRadius: 20,
-                    background: isActive ? 'var(--color-navy)' : '#ffffff',
-                    border: `1px solid ${isActive ? 'var(--color-navy)' : 'var(--color-grey-mid)'}`,
-                    color: isActive ? '#ffffff' : 'var(--color-black)',
-                    textDecoration: 'none',
-                    transition: 'all 0.2s ease',
-                    boxShadow: isActive ? '0 2px 8px rgba(58, 54, 153, 0.25)' : 'none',
-                  }}
-                >
-                  {c.title} ({c.products_count})
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* ── Products Section ── */}
       <div style={{ maxWidth: 'var(--page-width)', margin: '0 auto', padding: 'var(--space-xl) var(--space-xl)' }}>
         <div style={{ display: 'flex', gap: 'var(--space-xl)', alignItems: 'flex-start' }}>
