@@ -94,11 +94,19 @@ export default function AdminProductDetailPage() {
 
   // Colour group state
   const [newGroup, setNewGroup] = useState({ colour_value: "", display_order: 0 });
-  const [newGroupImages, setNewGroupImages] = useState<{ url: string; altText: string }[]>([]);
+  const [newGroupImages, setNewGroupImages] = useState<UploadedImage[]>([]);
   const [newGroupUploaderKey, setNewGroupUploaderKey] = useState(0);
 
+  interface LocalColourGroup {
+    id: number;
+    product_id?: number;
+    colour_value: string;
+    images: UploadedImage[];
+    display_order?: number;
+  }
+
   // Buffered Local States for Colour Groups & Gallery Images & Lookbook (0 backend calls until Save!)
-  const [localGroups, setLocalGroups] = useState<ColourGroup[]>([]);
+  const [localGroups, setLocalGroups] = useState<LocalColourGroup[]>([]);
   const [deletedGroupIds, setDeletedGroupIds] = useState<Set<number>>(new Set());
   const [localGallery, setLocalGallery] = useState<UploadedImage[]>([]);
   const [localLookbook, setLocalLookbook] = useState<LookbookItem[]>([]);
@@ -148,7 +156,16 @@ export default function AdminProductDetailPage() {
       });
 
       setEditSizeFitInput(extractBullets(p.description_html || ""));
-      setLocalGroups(p.colour_groups || []);
+      setLocalGroups(
+        (p.colour_groups || []).map(g => ({
+          ...g,
+          images: (g.images || []).map((img, i) => ({
+            url: img.url,
+            key: img.url,
+            name: `${g.colour_value} ${i + 1}`,
+          }))
+        }))
+      );
       setDeletedGroupIds(new Set());
       setLocalGallery((p.images || []).map((img, i) => ({ url: img.url, key: img.url, name: `Image ${i + 1}` })));
       setLocalLookbook(p.lookbook || []);
@@ -225,8 +242,16 @@ export default function AdminProductDetailPage() {
     if (!product) return false;
     const isNewGroupDirty = newGroup.colour_value.trim() !== "" || newGroupImages.length > 0;
     const isDeletedDirty = deletedGroupIds.size > 0;
-    const origGroupsStr = JSON.stringify((product.colour_groups || []).map(g => ({ id: g.id, val: g.colour_value, imgs: g.images })));
-    const localGroupsStr = JSON.stringify((localGroups || []).map(g => ({ id: g.id, val: g.colour_value, imgs: g.images })));
+    const origGroupsStr = JSON.stringify((product.colour_groups || []).map(g => ({
+      id: g.id,
+      val: g.colour_value,
+      urls: (g.images || []).map(i => i.url)
+    })));
+    const localGroupsStr = JSON.stringify((localGroups || []).map(g => ({
+      id: g.id,
+      val: g.colour_value,
+      urls: (g.images || []).map(i => i.url)
+    })));
     return isNewGroupDirty || isDeletedDirty || (origGroupsStr !== localGroupsStr);
   }, [product, localGroups, deletedGroupIds, newGroup, newGroupImages]);
 
@@ -239,8 +264,8 @@ export default function AdminProductDetailPage() {
 
   const isLookbookDirty = useMemo(() => {
     if (!product) return false;
-    const origStr = JSON.stringify(product.lookbook || []);
-    const localStr = JSON.stringify(localLookbook || []);
+    const origStr = JSON.stringify((product.lookbook || []).map(item => ({ title: item.title, imageUrl: item.imageUrl, description: item.description })));
+    const localStr = JSON.stringify((localLookbook || []).map(item => ({ title: item.title, imageUrl: item.imageUrl, description: item.description })));
     return origStr !== localStr;
   }, [product, localLookbook]);
 
@@ -267,6 +292,9 @@ export default function AdminProductDetailPage() {
     setEditForm({
       title: product.title,
       description: product.description || "",
+      size_fit_details: product.size_fit_details || "",
+      care_instructions: product.care_instructions || "",
+      product_details: product.product_details || "",
       vendor: product.vendor,
       product_type: product.product_type || "",
       tags: product.tags || [],
@@ -280,7 +308,16 @@ export default function AdminProductDetailPage() {
     });
 
     setEditSizeFitInput(extractBullets(product.description_html || ""));
-    setLocalGroups(product.colour_groups || []);
+    setLocalGroups(
+      (product.colour_groups || []).map(g => ({
+        ...g,
+        images: (g.images || []).map((img, i) => ({
+          url: img.url,
+          key: img.url,
+          name: `${g.colour_value} ${i + 1}`,
+        }))
+      }))
+    );
     setDeletedGroupIds(new Set());
     setLocalGallery((product.images || []).map((img, i) => ({ url: img.url, key: img.url, name: `Image ${i + 1}` })));
     setLocalLookbook(product.lookbook || []);
@@ -296,8 +333,8 @@ export default function AdminProductDetailPage() {
     if (!adminToken || !product) return false;
 
     const visibleGuides = allSizeGuides.filter((sg) => sg.is_visible);
-    if (visibleGuides.length > 0 && (!editForm.size_guide_type_ids || editForm.size_guide_type_ids.length === 0)) {
-      setError("Please select at least one Size Guide for this product.");
+    if (activeTab === "Details" && isDetailsDirty && visibleGuides.length > 0 && (!editForm.size_guide_type_ids || editForm.size_guide_type_ids.length === 0)) {
+      setError("Please select at least one Size Guide for this product on the Details tab.");
       return false;
     }
 
@@ -339,7 +376,7 @@ export default function AdminProductDetailPage() {
       for (const g of localGroups) {
         const origGroup = product.colour_groups.find(og => og.id === g.id);
         const uploadedGroupImages = await uploadPendingImages(
-          g.images.map(img => ({ url: img.url, key: img.url, name: g.colour_value, file: (img as any).file })),
+          g.images,
           "products",
           adminToken
         );
@@ -353,7 +390,7 @@ export default function AdminProductDetailPage() {
       // Persist new colour group if filled
       if (newGroup.colour_value.trim()) {
         const uploadedNewGroupImages = await uploadPendingImages(
-          newGroupImages.map(img => ({ url: img.url, key: img.url, name: newGroup.colour_value, file: (img as any).file })),
+          newGroupImages,
           "products",
           adminToken
         );
@@ -418,7 +455,8 @@ export default function AdminProductDetailPage() {
       }
 
       if (isDetailsDirty || isGroupsDirty || isImagesDirty || isLookbookDirty || !isVariantsDirty) {
-        await handleSave();
+        const saved = await handleSave();
+        if (!saved) return;
       }
 
       setSuccess("Changes saved successfully!");
@@ -606,10 +644,9 @@ export default function AdminProductDetailPage() {
   }
 
   // Colour Group Local State Handlers (Buffered locally, saved only when clicking Save Changes!)
-  function handleUpdateGroupImagesLocal(groupId: number, images: { url: string; key?: string; name?: string }[]) {
-    const formatted = images.map((img, i) => ({ url: img.url, altText: `Photo ${i + 1}` }));
+  function handleUpdateGroupImagesLocal(groupId: number, images: UploadedImage[]) {
     setLocalGroups(prev =>
-      prev.map(g => (g.id === groupId ? { ...g, images: formatted } : g))
+      prev.map(g => (g.id === groupId ? { ...g, images } : g))
     );
   }
 
@@ -632,9 +669,14 @@ export default function AdminProductDetailPage() {
       return;
     }
     try {
+      const uploadedNewGroupImages = await uploadPendingImages(
+        newGroupImages,
+        "products",
+        adminToken
+      );
       await createColourGroup(adminToken, productId, {
         colour_value: newGroup.colour_value.trim(),
-        images: newGroupImages,
+        images: uploadedNewGroupImages.map(img => ({ url: img.url, altText: `${newGroup.colour_value} photo` })),
         display_order: newGroup.display_order
       });
       setNewGroup({ colour_value: "", display_order: 0 });
@@ -1492,7 +1534,7 @@ export default function AdminProductDetailPage() {
                 key={newGroupUploaderKey}
                 endpoint="productImage"
                 label="Upload Initial Images for New Group"
-                onUploadComplete={imgs => setNewGroupImages(imgs.map(img => ({ url: img.url, altText: newGroup.colour_value })))}
+                onUploadComplete={imgs => setNewGroupImages(imgs)}
               />
             </div>
             <button className="admin-btn admin-btn--primary" style={{ marginTop: 12 }} onClick={handleAddGroup}>Save New Colour Group</button>
@@ -1512,7 +1554,7 @@ export default function AdminProductDetailPage() {
               <AdminImageUploader
                 endpoint="productImage"
                 label={`Images for ${g.colour_value} (Bulk Drag & Drop / Reorder)`}
-                existingImages={g.images.map(img => ({ url: img.url, key: img.url, name: g.colour_value }))}
+                existingImages={g.images}
                 onReorderExisting={imgs => handleUpdateGroupImagesLocal(g.id, imgs)}
                 onUploadComplete={imgs => handleUpdateGroupImagesLocal(g.id, imgs)}
               />

@@ -229,7 +229,8 @@ export default function AdminImageUploader({
                   style={{ cursor: "grab" }}
                 >
                   <span className="admin-reorder-badge">#{i + 1}</span>
-                  <Image src={img.url} alt={img.name || `Image ${i + 1}`} width={96} height={96} style={{ objectFit: "cover", pointerEvents: "none" }} />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img.url} alt={img.name || `Image ${i + 1}`} width={96} height={96} style={{ width: 96, height: 96, objectFit: "cover", pointerEvents: "none" }} />
                   <div className="admin-reorder-actions" onClick={e => e.stopPropagation()}>
                     <button type="button" className="admin-reorder-btn" onClick={() => handleMove(i, i - 1)} disabled={i === 0} title="Move left">←</button>
                     <button type="button" className="admin-reorder-btn" onClick={() => handleMove(i, i + 1)} disabled={i === displayedImages.length - 1} title="Move right">→</button>

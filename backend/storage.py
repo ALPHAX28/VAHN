@@ -7,6 +7,9 @@ import uuid
 import re
 import mimetypes
 from typing import Optional, Dict, Any
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def sanitize_filename(filename: str) -> str:
@@ -21,11 +24,21 @@ class S3Provider:
     AWS S3 storage provider.
     Provides presigned PUT URLs for browser direct uploads and direct server upload capability.
     """
-    def __init__(self):
-        self.bucket = os.getenv("AWS_BUCKET_NAME", "vahn")
-        self.region = os.getenv("AWS_REGION", "ap-south-2")
-        self.access_key = os.getenv("AWS_ACCESS_KEY_ID", "")
-        self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+    @property
+    def bucket(self) -> str:
+        return os.getenv("AWS_BUCKET_NAME", "vahn")
+
+    @property
+    def region(self) -> str:
+        return os.getenv("AWS_REGION", "ap-south-2")
+
+    @property
+    def access_key(self) -> str:
+        return os.getenv("AWS_ACCESS_KEY_ID", "")
+
+    @property
+    def secret_key(self) -> str:
+        return os.getenv("AWS_SECRET_ACCESS_KEY", "")
 
     def _get_client(self):
         import boto3
