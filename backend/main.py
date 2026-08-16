@@ -2626,3 +2626,132 @@ def admin_reorder_size_guide(
             sg.display_order = item.display_order
     db.commit()
     return {"message": "Reordered successfully"}
+
+
+# ============================================================
+# ADMIN DATABASE BACKUP TO AWS S3
+# ============================================================
+
+@app.post("/api/admin/database/backup")
+def admin_trigger_database_backup(
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Generates an immediate SQL dump of the database and uploads it to AWS S3 under database-backups/."""
+    try:
+        import gzip
+        import json
+        from sqlalchemy import MetaData, select
+
+        timestamp_str = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"vahn_db_{timestamp_str}.sql.gz"
+        s3_key = f"database-backups/{filename}"
+
+        # Reflect and dump all tables
+        meta = MetaData()
+        meta.reflect(bind=engine)
+
+        sql_lines = [
+            f"-- VAHN Automated Database Backup",
+            f"-- Generated: {datetime.utcnow().isoformat()} UTC",
+            "BEGIN;\n"
+        ]
+
+        for table in reversed(meta.sorted_tables):
+            sql_lines.append(f"TRUNCATE TABLE \"{table.name}\" CASCADE;")
+        sql_lines.append("\n")
+
+        with engine.connect() as conn:
+            for table in meta.sorted_tables:
+                stmt = select(table)
+                rows = conn.execute(stmt).fetchall()
+                if not rows:
+                    continue
+
+                cols = [c.name for c in table.columns]
+                cols_str = ", ".join([f'"{c}"' for c in cols])
+                for row in rows:
+                    row_dict = row._mapping
+                    vals = []
+                    for c in cols:
+                        v = row_dict[c]
+                        if v is None:
+                            vals.append("NULL")
+                        elif isinstance(v, (int, float)):
+                            vals.append(str(v))
+                        elif isinstance(v, bool):
+                            vals.append("TRUE" if v else "FALSE")
+                        elif isinstance(v, (dict, list)):
+                            escaped = json.dumps(v).replace("'", "''")
+                            vals.append(f"'{escaped}'::json")
+                        elif isinstance(v, datetime):
+                            vals.append(f"'{v.strftime('%Y-%m-%d %H:%M:%S.%f')}'")
+                        else:
+                            escaped = str(v).replace("'", "''")
+                            vals.append(f"'{escaped}'")
+                    vals_str = ", ".join(vals)
+                    sql_lines.append(f"INSERT INTO \"{table.name}\" ({cols_str}) VALUES ({vals_str});")
+
+        sql_lines.append("\nCOMMIT;\n")
+        sql_bytes = "\n".join(sql_lines).encode("utf-8")
+        compressed_bytes = gzip.compress(sql_bytes, compresslevel=9)
+
+        # Upload directly to AWS S3
+        s3_client = storage._get_client()
+        s3_client.put_object(
+            Bucket=storage.bucket,
+            Key=s3_key,
+            Body=compressed_bytes,
+            ContentType="application/gzip",
+            Metadata={
+                "created_at": datetime.utcnow().isoformat(),
+                "uncompressed_bytes": str(len(sql_bytes)),
+            }
+        )
+
+        size_kb = round(len(compressed_bytes) / 1024, 2)
+        public_url = storage.get_public_url(s3_key)
+
+        return {
+            "status": "success",
+            "message": "Database backup created and uploaded to AWS S3 successfully.",
+            "filename": filename,
+            "s3_key": s3_key,
+            "s3_url": public_url,
+            "size_kb": size_kb,
+            "created_at": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database backup failed: {str(e)}")
+
+
+@app.get("/api/admin/database/backups")
+def admin_list_database_backups(
+    admin: models.User = Depends(get_current_admin)
+):
+    """Lists all database backups stored in AWS S3 under database-backups/."""
+    try:
+        s3_client = storage._get_client()
+        res = s3_client.list_objects_v2(
+            Bucket=storage.bucket,
+            Prefix="database-backups/"
+        )
+        items = []
+        for obj in res.get("Contents", []):
+            key = obj["Key"]
+            if key == "database-backups/":
+                continue
+            items.append({
+                "key": key,
+                "filename": key.split("/")[-1],
+                "size_bytes": obj["Size"],
+                "size_kb": round(obj["Size"] / 1024, 2),
+                "last_modified": obj["LastModified"].isoformat(),
+                "url": storage.get_public_url(key)
+            })
+        
+        items.sort(key=lambda x: x["last_modified"], reverse=True)
+        return {"backups": items, "total": len(items)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list backups: {str(e)}")
+
