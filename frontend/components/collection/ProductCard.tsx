@@ -9,7 +9,6 @@ interface Props {
   customColour?: string;
   customHref?: string;
   customPrimaryImage?: ShopifyImage | null;
-  customSecondaryImage?: ShopifyImage | null;
   customPrice?: number;
   customComparePrice?: Money | null;
   customDiscountPercent?: number;
@@ -22,7 +21,6 @@ export default function ProductCard({
   customColour,
   customHref,
   customPrimaryImage,
-  customSecondaryImage,
   customPrice,
   customComparePrice,
   customDiscountPercent,
@@ -30,7 +28,7 @@ export default function ProductCard({
 }: Props) {
   const activeColour = colourGroup?.colourValue || customColour || '';
 
-  // ── Image Resolution ──
+  // ── 1. Image Resolution (Always displays 1st / cover image) ──
   const primaryImage =
     customPrimaryImage ??
     (colourGroup?.images?.[0]
@@ -43,18 +41,6 @@ export default function ProductCard({
       : null) ??
     product.featuredImage ??
     product.images?.edges?.[0]?.node ??
-    null;
-
-  const secondaryImage =
-    customSecondaryImage ??
-    (colourGroup?.images && colourGroup.images.length > 1
-      ? {
-          url: colourGroup.images[1].url,
-          altText: colourGroup.images[1].altText || `${product.title} ${activeColour}`,
-          width: 800,
-          height: 800,
-        }
-      : null) ??
     null;
 
   // ── Target URL (Deep Link with ?colour=) ──
@@ -168,36 +154,20 @@ export default function ProductCard({
           </span>
         ) : null}
 
-        {/* Product Image */}
+        {/* Product Cover Image */}
         {primaryImage && primaryImage.url ? (
-          <>
-            <Image
-              src={primaryImage.url}
-              alt={primaryImage.altText ?? `${product.title} ${activeColour}`}
-              fill
-              sizes="(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              style={{
-                objectFit: 'cover',
-                objectPosition: 'center',
-                transition: 'transform 0.4s ease, opacity 0.3s ease',
-              }}
-              className={secondaryImage ? 'group-hover:opacity-0 group-hover:scale-105' : 'group-hover:scale-105'}
-            />
-            {secondaryImage && secondaryImage.url && (
-              <Image
-                src={secondaryImage.url}
-                alt={secondaryImage.altText ?? `${product.title} ${activeColour}`}
-                fill
-                sizes="(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                style={{
-                  objectFit: 'cover',
-                  objectPosition: 'center',
-                  transition: 'opacity 0.4s ease, transform 0.4s ease',
-                }}
-                className="opacity-0 group-hover:opacity-100 group-hover:scale-105 absolute inset-0"
-              />
-            )}
-          </>
+          <Image
+            src={primaryImage.url}
+            alt={primaryImage.altText ?? `${product.title} ${activeColour}`}
+            fill
+            sizes="(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'center',
+              transition: 'transform 0.4s ease',
+            }}
+            className="product-card-img group-hover:scale-105"
+          />
         ) : (
           <div
             style={{

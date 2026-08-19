@@ -646,7 +646,6 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                 customColour={item.colourName}
                 customHref={item.targetHref}
                 customPrimaryImage={item.primaryImage}
-                customSecondaryImage={item.secondaryImage}
                 customPrice={item.price}
                 customComparePrice={item.compareAtPrice}
                 customDiscountPercent={item.discountPercent}
