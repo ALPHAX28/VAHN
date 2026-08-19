@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - main
+      - dev
   workflow_dispatch:
 
 concurrency:
-  group: production-deploy
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -103,22 +104,23 @@ jobs:
           server_port: 587
           username: ${{ secrets.SMTP_USER }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "✅ [VAHN CI] All Checks & Migrations Passed (${{ github.sha }})"
+          subject: "✅ [VAHN CI] (${{ github.ref_name }}) Checks & Migrations Passed (${{ github.sha }})"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
           from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
           html_body: |
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 8px;">
-              <h2 style="color: #16a34a; margin-top: 0;">✔ CI Verification Succeeded</h2>
-              <p>All automated checks passed successfully for commit <strong>${{ github.sha }}</strong>.</p>
+              <h2 style="color: #16a34a; margin-top: 0;">✔ CI Verification Succeeded (${{ github.ref_name }})</h2>
+              <p>All automated checks passed successfully for commit <strong>${{ github.sha }}</strong> on branch <strong>${{ github.ref_name }}</strong>.</p>
               <ul style="line-height: 1.6;">
+                <li><strong>Branch:</strong> ${{ github.ref_name }}</li>
                 <li><strong>Author:</strong> ${{ github.actor }}</li>
                 <li><strong>Commit Message:</strong> ${{ github.event.head_commit.message }}</li>
                 <li><strong>Frontend TypeScript:</strong> Passed (0 errors)</li>
-                <li><strong>Next.js Production Build:</strong> Standalone bundle generated</li>
+                <li><strong>Next.js Build:</strong> Standalone bundle generated</li>
                 <li><strong>Backend Compilation:</strong> Verified</li>
                 <li><strong>Alembic Test Migrations:</strong> Applied cleanly on test database</li>
               </ul>
-              <p style="color: #4b5563; font-size: 13px;">Proceeding automatically to AWS Lightsail Deployment...</p>
+              <p style="color: #4b5563; font-size: 13px;">Proceeding to deployment...</p>
             </div>
 
       - name: Send Email — CI Checks Failed
@@ -129,14 +131,15 @@ jobs:
           server_port: 587
           username: ${{ secrets.SMTP_USER }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "❌ [VAHN CI] Checks Failed for Commit ${{ github.sha }}"
+          subject: "❌ [VAHN CI] (${{ github.ref_name }}) Checks Failed for Commit ${{ github.sha }}"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
           from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
           html_body: |
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #fecaca; border-radius: 8px; background-color: #fef2f2;">
               <h2 style="color: #dc2626; margin-top: 0;">✘ CI Verification Failed</h2>
-              <p>Automated checks failed for commit <strong>${{ github.sha }}</strong>. <strong>Deployment has been aborted.</strong></p>
+              <p>Automated checks failed for commit <strong>${{ github.sha }}</strong> on branch <strong>${{ github.ref_name }}</strong>. <strong>Deployment has been aborted.</strong></p>
               <ul style="line-height: 1.6;">
+                <li><strong>Branch:</strong> ${{ github.ref_name }}</li>
                 <li><strong>Author:</strong> ${{ github.actor }}</li>
                 <li><strong>Commit Message:</strong> ${{ github.event.head_commit.message }}</li>
               </ul>
@@ -144,32 +147,32 @@ jobs:
             </div>
 
   # ============================================================
-  # STAGE 2: PRODUCTION DEPLOYMENT ON AWS LIGHTSAIL
+  # STAGE 2A: PRODUCTION DEPLOYMENT (MAIN BRANCH)
   # ============================================================
-  deploy:
-    name: Deploy to AWS Lightsail & Caddy
+  deploy-prod:
+    name: Deploy to Production (vahnsports.com)
     needs: ci-checks
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Send Email — Deployment Started
+      - name: Send Email — Prod Deployment Started
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp-relay.brevo.com
           server_port: 587
           username: ${{ secrets.SMTP_USER }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "🚀 [VAHN Deploy] Deployment Started on Lightsail"
+          subject: "🚀 [VAHN Prod Deploy] Started for Commit ${{ github.sha }}"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
           from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
           html_body: |
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 8px;">
-              <h2 style="color: #2563eb; margin-top: 0;">🚀 Deployment In Progress</h2>
-              <p>Deployment has started on AWS Lightsail for commit <strong>${{ github.sha }}</strong>.</p>
-              <p style="color: #4b5563; font-size: 13px;">Rebuilding containers, running production Alembic migrations, and reloading Caddy...</p>
+              <h2 style="color: #2563eb; margin-top: 0;">🚀 Production Deployment In Progress</h2>
+              <p>Deploying commit <strong>${{ github.sha }}</strong> to production (https://vahnsports.com)...</p>
             </div>
 
-      - name: Deploy on AWS Lightsail via SSH
+      - name: Deploy Production Stack via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
@@ -178,38 +181,21 @@ jobs:
           script_stop: true
           script: |
             cd /home/ubuntu/VAHN
+            git fetch origin
+            git checkout main
             git pull origin main
 
-            # Update production .env if secret is configured
             if [ -n "${{ secrets.PROD_ENV_FILE }}" ]; then
               echo "${{ secrets.PROD_ENV_FILE }}" > backend/.env
             fi
 
-            # Build and deploy production Docker Compose stack
+            # Deploy production compose stack
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+            sleep 6
+            docker exec vahn-backend-prod python -m alembic upgrade head
+            docker exec vahn-caddy-prod caddy reload --config /etc/caddy/Caddyfile || true
 
-            # Give backend time to run startup migrations
-            sleep 8
-
-            # Verify backend container and database migration status
-            docker exec vahn-backend-prod python -m alembic current
-
-      - name: Verify Live Health Status
-        run: |
-          TARGET_HOST="${{ secrets.LIGHTSAIL_HOST }}"
-          echo "Checking health of server on http://${TARGET_HOST}..."
-          for i in {1..6}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${TARGET_HOST}/api/products" || true)
-            if [ "$STATUS" = "200" ] || [ "$STATUS" = "404" ]; then
-              echo "✔ Server responded with HTTP $STATUS (Live and Healthy)"
-              exit 0
-            fi
-            echo "Waiting for Caddy/FastAPI to respond (attempt $i/6, status: $STATUS)..."
-            sleep 5
-          done
-          echo "Warning: Health check endpoint did not return 200 within timeout."
-
-      - name: Send Email — Deployment Succeeded
+      - name: Send Email — Prod Deployment Succeeded
         if: success()
         uses: dawidd6/action-send-mail@v3
         with:
@@ -217,36 +203,89 @@ jobs:
           server_port: 587
           username: ${{ secrets.SMTP_USER }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "🎉 [VAHN Deploy] Succeeded — Store is Live!"
+          subject: "🎉 [VAHN Prod Deploy] Succeeded — Store is Live!"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
           from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
           html_body: |
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #bbf7d0; border-radius: 8px; background-color: #f0fdf4;">
               <h2 style="color: #15803d; margin-top: 0;">🎉 Production Deployment Succeeded!</h2>
-              <p>Your store has been updated and is live at <a href="http://${{ secrets.LIGHTSAIL_HOST }}" style="color: #2563eb; font-weight: bold;">http://${{ secrets.LIGHTSAIL_HOST }}</a> (and https://vahnsports.com when domain is pointed).</p>
+              <p>Your store is live at <a href="https://vahnsports.com" style="color: #2563eb; font-weight: bold;">https://vahnsports.com</a>.</p>
               <ul style="line-height: 1.6;">
                 <li><strong>Commit:</strong> ${{ github.sha }}</li>
-                <li><strong>Author:</strong> ${{ github.actor }}</li>
-                <li><strong>Caddy Reverse Proxy:</strong> Active</li>
-                <li><strong>Postgres Database:</strong> Migrations applied</li>
-                <li><strong>FastAPI & Next.js:</strong> Healthy</li>
+                <li><strong>Environment:</strong> Production</li>
+                <li><strong>Database:</strong> vahn_db (Alembic Upgraded)</li>
               </ul>
             </div>
 
-      - name: Send Email — Deployment Failed
-        if: failure()
+  # ============================================================
+  # STAGE 2B: DEVELOPMENT DEPLOYMENT (DEV BRANCH)
+  # ============================================================
+  deploy-dev:
+    name: Deploy to Development (dev.vahnsports.com)
+    needs: ci-checks
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Email — Dev Deployment Started
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp-relay.brevo.com
           server_port: 587
           username: ${{ secrets.SMTP_USER }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "🚨 [VAHN Deploy] Deployment Failed on Lightsail"
+          subject: "🛠 [VAHN Dev Deploy] Started for Commit ${{ github.sha }}"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
           from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
           html_body: |
-            <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #fecaca; border-radius: 8px; background-color: #fef2f2;">
-              <h2 style="color: #dc2626; margin-top: 0;">🚨 Deployment Failed</h2>
-              <p>Deployment failed on AWS Lightsail during execution of commit <strong>${{ github.sha }}</strong>.</p>
-              <p style="color: #991b1b; font-size: 13px;">Please SSH into the Lightsail instance and run <code>docker compose -f docker-compose.prod.yml logs</code> to diagnose.</p>
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <h2 style="color: #6366f1; margin-top: 0;">🛠 Development Deployment In Progress</h2>
+              <p>Deploying commit <strong>${{ github.sha }}</strong> to dev environment (https://dev.vahnsports.com)...</p>
+            </div>
+
+      - name: Deploy Development Stack via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script_stop: true
+          script: |
+            cd /home/ubuntu/VAHN
+            git fetch origin
+            git checkout dev
+            git pull origin dev
+
+            # Setup dev .env if not present
+            if [ ! -f backend/.env.dev ]; then
+              cp backend/.env.dev.example backend/.env.dev
+            fi
+
+            # Deploy dev compose stack
+            docker compose -f docker-compose.dev.yml up -d --build --remove-orphans
+            sleep 6
+            docker exec vahn-backend-dev python -m alembic upgrade head
+            docker exec vahn-caddy-prod caddy reload --config /etc/caddy/Caddyfile || true
+
+      - name: Send Email — Dev Deployment Succeeded
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp-relay.brevo.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "🎉 [VAHN Dev Deploy] Succeeded — https://dev.vahnsports.com"
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
+          html_body: |
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #c7d2fe; border-radius: 8px; background-color: #eef2ff;">
+              <h2 style="color: #4338ca; margin-top: 0;">🎉 Development Deployment Succeeded!</h2>
+              <p>Your dev environment is live at <a href="https://dev.vahnsports.com" style="color: #2563eb; font-weight: bold;">https://dev.vahnsports.com</a>.</p>
+              <ul style="line-height: 1.6;">
+                <li><strong>Commit:</strong> ${{ github.sha }}</li>
+                <li><strong>Environment:</strong> Development (Isolated)</li>
+                <li><strong>Database:</strong> vahn_dev_db (Alembic Upgraded)</li>
+                <li><strong>S3 Media Prefix:</strong> dev/</li>
+              </ul>
             </div>

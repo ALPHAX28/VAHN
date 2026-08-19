@@ -1,0 +1,64 @@
+name: vahn-dev
+
+services:
+  db-dev:
+    image: postgres:16-alpine
+    container_name: vahn-postgres-db-dev
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-vahn_dev_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-vahn_dev_pass}
+      POSTGRES_DB: ${DB_NAME:-vahn_dev_db}
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-vahn_dev_user} -d ${DB_NAME:-vahn_dev_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vahn-prod-network
+
+  backend-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vahn-backend-dev
+    restart: always
+    depends_on:
+      db-dev:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+pg8000://${DB_USER:-vahn_dev_user}:${DB_PASSWORD:-vahn_dev_pass}@db-dev:5432/${DB_NAME:-vahn_dev_db}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - S3_FOLDER_PREFIX=dev
+    env_file:
+      - ./backend/.env.dev
+    networks:
+      - vahn-prod-network
+
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vahn-frontend-dev
+    restart: always
+    depends_on:
+      - backend-dev
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api}
+      - INTERNAL_API_URL=http://backend-dev:8000/api
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    networks:
+      - vahn-prod-network
+
+volumes:
+  postgres_dev_data:
+    name: vahn_db_dev_data
+
+networks:
+  vahn-prod-network:
+    external: true
+    name: vahn_prod_network

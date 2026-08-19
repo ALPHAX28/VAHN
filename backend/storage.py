@@ -54,10 +54,13 @@ class S3Provider:
         return f"https://{self.bucket}.s3.{self.region}.amazonaws.com/{key}"
 
     def generate_key(self, filename: str, folder: str = "products") -> str:
-        """Generates a clean, unique S3 object key."""
+        """Generates a clean, unique S3 object key with environment folder prefix support."""
         safe_name = sanitize_filename(filename)
         uid = uuid.uuid4().hex[:10]
+        prefix = os.getenv("S3_FOLDER_PREFIX", "").strip("/")
         folder = folder.strip("/")
+        if prefix:
+            return f"{prefix}/{folder}/{uid}_{safe_name}"
         return f"{folder}/{uid}_{safe_name}"
 
     def get_presigned_upload_url(self, filename: str, mime: str, folder: str = "products") -> Dict[str, Any]:

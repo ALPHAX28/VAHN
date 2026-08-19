@@ -65,3 +65,37 @@ vahnsports.com, www.vahnsports.com {
         }
     }
 }
+
+# 3. Development / Staging Domain (Automatic HTTPS for dev.vahnsports.com)
+dev.vahnsports.com {
+    encode gzip zstd
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # API Endpoints (FastAPI Dev)
+    handle /api/* {
+        reverse_proxy backend-dev:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Frontend Storefront & Admin (Next.js Dev)
+    handle {
+        reverse_proxy frontend-dev:3000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+}
+
