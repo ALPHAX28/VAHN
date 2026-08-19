@@ -329,29 +329,67 @@ export default function ShopProductsClient({ initialProducts }: Props) {
 
   return (
     <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh', paddingBottom: '80px' }}>
-      {/* ── 1. Clean Page Header ── */}
+      {/* ── 1. Editorial Luxury Page Header ── */}
       <section
         style={{
           borderBottom: '1px solid var(--color-grey-light, #e4e4e7)',
-          padding: '16px 20px 14px',
-          background: '#ffffff',
+          padding: 'clamp(24px, 3.5vw, 36px) 20px clamp(18px, 2.5vw, 26px)',
+          background: 'linear-gradient(180deg, #fbfbfc 0%, #ffffff 100%)',
+          textAlign: 'center',
         }}
       >
-        <div style={{ maxWidth: 'var(--page-width, 1440px)', margin: '0 auto' }}>
-          <h1
+        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+          {/* Eyebrow Badge */}
+          <div
             style={{
-              fontSize: 'clamp(1.5rem, 3vw, 2.25rem)',
-              fontWeight: 800,
-              letterSpacing: '0.02em',
-              textTransform: 'uppercase',
-              margin: '0 0 4px',
-              color: '#000000',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              marginBottom: '8px',
             }}
           >
-            All Products
+            <span style={{ width: '20px', height: '1px', background: '#d4d4d8', display: 'inline-block' }} />
+            <span
+              style={{
+                fontFamily: 'var(--font-heading)',
+                fontSize: '0.6875rem',
+                fontWeight: 800,
+                letterSpacing: '0.24em',
+                textTransform: 'uppercase',
+                color: 'var(--color-navy, #3a3699)',
+              }}
+            >
+              VAHN ATHLETICS
+            </span>
+            <span style={{ width: '20px', height: '1px', background: '#d4d4d8', display: 'inline-block' }} />
+          </div>
+
+          <h1
+            style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: 'clamp(1.875rem, 4vw, 2.75rem)',
+              fontWeight: 900,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              margin: '0 0 8px',
+              color: '#000000',
+              lineHeight: 1.1,
+            }}
+          >
+            ALL PRODUCTS
           </h1>
 
-          <p style={{ fontSize: '0.875rem', color: '#71717a', margin: 0 }}>
+          <p
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 'clamp(0.9375rem, 1.4vw, 1.0625rem)',
+              color: '#52525b',
+              margin: 0,
+              lineHeight: 1.6,
+              fontStyle: 'italic',
+            }}
+          >
             Explore the complete VAHN collection of performance teamwear and modern silhouettes.
           </p>
         </div>
