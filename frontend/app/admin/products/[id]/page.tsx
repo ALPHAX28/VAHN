@@ -16,7 +16,7 @@ import Image from "next/image";
 import { adminListSizeGuide, type SizeGuideType } from "@/lib/api/sizeGuide";
 import AdminLookbookManager, { type LookbookItem, uploadPendingLookbookImages } from "@/components/admin/AdminLookbookManager";
 
-const TABS = ["Details", "Variants", "Colour Groups", "Lookbook", "Reviews"];
+const TABS = ["Details", "Colour Groups", "Variants", "Lookbook", "Reviews"];
 const FIT_OPTIONS = ["SLIM", "REGULAR", "RELAXED FIT", "OVERSIZED"];
 
 const KIT_OPTIONS = ["JERSEY", "HOME", "SIGNATURE"];
