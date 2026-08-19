@@ -271,7 +271,8 @@ def read_api_root():
 def list_products(db: Session = Depends(get_db)):
     products = db.query(models.Product).options(
         selectinload(models.Product.variants),
-        selectinload(models.Product.reviews)
+        selectinload(models.Product.reviews),
+        selectinload(models.Product.colour_groups)
     ).filter_by(available_for_sale=True).all()
     return [db_product_to_schema(p) for p in products]
 

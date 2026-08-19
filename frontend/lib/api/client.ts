@@ -59,7 +59,8 @@ export async function fetchAPI<T>(
     if (cache) {
       fetchOptions.cache = cache;
     } else if (method === 'GET') {
-      fetchOptions.next = { revalidate: 30, tags };
+      // Always fetch fresh from the server — no CDN or Next.js page cache for product data
+      fetchOptions.cache = 'no-store';
     } else {
       fetchOptions.cache = 'no-store';
     }
@@ -91,6 +92,11 @@ export async function fetchAPI<T>(
     return res.json();
 
   };
+
+  // Bypass client-side cache entirely for product listings — always fresh from DB
+  if (path === '/products' || path.startsWith('/products?')) {
+    return networkFetcher();
+  }
 
   if (method === 'GET' && cache !== 'no-store') {
     const cacheKey = `storefront:${path}`;
