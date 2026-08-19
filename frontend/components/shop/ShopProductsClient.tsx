@@ -333,54 +333,25 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       <section
         style={{
           borderBottom: '1px solid var(--color-grey-light, #e4e4e7)',
-          padding: 'clamp(28px, 4vw, 48px) 20px 24px',
+          padding: '16px 20px 14px',
           background: '#ffffff',
         }}
       >
         <div style={{ maxWidth: 'var(--page-width, 1440px)', margin: '0 auto' }}>
-          {/* Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <Link
-              href="/"
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: 'var(--color-grey-dark, #71717a)',
-                textDecoration: 'none',
-              }}
-            >
-              Home
-            </Link>
-            <span style={{ color: '#a1a1aa', fontSize: '0.75rem' }}>/</span>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: '#000000',
-              }}
-            >
-              Shop All
-            </span>
-          </div>
-
           <h1
             style={{
-              fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
+              fontSize: 'clamp(1.5rem, 3vw, 2.25rem)',
               fontWeight: 800,
               letterSpacing: '0.02em',
               textTransform: 'uppercase',
-              margin: '0 0 6px',
+              margin: '0 0 4px',
               color: '#000000',
             }}
           >
             All Products
           </h1>
 
-          <p style={{ fontSize: '0.9375rem', color: '#71717a', margin: 0 }}>
+          <p style={{ fontSize: '0.875rem', color: '#71717a', margin: 0 }}>
             Explore the complete VAHN collection of performance teamwear and modern silhouettes.
           </p>
         </div>
@@ -396,7 +367,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
           borderBottom: '1px solid var(--color-grey-light, #e4e4e7)',
-          padding: '14px 20px',
+          padding: '10px 20px',
         }}
       >
         <div
@@ -543,53 +514,31 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             ))}
           </div>
 
-          {/* Right Controls: Reset & Sort */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {hasActiveFilters && (
-              <button
-                onClick={resetFilters}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#dc2626',
-                  fontSize: '0.6875rem',
-                  fontWeight: 700,
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                  cursor: 'pointer',
-                  padding: 0,
-                  textDecoration: 'underline',
-                }}
-              >
-                Reset
-              </button>
-            )}
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '0.75rem', color: '#71717a', textTransform: 'uppercase', fontWeight: 600 }}>
-                Sort:
-              </span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                style={{
-                  padding: '6px 10px',
-                  background: '#ffffff',
-                  border: '1px solid #d4d4d8',
-                  borderRadius: '3px',
-                  color: '#000000',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  outline: 'none',
-                }}
-              >
-                <option value="featured">Featured</option>
-                <option value="price-asc">Price: Low to High</option>
-                <option value="price-desc">Price: High to Low</option>
-                <option value="name-asc">Alphabetical</option>
-              </select>
-            </div>
+          {/* Right Controls: Sort */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.75rem', color: '#71717a', textTransform: 'uppercase', fontWeight: 600 }}>
+              Sort:
+            </span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                padding: '6px 10px',
+                background: '#ffffff',
+                border: '1px solid #d4d4d8',
+                borderRadius: '3px',
+                color: '#000000',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              <option value="featured">Featured</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="name-asc">Alphabetical</option>
+            </select>
           </div>
         </div>
       </section>
