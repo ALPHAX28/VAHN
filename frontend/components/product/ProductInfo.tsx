@@ -15,6 +15,7 @@ import { fetchPublicSizeGuide, type SizeGuideType } from '@/lib/api/sizeGuide';
 
 interface Props {
   product: Product;
+  initialColour?: string;
   // SCRUM-33: Optional callback to update parent gallery when colour changes
   onColourChange?: (colourValue: string) => void;
 }
@@ -66,7 +67,7 @@ function getVariantFromOptions(
 }
 
 
-export default function ProductInfo({ product, onColourChange }: Props) {
+export default function ProductInfo({ product, initialColour, onColourChange }: Props) {
   const router = useRouter();
   const variants = product.variants.edges.map((e) => e.node);
   const { addItem, updateItem, closeCart, lines } = useCart();
@@ -119,8 +120,6 @@ export default function ProductInfo({ product, onColourChange }: Props) {
   const careContent = (product.careInstructions || product.care_instructions || '').trim() || 'Machine wash cold delicate cycle inside out. Do not bleach. Tumble dry low. Cool iron if needed.';
   const detailsContent = (product.productDetails || product.product_details || '').trim() || (product.vendor ? `${product.vendor} ${product.productType || 'Apparel'}` : '');
 
-
-
   // Restock Notification Modal State
   const [restockModalOpen, setRestockModalOpen] = useState(false);
   const [restockEmail, setRestockEmail] = useState('');
@@ -144,12 +143,16 @@ export default function ProductInfo({ product, onColourChange }: Props) {
     };
   }, [restockModalOpen, sizeGuideOpen]);
 
-  // Initialize selected options (Color pre-selected, Size unselected by default)
+  // Initialize selected options (Color pre-selected matching initialColour, Size unselected by default)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
     const opts: Record<string, string> = {};
     (product.options ?? []).forEach((opt) => {
       const isSize = opt.name.toLowerCase() === 'size';
-      if (!isSize && opt.values.length > 0) {
+      const isColour = opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color';
+      if (isColour && initialColour) {
+        const match = opt.values.find((v) => v.trim().toLowerCase() === initialColour.trim().toLowerCase());
+        opts[opt.name] = match || opt.values[0] || initialColour;
+      } else if (!isSize && opt.values.length > 0) {
         opts[opt.name] = opt.values[0];
       } else {
         opts[opt.name] = ''; // Start unselected for size
@@ -157,6 +160,29 @@ export default function ProductInfo({ product, onColourChange }: Props) {
     });
     return opts;
   });
+
+  // Sync state if initialColour prop updates
+  useEffect(() => {
+    if (initialColour) {
+      setSelectedOptions((prev) => {
+        const updated = { ...prev };
+        let changed = false;
+        (product.options ?? []).forEach((opt) => {
+          const isColour = opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color';
+          if (isColour) {
+            const match = opt.values.find((v) => v.trim().toLowerCase() === initialColour.trim().toLowerCase());
+            const target = match || initialColour;
+            if (updated[opt.name] !== target) {
+              updated[opt.name] = target;
+              changed = true;
+            }
+          }
+        });
+        return changed ? updated : prev;
+      });
+      onColourChange?.(initialColour);
+    }
+  }, [initialColour, product.options, onColourChange]);
 
   const hasSizeOption = (product.options ?? []).some((o) => o.name.toLowerCase() === 'size');
   const selectedSizeValue = selectedOptions['Size'] || selectedOptions['size'] || '';

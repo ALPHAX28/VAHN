@@ -10,7 +10,7 @@ import SearchModal from '@/components/layout/SearchModal';
 import MobileNav from '@/components/layout/MobileNav';
 
 const NAV_LINKS = [
-  { href: '/collections', label: 'Shop' },
+  { href: '/products', label: 'Shop' },
   { href: '/pages/about', label: 'About' },
   { href: '/pages/catalogue-page', label: 'Catalogue' },
   { href: '/blogs/news', label: 'Journal' },

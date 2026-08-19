@@ -30,6 +30,18 @@ export interface ProductVariant {
   quantityAvailable?: number;
 }
 
+export interface ColourGroupImage {
+  url: string;
+  altText?: string;
+}
+
+export interface ColourGroup {
+  id: number;
+  colourValue: string;
+  displayOrder?: number;
+  images: ColourGroupImage[];
+}
+
 export interface Product {
   id: string;
   title: string;
@@ -54,7 +66,7 @@ export interface Product {
   featuredImage: Image | null;
   lookbook?: LookbookItem[];
   reviews?: Review[];
-  colourGroups?: { id: number; colourValue: string; displayOrder?: number; images: { url: string; altText?: string }[] }[];
+  colourGroups?: ColourGroup[];
   fit?: string | null;
   kitType?: string | null;
   activity?: string | null;

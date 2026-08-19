@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { Product, Image as ShopifyImage } from '@/lib/api/types';
 import ProductMediaGallery from '@/components/product/ProductMediaGallery';
 import ProductInfo from '@/components/product/ProductInfo';
@@ -10,24 +11,59 @@ interface Props {
   defaultImages: ShopifyImage[];
 }
 
-/**
- * SCRUM-33: Client wrapper that lifts gallery image state so that when a user
- * selects a colour in ProductInfo, the gallery updates with ALL images for
- * that colour group, not just the first one.
- */
-export default function ProductPageClient({ product, defaultImages }: Props) {
-  const [galleryImages, setGalleryImages] = useState<ShopifyImage[]>(defaultImages);
+function ProductPageClientInner({ product, defaultImages }: Props) {
+  const searchParams = useSearchParams();
+  const queryColour = searchParams?.get('colour') || searchParams?.get('color') || '';
+
+  // Determine initial colour matching query param or first available colour group
+  const matchedColourGroup = useMemo(() => {
+    if (!product.colourGroups?.length) return null;
+    if (queryColour) {
+      return (
+        product.colourGroups.find(
+          (cg) => cg.colourValue.trim().toLowerCase() === queryColour.trim().toLowerCase()
+        ) || null
+      );
+    }
+    return null;
+  }, [product.colourGroups, queryColour]);
+
+  const initialImages = useMemo(() => {
+    if (matchedColourGroup && matchedColourGroup.images && matchedColourGroup.images.length > 0) {
+      return matchedColourGroup.images.map((img) => ({
+        url: img.url,
+        altText: img.altText || matchedColourGroup.colourValue,
+        width: 800,
+        height: 800,
+      }));
+    }
+    return defaultImages;
+  }, [matchedColourGroup, defaultImages]);
+
+  const [galleryImages, setGalleryImages] = useState<ShopifyImage[]>(initialImages);
+
+  // Sync if URL query param changes
+  useEffect(() => {
+    if (matchedColourGroup && matchedColourGroup.images && matchedColourGroup.images.length > 0) {
+      setGalleryImages(
+        matchedColourGroup.images.map((img) => ({
+          url: img.url,
+          altText: img.altText || matchedColourGroup.colourValue,
+          width: 800,
+          height: 800,
+        }))
+      );
+    }
+  }, [matchedColourGroup]);
 
   const handleColourChange = useCallback(
     (colourValue: string) => {
       if (!colourValue) {
-        // No colour selected at all → show product gallery
         setGalleryImages(defaultImages);
         return;
       }
 
       if (!product.colourGroups?.length) {
-        // Product has no colour groups → show product gallery
         setGalleryImages(defaultImages);
         return;
       }
@@ -37,13 +73,11 @@ export default function ProductPageClient({ product, defaultImages }: Props) {
       );
 
       if (!colourGroup) {
-        // Colour not found in any group → fall back to product gallery
         setGalleryImages(defaultImages);
         return;
       }
 
       if (colourGroup.images && colourGroup.images.length > 0) {
-        // Colour group has images → show them
         const colourImages: ShopifyImage[] = colourGroup.images.map((img) => ({
           url: img.url,
           altText: img.altText || colourValue,
@@ -52,7 +86,6 @@ export default function ProductPageClient({ product, defaultImages }: Props) {
         }));
         setGalleryImages(colourImages);
       } else {
-        // Colour group exists but has NO images → show empty gallery (not the Blue/other images)
         setGalleryImages([]);
       }
     },
@@ -62,7 +95,19 @@ export default function ProductPageClient({ product, defaultImages }: Props) {
   return (
     <>
       <ProductMediaGallery images={galleryImages} productTitle={product.title} />
-      <ProductInfo product={product} onColourChange={handleColourChange} />
+      <ProductInfo
+        product={product}
+        initialColour={matchedColourGroup?.colourValue || queryColour || undefined}
+        onColourChange={handleColourChange}
+      />
     </>
+  );
+}
+
+export default function ProductPageClient(props: Props) {
+  return (
+    <Suspense fallback={<ProductMediaGallery images={props.defaultImages} productTitle={props.product.title} />}>
+      <ProductPageClientInner {...props} />
+    </Suspense>
   );
 }

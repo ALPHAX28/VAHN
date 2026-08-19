@@ -1,18 +1,58 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import type { Product, Money } from '@/lib/api/types';
+import type { Product, Money, ColourGroup, Image as ShopifyImage } from '@/lib/api/types';
 import { formatMoney } from '@/lib/utils';
 
 interface Props {
   product: Product;
+  colourGroup?: ColourGroup;
+  customColour?: string;
+  customHref?: string;
+  customImage?: ShopifyImage;
 }
 
-export default function ProductCard({ product }: Props) {
-  const image = product.featuredImage ?? product.images.edges[0]?.node;
+export default function ProductCard({
+  product,
+  colourGroup,
+  customColour,
+  customHref,
+  customImage,
+}: Props) {
+  const activeColour = colourGroup?.colourValue || customColour || '';
 
-  // ── Dynamic Price & Discount Calculation across all variants ──
-  const variants = (product.variants?.edges ?? []).map((e) => e.node);
+  // ── Image Resolution ──
+  const primaryImage =
+    colourGroup?.images?.[0] ??
+    customImage ??
+    product.featuredImage ??
+    product.images.edges[0]?.node;
 
+  const secondaryImage =
+    colourGroup?.images?.[1] ??
+    (product.images.edges.length > 1 ? product.images.edges[1].node : null);
+
+  // ── Target URL (Deep Link with ?colour=) ──
+  const targetHref =
+    customHref ??
+    (activeColour
+      ? `/products/${product.handle}?colour=${encodeURIComponent(activeColour)}`
+      : `/products/${product.handle}`);
+
+  // ── Filter Variants for this specific colourway (if applicable) ──
+  const allVariants = (product.variants?.edges ?? []).map((e) => e.node);
+  const colourFilteredVariants = activeColour
+    ? allVariants.filter((v) =>
+        v.selectedOptions.some(
+          (opt) =>
+            (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') &&
+            opt.value.trim().toLowerCase() === activeColour.trim().toLowerCase()
+        )
+      )
+    : allVariants;
+
+  const variants = colourFilteredVariants.length > 0 ? colourFilteredVariants : allVariants;
+
+  // ── Dynamic Price & Discount Calculation ──
   let displayPrice = product.priceRange.minVariantPrice;
   let displayComparePrice: Money | null = null;
   let highestDiscountPercent = 0;
@@ -50,11 +90,16 @@ export default function ProductCard({ product }: Props) {
   }
 
   const isOnSale = Boolean(displayComparePrice && parseFloat(displayComparePrice.amount) > parseFloat(displayPrice.amount));
-  const isAllOutOfStock = !product.availableForSale || (variants.length > 0 && variants.every((v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0)));
+  const isAllOutOfStock =
+    !product.availableForSale ||
+    (variants.length > 0 &&
+      variants.every(
+        (v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0)
+      ));
 
   return (
-    <Link href={`/products/${product.handle}`} className="product-card">
-      {/* Badge */}
+    <Link href={targetHref} className="product-card group">
+      {/* Discount / Stock Badges */}
       {isAllOutOfStock ? (
         <span className="product-card-badge" style={{ background: '#d32f2f', color: '#ffffff', fontWeight: 800 }}>
           OUT OF STOCK
@@ -65,27 +110,56 @@ export default function ProductCard({ product }: Props) {
         </span>
       ) : null}
 
-      {/* Media */}
-      <div className="product-card-media" style={{ aspectRatio: '1 / 1', position: 'relative', overflow: 'hidden', background: '#f5f5f5', borderRadius: 0 }}>
-
-        {image ? (
-          <Image
-            src={image.url}
-            alt={image.altText ?? product.title}
-            fill
-            sizes="(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            style={{ objectFit: 'cover', objectPosition: 'center', transition: 'transform 0.4s ease' }}
-          />
+      {/* Media Gallery with Smooth Hover Transition */}
+      <div
+        className="product-card-media"
+        style={{
+          aspectRatio: '1 / 1',
+          position: 'relative',
+          overflow: 'hidden',
+          background: '#141416',
+          borderRadius: 0,
+        }}
+      >
+        {primaryImage ? (
+          <>
+            <Image
+              src={primaryImage.url}
+              alt={primaryImage.altText ?? `${product.title} ${activeColour}`}
+              fill
+              sizes="(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              style={{
+                objectFit: 'cover',
+                objectPosition: 'center',
+                transition: 'opacity 0.4s ease, transform 0.5s ease',
+              }}
+              className={secondaryImage ? 'group-hover:opacity-0 group-hover:scale-105' : 'group-hover:scale-105'}
+            />
+            {secondaryImage && (
+              <Image
+                src={secondaryImage.url}
+                alt={secondaryImage.altText ?? `${product.title} ${activeColour}`}
+                fill
+                sizes="(max-width: 600px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                style={{
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                  transition: 'opacity 0.4s ease, transform 0.5s ease',
+                }}
+                className="opacity-0 group-hover:opacity-100 group-hover:scale-105 absolute inset-0"
+              />
+            )}
+          </>
         ) : (
           <div
             style={{
               width: '100%',
               height: '100%',
-              background: 'var(--color-grey-light)',
+              background: '#1e1e24',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--color-grey-dark)',
+              color: '#888',
               fontSize: '0.8125rem',
             }}
           >
@@ -94,12 +168,31 @@ export default function ProductCard({ product }: Props) {
         )}
       </div>
 
-      {/* Info */}
-      <div className="product-card-info">
+      {/* Card Info */}
+      <div className="product-card-info" style={{ marginTop: '12px' }}>
+        {/* Colourway Label (if multi-colour) */}
+        {activeColour && (
+          <p
+            style={{
+              fontSize: '0.6875rem',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--color-gold, #c5a059)',
+              marginBottom: '4px',
+            }}
+          >
+            {activeColour}
+          </p>
+        )}
+
         <p className="product-card-title">{product.title}</p>
-        <div className="product-card-price">
+
+        <div className="product-card-price" style={{ marginTop: '4px' }}>
           {isAllOutOfStock ? (
-            <span style={{ color: '#d32f2f', fontWeight: 700, fontSize: '0.8125rem', letterSpacing: '0.04em' }}>OUT OF STOCK</span>
+            <span style={{ color: '#d32f2f', fontWeight: 700, fontSize: '0.8125rem', letterSpacing: '0.04em' }}>
+              OUT OF STOCK
+            </span>
           ) : isOnSale && displayComparePrice ? (
             <>
               <span className="sale">{formatMoney(displayPrice)}</span>

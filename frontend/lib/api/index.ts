@@ -164,7 +164,7 @@ export async function getMenu(_handle: string): Promise<Menu | null> {
   return {
     items: [
       { id: 'menu-home', title: 'Home', url: '/', items: [] },
-      { id: 'menu-shop', title: 'Shop', url: '/collections', items: [] },
+      { id: 'menu-shop', title: 'Shop', url: '/products', items: [] },
       { id: 'menu-about', title: 'Our Story', url: '/pages/about', items: [] }
     ]
   };
