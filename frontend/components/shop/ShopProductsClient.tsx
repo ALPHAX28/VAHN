@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import type { Product, ColourGroup, Image as ShopifyImage, Money } from '@/lib/api/types';
 import ProductCard from '@/components/collection/ProductCard';
 
@@ -62,7 +63,6 @@ export default function ShopProductsClient({ initialProducts }: Props) {
               height: 800,
             };
           } else {
-            // Fallback to variant image
             const variantWithImage = colourVariants.find((v) => v.image && v.image.url);
             if (variantWithImage && variantWithImage.image) {
               primaryImg = variantWithImage.image;
@@ -328,65 +328,60 @@ export default function ShopProductsClient({ initialProducts }: Props) {
   }
 
   return (
-    <div
-      style={{
-        background: '#09090b',
-        color: '#f4f4f5',
-        minHeight: '100vh',
-        paddingBottom: '80px',
-      }}
-    >
-      {/* ── 1. Luxury Editorial Header ── */}
+    <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh', paddingBottom: '80px' }}>
+      {/* ── 1. Clean Page Header ── */}
       <section
         style={{
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: 'clamp(40px, 5vw, 64px) 24px 32px',
-          background: 'radial-gradient(ellipse at 50% 0%, rgba(197, 160, 89, 0.08) 0%, rgba(9, 9, 11, 0) 70%), #09090b',
-          textAlign: 'center',
+          borderBottom: '1px solid var(--color-grey-light, #e4e4e7)',
+          padding: 'clamp(28px, 4vw, 48px) 20px 24px',
+          background: '#ffffff',
         }}
       >
-        <div style={{ maxWidth: '720px', margin: '0 auto' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.6875rem',
-              fontWeight: 800,
-              letterSpacing: '0.22em',
-              textTransform: 'uppercase',
-              color: 'var(--color-gold, #c5a059)',
-              marginBottom: '12px',
-            }}
-          >
-            <span>✦</span>
-            <span>VAHN ATHLETIC DIVISION</span>
-            <span>✦</span>
+        <div style={{ maxWidth: 'var(--page-width, 1440px)', margin: '0 auto' }}>
+          {/* Breadcrumb */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Link
+              href="/"
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'var(--color-grey-dark, #71717a)',
+                textDecoration: 'none',
+              }}
+            >
+              Home
+            </Link>
+            <span style={{ color: '#a1a1aa', fontSize: '0.75rem' }}>/</span>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: '#000000',
+              }}
+            >
+              Shop All
+            </span>
           </div>
 
           <h1
             style={{
-              fontSize: 'clamp(2rem, 4vw, 3rem)',
-              fontWeight: 900,
-              letterSpacing: '0.04em',
+              fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
+              fontWeight: 800,
+              letterSpacing: '0.02em',
               textTransform: 'uppercase',
-              margin: '0 0 10px',
-              color: '#ffffff',
-              lineHeight: 1.1,
+              margin: '0 0 6px',
+              color: '#000000',
             }}
           >
-            SHOP THE SILHOUETTES
+            All Products
           </h1>
 
-          <p
-            style={{
-              fontSize: '0.9375rem',
-              color: '#a1a1aa',
-              margin: 0,
-              lineHeight: 1.6,
-            }}
-          >
-            Engineered teamwear and modern silhouettes tailored with precision.
+          <p style={{ fontSize: '0.9375rem', color: '#71717a', margin: 0 }}>
+            Explore the complete VAHN collection of performance teamwear and modern silhouettes.
           </p>
         </div>
       </section>
@@ -397,16 +392,16 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           position: 'sticky',
           top: 60,
           zIndex: 30,
-          background: 'rgba(9, 9, 11, 0.88)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: '16px 20px',
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          borderBottom: '1px solid var(--color-grey-light, #e4e4e7)',
+          padding: '14px 20px',
         }}
       >
         <div
           style={{
-            maxWidth: '1440px',
+            maxWidth: 'var(--page-width, 1440px)',
             margin: '0 auto',
             display: 'flex',
             flexWrap: 'wrap',
@@ -415,26 +410,23 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             justifyContent: 'space-between',
           }}
         >
-          {/* Search Bar */}
-          <div style={{ position: 'relative', flex: '1 1 220px', maxWidth: '320px' }}>
+          {/* Search Box */}
+          <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: '280px' }}>
             <input
               type="text"
-              placeholder="Search silhouettes or colours..."
+              placeholder="Search products or colours..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                padding: '9px 12px 9px 34px',
-                background: '#141418',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '6px',
-                color: '#fff',
+                padding: '8px 12px 8px 34px',
+                background: '#ffffff',
+                border: '1px solid #d4d4d8',
+                borderRadius: '4px',
+                color: '#000000',
                 fontSize: '0.8125rem',
                 outline: 'none',
-                transition: 'border-color 0.2s',
               }}
-              onFocus={(e) => (e.target.style.borderColor = 'var(--color-gold, #c5a059)')}
-              onBlur={(e) => (e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)')}
             />
             <svg
               style={{
@@ -463,7 +455,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                   transform: 'translateY(-50%)',
                   background: 'none',
                   border: 'none',
-                  color: '#a1a1aa',
+                  color: '#71717a',
                   cursor: 'pointer',
                   fontSize: '12px',
                 }}
@@ -479,7 +471,6 @@ export default function ShopProductsClient({ initialProducts }: Props) {
               display: 'flex',
               gap: '6px',
               overflowX: 'auto',
-              paddingBottom: '2px',
               scrollbarWidth: 'none',
               alignItems: 'center',
             }}
@@ -487,17 +478,17 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             <button
               onClick={() => setSelectedCategory('ALL')}
               style={{
-                padding: '7px 14px',
-                borderRadius: '4px',
+                padding: '6px 14px',
+                borderRadius: '3px',
                 fontSize: '0.6875rem',
-                fontWeight: 800,
-                letterSpacing: '0.08em',
+                fontWeight: 700,
+                letterSpacing: '0.06em',
                 textTransform: 'uppercase',
                 cursor: 'pointer',
-                border: selectedCategory === 'ALL' ? '1px solid #ffffff' : '1px solid rgba(255, 255, 255, 0.1)',
-                background: selectedCategory === 'ALL' ? '#ffffff' : '#141418',
-                color: selectedCategory === 'ALL' ? '#000000' : '#a1a1aa',
-                transition: 'all 0.2s',
+                border: selectedCategory === 'ALL' ? '1px solid #000000' : '1px solid #e4e4e7',
+                background: selectedCategory === 'ALL' ? '#000000' : '#ffffff',
+                color: selectedCategory === 'ALL' ? '#ffffff' : '#52525b',
+                transition: 'all 0.15s ease',
                 whiteSpace: 'nowrap',
               }}
             >
@@ -509,17 +500,17 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                 key={cat}
                 onClick={() => setSelectedCategory(selectedCategory === cat ? 'ALL' : cat)}
                 style={{
-                  padding: '7px 14px',
-                  borderRadius: '4px',
+                  padding: '6px 14px',
+                  borderRadius: '3px',
                   fontSize: '0.6875rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.08em',
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
                   textTransform: 'uppercase',
                   cursor: 'pointer',
-                  border: selectedCategory === cat ? '1px solid #ffffff' : '1px solid rgba(255, 255, 255, 0.1)',
-                  background: selectedCategory === cat ? '#ffffff' : '#141418',
-                  color: selectedCategory === cat ? '#000000' : '#a1a1aa',
-                  transition: 'all 0.2s',
+                  border: selectedCategory === cat ? '1px solid #000000' : '1px solid #e4e4e7',
+                  background: selectedCategory === cat ? '#000000' : '#ffffff',
+                  color: selectedCategory === cat ? '#ffffff' : '#52525b',
+                  transition: 'all 0.15s ease',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -533,20 +524,17 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                 key={fit}
                 onClick={() => setSelectedFit(selectedFit === fit ? 'ALL' : fit)}
                 style={{
-                  padding: '7px 12px',
-                  borderRadius: '4px',
+                  padding: '6px 12px',
+                  borderRadius: '3px',
                   fontSize: '0.6875rem',
                   fontWeight: 700,
-                  letterSpacing: '0.08em',
+                  letterSpacing: '0.06em',
                   textTransform: 'uppercase',
                   cursor: 'pointer',
-                  border:
-                    selectedFit === fit
-                      ? '1px solid var(--color-gold, #c5a059)'
-                      : '1px solid rgba(255, 255, 255, 0.08)',
-                  background: selectedFit === fit ? 'rgba(197, 160, 89, 0.15)' : 'transparent',
-                  color: selectedFit === fit ? 'var(--color-gold, #c5a059)' : '#71717a',
-                  transition: 'all 0.2s',
+                  border: selectedFit === fit ? '1px solid #000000' : '1px solid #e4e4e7',
+                  background: selectedFit === fit ? '#f4f4f5' : '#ffffff',
+                  color: selectedFit === fit ? '#000000' : '#71717a',
+                  transition: 'all 0.15s ease',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -555,24 +543,25 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             ))}
           </div>
 
-          {/* Right Controls: Sort & Reset */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          {/* Right Controls: Reset & Sort */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {hasActiveFilters && (
               <button
                 onClick={resetFilters}
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#ef4444',
+                  color: '#dc2626',
                   fontSize: '0.6875rem',
                   fontWeight: 700,
-                  letterSpacing: '0.06em',
+                  letterSpacing: '0.04em',
                   textTransform: 'uppercase',
                   cursor: 'pointer',
                   padding: 0,
+                  textDecoration: 'underline',
                 }}
               >
-                Reset All
+                Reset
               </button>
             )}
 
@@ -584,11 +573,11 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 style={{
-                  padding: '7px 10px',
-                  background: '#141418',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  borderRadius: '4px',
-                  color: '#f4f4f5',
+                  padding: '6px 10px',
+                  background: '#ffffff',
+                  border: '1px solid #d4d4d8',
+                  borderRadius: '3px',
+                  color: '#000000',
                   fontSize: '0.75rem',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -608,43 +597,23 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       {/* ── 3. Product Counter & Grid Container ── */}
       <main
         style={{
-          maxWidth: '1440px',
+          maxWidth: 'var(--page-width, 1440px)',
           margin: '0 auto',
           padding: '24px 20px',
         }}
       >
-        {/* Counter bar */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '20px',
-          }}
-        >
+        <div style={{ marginBottom: '16px' }}>
           <p
             style={{
-              fontSize: '0.6875rem',
-              fontWeight: 800,
-              letterSpacing: '0.12em',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              letterSpacing: '0.04em',
               textTransform: 'uppercase',
               color: '#71717a',
               margin: 0,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
             }}
           >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: '#22c55e',
-                display: 'inline-block',
-              }}
-            />
-            Showing {filteredItems.length} {filteredItems.length === 1 ? 'Silhouette' : 'Silhouettes'}
+            Showing {filteredItems.length} {filteredItems.length === 1 ? 'Product' : 'Products'}
           </p>
         </div>
 
@@ -652,24 +621,24 @@ export default function ShopProductsClient({ initialProducts }: Props) {
         {filteredItems.length === 0 ? (
           <div
             style={{
-              padding: '90px 24px',
+              padding: '80px 20px',
               textAlign: 'center',
-              background: '#121216',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '8px',
+              background: '#f9f9fb',
+              border: '1px solid #e4e4e7',
+              borderRadius: '4px',
               marginTop: '10px',
             }}
           >
-            <p style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', marginBottom: '8px' }}>
-              No Silhouettes Found
+            <p style={{ fontSize: '1.125rem', fontWeight: 700, color: '#000000', marginBottom: '6px' }}>
+              No products found
             </p>
-            <p style={{ fontSize: '0.875rem', color: '#71717a', marginBottom: '24px' }}>
-              No products match your active search or filter criteria.
+            <p style={{ fontSize: '0.875rem', color: '#71717a', marginBottom: '20px' }}>
+              Try adjusting your search query or removing active filters.
             </p>
             <button
               onClick={resetFilters}
               className="btn btn-primary"
-              style={{ padding: '10px 24px', fontSize: '0.75rem', letterSpacing: '0.08em' }}
+              style={{ padding: '8px 20px', fontSize: '0.8125rem' }}
             >
               Reset Filters
             </button>
@@ -678,8 +647,8 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-              gap: '20px',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+              gap: '32px 20px',
             }}
           >
             {filteredItems.map((item) => (
