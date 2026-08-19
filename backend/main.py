@@ -184,21 +184,34 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
         for r in (prod.reviews or []) if not r.is_hidden
     ]
 
-    colour_group_schemas = [
-        schemas.StorefrontColourGroupSchema(
-            id=cg.id,
-            colourValue=cg.colour_value,
-            displayOrder=cg.display_order,
-            images=[
-                schemas.StorefrontColourGroupImageSchema(
-                    url=img.get("url", "") if isinstance(img, dict) else getattr(img, "url", ""),
-                    altText=(img.get("altText", "") if isinstance(img, dict) else getattr(img, "alt_text", "")) or ""
-                )
-                for img in (cg.images or [])
-            ]
+    colour_group_schemas = []
+    for cg in (prod.colour_groups or []):
+        parsed_imgs = []
+        for img in (cg.images or []):
+            if isinstance(img, str):
+                if img.strip():
+                    parsed_imgs.append(schemas.StorefrontColourGroupImageSchema(url=img.strip(), altText=cg.colour_value))
+            elif isinstance(img, dict):
+                u = img.get("url") or img.get("src") or ""
+                if u:
+                    parsed_imgs.append(schemas.StorefrontColourGroupImageSchema(
+                        url=u,
+                        altText=img.get("altText") or img.get("alt_text") or cg.colour_value
+                    ))
+            elif hasattr(img, "url") and getattr(img, "url"):
+                parsed_imgs.append(schemas.StorefrontColourGroupImageSchema(
+                    url=getattr(img, "url"),
+                    altText=getattr(img, "alt_text", "") or cg.colour_value
+                ))
+
+        colour_group_schemas.append(
+            schemas.StorefrontColourGroupSchema(
+                id=cg.id,
+                colourValue=cg.colour_value,
+                displayOrder=cg.display_order,
+                images=parsed_imgs
+            )
         )
-        for cg in (prod.colour_groups or [])
-    ]
 
     return schemas.ProductSchema(
         id=f"gid://shopify/Product/{prod.id}",

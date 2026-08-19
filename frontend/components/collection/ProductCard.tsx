@@ -8,7 +8,12 @@ interface Props {
   colourGroup?: ColourGroup;
   customColour?: string;
   customHref?: string;
-  customImage?: ShopifyImage;
+  customPrimaryImage?: ShopifyImage | null;
+  customSecondaryImage?: ShopifyImage | null;
+  customPrice?: number;
+  customComparePrice?: Money | null;
+  customDiscountPercent?: number;
+  customIsOutOfStock?: boolean;
 }
 
 export default function ProductCard({
@@ -16,20 +21,41 @@ export default function ProductCard({
   colourGroup,
   customColour,
   customHref,
-  customImage,
+  customPrimaryImage,
+  customSecondaryImage,
+  customPrice,
+  customComparePrice,
+  customDiscountPercent,
+  customIsOutOfStock,
 }: Props) {
   const activeColour = colourGroup?.colourValue || customColour || '';
 
   // ── Image Resolution ──
   const primaryImage =
-    colourGroup?.images?.[0] ??
-    customImage ??
+    customPrimaryImage ??
+    (colourGroup?.images?.[0]
+      ? {
+          url: colourGroup.images[0].url,
+          altText: colourGroup.images[0].altText || `${product.title} ${activeColour}`,
+          width: 800,
+          height: 800,
+        }
+      : null) ??
     product.featuredImage ??
-    product.images.edges[0]?.node;
+    product.images?.edges?.[0]?.node ??
+    null;
 
   const secondaryImage =
-    colourGroup?.images?.[1] ??
-    (product.images.edges.length > 1 ? product.images.edges[1].node : null);
+    customSecondaryImage ??
+    (colourGroup?.images && colourGroup.images.length > 1
+      ? {
+          url: colourGroup.images[1].url,
+          altText: colourGroup.images[1].altText || `${product.title} ${activeColour}`,
+          width: 800,
+          height: 800,
+        }
+      : null) ??
+    null;
 
   // ── Target URL (Deep Link with ?colour=) ──
   const targetHref =
@@ -38,7 +64,7 @@ export default function ProductCard({
       ? `/products/${product.handle}?colour=${encodeURIComponent(activeColour)}`
       : `/products/${product.handle}`);
 
-  // ── Filter Variants for this specific colourway (if applicable) ──
+  // ── Variant & Pricing Calculation ──
   const allVariants = (product.variants?.edges ?? []).map((e) => e.node);
   const colourFilteredVariants = activeColour
     ? allVariants.filter((v) =>
@@ -52,19 +78,23 @@ export default function ProductCard({
 
   const variants = colourFilteredVariants.length > 0 ? colourFilteredVariants : allVariants;
 
-  // ── Dynamic Price & Discount Calculation ──
-  let displayPrice = product.priceRange.minVariantPrice;
-  let displayComparePrice: Money | null = null;
-  let highestDiscountPercent = 0;
+  let displayPrice = product.priceRange?.minVariantPrice ?? { amount: '0', currencyCode: 'INR' };
+  let displayComparePrice: Money | null = customComparePrice !== undefined ? customComparePrice : null;
+  let highestDiscountPercent = customDiscountPercent !== undefined ? customDiscountPercent : 0;
 
-  if (variants.length > 0) {
+  if (customPrice !== undefined) {
+    displayPrice = {
+      amount: customPrice.toFixed(2),
+      currencyCode: product.priceRange?.minVariantPrice?.currencyCode || 'INR',
+    };
+  } else if (variants.length > 0) {
     let lowestPriceVar = variants[0];
     let maxDiscountPct = 0;
     let bestComparePrice: Money | null = null;
 
     for (const v of variants) {
-      const p = parseFloat(v.price.amount);
-      if (lowestPriceVar && p < parseFloat(lowestPriceVar.price.amount)) {
+      const p = parseFloat(v.price?.amount || '0');
+      if (lowestPriceVar && p < parseFloat(lowestPriceVar.price?.amount || '0')) {
         lowestPriceVar = v;
       }
       const c = v.compareAtPrice ? parseFloat(v.compareAtPrice.amount) : null;
@@ -77,51 +107,98 @@ export default function ProductCard({
       }
     }
 
-    displayPrice = lowestPriceVar?.price ?? product.priceRange.minVariantPrice;
+    displayPrice = lowestPriceVar?.price ?? product.priceRange?.minVariantPrice ?? { amount: '0', currencyCode: 'INR' };
     displayComparePrice = bestComparePrice ?? lowestPriceVar?.compareAtPrice ?? null;
     highestDiscountPercent = maxDiscountPct;
-  } else {
-    displayComparePrice = product.compareAtPriceRange?.minVariantPrice ?? null;
-    if (displayComparePrice && parseFloat(displayComparePrice.amount) > parseFloat(displayPrice.amount)) {
-      highestDiscountPercent = Math.round(
-        ((parseFloat(displayComparePrice.amount) - parseFloat(displayPrice.amount)) / parseFloat(displayComparePrice.amount)) * 100
-      );
-    }
   }
 
-  const isOnSale = Boolean(displayComparePrice && parseFloat(displayComparePrice.amount) > parseFloat(displayPrice.amount));
+  const isOnSale = Boolean(
+    displayComparePrice && parseFloat(displayComparePrice.amount) > parseFloat(displayPrice.amount)
+  );
+
   const isAllOutOfStock =
-    !product.availableForSale ||
-    (variants.length > 0 &&
-      variants.every(
-        (v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0)
-      ));
+    customIsOutOfStock !== undefined
+      ? customIsOutOfStock
+      : !product.availableForSale ||
+        (variants.length > 0 &&
+          variants.every(
+            (v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0)
+          ));
 
   return (
-    <Link href={targetHref} className="product-card group">
-      {/* Discount / Stock Badges */}
-      {isAllOutOfStock ? (
-        <span className="product-card-badge" style={{ background: '#d32f2f', color: '#ffffff', fontWeight: 800 }}>
-          OUT OF STOCK
-        </span>
-      ) : isOnSale && highestDiscountPercent > 0 ? (
-        <span className="product-card-badge" style={{ background: '#d32f2f', color: '#ffffff', fontWeight: 800 }}>
-          {highestDiscountPercent}% OFF
-        </span>
-      ) : null}
-
-      {/* Media Gallery with Smooth Hover Transition */}
+    <Link
+      href={targetHref}
+      className="vahn-luxury-card group"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        textDecoration: 'none',
+        color: 'inherit',
+        background: '#121216',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease',
+      }}
+    >
+      {/* ── Media Frame ── */}
       <div
-        className="product-card-media"
         style={{
-          aspectRatio: '1 / 1',
           position: 'relative',
+          width: '100%',
+          aspectRatio: '1 / 1',
+          background: '#0c0c0e',
           overflow: 'hidden',
-          background: '#141416',
-          borderRadius: 0,
         }}
       >
-        {primaryImage ? (
+        {/* Badges */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            zIndex: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+          }}
+        >
+          {isAllOutOfStock ? (
+            <span
+              style={{
+                fontSize: '0.625rem',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                background: '#27272a',
+                color: '#f4f4f5',
+                padding: '4px 8px',
+                borderRadius: '3px',
+              }}
+            >
+              Sold Out
+            </span>
+          ) : isOnSale && highestDiscountPercent > 0 ? (
+            <span
+              style={{
+                fontSize: '0.625rem',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                background: '#b91c1c',
+                color: '#ffffff',
+                padding: '4px 8px',
+                borderRadius: '3px',
+                boxShadow: '0 2px 8px rgba(185, 28, 28, 0.4)',
+              }}
+            >
+              {highestDiscountPercent}% OFF
+            </span>
+          ) : null}
+        </div>
+
+        {/* Product Image */}
+        {primaryImage && primaryImage.url ? (
           <>
             <Image
               src={primaryImage.url}
@@ -131,11 +208,11 @@ export default function ProductCard({
               style={{
                 objectFit: 'cover',
                 objectPosition: 'center',
-                transition: 'opacity 0.4s ease, transform 0.5s ease',
+                transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease',
               }}
               className={secondaryImage ? 'group-hover:opacity-0 group-hover:scale-105' : 'group-hover:scale-105'}
             />
-            {secondaryImage && (
+            {secondaryImage && secondaryImage.url && (
               <Image
                 src={secondaryImage.url}
                 alt={secondaryImage.altText ?? `${product.title} ${activeColour}`}
@@ -155,51 +232,164 @@ export default function ProductCard({
             style={{
               width: '100%',
               height: '100%',
-              background: '#1e1e24',
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#888',
-              fontSize: '0.8125rem',
+              color: '#71717a',
+              fontSize: '0.75rem',
+              letterSpacing: '0.04em',
             }}
           >
-            No image
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+              <circle cx="9" cy="9" r="2" />
+              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+            </svg>
+            <span style={{ marginTop: 6 }}>No Image</span>
           </div>
         )}
+
+        {/* Hover Quick Action Overlay */}
+        <div
+          className="card-hover-action"
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: '8px 12px',
+            background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            transform: 'translateY(100%)',
+            transition: 'transform 0.25s ease',
+          }}
+        >
+          <span style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#ffffff' }}>
+            View Product
+          </span>
+          <span style={{ color: 'var(--color-gold, #c5a059)', fontSize: '0.875rem' }}>→</span>
+        </div>
       </div>
 
-      {/* Card Info */}
-      <div className="product-card-info" style={{ marginTop: '12px' }}>
-        {/* Colourway Label (if multi-colour) */}
-        {activeColour && (
-          <p
+      {/* ── Info Metadata ── */}
+      <div
+        style={{
+          padding: '14px 14px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          justifyContent: 'space-between',
+        }}
+      >
+        <div>
+          {/* Top Row: Colour Tag & Category */}
+          <div
             style={{
-              fontSize: '0.6875rem',
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: 'var(--color-gold, #c5a059)',
-              marginBottom: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 4,
             }}
           >
-            {activeColour}
-          </p>
-        )}
+            {activeColour ? (
+              <span
+                style={{
+                  fontSize: '0.6875rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-gold, #c5a059)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: 'var(--color-gold, #c5a059)',
+                    display: 'inline-block',
+                  }}
+                />
+                {activeColour}
+              </span>
+            ) : product.productType ? (
+              <span
+                style={{
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: '#71717a',
+                }}
+              >
+                {product.productType}
+              </span>
+            ) : (
+              <span />
+            )}
 
-        <p className="product-card-title">{product.title}</p>
+            {product.fit && (
+              <span
+                style={{
+                  fontSize: '0.625rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: '#71717a',
+                  background: 'rgba(255,255,255,0.05)',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                }}
+              >
+                {product.fit}
+              </span>
+            )}
+          </div>
 
-        <div className="product-card-price" style={{ marginTop: '4px' }}>
+          {/* Title */}
+          <h3
+            style={{
+              fontSize: '0.875rem',
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+              lineHeight: 1.35,
+              margin: '0 0 8px',
+              color: '#f4f4f5',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {product.title}
+          </h3>
+        </div>
+
+        {/* Price Row */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 'auto' }}>
           {isAllOutOfStock ? (
-            <span style={{ color: '#d32f2f', fontWeight: 700, fontSize: '0.8125rem', letterSpacing: '0.04em' }}>
-              OUT OF STOCK
+            <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#71717a', letterSpacing: '0.04em' }}>
+              Sold Out
             </span>
           ) : isOnSale && displayComparePrice ? (
             <>
-              <span className="sale">{formatMoney(displayPrice)}</span>
-              <span className="compare">{formatMoney(displayComparePrice)}</span>
+              <span style={{ fontSize: '0.9375rem', fontWeight: 800, color: '#ffffff' }}>
+                {formatMoney(displayPrice)}
+              </span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#71717a', textDecoration: 'line-through' }}>
+                {formatMoney(displayComparePrice)}
+              </span>
             </>
           ) : (
-            <span>{formatMoney(displayPrice)}</span>
+            <span style={{ fontSize: '0.9375rem', fontWeight: 800, color: '#ffffff' }}>
+              {formatMoney(displayPrice)}
+            </span>
           )}
         </div>
       </div>

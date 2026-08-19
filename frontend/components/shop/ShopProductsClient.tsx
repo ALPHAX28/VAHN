@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { Product, ColourGroup } from '@/lib/api/types';
+import type { Product, ColourGroup, Image as ShopifyImage, Money } from '@/lib/api/types';
 import ProductCard from '@/components/collection/ProductCard';
 
 interface Props {
@@ -13,76 +13,231 @@ interface ExpandedCardItem {
   product: Product;
   colourGroup?: ColourGroup;
   colourName?: string;
+  primaryImage: ShopifyImage | null;
+  secondaryImage: ShopifyImage | null;
   price: number;
+  compareAtPrice: Money | null;
+  discountPercent: number;
+  isOutOfStock: boolean;
   productType: string;
   fit: string;
   activity: string;
   kitType: string;
+  targetHref: string;
 }
 
 export default function ShopProductsClient({ initialProducts }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedFit, setSelectedFit] = useState<string>('ALL');
   const [selectedActivity, setSelectedActivity] = useState<string>('ALL');
-  const [selectedKitType, setSelectedKitType] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<string>('featured');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // ── 1. Expand products by colour groups into individual cards ──
+  // ── 1. Expand products into distinct colourway cards ──
   const expandedItems: ExpandedCardItem[] = useMemo(() => {
     const items: ExpandedCardItem[] = [];
 
     initialProducts.forEach((product) => {
       const allVariants = (product.variants?.edges ?? []).map((e) => e.node);
 
+      // Method A: Explicit colour groups configured on product
       if (product.colourGroups && product.colourGroups.length > 0) {
-        // Multi-colour expansion: Each colour group gets its own distinct card
         product.colourGroups.forEach((cg) => {
+          const colourName = cg.colourValue.trim();
           const colourVariants = allVariants.filter((v) =>
             v.selectedOptions.some(
               (opt) =>
                 (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') &&
-                opt.value.trim().toLowerCase() === cg.colourValue.trim().toLowerCase()
+                opt.value.trim().toLowerCase() === colourName.toLowerCase()
             )
           );
 
+          // Find primary image for this colour
+          let primaryImg: ShopifyImage | null = null;
+          if (cg.images && cg.images.length > 0 && cg.images[0].url) {
+            primaryImg = {
+              url: cg.images[0].url,
+              altText: cg.images[0].altText || `${product.title} - ${colourName}`,
+              width: 800,
+              height: 800,
+            };
+          } else {
+            // Fallback to variant image
+            const variantWithImage = colourVariants.find((v) => v.image && v.image.url);
+            if (variantWithImage && variantWithImage.image) {
+              primaryImg = variantWithImage.image;
+            } else {
+              primaryImg = product.featuredImage ?? product.images?.edges?.[0]?.node ?? null;
+            }
+          }
+
+          // Find secondary image for hover
+          let secondaryImg: ShopifyImage | null = null;
+          if (cg.images && cg.images.length > 1 && cg.images[1].url) {
+            secondaryImg = {
+              url: cg.images[1].url,
+              altText: cg.images[1].altText || `${product.title} - ${colourName}`,
+              width: 800,
+              height: 800,
+            };
+          }
+
+          // Pricing and stock calculation for this colour
           let priceNum = parseFloat(product.priceRange?.minVariantPrice?.amount || '0');
-          if (colourVariants.length > 0) {
-            const minVarPrice = Math.min(...colourVariants.map((v) => parseFloat(v.price.amount)));
-            if (!isNaN(minVarPrice)) priceNum = minVarPrice;
+          let bestComparePrice: Money | null = null;
+          let maxDiscountPct = 0;
+          let isOutOfStock = false;
+
+          const pool = colourVariants.length > 0 ? colourVariants : allVariants;
+          if (pool.length > 0) {
+            let lowestVar = pool[0];
+            for (const v of pool) {
+              const p = parseFloat(v.price?.amount || '0');
+              if (lowestVar && p < parseFloat(lowestVar.price?.amount || '0')) {
+                lowestVar = v;
+              }
+              const c = v.compareAtPrice ? parseFloat(v.compareAtPrice.amount) : null;
+              if (c && c > p) {
+                const pct = Math.round(((c - p) / c) * 100);
+                if (pct > maxDiscountPct) {
+                  maxDiscountPct = pct;
+                  bestComparePrice = v.compareAtPrice;
+                }
+              }
+            }
+            priceNum = parseFloat(lowestVar?.price?.amount || '0');
+            isOutOfStock = pool.every(
+              (v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0)
+            );
           }
 
           items.push({
-            id: `${product.id}-${cg.colourValue.toLowerCase().replace(/\s+/g, '-')}`,
+            id: `${product.id}-${colourName.toLowerCase().replace(/\s+/g, '-')}`,
             product,
             colourGroup: cg as ColourGroup,
-            colourName: cg.colourValue,
+            colourName,
+            primaryImage: primaryImg,
+            secondaryImage: secondaryImg,
             price: priceNum,
+            compareAtPrice: bestComparePrice,
+            discountPercent: maxDiscountPct,
+            isOutOfStock,
             productType: (product.productType || '').trim(),
             fit: (product.fit || '').trim(),
             activity: (product.activity || '').trim(),
             kitType: (product.kitType || '').trim(),
+            targetHref: `/products/${product.handle}?colour=${encodeURIComponent(colourName)}`,
           });
         });
       } else {
-        // Single card for products without colour groups
-        const priceNum = parseFloat(product.priceRange?.minVariantPrice?.amount || '0');
-        items.push({
-          id: product.id,
-          product,
-          price: priceNum,
-          productType: (product.productType || '').trim(),
-          fit: (product.fit || '').trim(),
-          activity: (product.activity || '').trim(),
-          kitType: (product.kitType || '').trim(),
+        // Method B: Extract unique colours from variants
+        const variantColourSet = new Set<string>();
+        allVariants.forEach((v) => {
+          v.selectedOptions.forEach((opt) => {
+            if ((opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value.trim()) {
+              variantColourSet.add(opt.value.trim());
+            }
+          });
         });
+
+        const uniqueColours = Array.from(variantColourSet);
+
+        if (uniqueColours.length > 1) {
+          // Multiple variant colours found -> split into separate cards!
+          uniqueColours.forEach((col) => {
+            const colourVariants = allVariants.filter((v) =>
+              v.selectedOptions.some(
+                (opt) =>
+                  (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') &&
+                  opt.value.trim().toLowerCase() === col.toLowerCase()
+              )
+            );
+
+            // Find variant image for this colour
+            const variantWithImg = colourVariants.find((v) => v.image && v.image.url);
+            const primaryImg =
+              variantWithImg?.image ?? product.featuredImage ?? product.images?.edges?.[0]?.node ?? null;
+
+            let priceNum = parseFloat(product.priceRange?.minVariantPrice?.amount || '0');
+            let bestComparePrice: Money | null = null;
+            let maxDiscountPct = 0;
+
+            if (colourVariants.length > 0) {
+              let lowestVar = colourVariants[0];
+              for (const v of colourVariants) {
+                const p = parseFloat(v.price?.amount || '0');
+                if (lowestVar && p < parseFloat(lowestVar.price?.amount || '0')) {
+                  lowestVar = v;
+                }
+                const c = v.compareAtPrice ? parseFloat(v.compareAtPrice.amount) : null;
+                if (c && c > p) {
+                  const pct = Math.round(((c - p) / c) * 100);
+                  if (pct > maxDiscountPct) {
+                    maxDiscountPct = pct;
+                    bestComparePrice = v.compareAtPrice;
+                  }
+                }
+              }
+              priceNum = parseFloat(lowestVar?.price?.amount || '0');
+            }
+
+            const isOutOfStock =
+              colourVariants.length > 0 &&
+              colourVariants.every(
+                (v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0)
+              );
+
+            items.push({
+              id: `${product.id}-${col.toLowerCase().replace(/\s+/g, '-')}`,
+              product,
+              colourName: col,
+              primaryImage: primaryImg,
+              secondaryImage: null,
+              price: priceNum,
+              compareAtPrice: bestComparePrice,
+              discountPercent: maxDiscountPct,
+              isOutOfStock,
+              productType: (product.productType || '').trim(),
+              fit: (product.fit || '').trim(),
+              activity: (product.activity || '').trim(),
+              kitType: (product.kitType || '').trim(),
+              targetHref: `/products/${product.handle}?colour=${encodeURIComponent(col)}`,
+            });
+          });
+        } else {
+          // Single card for standard product
+          const priceNum = parseFloat(product.priceRange?.minVariantPrice?.amount || '0');
+          const isOutOfStock =
+            !product.availableForSale ||
+            (allVariants.length > 0 &&
+              allVariants.every(
+                (v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0)
+              ));
+
+          items.push({
+            id: product.id,
+            product,
+            colourName: uniqueColours[0] || undefined,
+            primaryImage: product.featuredImage ?? product.images?.edges?.[0]?.node ?? null,
+            secondaryImage: product.images?.edges?.[1]?.node ?? null,
+            price: priceNum,
+            compareAtPrice: product.compareAtPriceRange?.minVariantPrice ?? null,
+            discountPercent: 0,
+            isOutOfStock,
+            productType: (product.productType || '').trim(),
+            fit: (product.fit || '').trim(),
+            activity: (product.activity || '').trim(),
+            kitType: (product.kitType || '').trim(),
+            targetHref: `/products/${product.handle}`,
+          });
+        }
       }
     });
 
     return items;
   }, [initialProducts]);
 
-  // ── 2. Derive unique filter options from actual products ──
+  // ── 2. Derive Unique Filters ──
   const categories = useMemo(() => {
     const set = new Set<string>();
     initialProducts.forEach((p) => {
@@ -143,13 +298,6 @@ export default function ShopProductsClient({ initialProducts }: Props) {
         }
       }
 
-      // Kit Type
-      if (selectedKitType !== 'ALL') {
-        if (item.kitType.toUpperCase() !== selectedKitType.toUpperCase()) {
-          return false;
-        }
-      }
-
       return true;
     });
 
@@ -163,118 +311,139 @@ export default function ShopProductsClient({ initialProducts }: Props) {
     }
 
     return result;
-  }, [expandedItems, searchQuery, selectedCategory, selectedFit, selectedActivity, selectedKitType, sortBy]);
+  }, [expandedItems, searchQuery, selectedCategory, selectedFit, selectedActivity, sortBy]);
 
   const hasActiveFilters =
     selectedCategory !== 'ALL' ||
     selectedFit !== 'ALL' ||
     selectedActivity !== 'ALL' ||
-    selectedKitType !== 'ALL' ||
     Boolean(searchQuery.trim());
 
   function resetFilters() {
     setSelectedCategory('ALL');
     setSelectedFit('ALL');
     setSelectedActivity('ALL');
-    setSelectedKitType('ALL');
     setSearchQuery('');
     setSortBy('featured');
   }
 
   return (
-    <div className="shop-catalog-container" style={{ minHeight: '80vh', paddingBottom: 'var(--space-3xl)' }}>
-      {/* ── 1. Hero Header ── */}
-      <div
+    <div
+      style={{
+        background: '#09090b',
+        color: '#f4f4f5',
+        minHeight: '100vh',
+        paddingBottom: '80px',
+      }}
+    >
+      {/* ── 1. Luxury Editorial Header ── */}
+      <section
         style={{
-          background: 'linear-gradient(180deg, #09090b 0%, #121216 100%)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: 'clamp(48px, 6vw, 72px) 24px 36px',
+          padding: 'clamp(40px, 5vw, 64px) 24px 32px',
+          background: 'radial-gradient(ellipse at 50% 0%, rgba(197, 160, 89, 0.08) 0%, rgba(9, 9, 11, 0) 70%), #09090b',
           textAlign: 'center',
         }}
       >
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <p
+        <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+          <div
             style={{
-              fontSize: '0.75rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.6875rem',
               fontWeight: 800,
-              letterSpacing: '0.2em',
+              letterSpacing: '0.22em',
               textTransform: 'uppercase',
               color: 'var(--color-gold, #c5a059)',
-              marginBottom: '8px',
+              marginBottom: '12px',
             }}
           >
-            VAHN STOREFRONT
-          </p>
+            <span>✦</span>
+            <span>VAHN ATHLETIC DIVISION</span>
+            <span>✦</span>
+          </div>
+
           <h1
             style={{
-              fontSize: 'clamp(2rem, 4.5vw, 3.25rem)',
+              fontSize: 'clamp(2rem, 4vw, 3rem)',
               fontWeight: 900,
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
-              margin: '0 0 12px',
+              margin: '0 0 10px',
               color: '#ffffff',
+              lineHeight: 1.1,
             }}
           >
-            ALL SILHOUETTES
+            SHOP THE SILHOUETTES
           </h1>
+
           <p
             style={{
-              fontSize: 'clamp(0.875rem, 1.5vw, 1.0625rem)',
+              fontSize: '0.9375rem',
               color: '#a1a1aa',
               margin: 0,
               lineHeight: 1.6,
             }}
           >
-            Bespoke teamwear & lifestyle silhouettes engineered for peak performance and modern aesthetics.
+            Engineered teamwear and modern silhouettes tailored with precision.
           </p>
         </div>
-      </div>
+      </section>
 
-      {/* ── 2. Filters & Search Bar ── */}
-      <div
+      {/* ── 2. Unified Filter & Controls Bar ── */}
+      <section
         style={{
-          maxWidth: 'var(--page-width, 1400px)',
-          margin: '0 auto',
-          padding: '24px 20px',
+          position: 'sticky',
+          top: 60,
+          zIndex: 30,
+          background: 'rgba(9, 9, 11, 0.88)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          padding: '16px 20px',
         }}
       >
-        {/* Top Control Bar */}
         <div
           style={{
+            maxWidth: '1440px',
+            margin: '0 auto',
             display: 'flex',
             flexWrap: 'wrap',
-            gap: '16px',
+            gap: '12px',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: '20px',
           }}
         >
-          {/* Search Box */}
-          <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: '360px' }}>
+          {/* Search Bar */}
+          <div style={{ position: 'relative', flex: '1 1 220px', maxWidth: '320px' }}>
             <input
               type="text"
-              placeholder="Search products or colours..."
+              placeholder="Search silhouettes or colours..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                padding: '10px 14px 10px 36px',
-                background: '#18181b',
-                border: '1px solid #27272a',
+                padding: '9px 12px 9px 34px',
+                background: '#141418',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
                 borderRadius: '6px',
                 color: '#fff',
-                fontSize: '0.875rem',
+                fontSize: '0.8125rem',
                 outline: 'none',
+                transition: 'border-color 0.2s',
               }}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--color-gold, #c5a059)')}
+              onBlur={(e) => (e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)')}
             />
             <svg
               style={{
                 position: 'absolute',
-                left: 12,
+                left: 10,
                 top: '50%',
                 transform: 'translateY(-50%)',
-                width: 16,
-                height: 16,
+                width: 14,
+                height: 14,
                 fill: 'none',
                 stroke: '#71717a',
                 strokeWidth: 2,
@@ -289,14 +458,14 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                 onClick={() => setSearchQuery('')}
                 style={{
                   position: 'absolute',
-                  right: 10,
+                  right: 8,
                   top: '50%',
                   transform: 'translateY(-50%)',
                   background: 'none',
                   border: 'none',
                   color: '#a1a1aa',
                   cursor: 'pointer',
-                  fontSize: '14px',
+                  fontSize: '12px',
                 }}
               >
                 ✕
@@ -304,27 +473,124 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             )}
           </div>
 
-          {/* Sort & Count */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ fontSize: '0.875rem', color: '#71717a' }}>
-              <strong style={{ color: '#fff' }}>{filteredItems.length}</strong> {filteredItems.length === 1 ? 'item' : 'items'}
-            </span>
+          {/* Category Filter Pills */}
+          <div
+            style={{
+              display: 'flex',
+              gap: '6px',
+              overflowX: 'auto',
+              paddingBottom: '2px',
+              scrollbarWidth: 'none',
+              alignItems: 'center',
+            }}
+          >
+            <button
+              onClick={() => setSelectedCategory('ALL')}
+              style={{
+                padding: '7px 14px',
+                borderRadius: '4px',
+                fontSize: '0.6875rem',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                border: selectedCategory === 'ALL' ? '1px solid #ffffff' : '1px solid rgba(255, 255, 255, 0.1)',
+                background: selectedCategory === 'ALL' ? '#ffffff' : '#141418',
+                color: selectedCategory === 'ALL' ? '#000000' : '#a1a1aa',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              All Items
+            </button>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label htmlFor="shop-sort" style={{ fontSize: '0.8125rem', color: '#a1a1aa' }}>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(selectedCategory === cat ? 'ALL' : cat)}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '4px',
+                  fontSize: '0.6875rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  border: selectedCategory === cat ? '1px solid #ffffff' : '1px solid rgba(255, 255, 255, 0.1)',
+                  background: selectedCategory === cat ? '#ffffff' : '#141418',
+                  color: selectedCategory === cat ? '#000000' : '#a1a1aa',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {cat}
+              </button>
+            ))}
+
+            {/* Fit Pill Filters */}
+            {fits.map((fit) => (
+              <button
+                key={fit}
+                onClick={() => setSelectedFit(selectedFit === fit ? 'ALL' : fit)}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: '4px',
+                  fontSize: '0.6875rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  border:
+                    selectedFit === fit
+                      ? '1px solid var(--color-gold, #c5a059)'
+                      : '1px solid rgba(255, 255, 255, 0.08)',
+                  background: selectedFit === fit ? 'rgba(197, 160, 89, 0.15)' : 'transparent',
+                  color: selectedFit === fit ? 'var(--color-gold, #c5a059)' : '#71717a',
+                  transition: 'all 0.2s',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {fit}
+              </button>
+            ))}
+          </div>
+
+          {/* Right Controls: Sort & Reset */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            {hasActiveFilters && (
+              <button
+                onClick={resetFilters}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ef4444',
+                  fontSize: '0.6875rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                Reset All
+              </button>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.75rem', color: '#71717a', textTransform: 'uppercase', fontWeight: 600 }}>
                 Sort:
-              </label>
+              </span>
               <select
-                id="shop-sort"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 style={{
-                  padding: '8px 12px',
-                  background: '#18181b',
-                  border: '1px solid #27272a',
-                  borderRadius: '6px',
-                  color: '#fff',
-                  fontSize: '0.8125rem',
+                  padding: '7px 10px',
+                  background: '#141418',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  borderRadius: '4px',
+                  color: '#f4f4f5',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
                   cursor: 'pointer',
                   outline: 'none',
                 }}
@@ -337,130 +603,83 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             </div>
           </div>
         </div>
+      </section>
 
-        {/* Filter Pills */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '24px' }}>
-          <button
-            onClick={() => setSelectedCategory('ALL')}
+      {/* ── 3. Product Counter & Grid Container ── */}
+      <main
+        style={{
+          maxWidth: '1440px',
+          margin: '0 auto',
+          padding: '24px 20px',
+        }}
+      >
+        {/* Counter bar */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '20px',
+          }}
+        >
+          <p
             style={{
-              padding: '6px 14px',
-              borderRadius: '20px',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              letterSpacing: '0.04em',
+              fontSize: '0.6875rem',
+              fontWeight: 800,
+              letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              cursor: 'pointer',
-              border: selectedCategory === 'ALL' ? '1px solid #fff' : '1px solid #27272a',
-              background: selectedCategory === 'ALL' ? '#ffffff' : '#18181b',
-              color: selectedCategory === 'ALL' ? '#000000' : '#a1a1aa',
-              transition: 'all 0.2s',
+              color: '#71717a',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
-            All Products
-          </button>
-
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(selectedCategory === cat ? 'ALL' : cat)}
+            <span
               style={{
-                padding: '6px 14px',
-                borderRadius: '20px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                border: selectedCategory === cat ? '1px solid #fff' : '1px solid #27272a',
-                background: selectedCategory === cat ? '#ffffff' : '#18181b',
-                color: selectedCategory === cat ? '#000000' : '#a1a1aa',
-                transition: 'all 0.2s',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#22c55e',
+                display: 'inline-block',
               }}
-            >
-              {cat}
-            </button>
-          ))}
-
-          {/* Fits Filters */}
-          {fits.length > 0 && (
-            <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto', flexWrap: 'wrap' }}>
-              {fits.map((fit) => (
-                <button
-                  key={fit}
-                  onClick={() => setSelectedFit(selectedFit === fit ? 'ALL' : fit)}
-                  style={{
-                    padding: '5px 10px',
-                    borderRadius: '4px',
-                    fontSize: '0.6875rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                    cursor: 'pointer',
-                    border: selectedFit === fit ? '1px solid var(--color-gold, #c5a059)' : '1px solid #27272a',
-                    background: selectedFit === fit ? 'rgba(197, 160, 89, 0.15)' : 'transparent',
-                    color: selectedFit === fit ? 'var(--color-gold, #c5a059)' : '#71717a',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  {fit}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Reset Filters */}
-          {hasActiveFilters && (
-            <button
-              onClick={resetFilters}
-              style={{
-                padding: '4px 10px',
-                background: 'transparent',
-                border: 'none',
-                color: '#ef4444',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
-              Reset Filters
-            </button>
-          )}
+            />
+            Showing {filteredItems.length} {filteredItems.length === 1 ? 'Silhouette' : 'Silhouettes'}
+          </p>
         </div>
 
-        {/* ── 3. Product Cards Grid ── */}
+        {/* Product Grid */}
         {filteredItems.length === 0 ? (
           <div
             style={{
-              padding: '80px 20px',
+              padding: '90px 24px',
               textAlign: 'center',
               background: '#121216',
-              border: '1px solid #27272a',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: '8px',
-              marginTop: '20px',
+              marginTop: '10px',
             }}
           >
-            <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>
-              No products found
+            <p style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', marginBottom: '8px' }}>
+              No Silhouettes Found
             </p>
-            <p style={{ fontSize: '0.875rem', color: '#71717a', marginBottom: '20px' }}>
-              Try adjusting your search query or removing active filters.
+            <p style={{ fontSize: '0.875rem', color: '#71717a', marginBottom: '24px' }}>
+              No products match your active search or filter criteria.
             </p>
             <button
               onClick={resetFilters}
               className="btn btn-primary"
-              style={{ padding: '10px 24px', fontSize: '0.875rem' }}
+              style={{ padding: '10px 24px', fontSize: '0.75rem', letterSpacing: '0.08em' }}
             >
-              Clear All Filters
+              Reset Filters
             </button>
           </div>
         ) : (
           <div
-            className="product-grid"
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-              gap: '24px 16px',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+              gap: '20px',
             }}
           >
             {filteredItems.map((item) => (
@@ -469,11 +688,18 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                 product={item.product}
                 colourGroup={item.colourGroup}
                 customColour={item.colourName}
+                customHref={item.targetHref}
+                customPrimaryImage={item.primaryImage}
+                customSecondaryImage={item.secondaryImage}
+                customPrice={item.price}
+                customComparePrice={item.compareAtPrice}
+                customDiscountPercent={item.discountPercent}
+                customIsOutOfStock={item.isOutOfStock}
               />
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
