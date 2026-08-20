@@ -183,7 +183,8 @@ jobs:
             cd /home/ubuntu/VAHN
             git fetch origin
             git checkout main
-            git pull origin main
+            git reset --hard origin/main
+            git clean -fd
 
             if [ -n "${{ secrets.PROD_ENV_FILE }}" ]; then
               echo "${{ secrets.PROD_ENV_FILE }}" > backend/.env
@@ -254,7 +255,8 @@ jobs:
             cd /home/ubuntu/VAHN
             git fetch origin
             git checkout dev
-            git pull origin dev
+            git reset --hard origin/dev
+            git clean -fd
 
             # Setup dev .env if not present
             if [ ! -f backend/.env.dev ]; then
