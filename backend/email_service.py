@@ -1,20 +1,109 @@
 import os
 import smtplib
 from email.message import EmailMessage
+from typing import Optional, List, Dict, Any
+from dotenv import load_dotenv
 
-def send_otp_email(to_email: str, otp_code: str, subject: str = "Your VAHN Verification Code") -> bool:
+load_dotenv()
+
+
+def _get_ses_client():
+    """Returns a boto3 SES client if AWS credentials are configured in environment."""
+    aws_access_key = os.getenv("AWS_ACCESS_KEY_ID", "").strip()
+    aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "").strip()
+    aws_region = os.getenv("AWS_REGION", "ap-south-2").strip()
+
+    if not aws_access_key or not aws_secret_key:
+        return None
+
+    try:
+        import boto3
+        return boto3.client(
+            "ses",
+            region_name=aws_region,
+            aws_access_key_id=aws_access_key,
+            aws_secret_access_key=aws_secret_key,
+        )
+    except Exception as e:
+        print(f"[EMAIL SERVICE WARNING] Failed to initialize boto3 SES client: {e}")
+        return None
+
+
+def _send_email(to_email: str, subject: str, html_content: str, text_content: Optional[str] = None) -> bool:
     """
-    Sends a 6-digit OTP email using Brevo SMTP.
-    If SMTP credentials are not set in environment, logs to console for seamless dev testing.
+    Central Email Dispatcher for VAHN using Amazon SES.
+    1. Attempts native Amazon SES API via boto3 (high performance, direct HTTPS).
+    2. Falls back to Amazon SES SMTP if SMTP credentials are provided.
+    3. In local development with no credentials, logs message to console and returns True.
     """
-    smtp_host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
+    from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahnsports.com").strip()
+    from_name = os.getenv("EMAILS_FROM_NAME", "VAHN Official").strip()
+    source_address = f"{from_name} <{from_email}>" if from_name else from_email
+    plain_text = text_content or subject
+
+    # ------------------------------------------------------------
+    # Method 1: Amazon SES Direct HTTPS API (boto3)
+    # ------------------------------------------------------------
+    ses_client = _get_ses_client()
+    if ses_client is not None:
+        try:
+            response = ses_client.send_email(
+                Source=source_address,
+                Destination={"ToAddresses": [to_email]},
+                Message={
+                    "Subject": {"Data": subject, "Charset": "UTF-8"},
+                    "Body": {
+                        "Html": {"Data": html_content, "Charset": "UTF-8"},
+                        "Text": {"Data": plain_text, "Charset": "UTF-8"},
+                    },
+                },
+            )
+            message_id = response.get("MessageId", "N/A")
+            print(f"[EMAIL SERVICE] Email successfully sent to {to_email} via Amazon SES API (MessageId: {message_id})")
+            return True
+        except Exception as e:
+            print(f"[EMAIL SERVICE WARNING] Amazon SES API send failed: {e}. Falling back to SMTP...")
+
+    # ------------------------------------------------------------
+    # Method 2: Amazon SES SMTP (smtplib fallback)
+    # ------------------------------------------------------------
+    smtp_host = os.getenv("SMTP_HOST", "email-smtp.ap-south-2.amazonaws.com").strip()
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     smtp_user = os.getenv("SMTP_USER", "").strip()
     smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
-    from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahn.com")
-    from_name = os.getenv("EMAILS_FROM_NAME", "VAHN Official")
-    site_url = os.getenv("FRONTEND_URL", "https://vahn.vercel.app").rstrip("/")
 
+    if smtp_user and smtp_password:
+        try:
+            msg = EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = source_address
+            msg["To"] = to_email
+            msg.set_content(plain_text)
+            msg.add_alternative(html_content, subtype="html")
+
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.send_message(msg)
+
+            print(f"[EMAIL SERVICE] Email successfully sent to {to_email} via Amazon SES SMTP.")
+            return True
+        except Exception as e:
+            print(f"[EMAIL SERVICE ERROR] Failed to send email via Amazon SES SMTP: {e}")
+            return False
+
+    # ------------------------------------------------------------
+    # Method 3: Local Dev Mode (Credentials not set)
+    # ------------------------------------------------------------
+    print("[EMAIL SERVICE - Amazon SES (Local Dev Mode)] AWS SES credentials / SMTP credentials not set in .env. Email logged above.")
+    return True
+
+
+def send_otp_email(to_email: str, otp_code: str, subject: str = "Your VAHN Verification Code") -> bool:
+    """
+    Sends a 6-digit OTP email using Amazon SES.
+    """
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
     logo_url = f"{site_url}/assets/logo.png"
 
     html_content = f"""
@@ -46,41 +135,19 @@ def send_otp_email(to_email: str, otp_code: str, subject: str = "Your VAHN Verif
     print(f"  [OTP VERIFICATION CODE]: {otp_code}")
     print(f"==========================================\n")
 
-    if not smtp_user or not smtp_password:
-        print("[EMAIL SERVICE] Brevo SMTP credentials not set in .env. OTP printed to console above.")
-        return True
+    return _send_email(
+        to_email=to_email,
+        subject=subject,
+        html_content=html_content,
+        text_content=f"Your VAHN verification code is: {otp_code}. Valid for 10 minutes."
+    )
 
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = subject
-        msg["From"] = f"{from_name} <{from_email}>"
-        msg["To"] = to_email
-        msg.set_content(f"Your VAHN verification code is: {otp_code}")
-        msg.add_alternative(html_content, subtype="html")
-
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.send_message(msg)
-
-        print(f"[EMAIL SERVICE] OTP email successfully sent to {to_email} via Brevo SMTP.")
-        return True
-    except Exception as e:
-        print(f"[EMAIL SERVICE ERROR] Failed to send email via Brevo SMTP: {e}")
-        return False
 
 def send_order_confirmation_email(to_email: str, order_id: str, total_amount: float, currency: str = "INR", items_summary: list = None) -> bool:
     """
-    Sends an Order Confirmation email asynchronously using Brevo SMTP.
+    Sends an Order Confirmation email asynchronously using Amazon SES.
     """
-    smtp_host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "").strip()
-    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
-    from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahn.com")
-    from_name = os.getenv("EMAILS_FROM_NAME", "VAHN Official")
-    site_url = os.getenv("FRONTEND_URL", "https://vahn.vercel.app").rstrip("/")
-
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
     logo_url = f"{site_url}/assets/logo.png"
 
     items_html = ""
@@ -142,42 +209,19 @@ def send_order_confirmation_email(to_email: str, order_id: str, total_amount: fl
     print(f"  [TOTAL AMOUNT]: {currency} {total_amount:.2f}")
     print(f"==========================================\n")
 
-    if not smtp_user or not smtp_password:
-        print("[EMAIL SERVICE] Brevo SMTP credentials not set in .env. Order confirmation printed to console above.")
-        return True
-
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = f"Order Confirmation #{order_id} - VAHN Official"
-        msg["From"] = f"{from_name} <{from_email}>"
-        msg["To"] = to_email
-        msg.set_content(f"Thank you for your order #{order_id}! Total amount: {currency} {total_amount:.2f}")
-        msg.add_alternative(html_content, subtype="html")
-
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.send_message(msg)
-
-        print(f"[EMAIL SERVICE] Order confirmation email successfully sent to {to_email} via Brevo SMTP.")
-        return True
-    except Exception as e:
-        print(f"[EMAIL SERVICE ERROR] Failed to send order confirmation email via Brevo SMTP: {e}")
-        return False
+    return _send_email(
+        to_email=to_email,
+        subject=f"Order Confirmation #{order_id} - VAHN Official",
+        html_content=html_content,
+        text_content=f"Thank you for your order #{order_id}! Total amount: {currency} {total_amount:.2f}"
+    )
 
 
 def send_restock_notification_email(to_email: str, product_title: str, product_handle: str, colour_value: str = "", image_url: str = "") -> bool:
     """
-    Sends a high-fashion VAHN Restock Notification email via Brevo SMTP.
+    Sends a high-fashion VAHN Restock Notification email via Amazon SES.
     """
-    smtp_host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "").strip()
-    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
-    from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahn.com")
-    from_name = os.getenv("EMAILS_FROM_NAME", "VAHN Official")
-
-    site_url = os.getenv("FRONTEND_URL", "https://vahn.vercel.app").rstrip("/")
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
     product_link = f"{site_url}/products/{product_handle}"
     logo_white_url = f"{site_url}/assets/logo-white.png"
 
@@ -236,7 +280,7 @@ def send_restock_notification_email(to_email: str, product_title: str, product_h
           </div>
 
           <p style="font-size: 12px; color: #888888; margin-top: 24px;">
-            Need help? Visit <a href="{site_url}" style="color: #000000; text-decoration: underline;">vahn.com</a> or reply to this email.
+            Need help? Visit <a href="{site_url}" style="color: #000000; text-decoration: underline;">vahnsports.com</a> or reply to this email.
           </p>
 
         </div>
@@ -253,50 +297,22 @@ def send_restock_notification_email(to_email: str, product_title: str, product_h
     </html>
     """
 
-    print(f"\n==========================================")
-    print(f"  [RESTOCK EMAIL RECIPIENT]: {to_email}")
-    print(f"  [PRODUCT]: {product_title} {variant_info}")
-    print(f"  [PRODUCT LINK]: {product_link}")
-    print(f"==========================================\n")
-
-    if not smtp_user or not smtp_password:
-        print("[EMAIL SERVICE] Brevo SMTP credentials not set in .env. Restock notification printed to console above.")
-        return True
-
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = f"Back In Stock: {product_title} {variant_info} | VAHN Official"
-        msg["From"] = f"{from_name} <{from_email}>"
-        msg["To"] = to_email
-        msg.set_content(f"{product_title} {variant_info} is back in stock at VAHN! Shop now: {product_link}")
-        msg.add_alternative(html_content, subtype="html")
-
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.send_message(msg)
-
-        print(f"[EMAIL SERVICE] Restock email successfully sent to {to_email} via Brevo SMTP.")
-        return True
-    except Exception as e:
-        print(f"[EMAIL SERVICE ERROR] Failed to send restock email via Brevo SMTP: {e}")
-        return False
+    return _send_email(
+        to_email=to_email,
+        subject=f"Back In Stock: {product_title} - VAHN Official",
+        html_content=html_content,
+        text_content=f"Good news! {product_title} {variant_info} is back in stock. View at: {product_link}"
+    )
 
 
 def send_account_suspended_email(to_email: str, name: str = "", reason: str = "") -> bool:
     """
-    Sends an Account Suspension email notification to the customer.
+    Sends an Account Suspension email notification to the customer via Amazon SES.
     """
     if not to_email:
         return False
 
-    smtp_host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "").strip()
-    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
-    from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahn.com")
-    from_name = os.getenv("EMAILS_FROM_NAME", "VAHN Official")
-    site_url = os.getenv("FRONTEND_URL", "https://vahn.vercel.app").rstrip("/")
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
     logo_url = f"{site_url}/assets/logo.png"
 
     customer_name = name or to_email
@@ -331,41 +347,22 @@ def send_account_suspended_email(to_email: str, name: str = "", reason: str = ""
     print(f"  [SUSPENSION REASON]: {reason or 'N/A'}")
     print(f"==========================================\n")
 
-    if not smtp_user or not smtp_password:
-        return True
-
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = "Important Notice: Your VAHN Account Has Been Suspended"
-        msg["From"] = f"{from_name} <{from_email}>"
-        msg["To"] = to_email
-        msg.set_content(f"Dear {customer_name}, your VAHN account has been suspended. Reason: {reason or 'N/A'}")
-        msg.add_alternative(html_content, subtype="html")
-
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.send_message(msg)
-        return True
-    except Exception as e:
-        print(f"[EMAIL SERVICE ERROR] Failed to send suspension email: {e}")
-        return False
+    return _send_email(
+        to_email=to_email,
+        subject="Important Notice: Your VAHN Account Has Been Suspended",
+        html_content=html_content,
+        text_content=f"Dear {customer_name}, your VAHN account has been suspended. Reason: {reason or 'N/A'}"
+    )
 
 
 def send_account_reactivated_email(to_email: str, name: str = "") -> bool:
     """
-    Sends an Account Reactivation email notification to the customer.
+    Sends an Account Reactivation email notification to the customer via Amazon SES.
     """
     if not to_email:
         return False
 
-    smtp_host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "").strip()
-    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
-    from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahn.com")
-    from_name = os.getenv("EMAILS_FROM_NAME", "VAHN Official")
-    site_url = os.getenv("FRONTEND_URL", "https://vahn.vercel.app").rstrip("/")
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
     logo_url = f"{site_url}/assets/logo.png"
 
     customer_name = name or to_email
@@ -399,41 +396,22 @@ def send_account_reactivated_email(to_email: str, name: str = "") -> bool:
     print(f"  [CUSTOMER NAME]: {customer_name}")
     print(f"==========================================\n")
 
-    if not smtp_user or not smtp_password:
-        return True
-
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = "Welcome Back! Your VAHN Account Has Been Reactivated"
-        msg["From"] = f"{from_name} <{from_email}>"
-        msg["To"] = to_email
-        msg.set_content(f"Dear {customer_name}, your VAHN account has been reactivated. You can log in at {site_url}")
-        msg.add_alternative(html_content, subtype="html")
-
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.send_message(msg)
-        return True
-    except Exception as e:
-        print(f"[EMAIL SERVICE ERROR] Failed to send reactivation email: {e}")
-        return False
+    return _send_email(
+        to_email=to_email,
+        subject="Welcome Back! Your VAHN Account Has Been Reactivated",
+        html_content=html_content,
+        text_content=f"Dear {customer_name}, your VAHN account has been reactivated. You can log in at {site_url}"
+    )
 
 
 def send_account_deleted_email(to_email: str, name: str = "") -> bool:
     """
-    Sends an Account Deletion notification email to the customer.
+    Sends an Account Deletion notification email to the customer via Amazon SES.
     """
     if not to_email:
         return False
 
-    smtp_host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "").strip()
-    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
-    from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahn.com")
-    from_name = os.getenv("EMAILS_FROM_NAME", "VAHN Official")
-    site_url = os.getenv("FRONTEND_URL", "https://vahn.vercel.app").rstrip("/")
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
     logo_url = f"{site_url}/assets/logo.png"
 
     customer_name = name or to_email
@@ -465,23 +443,9 @@ def send_account_deleted_email(to_email: str, name: str = "") -> bool:
     print(f"  [CUSTOMER NAME]: {customer_name}")
     print(f"==========================================\n")
 
-    if not smtp_user or not smtp_password:
-        return True
-
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = "Notice: Your VAHN Customer Account Has Been Deleted"
-        msg["From"] = f"{from_name} <{from_email}>"
-        msg["To"] = to_email
-        msg.set_content(f"Dear {customer_name}, your VAHN account has been removed.")
-        msg.add_alternative(html_content, subtype="html")
-
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.send_message(msg)
-        return True
-    except Exception as e:
-        print(f"[EMAIL SERVICE ERROR] Failed to send deletion email: {e}")
-        return False
-
+    return _send_email(
+        to_email=to_email,
+        subject="Notice: Your VAHN Customer Account Has Been Deleted",
+        html_content=html_content,
+        text_content=f"Dear {customer_name}, your VAHN account has been removed."
+    )
