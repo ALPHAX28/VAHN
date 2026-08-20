@@ -164,6 +164,17 @@ def run_backup():
     )
     print(f"✔ Successfully uploaded backup to AWS S3: s3://{AWS_BUCKET_NAME}/{s3_key}")
     print(f"✔ Location visible in AWS Console under: s3://{AWS_BUCKET_NAME}/database-backups/")
+
+    # 4. Clean up local backups older than 7 days
+    try:
+        cutoff = datetime.datetime.now() - datetime.timedelta(days=7)
+        for old_file in LOCAL_BACKUP_DIR.glob("vahn_db_*.sql.gz"):
+            if datetime.datetime.fromtimestamp(old_file.stat().st_mtime) < cutoff:
+                old_file.unlink()
+                print(f"✔ Rotated old local backup: {old_file.name}")
+    except Exception:
+        pass
+
     print(f"============================================================")
     return {
         "filename": filename,

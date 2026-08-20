@@ -1,0 +1,49 @@
+name: Automated Database Backup -> S3
+
+on:
+  schedule:
+    # Runs every 6 hours automatically (00:00, 06:00, 12:00, 18:00 UTC)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup-db-to-s3:
+    name: Backup Production DB to Amazon S3
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run S3 Database Backup Engine via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script_stop: true
+          script: |
+            cd /home/ubuntu/VAHN
+            git fetch origin
+            git checkout main
+            git pull origin main
+            python3 scripts/backup_db_to_s3.py
+
+      - name: Send Email — Backup Succeeded
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp-relay.brevo.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "💾 [VAHN Backup] S3 Database Backup Succeeded"
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
+          html_body: |
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #bbf7d0; border-radius: 8px; background-color: #f0fdf4;">
+              <h2 style="color: #15803d; margin-top: 0;">💾 Database Backup Succeeded!</h2>
+              <p>Your production database (<strong>vahn_db</strong>) was automatically backed up and uploaded to AWS S3 under <code>s3://vahn/database-backups/</code>.</p>
+              <ul style="line-height: 1.6;">
+                <li><strong>Environment:</strong> Production</li>
+                <li><strong>Schedule:</strong> Every 6 Hours</li>
+                <li><strong>Storage:</strong> Amazon S3 (Encrypted & Compressed)</li>
+              </ul>
+            </div>
