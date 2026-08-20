@@ -10,7 +10,7 @@ services:
       - "443:443"
       - "443:443/udp" # HTTP/3 QUIC support
     volumes:
-      - ./caddy:/etc/caddy:ro
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

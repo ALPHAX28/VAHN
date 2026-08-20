@@ -265,8 +265,7 @@ jobs:
             docker compose -f docker-compose.dev.yml up -d --build --remove-orphans
             sleep 6
             docker exec vahn-backend-dev python -m alembic upgrade head
-            docker cp caddy/Caddyfile vahn-caddy-prod:/etc/caddy/Caddyfile
-            docker restart vahn-caddy-prod || true
+            docker exec -i vahn-caddy-prod caddy reload --adapter caddyfile < caddy/Caddyfile || docker restart vahn-caddy-prod || true
 
       - name: Send Email — Dev Deployment Succeeded
         if: success()
