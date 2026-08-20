@@ -67,7 +67,7 @@ def _send_email(to_email: str, subject: str, html_content: str, text_content: Op
     # ------------------------------------------------------------
     # Method 2: Amazon SES SMTP (smtplib fallback)
     # ------------------------------------------------------------
-    smtp_host = os.getenv("SMTP_HOST", "z96t9h5zh7g4.hkph.mail-manager-smtp.amazonaws.com").strip()
+    smtp_host = os.getenv("SMTP_HOST", "email-smtp.ap-south-1.amazonaws.com").strip()
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     smtp_user = os.getenv("SMTP_USER", "").strip()
     smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
