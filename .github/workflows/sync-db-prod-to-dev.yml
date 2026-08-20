@@ -1,0 +1,25 @@
+name: Migrate Prod Data to Dev & Safe Reset Prod
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate-and-reset:
+    name: Migrate Prod DB -> Dev DB & Clean Prod Catalog
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Execute Migration & Safe Reset via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script_stop: true
+          script: |
+            cd /home/ubuntu/VAHN
+            git fetch origin
+            git checkout dev
+            git pull origin dev
+            chmod +x scripts/migrate_prod_to_dev_and_clear_prod.sh
+            ./scripts/migrate_prod_to_dev_and_clear_prod.sh
