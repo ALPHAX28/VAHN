@@ -1,41 +1,12 @@
 # ============================================================
-# Caddyfile — Production Reverse Proxy
-# Works seamlessly on both Lightsail IP (http://19.x.x.x) AND Domain (https://vahnsports.com)
+# Caddyfile — Reverse Proxy for Production & Development
 # ============================================================
 
-# 1. Fallback & IP Access (Works immediately with http://<YOUR_IP>)
-:80 {
-    encode gzip zstd
-
-    header {
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        X-XSS-Protection "1; mode=block"
-        Referrer-Policy "strict-origin-when-cross-origin"
-    }
-
-    # API Endpoints (FastAPI)
-    handle /api/* {
-        reverse_proxy backend:8000 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-        }
-    }
-
-    # Frontend Storefront & Admin (Next.js)
-    handle {
-        reverse_proxy frontend:3000 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-        }
-    }
+{
+    email arnabdutta8986@gmail.com
 }
 
-# 2. Production Domain (Automatic HTTPS active as soon as domain DNS points to this IP)
+# 1. Production Domain (https://vahnsports.com)
 vahnsports.com, www.vahnsports.com {
     encode gzip zstd
 
@@ -47,26 +18,18 @@ vahnsports.com, www.vahnsports.com {
         Referrer-Policy "strict-origin-when-cross-origin"
     }
 
+    # API Endpoints (FastAPI Prod)
     handle /api/* {
-        reverse_proxy backend:8000 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-        }
+        reverse_proxy backend:8000
     }
 
+    # Frontend Storefront & Admin (Next.js Prod)
     handle {
-        reverse_proxy frontend:3000 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-        }
+        reverse_proxy frontend:3000
     }
 }
 
-# 3. Development / Staging Domain (Automatic HTTPS for dev.vahnsports.com)
+# 2. Development Domain (https://dev.vahnsports.com)
 dev.vahnsports.com {
     encode gzip zstd
 
@@ -80,22 +43,24 @@ dev.vahnsports.com {
 
     # API Endpoints (FastAPI Dev)
     handle /api/* {
-        reverse_proxy vahn-backend-dev:8000 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-        }
+        reverse_proxy vahn-backend-dev:8000
     }
 
     # Frontend Storefront & Admin (Next.js Dev)
     handle {
-        reverse_proxy vahn-frontend-dev:3000 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-        }
+        reverse_proxy vahn-frontend-dev:3000
     }
 }
 
+# 3. Direct IP Access (HTTP)
+http://65.2.203.191 {
+    encode gzip zstd
+
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    handle {
+        reverse_proxy frontend:3000
+    }
+}
