@@ -11,7 +11,7 @@ def _get_ses_client():
     """Returns a boto3 SES client if AWS credentials are configured in environment."""
     aws_access_key = os.getenv("AWS_ACCESS_KEY_ID", "").strip()
     aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "").strip()
-    aws_region = os.getenv("AWS_REGION", "ap-south-2").strip()
+    aws_ses_region = os.getenv("AWS_SES_REGION", os.getenv("AWS_REGION", "ap-south-1")).strip()
 
     if not aws_access_key or not aws_secret_key:
         return None
@@ -20,7 +20,7 @@ def _get_ses_client():
         import boto3
         return boto3.client(
             "ses",
-            region_name=aws_region,
+            region_name=aws_ses_region,
             aws_access_key_id=aws_access_key,
             aws_secret_access_key=aws_secret_key,
         )
@@ -67,7 +67,7 @@ def _send_email(to_email: str, subject: str, html_content: str, text_content: Op
     # ------------------------------------------------------------
     # Method 2: Amazon SES SMTP (smtplib fallback)
     # ------------------------------------------------------------
-    smtp_host = os.getenv("SMTP_HOST", "email-smtp.ap-south-2.amazonaws.com").strip()
+    smtp_host = os.getenv("SMTP_HOST", "email-smtp.ap-south-1.amazonaws.com").strip()
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     smtp_user = os.getenv("SMTP_USER", "").strip()
     smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
