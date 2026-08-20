@@ -106,7 +106,7 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: "✅ [VAHN CI] (${{ github.ref_name }}) Checks & Migrations Passed (${{ github.sha }})"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
+          from: "VAHN CI/CD <noreply@vahnsports.com>"
           html_body: |
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 8px;">
               <h2 style="color: #16a34a; margin-top: 0;">✔ CI Verification Succeeded (${{ github.ref_name }})</h2>
@@ -133,7 +133,7 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: "❌ [VAHN CI] (${{ github.ref_name }}) Checks Failed for Commit ${{ github.sha }}"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
+          from: "VAHN CI/CD <noreply@vahnsports.com>"
           html_body: |
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #fecaca; border-radius: 8px; background-color: #fef2f2;">
               <h2 style="color: #dc2626; margin-top: 0;">✘ CI Verification Failed</h2>
@@ -165,7 +165,7 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: "🚀 [VAHN Prod Deploy] Started for Commit ${{ github.sha }}"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
+          from: "VAHN CI/CD <noreply@vahnsports.com>"
           html_body: |
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 8px;">
               <h2 style="color: #2563eb; margin-top: 0;">🚀 Production Deployment In Progress</h2>
@@ -205,7 +205,7 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: "🎉 [VAHN Prod Deploy] Succeeded — Store is Live!"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
+          from: "VAHN CI/CD <noreply@vahnsports.com>"
           html_body: |
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #bbf7d0; border-radius: 8px; background-color: #f0fdf4;">
               <h2 style="color: #15803d; margin-top: 0;">🎉 Production Deployment Succeeded!</h2>
@@ -236,7 +236,7 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: "🛠 [VAHN Dev Deploy] Started for Commit ${{ github.sha }}"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
+          from: "VAHN CI/CD <noreply@vahnsports.com>"
           html_body: |
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #e5e7eb; border-radius: 8px;">
               <h2 style="color: #6366f1; margin-top: 0;">🛠 Development Deployment In Progress</h2>
@@ -277,7 +277,7 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: "🎉 [VAHN Dev Deploy] Succeeded — https://dev.vahnsports.com"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
+          from: "VAHN CI/CD <noreply@vahnsports.com>"
           html_body: |
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #c7d2fe; border-radius: 8px; background-color: #eef2ff;">
               <h2 style="color: #4338ca; margin-top: 0;">🎉 Development Deployment Succeeded!</h2>

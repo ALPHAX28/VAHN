@@ -36,7 +36,7 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: "💾 [VAHN Backup] S3 Database Backup Succeeded"
           to: ${{ secrets.NOTIFICATION_EMAIL }}
-          from: "VAHN CI/CD <arnabdutta8986@gmail.com>"
+          from: "VAHN CI/CD <noreply@vahnsports.com>"
           html_body: |
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 600px; border: 1px solid #bbf7d0; border-radius: 8px; background-color: #f0fdf4;">
               <h2 style="color: #15803d; margin-top: 0;">💾 Database Backup Succeeded!</h2>
