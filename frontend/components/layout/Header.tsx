@@ -10,11 +10,8 @@ import SearchModal from '@/components/layout/SearchModal';
 import MobileNav from '@/components/layout/MobileNav';
 
 const NAV_LINKS = [
-  { href: '/products', label: 'Shop' },
-  { href: '/pages/about', label: 'About' },
-  { href: '/pages/catalogue-page', label: 'Catalogue' },
-  { href: '/blogs/news', label: 'Journal' },
-  { href: '/pages/contact', label: 'Contact' },
+  { href: '/products', label: 'All Products' },
+  { href: '/pages/about', label: 'Our Story' },
 ];
 
 // Pages where the header starts transparent over the hero
@@ -82,7 +79,7 @@ export default function Header() {
     <>
       {/* Announcement Bar */}
       <div className="announcement-bar" role="banner">
-        ✦ Shop our latest arrivals! ✦ Free shipping across India on orders over ₹999 ✦
+        SHIPPING PAN INDIA
       </div>
 
       <header className={headerClass}>

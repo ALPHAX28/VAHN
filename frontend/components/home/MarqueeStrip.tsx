@@ -2,23 +2,21 @@ import React from 'react';
 
 export default function MarqueeStrip() {
   const items = [
-    'FOR EVERY BEGINING!',
-    'FOR EVERY BEGINING!',
-    'FOR EVERY BEGINING!',
-    'FOR EVERY BEGINING!',
-    'FOR EVERY BEGINING!',
-    'FOR EVERY BEGINING!'
+    'VAHN ✦',
+    'Sport Keeps Us Fit ✦',
+    'VAHN ✦',
+    'Sport Keeps Us Fit ✦',
+    'VAHN ✦',
+    'Sport Keeps Us Fit ✦',
   ];
 
   return (
     <div
       className="marquee"
       style={{
-        background: 'var(--color-black)',
-        color: 'var(--color-white)',
-        padding: '16px 0',
-        borderTop: '1px solid var(--color-border)',
-        borderBottom: '1px solid var(--color-border)',
+        background: '#0e0f12',
+        padding: '18px 0',
+        overflow: 'hidden',
       }}
       aria-hidden="true"
     >
@@ -29,12 +27,13 @@ export default function MarqueeStrip() {
             className="marquee-item"
             style={{
               fontFamily: 'var(--font-heading)',
-              fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
-              fontWeight: 900,
+              fontSize: 'clamp(1rem, 2.5vw, 1.625rem)',
+              fontWeight: 800,
               textTransform: 'uppercase',
-              letterSpacing: '0.04em',
+              letterSpacing: '0.06em',
               padding: '0 var(--space-xl)',
-              color: 'var(--color-white)',
+              color: '#3a3699',
+              whiteSpace: 'nowrap',
             }}
           >
             {item}
