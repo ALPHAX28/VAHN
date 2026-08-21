@@ -1,5 +1,18 @@
+# Environment & Secrets
 .env
+.env.*
+!.env.example
+!.env.*.example
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Lock files & local test artifacts
 pylock.toml
-__pycache__
-.venv
-.env.example
+*.sqlite3
