@@ -175,7 +175,7 @@ export default function AdminUsersPage() {
           zIndex: 9999, padding: 20
         }}>
           <div style={{ background: "#fff", width: "100%", maxWidth: 460, padding: 28, border: "2px solid #000", boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 900, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 900, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: '-0.025em' }}>
               {suspendModal.is_active ? "Suspend Account?" : "Reactivate Account?"}
             </h3>
             <p style={{ fontSize: "0.85rem", color: "#555", margin: "0 0 16px", lineHeight: 1.5 }}>
@@ -188,7 +188,7 @@ export default function AdminUsersPage() {
 
             {suspendModal.is_active && (
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: '-0.025em', marginBottom: 6 }}>
                   Suspension Reason (Optional)
                 </label>
                 <input
@@ -244,7 +244,7 @@ export default function AdminUsersPage() {
             <div style={{ width: 44, height: 44, background: "#fef2f2", border: "1px solid #fca5a5", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
               <AlertCircleIcon size={24} color="#dc2626" />
             </div>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 900, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.04em", color: "#dc2626" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 900, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: '-0.025em', color: "#dc2626" }}>
               Delete Customer Account?
             </h3>
             <p style={{ fontSize: "0.85rem", color: "#555", margin: "0 0 20px", lineHeight: 1.5 }}>

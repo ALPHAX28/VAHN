@@ -86,7 +86,7 @@ export default function AccountAddressesPage() {
           style={{
             display: "inline-block", background: "#000", color: "#fff",
             padding: "12px 28px", fontWeight: 900, border: "none", cursor: "pointer",
-            textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.82rem", marginTop: 8
+            textTransform: "uppercase", letterSpacing: '-0.025em', fontSize: "0.82rem", marginTop: 8
           }}
         >
           Sign In →
@@ -102,7 +102,7 @@ export default function AccountAddressesPage() {
       {/* Page Header */}
       <div className="account-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
         <div>
-          <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
+          <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", letterSpacing: '-0.025em', textTransform: "uppercase", marginBottom: 4 }}>
             Account / My Addresses
           </div>
           <h1 className="account-title" style={{ textTransform: "uppercase" }}>
@@ -122,7 +122,7 @@ export default function AccountAddressesPage() {
             style={{
               background: "#000", color: "#fff", border: "none",
               padding: "12px 22px", fontWeight: 900, fontSize: "0.82rem",
-              cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.06em",
+              cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
               display: "inline-flex", alignItems: "center", gap: 8,
               transition: "background 0.15s"
             }}
@@ -138,7 +138,7 @@ export default function AccountAddressesPage() {
       {loading ? (
         <div style={{ textAlign: "center", padding: "64px 0", color: "#888" }}>
           <div style={{ width: 32, height: 32, border: "3px solid #000", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-          <span style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Loading saved addresses...</span>
+          <span style={{ fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: '-0.025em' }}>Loading saved addresses...</span>
         </div>
       ) : addresses.length === 0 ? (
         <div style={{
@@ -151,7 +151,7 @@ export default function AccountAddressesPage() {
           }}>
             <MapPinIcon size={28} color="#000" />
           </div>
-          <h3 style={{ fontSize: "1.1rem", fontWeight: 900, color: "#000", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <h3 style={{ fontSize: "1.1rem", fontWeight: 900, color: "#000", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: '-0.025em' }}>
             No Saved Addresses
           </h3>
           <p style={{ fontSize: "0.875rem", color: "#666", margin: "0 0 28px", lineHeight: 1.6, maxWidth: 380, marginLeft: "auto", marginRight: "auto" }}>
@@ -165,7 +165,7 @@ export default function AccountAddressesPage() {
             style={{
               background: "#000", color: "#fff", border: "none",
               padding: "14px 32px", fontWeight: 900, fontSize: "0.875rem",
-              cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.06em"
+              cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em'
             }}
           >
             + Add Your First Address
@@ -193,7 +193,7 @@ export default function AccountAddressesPage() {
                   <span style={{
                     background: "#000", color: "#fff",
                     padding: "4px 12px", fontSize: "0.7rem", fontWeight: 900,
-                    textTransform: "uppercase", letterSpacing: "0.06em",
+                    textTransform: "uppercase", letterSpacing: '-0.025em',
                     display: "inline-flex", alignItems: "center", gap: 6
                   }}>
                     {addr.label === "Home"
@@ -208,7 +208,7 @@ export default function AccountAddressesPage() {
                     <span style={{
                       background: "#f0fdf4", color: "#15803d", border: "1px solid #16a34a",
                       padding: "3px 9px", fontSize: "0.65rem", fontWeight: 900,
-                      letterSpacing: "0.06em", textTransform: "uppercase",
+                      letterSpacing: '-0.025em', textTransform: "uppercase",
                       display: "inline-flex", alignItems: "center", gap: 4
                     }}>
                       <CheckIcon size={10} color="#15803d" />
@@ -247,7 +247,7 @@ export default function AccountAddressesPage() {
                   style={{
                     background: "none", border: "1px solid #000", color: "#000",
                     padding: "7px 14px", fontSize: "0.75rem", fontWeight: 800,
-                    cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em",
+                    cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
                     display: "inline-flex", alignItems: "center", gap: 5,
                     transition: "background 0.15s"
                   }}
@@ -265,7 +265,7 @@ export default function AccountAddressesPage() {
                     style={{
                       background: "none", border: "1px solid #000", color: "#000",
                       padding: "7px 14px", fontSize: "0.75rem", fontWeight: 800,
-                      cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em",
+                      cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
                       display: "inline-flex", alignItems: "center", gap: 5,
                       transition: "background 0.15s"
                     }}
@@ -284,7 +284,7 @@ export default function AccountAddressesPage() {
                     marginLeft: "auto",
                     background: "none", border: "1px solid #fca5a5", color: "#dc2626",
                     padding: "7px 14px", fontSize: "0.75rem", fontWeight: 800,
-                    cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em",
+                    cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
                     display: "inline-flex", alignItems: "center", gap: 5,
                     transition: "background 0.15s"
                   }}

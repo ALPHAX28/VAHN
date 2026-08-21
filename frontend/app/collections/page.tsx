@@ -45,7 +45,7 @@ export default async function CollectionsPage() {
                 fontFamily: 'var(--font-ui)',
                 fontSize: '0.68rem',
                 fontWeight: 700,
-                letterSpacing: '0.22em',
+                letterSpacing: '-0.025em',
                 textTransform: 'uppercase',
                 color: 'rgba(255,255,255,0.45)',
                 background: 'rgba(255,255,255,0.06)',
@@ -65,7 +65,7 @@ export default async function CollectionsPage() {
               textTransform: 'uppercase',
               color: '#ffffff',
               lineHeight: 1,
-              letterSpacing: '0.02em',
+              letterSpacing: '-0.025em',
               margin: '0 0 10px',
             }}
           >
@@ -104,7 +104,7 @@ export default async function CollectionsPage() {
                   fontFamily: 'var(--font-ui)',
                   fontWeight: 700,
                   fontSize: '0.72rem',
-                  letterSpacing: '0.06em',
+                  letterSpacing: '-0.025em',
                   padding: '4px 10px',
                   minWidth: 28,
                 }}
@@ -116,7 +116,7 @@ export default async function CollectionsPage() {
                   fontFamily: 'var(--font-ui)',
                   fontSize: '0.78rem',
                   fontWeight: 700,
-                  letterSpacing: '0.15em',
+                  letterSpacing: '-0.025em',
                   textTransform: 'uppercase',
                   color: 'var(--color-grey-dark)',
                   margin: 0,
@@ -177,7 +177,7 @@ export default async function CollectionsPage() {
             textTransform: 'uppercase',
             color: '#fff',
             marginBottom: 12,
-            letterSpacing: '0.04em',
+            letterSpacing: '-0.025em',
           }}
         >
           {"Can't find what you need?"}
@@ -195,7 +195,7 @@ export default async function CollectionsPage() {
             fontFamily: 'var(--font-ui)',
             fontWeight: 700,
             fontSize: '0.8rem',
-            letterSpacing: '0.12em',
+            letterSpacing: '-0.025em',
             textTransform: 'uppercase',
             textDecoration: 'none',
             border: '1px solid var(--color-navy)',

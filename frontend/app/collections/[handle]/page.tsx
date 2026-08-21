@@ -123,7 +123,7 @@ export default async function CollectionPage({ params, searchParams }: Props) {
                 fontFamily: 'var(--font-ui)',
                 fontSize: '0.72rem',
                 fontWeight: 600,
-                letterSpacing: '0.15em',
+                letterSpacing: '-0.025em',
                 textTransform: 'uppercase',
                 color: 'rgba(255,255,255,0.5)',
                 textDecoration: 'none',
@@ -137,7 +137,7 @@ export default async function CollectionPage({ params, searchParams }: Props) {
                 fontFamily: 'var(--font-ui)',
                 fontSize: '0.72rem',
                 fontWeight: 600,
-                letterSpacing: '0.15em',
+                letterSpacing: '-0.025em',
                 textTransform: 'uppercase',
                 color: 'rgba(255,255,255,0.7)',
               }}
@@ -154,7 +154,7 @@ export default async function CollectionPage({ params, searchParams }: Props) {
               textTransform: 'uppercase',
               color: '#ffffff',
               lineHeight: 1,
-              letterSpacing: '0.01em',
+              letterSpacing: '-0.025em',
               marginBottom: collection.description ? 16 : 0,
             }}
           >
@@ -214,7 +214,7 @@ export default async function CollectionPage({ params, searchParams }: Props) {
                     fontFamily: 'var(--font-ui)',
                     fontWeight: 700,
                     fontSize: '0.72rem',
-                    letterSpacing: '0.06em',
+                    letterSpacing: '-0.025em',
                     padding: '4px 10px',
                     minWidth: 32,
                   }}
@@ -242,7 +242,7 @@ export default async function CollectionPage({ params, searchParams }: Props) {
                     cursor: 'pointer',
                     outline: 'none',
                     color: 'var(--color-black)',
-                    letterSpacing: '0.04em',
+                    letterSpacing: '-0.025em',
                   }}
                 >
                   <option value="MANUAL">Featured</option>
@@ -292,7 +292,7 @@ export default async function CollectionPage({ params, searchParams }: Props) {
                     fontFamily: 'var(--font-ui)',
                     fontWeight: 700,
                     fontSize: '0.78rem',
-                    letterSpacing: '0.1em',
+                    letterSpacing: '-0.025em',
                     textTransform: 'uppercase',
                     textDecoration: 'none',
                   }}
@@ -335,10 +335,10 @@ export default async function CollectionPage({ params, searchParams }: Props) {
           <div style={{ maxWidth: 'var(--page-width)', margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-xl)' }}>
               <div>
-                <p style={{ fontFamily: 'var(--font-ui)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-grey-dark)', margin: 0 }}>
+                <p style={{ fontFamily: 'var(--font-ui)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '-0.025em', textTransform: 'uppercase', color: 'var(--color-grey-dark)', margin: 0 }}>
                   Explore More
                 </p>
-                <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.8rem', textTransform: 'uppercase', margin: '4px 0 0', letterSpacing: '0.02em' }}>
+                <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.8rem', textTransform: 'uppercase', margin: '4px 0 0', letterSpacing: '-0.025em' }}>
                   Other Collections
                 </h2>
               </div>
@@ -348,7 +348,7 @@ export default async function CollectionPage({ params, searchParams }: Props) {
                   fontFamily: 'var(--font-ui)',
                   fontSize: '0.78rem',
                   fontWeight: 700,
-                  letterSpacing: '0.12em',
+                  letterSpacing: '-0.025em',
                   textTransform: 'uppercase',
                   color: 'var(--color-navy)',
                   textDecoration: 'none',
@@ -393,7 +393,7 @@ export default async function CollectionPage({ params, searchParams }: Props) {
                       )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={{ fontFamily: 'var(--font-ui)', fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', margin: '0 0 4px', letterSpacing: '0.04em' }}>
+                      <h3 style={{ fontFamily: 'var(--font-ui)', fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', margin: '0 0 4px', letterSpacing: '-0.025em' }}>
                         {c.title}
                       </h3>
                       <p style={{ fontFamily: 'var(--font-ui)', fontSize: '0.78rem', color: 'var(--color-grey-dark)', margin: 0 }}>

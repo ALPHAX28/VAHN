@@ -12,7 +12,7 @@ export default function PasswordPage() {
     <div className="password-page">
       {/* Logo */}
       <div>
-        <p style={{ fontFamily: 'var(--font-heading)', fontSize: '3rem', letterSpacing: '0.3em', color: 'var(--color-white)', textTransform: 'uppercase' }}>
+        <p style={{ fontFamily: 'var(--font-heading)', fontSize: '3rem', letterSpacing: '-0.025em', color: 'var(--color-white)', textTransform: 'uppercase' }}>
           VAHN
         </p>
       </div>

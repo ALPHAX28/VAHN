@@ -4,257 +4,306 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
 
-const SOCIALS = [
-  {
-    label: 'Instagram',
-    href: 'https://instagram.com/vahnteamwear',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-      </svg>
-    ),
-  },
-  {
-    label: 'LinkedIn',
-    href: 'https://linkedin.com/company/vahnteamwear',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
-        <rect x="2" y="9" width="4" height="12"></rect>
-        <circle cx="4" cy="4" r="2"></circle>
-      </svg>
-    ),
-  },
-  {
-    label: 'Facebook',
-    href: 'https://facebook.com/vahnteamwear',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
-      </svg>
-    ),
-  },
+const ABOUT_LINKS = [
+  { label: 'Our Story', href: '/pages/about' },
+  { label: 'Our Policies', href: '/pages/shipping' },
 ];
 
-const FOOTER_MENUS = [
-  {
-    heading: 'About',
-    links: [
-      { label: 'Our Story', href: '/pages/about' },
-      { label: 'Our Products', href: '/products' },
-      { label: 'Our Partners', href: '/pages/about' },
-    ],
-  },
-  {
-    heading: 'Support',
-    links: [
-      { label: 'Order Tracking', href: '/account/orders' },
-      { label: 'Shipping & Returns', href: '/pages/shipping' },
-      { label: 'FAQ', href: '/pages/faqs-page' },
-      { label: 'Contact Us', href: '/pages/contact' },
-    ],
-  },
+const SUPPORT_LINKS = [
+  { label: 'Order Tracking', href: '/account/orders' },
+  { label: 'Shipping & Returns', href: '/pages/shipping' },
+  { label: 'FAQ', href: '/pages/faqs-page' },
+  { label: 'Contact Us', href: '/pages/contact' },
 ];
-
-const BRAND_BLUE = '#3a3699';
-const FOOTER_BG = '#0e0f12';
 
 export default function Footer() {
-  const [logoError, setLogoError] = useState(false);
   const [email, setEmail] = useState('');
 
   return (
-    <footer style={{ background: FOOTER_BG, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-      {/* Main Footer Grid */}
+    <footer
+      style={{
+        background: '#141416',
+        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+        color: '#ffffff',
+      }}
+    >
+      {/* Main Footer Container */}
       <div
         style={{
-          maxWidth: '1400px',
+          maxWidth: '1440px',
           margin: '0 auto',
-          padding: 'clamp(48px, 6vw, 80px) clamp(20px, 4vw, 48px)',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr) auto',
-          gap: '48px',
-          alignItems: 'start',
+          padding: 'clamp(36px, 4vw, 56px) clamp(20px, 5vw, 80px) clamp(48px, 6vw, 80px)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 'clamp(32px, 5vw, 64px)',
         }}
       >
-        {/* ABOUT column */}
-        <div>
-          <h5
-            style={{
-              fontFamily: 'var(--font-heading)',
-              fontWeight: 700,
-              fontSize: '0.6875rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              color: '#ffffff',
-              marginBottom: '16px',
-            }}
-          >
-            About
-          </h5>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {FOOTER_MENUS[0].links.map((link) => (
-              <li key={link.label}>
-                <Link
-                  href={link.href}
-                  style={{
-                    fontFamily: 'var(--font-heading)',
-                    fontSize: '0.8125rem',
-                    color: 'rgba(255,255,255,0.55)',
-                    textDecoration: 'none',
-                    letterSpacing: '0.01em',
-                    transition: 'color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.55)')}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/* Left Group: ABOUT, SUPPORT, SOCIALS */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 'clamp(36px, 5vw, 64px)',
+            alignItems: 'flex-start',
+          }}
+        >
+          {/* Column 1: ABOUT */}
+          <div style={{ minWidth: '110px' }}>
+            <h5
+              style={{
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                textTransform: 'uppercase',
+                letterSpacing: '-0.025em',
+                color: '#ffffff',
+                marginBottom: '14px',
+              }}
+            >
+              ABOUT
+            </h5>
+            <ul
+              style={{
+                listStyle: 'none',
+                padding: 0,
+                margin: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+              }}
+            >
+              {ABOUT_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    style={{
+                      fontFamily: 'var(--font-body), Georgia, serif',
+                      fontSize: '0.875rem',
+                      letterSpacing: '-0.025em',
+                      color: 'rgba(255, 255, 255, 0.72)',
+                      textDecoration: 'none',
+                      lineHeight: 1.5,
+                      transition: 'color 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.72)')}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-        {/* SUPPORT column */}
-        <div>
-          <h5
-            style={{
-              fontFamily: 'var(--font-heading)',
-              fontWeight: 700,
-              fontSize: '0.6875rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              color: '#ffffff',
-              marginBottom: '16px',
-            }}
-          >
-            Support
-          </h5>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {FOOTER_MENUS[1].links.map((link) => (
-              <li key={link.label}>
-                <Link
-                  href={link.href}
-                  style={{
-                    fontFamily: 'var(--font-heading)',
-                    fontSize: '0.8125rem',
-                    color: 'rgba(255,255,255,0.55)',
-                    textDecoration: 'none',
-                    letterSpacing: '0.01em',
-                    transition: 'color 0.15s ease',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.55)')}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+          {/* Column 2: SUPPORT */}
+          <div style={{ minWidth: '140px' }}>
+            <h5
+              style={{
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                textTransform: 'uppercase',
+                letterSpacing: '-0.025em',
+                color: '#ffffff',
+                marginBottom: '14px',
+              }}
+            >
+              SUPPORT
+            </h5>
+            <ul
+              style={{
+                listStyle: 'none',
+                padding: 0,
+                margin: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+              }}
+            >
+              {SUPPORT_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    style={{
+                      fontFamily: 'var(--font-body), Georgia, serif',
+                      fontSize: '0.875rem',
+                      letterSpacing: '-0.025em',
+                      color: 'rgba(255, 255, 255, 0.72)',
+                      textDecoration: 'none',
+                      lineHeight: 1.5,
+                      transition: 'color 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.72)')}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-        {/* SOCIALS column */}
-        <div>
-          <h5
-            style={{
-              fontFamily: 'var(--font-heading)',
-              fontWeight: 700,
-              fontSize: '0.6875rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              color: '#ffffff',
-              marginBottom: '16px',
-            }}
-          >
-            Socials
-          </h5>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {SOCIALS.map((s) => (
+          {/* Column 3: SOCIALS */}
+          <div style={{ minWidth: '110px' }}>
+            <h5
+              style={{
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                textTransform: 'uppercase',
+                letterSpacing: '-0.025em',
+                color: '#ffffff',
+                marginBottom: '14px',
+              }}
+            >
+              SOCIALS
+            </h5>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              {/* Instagram */}
               <a
-                key={s.label}
-                href={s.href}
+                href="https://www.instagram.com"
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Instagram"
                 style={{
+                  color: 'rgba(255, 255, 255, 0.75)',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '10px',
-                  color: 'rgba(255,255,255,0.55)',
-                  textDecoration: 'none',
-                  fontFamily: 'var(--font-heading)',
-                  fontSize: '0.8125rem',
-                  transition: 'color 0.15s ease',
+                  justifyContent: 'center',
+                  transition: 'color 0.2s ease, transform 0.2s ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.55)')}
-                aria-label={s.label}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'rgba(255, 255, 255, 0.75)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
               >
-                {s.icon}
-                {s.label}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                  <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                </svg>
               </a>
-            ))}
+
+              {/* Facebook */}
+              <a
+                href="https://facebook.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Facebook"
+                style={{
+                  color: 'rgba(255, 255, 255, 0.75)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'color 0.2s ease, transform 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'rgba(255, 255, 255, 0.75)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+                </svg>
+              </a>
+
+              {/* LinkedIn */}
+              <a
+                href="https://linkedin.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="LinkedIn"
+                style={{
+                  color: 'rgba(255, 255, 255, 0.75)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'color 0.2s ease, transform 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'rgba(255, 255, 255, 0.75)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+                  <rect width="4" height="12" x="2" y="9" />
+                  <circle cx="4" cy="4" r="2" />
+                </svg>
+              </a>
+            </div>
           </div>
         </div>
 
-        {/* JOIN TEAM VAHN — email signup */}
-        <div style={{ minWidth: '260px' }}>
-          {/* Logo */}
-          <Link href="/" aria-label="VAHN home" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill={BRAND_BLUE}>
-              <path d="M12 2L3 6.5V12C3 16.5 7 20.5 12 22C17 20.5 21 16.5 21 12V6.5L12 2Z" />
-            </svg>
-            {logoError ? (
-              <span
-                style={{
-                  fontFamily: 'var(--font-heading)',
-                  fontSize: '1.125rem',
-                  letterSpacing: '0.25em',
-                  textTransform: 'uppercase',
-                  color: '#fff',
-                  fontWeight: 700,
-                }}
-              >
-                VAHN
-              </span>
-            ) : (
-              <Image
-                src="/assets/logo-white.png"
-                alt="VAHN"
-                width={80}
-                height={20}
-                style={{ display: 'block', height: '20px', width: 'auto' }}
-                onError={() => setLogoError(true)}
-              />
-            )}
+        {/* Right Group: Logo + Early Access Text + Form */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+          {/* Official VAHN Logo */}
+          <Link
+            href="/"
+            aria-label="VAHN Home"
+            style={{ display: 'inline-block', marginBottom: '16px', textDecoration: 'none' }}
+          >
+            <Image
+              src="/assets/logos/VAHN-Primary-colour-transparent.png"
+              alt="VAHN"
+              width={140}
+              height={34}
+              priority
+              style={{
+                height: '32px',
+                width: 'auto',
+                display: 'block',
+                objectFit: 'contain',
+              }}
+            />
           </Link>
 
+          {/* Heading */}
           <p
             style={{
               fontFamily: 'var(--font-heading)',
-              fontWeight: 700,
-              fontSize: '0.6875rem',
+              fontWeight: 600,
+              fontSize: 'clamp(0.75rem, 1.1vw, 0.875rem)',
               textTransform: 'uppercase',
-              letterSpacing: '0.1em',
+              letterSpacing: '-0.025em',
               color: '#ffffff',
               marginBottom: '14px',
-              lineHeight: 1.4,
+              whiteSpace: 'nowrap',
             }}
           >
-            Join Team VAHN to get Early Access
+            JOIN TEAM VAHN TO GET EARLY ACCESS
           </p>
 
-          {/* Email form */}
+          {/* Email Subscription Form */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               if (email.trim()) {
-                alert('Welcome to Team VAHN!');
+                alert('Thank you for joining Team VAHN!');
                 setEmail('');
               }
             }}
-            style={{ display: 'flex' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              width: '100%',
+              maxWidth: '440px',
+            }}
           >
             <input
               type="email"
@@ -262,73 +311,57 @@ export default function Footer() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
               required
-              aria-label="Email address"
+              aria-label="Enter your email"
               style={{
                 flex: 1,
-                padding: '10px 14px',
-                background: 'rgba(255,255,255,0.07)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRight: 'none',
-                color: '#fff',
-                fontFamily: 'var(--font-heading)',
-                fontSize: '0.8125rem',
+                height: '46px',
+                padding: '0 18px',
+                background: 'transparent',
+                border: '1px solid #3b379e',
+                borderRadius: '2px',
+                color: '#ffffff',
+                fontFamily: 'var(--font-body), Georgia, serif',
+                fontSize: '0.9375rem',
+                letterSpacing: '-0.025em',
                 outline: 'none',
-                minWidth: 0,
+                minWidth: '280px',
               }}
             />
             <button
               type="submit"
               aria-label="Subscribe"
               style={{
-                background: BRAND_BLUE,
-                border: 'none',
-                color: '#fff',
-                padding: '10px 16px',
-                cursor: 'pointer',
+                width: '46px',
+                height: '46px',
+                background: '#4f46e5',
+                border: '1px solid #4f46e5',
+                borderRadius: '2px',
+                color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '1rem',
+                cursor: 'pointer',
+                flexShrink: 0,
+                transition: 'background-color 0.2s ease',
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#4338ca')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#4f46e5')}
             >
-              →
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
             </button>
           </form>
         </div>
-      </div>
-
-      {/* Copyright bar */}
-      <div
-        style={{
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          padding: '16px clamp(20px, 4vw, 48px)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '8px',
-        }}
-      >
-        <p
-          style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: '0.75rem',
-            color: 'rgba(255,255,255,0.3)',
-            margin: 0,
-          }}
-        >
-          © {new Date().getFullYear()} VAHN. All rights reserved.
-        </p>
-        <p
-          style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: '0.75rem',
-            color: 'rgba(255,255,255,0.3)',
-            margin: 0,
-          }}
-        >
-          EST. 2026 ✦ Crafted for the bold
-        </p>
       </div>
     </footer>
   );

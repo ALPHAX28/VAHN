@@ -67,7 +67,7 @@ export default function IconsWithText() {
                 fontFamily: 'var(--font-ui)',
                 fontSize: '1.125rem',
                 fontWeight: 700,
-                letterSpacing: '0.06em',
+                letterSpacing: '-0.025em',
                 textTransform: 'uppercase',
                 color: 'var(--color-black)',
               }}

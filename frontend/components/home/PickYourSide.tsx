@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function PickYourSide() {
   const BRAND_BLUE = '#3a3699';
@@ -13,11 +14,15 @@ export default function PickYourSide() {
           textAlign: 'center',
         }}
       >
-        {/* VAHN Shield Icon */}
-        <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'center' }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill={BRAND_BLUE} xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L3 6.5V12C3 16.5 7 20.5 12 22C17 20.5 21 16.5 21 12V6.5L12 2Z" />
-          </svg>
+        {/* Official VAHN Symbol 'V' Logo in Blue from drive_logos */}
+        <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+          <Image
+            src="/assets/logos/VAHN-Symbol-colour-transparent.png"
+            alt="VAHN"
+            width={40}
+            height={30}
+            style={{ height: '28px', width: 'auto', display: 'block', objectFit: 'contain' }}
+          />
         </div>
 
         <h2
@@ -26,7 +31,7 @@ export default function PickYourSide() {
             fontWeight: 900,
             fontSize: 'clamp(1.5rem, 4vw, 2.75rem)',
             textTransform: 'uppercase',
-            letterSpacing: '-0.01em',
+            letterSpacing: '-0.025em',
             color: '#ffffff',
             marginBottom: '14px',
           }}
@@ -41,6 +46,7 @@ export default function PickYourSide() {
             maxWidth: '520px',
             margin: '0 auto',
             lineHeight: 1.6,
+            letterSpacing: '-0.025em',
           }}
         >
           Sport keeps us fit. Keeps you mindful. Brings us together. Through sport, we have the power to change lives—through stories of inspiring athletes, innovative technology, and by helping you get up and move.
@@ -96,10 +102,10 @@ export default function PickYourSide() {
               border: '2px solid rgba(255,255,255,0.5)',
               padding: '12px 40px',
               fontFamily: 'var(--font-heading)',
-              fontWeight: 700,
+              fontWeight: 900,
               fontSize: '0.8125rem',
               textTransform: 'uppercase',
-              letterSpacing: '0.1em',
+              letterSpacing: '-0.025em',
               textDecoration: 'none',
               display: 'inline-block',
             }}
@@ -155,10 +161,10 @@ export default function PickYourSide() {
               border: '2px solid rgba(255,255,255,0.5)',
               padding: '12px 40px',
               fontFamily: 'var(--font-heading)',
-              fontWeight: 700,
+              fontWeight: 900,
               fontSize: '0.8125rem',
               textTransform: 'uppercase',
-              letterSpacing: '0.1em',
+              letterSpacing: '-0.025em',
               textDecoration: 'none',
               display: 'inline-block',
             }}

@@ -53,7 +53,7 @@ export default function PullQuote() {
             fontSize: '1rem',
             fontWeight: 500,
             textTransform: 'uppercase',
-            letterSpacing: '0.08em',
+            letterSpacing: '-0.025em',
             color: 'var(--color-grey-dark)',
           }}
         >

@@ -336,7 +336,7 @@ export default function AdminLookbookManager({
                       fontWeight: 700,
                       padding: "2px 6px",
                       borderRadius: "2px",
-                      letterSpacing: "0.02em",
+                      letterSpacing: '-0.025em',
                     }}
                     title="This photo will upload when you save the product"
                   >

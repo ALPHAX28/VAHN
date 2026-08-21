@@ -456,7 +456,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
               fontWeight: 800,
               padding: '5px 12px',
               borderRadius: 0,
-              letterSpacing: '0.08em',
+              letterSpacing: '-0.025em',
               textTransform: 'uppercase',
               display: 'inline-block',
               width: 'fit-content',
@@ -467,11 +467,11 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
           </span>
         ) : (
           <>
-            <span className="price-sale" style={{ fontSize: '1.45rem', fontWeight: 800, color: '#000000', letterSpacing: '-0.01em', lineHeight: 1 }}>
+            <span className="price-sale" style={{ fontSize: '1.45rem', fontWeight: 800, color: '#000000', letterSpacing: '-0.025em', lineHeight: 1 }}>
               {formatMoney(price)}
             </span>
             {isOnSale && comparePrice && (
-              <span className="price-compare" style={{ fontSize: '0.72rem', color: '#888888', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.2 }}>
+              <span className="price-compare" style={{ fontSize: '0.72rem', color: '#888888', fontWeight: 500, letterSpacing: '-0.025em', textTransform: 'uppercase', lineHeight: 1.2 }}>
                 <span style={{ textDecoration: 'line-through' }}>{formatMoney(comparePrice)}</span> ORIGINAL PRICE {discountPct > 0 ? `-${discountPct}%` : ''}
               </span>
             )}
@@ -536,11 +536,11 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                   {/* Option label row */}
                   <p className="variant-label" style={{ marginBottom: '6px' }}>
                     {option.name}:{' '}
-                    <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
+                    <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: '-0.025em' }}>
                       {selectedOptions[option.name] || (option.name.toLowerCase() === 'size' ? 'Select Size' : '')}
                     </span>
                     {sizeStockLabel && (
-                      <span style={{ fontWeight: 700, color: '#c62828', marginLeft: '10px', fontSize: '0.68rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                      <span style={{ fontWeight: 700, color: '#c62828', marginLeft: '10px', fontSize: '0.68rem', letterSpacing: '-0.025em', textTransform: 'uppercase' }}>
                         {sizeStockLabel}
                       </span>
                     )}
@@ -609,7 +609,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    letterSpacing: '0.04em',
+                                    letterSpacing: '-0.025em',
                                     padding: 0,
                                     position: 'relative',
                                     opacity: isOutOfStock ? 0.45 : 1,
@@ -669,7 +669,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                         fontSize: '0.75rem',
                         fontWeight: 700,
                         textTransform: 'uppercase',
-                        letterSpacing: '0.06em',
+                        letterSpacing: '-0.025em',
                         textDecoration: 'underline',
                         cursor: 'pointer',
                         padding: 0,
@@ -711,7 +711,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
               borderRadius: '0px',
               fontWeight: 800,
               fontSize: '0.875rem',
-              letterSpacing: '0.08em',
+              letterSpacing: '-0.025em',
               textTransform: 'uppercase',
               cursor: 'pointer',
               display: 'flex',
@@ -725,7 +725,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
-            <span style={{ color: '#ffffff', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.875rem' }}>
+            <span style={{ color: '#ffffff', fontWeight: 800, letterSpacing: '-0.025em', textTransform: 'uppercase', fontSize: '0.875rem' }}>
               Notify Me When Restocked
             </span>
           </button>
@@ -878,7 +878,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                   fontFamily: 'var(--font-ui)',
                   fontSize: '0.8125rem',
                   fontWeight: 700,
-                  letterSpacing: '0.12em',
+                  letterSpacing: '-0.025em',
                   textTransform: 'uppercase',
                   color: 'var(--color-black)',
                 }}
@@ -936,7 +936,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
               href={`/search?q=${encodeURIComponent(tag)}`}
               style={{
                 fontSize: '0.75rem',
-                letterSpacing: '0.06em',
+                letterSpacing: '-0.025em',
                 textTransform: 'uppercase',
                 padding: '4px 10px',
                 border: '1px solid var(--color-border)',
@@ -1117,7 +1117,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                 <div style={{ width: '48px', height: '48px', borderRadius: 0, background: 'var(--color-black)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '1.4rem', fontWeight: 'bold' }}>
                   ✓
                 </div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px', color: 'var(--color-black)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>You&apos;re on the list!</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px', color: 'var(--color-black)', textTransform: 'uppercase', letterSpacing: '-0.025em' }}>You&apos;re on the list!</h3>
                 <p style={{ fontSize: '0.875rem', color: '#4b5563', lineHeight: 1.5, marginBottom: '20px' }}>
                   We will send an instant email notification to <strong style={{ color: 'var(--color-black)' }}>{restockEmail}</strong> as soon as <strong style={{ color: 'var(--color-black)' }}>{product.title}</strong> {activeColour ? `(${activeColour})` : ''} is back in stock.
                 </p>
@@ -1134,7 +1134,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                     fontWeight: 800,
                     fontSize: '0.875rem',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
+                    letterSpacing: '-0.025em',
                     cursor: 'pointer'
                   }}
                 >
@@ -1173,7 +1173,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                     </svg>
                   </div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Notify Me On Restock</h3>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '-0.025em' }}>Notify Me On Restock</h3>
                 </div>
 
                 <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '20px', lineHeight: 1.45 }}>
@@ -1181,7 +1181,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                 </p>
 
                 <div style={{ marginBottom: '18px' }}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px', color: 'var(--color-black)' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.025em', marginBottom: '6px', color: 'var(--color-black)' }}>
                     Email Address *
                   </label>
                   <input
@@ -1215,7 +1215,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                     fontWeight: 800,
                     fontSize: '0.875rem',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
+                    letterSpacing: '-0.025em',
                     cursor: 'pointer'
                   }}
                 >

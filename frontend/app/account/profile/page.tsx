@@ -33,7 +33,7 @@ export default function ProfilePage() {
     return (
       <div className="account-page-container" style={{ textAlign: 'center', padding: '100px 20px' }}>
         <div style={{ width: 36, height: 36, border: "3px solid #000", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-        <p style={{ color: "#888", fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Loading profile...</p>
+        <p style={{ color: "#888", fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: '-0.025em' }}>Loading profile...</p>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export default function ProfilePage() {
   return (
     <div className="account-page-container">
       <div className="account-header">
-        <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
+        <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", letterSpacing: '-0.025em', textTransform: "uppercase", marginBottom: 4 }}>
           Account Settings
         </div>
         <h1 className="account-title" style={{ textTransform: "uppercase" }}>My Profile</h1>
@@ -82,7 +82,7 @@ export default function ProfilePage() {
               <UserIcon size={16} color="#fff" />
             </div>
             <div>
-              <h2 style={{ fontSize: "0.85rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.07em" }}>Personal Details</h2>
+              <h2 style={{ fontSize: "0.85rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: '-0.025em' }}>Personal Details</h2>
               <p style={{ fontSize: "0.72rem", color: "#888", margin: 0 }}>Your account name, phone number, and email</p>
             </div>
           </div>
@@ -140,7 +140,7 @@ export default function ProfilePage() {
             </div>
 
             <button type="submit" disabled={profileLoading} className="auth-submit-btn"
-              style={{ borderRadius: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              style={{ borderRadius: 0, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
               {profileLoading ? 'Saving...' : 'Save Profile Changes'}
             </button>
           </form>
@@ -153,7 +153,7 @@ export default function ProfilePage() {
               <LockIcon size={16} color="#fff" />
             </div>
             <div>
-              <h2 style={{ fontSize: "0.85rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.07em" }}>Account Access</h2>
+              <h2 style={{ fontSize: "0.85rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: '-0.025em' }}>Account Access</h2>
               <p style={{ fontSize: "0.72rem", color: "#888", margin: 0 }}>How you sign in to VAHN</p>
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function ProfilePage() {
               </svg>
             </div>
             <div>
-              <p style={{ fontSize: "0.88rem", fontWeight: 700, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Email OTP Sign-In</p>
+              <p style={{ fontSize: "0.88rem", fontWeight: 700, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: '-0.025em' }}>Email OTP Sign-In</p>
               <p style={{ fontSize: "0.78rem", color: "#555", margin: 0, lineHeight: 1.5 }}>
                 Your account uses secure email-based OTP verification. Sign in anytime with your email address <strong>{user?.email || "on your account"}</strong>.
               </p>
@@ -198,7 +198,7 @@ export default function ProfilePage() {
                   <MapPinIcon size={20} color="#fff" />
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.9rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "#000" }}>
+                  <div style={{ fontSize: "0.9rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#000" }}>
                     Saved Delivery Addresses
                   </div>
                   <div style={{ fontSize: "0.78rem", color: "#777", marginTop: 2 }}>
@@ -207,7 +207,7 @@ export default function ProfilePage() {
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#000", flexShrink: 0 }}>
-                <span style={{ fontSize: "0.78rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em" }}>Manage</span>
+                <span style={{ fontSize: "0.78rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em' }}>Manage</span>
                 <ChevronRightIcon size={16} color="#000" />
               </div>
             </div>

@@ -122,7 +122,7 @@ export default function CartPage() {
               top: 'calc(var(--header-height) + 16px)',
             }}
           >
-            <h2 style={{ fontFamily: 'var(--font-ui)', fontSize: '1rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '24px' }}>
+            <h2 style={{ fontFamily: 'var(--font-ui)', fontSize: '1rem', fontWeight: 700, letterSpacing: '-0.025em', textTransform: 'uppercase', marginBottom: '24px' }}>
               Order Summary
             </h2>
 

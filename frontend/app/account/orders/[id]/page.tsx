@@ -89,7 +89,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     return (
       <div style={{ maxWidth: 960, margin: "80px auto", padding: "0 24px", textAlign: "center" }}>
         <div style={{ width: 40, height: 40, border: "3px solid #000", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 16px" }} />
-        <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: '-0.025em' }}>
           Loading order #{orderId}...
         </span>
       </div>
@@ -132,7 +132,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         <Link href="/account/orders" style={{
           display: "inline-flex", alignItems: "center", gap: 6,
           color: "#666", fontSize: "0.78rem", fontWeight: 700,
-          textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12
+          textDecoration: "none", textTransform: "uppercase", letterSpacing: '-0.025em', marginBottom: 12
         }}>
           <ChevronLeftIcon size={14} color="#666" />
           My Orders
@@ -140,7 +140,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
           <div>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 900, margin: "0 0 4px", letterSpacing: "-0.01em" }}>
+            <h1 style={{ fontSize: "1.75rem", fontWeight: 900, margin: "0 0 4px", letterSpacing: '-0.025em' }}>
               Order #{order.id}
             </h1>
             <span style={{ fontSize: "0.83rem", color: "#888" }}>
@@ -152,7 +152,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
             style={{
               background: "#fff", border: "2px solid #000", color: "#000",
               padding: "10px 20px", fontSize: "0.8rem", fontWeight: 900,
-              cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em",
+              cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
               display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0
             }}
             onMouseEnter={e => { e.currentTarget.style.background = "#f3f4f6"; }}
@@ -168,14 +168,14 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
       <div className="vahn-order-card">
         {/* Tracker header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
-          <h3 style={{ fontSize: "0.78rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.1em", color: "#555" }}>
+          <h3 style={{ fontSize: "0.78rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#555" }}>
             Fulfillment Status
           </h3>
           <span style={{
             background: statusColors.bg, color: statusColors.text,
             border: `1px solid ${statusColors.border}`,
             padding: "5px 14px", fontSize: "0.72rem", fontWeight: 900,
-            textTransform: "uppercase", letterSpacing: "0.07em"
+            textTransform: "uppercase", letterSpacing: '-0.025em'
           }}>
             {order.status}
           </span>
@@ -232,7 +232,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                     <div style={{
                       fontSize: "0.7rem", fontWeight: 600,
                       color: isCurrent ? "#000" : "#bbb",
-                      textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 2
+                      textTransform: "uppercase", letterSpacing: '-0.025em', marginTop: 2
                     }}>
                       {isCurrent ? s.sublabel : ""}
                     </div>
@@ -278,7 +278,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                     {s.label}
                   </div>
                   {isCurrent && (
-                    <div style={{ fontSize: "0.7rem", color: "#666", marginTop: 2, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    <div style={{ fontSize: "0.7rem", color: "#666", marginTop: 2, fontWeight: 700, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
                       {s.sublabel}
                     </div>
                   )}
@@ -295,7 +295,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         {/* Ordered Items */}
         <div className="vahn-card-box">
           <div className="vahn-card-box-header">
-            <h3 style={{ fontSize: "0.8rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.08em", color: "#555" }}>
+            <h3 style={{ fontSize: "0.8rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#555" }}>
               Items in Order ({order.items.length})
             </h3>
           </div>
@@ -337,7 +337,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
           <div className="vahn-card-box">
             <div className="vahn-card-box-header" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <MapPinIcon size={15} color="#000" />
-              <h3 style={{ fontSize: "0.78rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.08em", color: "#555" }}>
+              <h3 style={{ fontSize: "0.78rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#555" }}>
                 Delivery Address
               </h3>
             </div>
@@ -374,7 +374,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
           {/* Payment Summary Card */}
           <div className="vahn-card-box">
             <div className="vahn-card-box-header">
-              <h3 style={{ fontSize: "0.78rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.08em", color: "#555" }}>
+              <h3 style={{ fontSize: "0.78rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#555" }}>
                 Payment Summary
               </h3>
             </div>
@@ -403,7 +403,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 marginTop: 14, paddingTop: 14, borderTop: "2px solid #000",
                 display: "flex", justifyContent: "space-between", alignItems: "center"
               }}>
-                <span style={{ fontSize: "0.8rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em", color: "#555" }}>
+                <span style={{ fontSize: "0.8rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#555" }}>
                   Total Paid
                 </span>
                 <span style={{ fontSize: "1.4rem", fontWeight: 900, color: "#000" }}>
@@ -423,10 +423,10 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
           {/* Header Banner */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #000", paddingBottom: 20, marginBottom: 20 }}>
             <div>
-              <h1 style={{ fontSize: "2.4rem", fontWeight: 900, margin: "0 0 4px", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              <h1 style={{ fontSize: "2.4rem", fontWeight: 900, margin: "0 0 4px", letterSpacing: '-0.025em', textTransform: "uppercase" }}>
                 VAHN
               </h1>
-              <div style={{ fontSize: "0.8rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em", color: "#222" }}>
+              <div style={{ fontSize: "0.8rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#222" }}>
                 VAHN SPORTSWEAR INDIA PVT. LTD.
               </div>
               <div style={{ fontSize: "0.75rem", color: "#555", marginTop: 4, lineHeight: 1.4 }}>
@@ -436,7 +436,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
             </div>
 
             <div style={{ textAlign: "right" }}>
-              <div style={{ background: "#000", color: "#fff", padding: "6px 16px", fontSize: "0.85rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", display: "inline-block" }}>
+              <div style={{ background: "#000", color: "#fff", padding: "6px 16px", fontSize: "0.85rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', display: "inline-block" }}>
                 OFFICIAL TAX INVOICE
               </div>
               <div style={{ fontSize: "0.88rem", fontWeight: 900, marginTop: 12 }}>
@@ -454,7 +454,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
           {/* Customer & Shipping Details */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, paddingBottom: 20, borderBottom: "1px solid #e5e5e5", marginBottom: 20 }}>
             <div>
-              <div style={{ fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#777", marginBottom: 6 }}>
+              <div style={{ fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#777", marginBottom: 6 }}>
                 BILLED TO (CUSTOMER)
               </div>
               <div style={{ fontWeight: 900, fontSize: "0.95rem" }}>{user.full_name}</div>
@@ -463,7 +463,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
             </div>
 
             <div>
-              <div style={{ fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#777", marginBottom: 6 }}>
+              <div style={{ fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#777", marginBottom: 6 }}>
                 SHIPPED TO (DELIVERY LOCATION)
               </div>
               <div style={{ fontWeight: 900, fontSize: "0.95rem" }}>{addr.name || user.full_name}</div>

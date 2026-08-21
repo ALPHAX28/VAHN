@@ -115,7 +115,7 @@ export default function CheckoutPage() {
         <div style={{ width: 64, height: 64, background: "#000", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
           <ShoppingBagIcon size={28} color="#fff" />
         </div>
-        <h2 style={{ fontSize: "1.4rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.02em", margin: "0 0 10px" }}>
+        <h2 style={{ fontSize: "1.4rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', margin: "0 0 10px" }}>
           Sign In to Checkout
         </h2>
         <p style={{ color: "#555", fontSize: "0.9rem", margin: "0 0 24px", lineHeight: 1.6 }}>
@@ -127,7 +127,7 @@ export default function CheckoutPage() {
           style={{
             display: "inline-block", background: "#000", color: "#fff",
             padding: "14px 32px", fontWeight: 900, border: "none", cursor: "pointer",
-            textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.85rem"
+            textTransform: "uppercase", letterSpacing: '-0.025em', fontSize: "0.85rem"
           }}
         >
           Sign In Now →
@@ -143,7 +143,7 @@ export default function CheckoutPage() {
         <div style={{ width: 64, height: 64, background: "#f3f4f6", border: "1px solid #000", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
           <ShoppingBagIcon size={28} color="#000" />
         </div>
-        <h2 style={{ fontSize: "1.4rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.02em", margin: "0 0 10px" }}>
+        <h2 style={{ fontSize: "1.4rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', margin: "0 0 10px" }}>
           Your Cart is Empty
         </h2>
         <p style={{ color: "#555", fontSize: "0.9rem", margin: "0 0 24px", lineHeight: 1.6 }}>
@@ -152,7 +152,7 @@ export default function CheckoutPage() {
         <Link href="/collections/vahn-beginning" style={{
           display: "inline-block", background: "#000", color: "#fff",
           padding: "14px 32px", fontWeight: 900, textDecoration: "none",
-          textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.85rem"
+          textTransform: "uppercase", letterSpacing: '-0.025em', fontSize: "0.85rem"
         }}>
           Explore Collection →
         </Link>
@@ -178,7 +178,7 @@ export default function CheckoutPage() {
             </div>
             <span style={{
               fontSize: "0.82rem", fontWeight: step === "address" ? 900 : 700,
-              color: "#000", textTransform: "uppercase", letterSpacing: "0.06em"
+              color: "#000", textTransform: "uppercase", letterSpacing: '-0.025em'
             }}>
               Delivery Address
             </span>
@@ -202,14 +202,14 @@ export default function CheckoutPage() {
             <span style={{
               fontSize: "0.82rem", fontWeight: step === "review" ? 900 : 600,
               color: step === "review" ? "#000" : "#9ca3af",
-              textTransform: "uppercase", letterSpacing: "0.06em"
+              textTransform: "uppercase", letterSpacing: '-0.025em'
             }}>
               Review & Pay
             </span>
           </div>
         </div>
 
-        <h1 style={{ fontSize: "1.75rem", fontWeight: 900, margin: "12px 0 0", textTransform: "uppercase", letterSpacing: "-0.01em", borderBottom: "2px solid #000", paddingBottom: 16 }}>
+        <h1 style={{ fontSize: "1.75rem", fontWeight: 900, margin: "12px 0 0", textTransform: "uppercase", letterSpacing: '-0.025em', borderBottom: "2px solid #000", paddingBottom: 16 }}>
           {step === "address" ? "Select Delivery Address" : "Order Review & Confirmation"}
         </h1>
       </div>
@@ -238,7 +238,7 @@ export default function CheckoutPage() {
                 <div style={{ padding: "18px 24px", borderBottom: "1px solid #e5e5e5", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <MapPinIcon size={18} color="#000" />
-                    <span style={{ fontSize: "0.85rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
                       Shipping Location
                     </span>
                   </div>
@@ -252,7 +252,7 @@ export default function CheckoutPage() {
 
                       background: "#000", color: "#fff", border: "none",
                       padding: "8px 18px", fontSize: "0.78rem", fontWeight: 900,
-                      cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em",
+                      cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
                       display: "flex", alignItems: "center", gap: 6
                     }}
                   >
@@ -265,14 +265,14 @@ export default function CheckoutPage() {
                   {loadingAddresses ? (
                     <div style={{ textAlign: "center", padding: "48px 0", color: "#888" }}>
                       <div style={{ width: 32, height: 32, border: "3px solid #000", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
-                      <span style={{ fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Loading addresses...</span>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: '-0.025em' }}>Loading addresses...</span>
                     </div>
                   ) : addresses.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "48px 24px", background: "#f8fafc", border: "1px dashed #000" }}>
                       <div style={{ width: 52, height: 52, background: "#fff", border: "2px solid #000", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
                         <MapPinIcon size={24} color="#000" />
                       </div>
-                      <h4 style={{ fontSize: "1rem", fontWeight: 900, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      <h4 style={{ fontSize: "1rem", fontWeight: 900, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: '-0.025em' }}>
                         No Saved Addresses
                       </h4>
                       <p style={{ fontSize: "0.85rem", color: "#666", margin: "0 0 20px", lineHeight: 1.5 }}>
@@ -284,7 +284,7 @@ export default function CheckoutPage() {
                         style={{
                           background: "#000", color: "#fff", border: "none",
                           padding: "12px 28px", fontWeight: 900, fontSize: "0.85rem",
-                          cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em"
+                          cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em'
                         }}
                       >
                         + Add Address Now
@@ -329,14 +329,14 @@ export default function CheckoutPage() {
                                     <span style={{
                                       background: "#000", color: "#fff",
                                       padding: "2px 8px", fontSize: "0.65rem", fontWeight: 900,
-                                      textTransform: "uppercase", letterSpacing: "0.06em",
+                                      textTransform: "uppercase", letterSpacing: '-0.025em',
                                       display: "inline-flex", alignItems: "center", gap: 4
                                     }}>
                                       {addr.label === "Home" ? <HomeIcon size={10} color="#fff" /> : addr.label === "Work" || addr.label === "Office" ? <BriefcaseIcon size={10} color="#fff" /> : <MapPinIcon size={10} color="#fff" />}
                                       {addr.label}
                                     </span>
                                     {addr.is_default && (
-                                      <span style={{ background: "#f0fdf4", border: "1px solid #16a34a", color: "#15803d", padding: "2px 7px", fontSize: "0.62rem", fontWeight: 900, letterSpacing: "0.06em" }}>
+                                      <span style={{ background: "#f0fdf4", border: "1px solid #16a34a", color: "#15803d", padding: "2px 7px", fontSize: "0.62rem", fontWeight: 900, letterSpacing: '-0.025em' }}>
                                         DEFAULT
                                       </span>
                                     )}
@@ -351,7 +351,7 @@ export default function CheckoutPage() {
                                     style={{
                                       background: "#fff", border: "1px solid #000", color: "#000",
                                       padding: "4px 10px", fontSize: "0.7rem", fontWeight: 800,
-                                      cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em",
+                                      cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
                                       display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0,
                                       transition: "background 0.15s"
                                     }}
@@ -396,7 +396,7 @@ export default function CheckoutPage() {
                       color: "#fff", border: "none",
                       padding: "16px", fontWeight: 900, fontSize: "0.9rem",
                       cursor: selectedAddressId && addresses.length > 0 ? "pointer" : "not-allowed",
-                      textTransform: "uppercase", letterSpacing: "0.06em",
+                      textTransform: "uppercase", letterSpacing: '-0.025em',
                       display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                       transition: "background 0.2s"
                     }}
@@ -415,13 +415,13 @@ export default function CheckoutPage() {
                 <div className="vahn-card-box-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                     <MapPinIcon size={16} color="#000" />
-                    <span style={{ fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    <span style={{ fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
                       Delivery Address
                     </span>
                   </div>
                   <button
                     onClick={() => setStep("address")}
-                    style={{ background: "none", border: "1px solid #000", color: "#000", padding: "6px 14px", fontSize: "0.75rem", fontWeight: 900, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em" }}
+                    style={{ background: "none", border: "1px solid #000", color: "#000", padding: "6px 14px", fontSize: "0.75rem", fontWeight: 900, cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em' }}
                   >
                     Edit
                   </button>
@@ -455,7 +455,7 @@ export default function CheckoutPage() {
               <div className="vahn-card-box">
                 <div className="vahn-card-box-header" style={{ display: "flex", alignItems: "center", gap: 9 }}>
                   <ShoppingBagIcon size={16} color="#000" />
-                  <span style={{ fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  <span style={{ fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
                     Ordered Items ({cartLines.length})
                   </span>
                 </div>
@@ -503,7 +503,7 @@ export default function CheckoutPage() {
                   style={{
                     background: "#fff", border: "2px solid #000", color: "#000",
                     padding: "14px 20px", fontWeight: 900, fontSize: "0.82rem",
-                    cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0
+                    cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em', flexShrink: 0
                   }}
                 >
                   ← Back
@@ -516,7 +516,7 @@ export default function CheckoutPage() {
                     flex: 1, background: placingOrder ? "#555" : "#000", color: "#fff",
                     border: "none", padding: "14px", fontWeight: 900, fontSize: "0.9rem",
                     cursor: placingOrder ? "not-allowed" : "pointer",
-                    textTransform: "uppercase", letterSpacing: "0.06em",
+                    textTransform: "uppercase", letterSpacing: '-0.025em',
                     transition: "background 0.2s"
                   }}
                 >
@@ -532,7 +532,7 @@ export default function CheckoutPage() {
           <div className="vahn-checkout-sidebar">
             <div style={{ padding: "16px 22px", borderBottom: "1px solid #e5e5e5", display: "flex", alignItems: "center", gap: 9 }}>
               <ShoppingBagIcon size={16} color="#000" />
-              <h3 style={{ fontSize: "0.82rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <h3 style={{ fontSize: "0.82rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
                 Order Summary
               </h3>
             </div>
@@ -597,7 +597,7 @@ export default function CheckoutPage() {
 
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: "2px solid #000", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "#555" }}>Total Payable</div>
+                    <div style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#555" }}>Total Payable</div>
                     <div style={{ fontSize: "0.72rem", color: "#999", marginTop: 2 }}>Incl. taxes & shipping</div>
                   </div>
                   <div style={{ fontSize: "1.5rem", fontWeight: 900, color: "#000" }}>
@@ -622,7 +622,7 @@ export default function CheckoutPage() {
             {/* Security note */}
             <div style={{ margin: "0 22px 22px", background: "#f8fafc", border: "1px solid #e5e5e5", padding: "10px 14px", display: "flex", gap: 8, alignItems: "center" }}>
               <ShieldCheckIcon size={16} color="#555" />
-              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: '-0.025em' }}>
                 256-bit Encrypted & Secure
               </span>
             </div>

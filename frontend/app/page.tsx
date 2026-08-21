@@ -15,14 +15,18 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const { products } = await getProducts({ first: 8 }).catch(() => ({ products: [], hasNextPage: false, endCursor: null }));
+  const { products } = await getProducts({ first: 24 }).catch(() => ({
+    products: [],
+    hasNextPage: false,
+    endCursor: null,
+  }));
 
   return (
     <>
       {/* 1. Hero — full-viewport dark with "THIS IS VAHN" text overlay */}
       <HeroSection />
 
-      {/* 2. Fresh Out of the Locker — horizontal product carousel */}
+      {/* 2. Fresh Out of the Locker — horizontal product carousel with all expanded colours */}
       <FreshOutLocker products={products} />
 
       {/* 3. Pick Your Side — dark strip + two blue athlete panels */}
@@ -37,7 +41,7 @@ export default async function HomePage() {
       {/* 6. Brand Statement — solid blue background with brand manifesto */}
       <BrandStatement />
 
-      {/* 7. Marquee strip — blue scrolling text on dark bg */}
+      {/* 7. Marquee strip — Play On. blue serif scrolling text */}
       <MarqueeStrip />
     </>
   );

@@ -413,7 +413,7 @@ export default function AdminCollectionsPage() {
                             {/* Product results */}
                             {productResults.length > 0 && (
                               <div style={{ marginBottom: 16 }}>
-                                <p style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--admin-text-muted)', marginBottom: 10 }}>
+                                <p style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '-0.025em', textTransform: 'uppercase', color: 'var(--admin-text-muted)', marginBottom: 10 }}>
                                   Results ({productResults.length})
                                 </p>
                                 <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--admin-border)', borderRadius: 6 }}>
@@ -482,7 +482,7 @@ export default function AdminCollectionsPage() {
                             {/* Attached products */}
                             {attachedProducts.length > 0 && (
                               <div>
-                                <p style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--admin-text-muted)', marginBottom: 10 }}>
+                                <p style={{ fontSize: '0.75rem', fontWeight: 600, letterSpacing: '-0.025em', textTransform: 'uppercase', color: 'var(--admin-text-muted)', marginBottom: 10 }}>
                                   Currently Attached ({attachedProducts.length})
                                 </p>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

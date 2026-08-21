@@ -134,7 +134,7 @@ export default function ProductCard({
               color: '#ffffff',
               fontWeight: 800,
               fontSize: '0.6875rem',
-              letterSpacing: '0.06em',
+              letterSpacing: '-0.025em',
             }}
           >
             OUT OF STOCK
@@ -147,7 +147,7 @@ export default function ProductCard({
               color: '#ffffff',
               fontWeight: 800,
               fontSize: '0.6875rem',
-              letterSpacing: '0.06em',
+              letterSpacing: '-0.025em',
             }}
           >
             {highestDiscountPercent}% OFF
@@ -193,7 +193,7 @@ export default function ProductCard({
             style={{
               fontSize: '0.6875rem',
               fontWeight: 700,
-              letterSpacing: '0.08em',
+              letterSpacing: '-0.025em',
               textTransform: 'uppercase',
               color: 'var(--color-grey-dark, #71717a)',
               marginBottom: '3px',
@@ -207,7 +207,7 @@ export default function ProductCard({
 
         <div className="product-card-price" style={{ marginTop: '4px' }}>
           {isAllOutOfStock ? (
-            <span style={{ color: '#d32f2f', fontWeight: 700, fontSize: '0.8125rem', letterSpacing: '0.04em' }}>
+            <span style={{ color: '#d32f2f', fontWeight: 700, fontSize: '0.8125rem', letterSpacing: '-0.025em' }}>
               OUT OF STOCK
             </span>
           ) : isOnSale && displayComparePrice ? (

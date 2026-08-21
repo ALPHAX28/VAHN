@@ -41,7 +41,7 @@ export default function PasswordForm() {
           color: 'white',
           fontFamily: 'var(--font-ui)',
           fontWeight: 600,
-          letterSpacing: '0.08em',
+          letterSpacing: '-0.025em',
           fontSize: '0.875rem',
           textTransform: 'uppercase',
         }}

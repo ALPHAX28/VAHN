@@ -220,15 +220,15 @@ export default function AdminOrderDetailPage() {
           {/* Label Top Header */}
           <div style={{ borderBottom: "3px solid #000", paddingBottom: 14, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <h1 style={{ fontSize: "2.2rem", fontWeight: 900, margin: 0, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              <h1 style={{ fontSize: "2.2rem", fontWeight: 900, margin: 0, letterSpacing: '-0.025em', textTransform: "uppercase" }}>
                 VAHN
               </h1>
-              <div style={{ fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#333" }}>
+              <div style={{ fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#333" }}>
                 EXPRESS PRIORITY SHIPPING
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <span style={{ background: "#000", color: "#fff", padding: "5px 14px", fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              <span style={{ background: "#000", color: "#fff", padding: "5px 14px", fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
                 PREPAID
               </span>
               <div style={{ fontSize: "0.72rem", fontWeight: 800, marginTop: 6, color: "#444" }}>
@@ -239,18 +239,18 @@ export default function AdminOrderDetailPage() {
 
           {/* Barcode & Waybill Tracking */}
           <div style={{ borderBottom: "2px solid #000", paddingBottom: 14, marginBottom: 14, textAlign: "center" }}>
-            <div style={{ fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "#666", marginBottom: 4 }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#666", marginBottom: 4 }}>
               WAYBILL / TRACKING NUMBER
             </div>
             {/* Scannable visual Barcode pattern */}
             <div style={{
               fontFamily: "'Courier New', monospace",
-              fontSize: "2.4rem", fontWeight: 700, letterSpacing: "3px",
+              fontSize: "2.4rem", fontWeight: 700, letterSpacing: '-0.025em',
               lineHeight: 1, margin: "4px 0"
             }}>
               |||| | ||| |||| | |||| ||| |||| | |||
             </div>
-            <div style={{ fontSize: "1.1rem", fontWeight: 900, letterSpacing: "0.08em" }}>
+            <div style={{ fontSize: "1.1rem", fontWeight: 900, letterSpacing: '-0.025em' }}>
               VAHN-{order.id}
             </div>
             <div style={{ fontSize: "0.75rem", color: "#555", marginTop: 4 }}>
@@ -260,7 +260,7 @@ export default function AdminOrderDetailPage() {
 
           {/* SHIP TO (DELIVERY RECIPIENT) - BOLD LARGE BOX */}
           <div style={{ border: "2px solid #000", padding: "16px 20px", marginBottom: 14, background: "#fafafa" }}>
-            <div style={{ fontSize: "0.7rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em", color: "#555", borderBottom: "1px solid #ddd", paddingBottom: 6, marginBottom: 10 }}>
+            <div style={{ fontSize: "0.7rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#555", borderBottom: "1px solid #ddd", paddingBottom: 6, marginBottom: 10 }}>
               DELIVER TO (RECIPIENT)
             </div>
             <div style={{ fontSize: "1.3rem", fontWeight: 900, color: "#000", marginBottom: 4 }}>
@@ -281,7 +281,7 @@ export default function AdminOrderDetailPage() {
 
           {/* RETURN ADDRESS (SHIP FROM) */}
           <div style={{ borderBottom: "2px dashed #000", paddingBottom: 12, marginBottom: 12, fontSize: "0.78rem" }}>
-            <div style={{ fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: "#666", marginBottom: 4 }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#666", marginBottom: 4 }}>
               IF UNDELIVERED, RETURN TO:
             </div>
             <div style={{ fontWeight: 800 }}>VAHN SPORTSWEAR INDIA PVT. LTD.</div>

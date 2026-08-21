@@ -103,7 +103,7 @@ export default function SearchModal({ onClose }: Props) {
           <div className="search-modal-results">
             {results.products.length > 0 && (
               <>
-                <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-grey-dark)', marginBottom: '8px' }}>Products</p>
+                <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '-0.025em', textTransform: 'uppercase', color: 'var(--color-grey-dark)', marginBottom: '8px' }}>Products</p>
                 {results.products.map((p) => (
                   <Link
                     key={p.id}
@@ -128,7 +128,7 @@ export default function SearchModal({ onClose }: Props) {
 
             {results.collections.length > 0 && (
               <>
-                <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-grey-dark)', margin: '16px 0 8px' }}>Collections</p>
+                <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '-0.025em', textTransform: 'uppercase', color: 'var(--color-grey-dark)', margin: '16px 0 8px' }}>Collections</p>
                 {results.collections.map((c) => (
                   <Link key={c.id} href={`/collections/${c.handle}`} className="search-result-item" onClick={onClose}>
                     <div style={{ fontWeight: 500 }}>{c.title}</div>

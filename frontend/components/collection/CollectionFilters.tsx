@@ -23,12 +23,12 @@ export default function CollectionFilters({ filters }: Props) {
 
   return (
     <div>
-      <p style={{ fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', fontSize: '0.75rem', marginBottom: 'var(--space-lg)' }}>
+      <p style={{ fontWeight: 700, letterSpacing: '-0.025em', textTransform: 'uppercase', fontSize: '0.75rem', marginBottom: 'var(--space-lg)' }}>
         Filters
       </p>
       {filters.map((filter) => (
         <div key={filter.id} style={{ marginBottom: 'var(--space-lg)' }}>
-          <p style={{ fontWeight: 600, fontSize: '0.8125rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+          <p style={{ fontWeight: 600, fontSize: '0.8125rem', textTransform: 'uppercase', letterSpacing: '-0.025em', marginBottom: '10px' }}>
             {filter.label}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

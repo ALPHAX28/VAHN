@@ -2,19 +2,19 @@ import Link from 'next/link';
 
 const CATEGORIES = [
   {
-    label: 'Tops',
-    href: '/collections/tops',
+    label: 'TOPS',
+    href: '/products',
     active: true,
     subLabel: 'Explore',
   },
   {
-    label: 'Bottoms',
+    label: 'BOTTOMS',
     href: null,
     active: false,
     subLabel: 'Coming Soon',
   },
   {
-    label: 'Accessories',
+    label: 'ACCESSORIES',
     href: null,
     active: false,
     subLabel: 'Coming Soon',
@@ -26,81 +26,83 @@ export default function ExploreCategories() {
     <section
       style={{
         background: '#ffffff',
-        padding: '64px 40px',
+        padding: 'clamp(48px, 6vw, 72px) clamp(20px, 6vw, 80px)',
       }}
     >
-      <h2
-        style={{
-          fontFamily: 'var(--font-heading)',
-          fontWeight: 900,
-          fontSize: 'clamp(1.125rem, 2.5vw, 1.75rem)',
-          textTransform: 'uppercase',
-          letterSpacing: '-0.01em',
-          color: '#000',
-          marginBottom: '28px',
-        }}
-      >
-        Explore Categories
-      </h2>
+      <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
+        <h2
+          style={{
+            fontFamily: 'var(--font-heading)',
+            fontWeight: 900,
+            fontSize: 'clamp(1.25rem, 2.5vw, 1.875rem)',
+            textTransform: 'uppercase',
+            letterSpacing: '-0.025em',
+            color: '#000000',
+            marginBottom: '28px',
+          }}
+        >
+          EXPLORE CATEGORIES
+        </h2>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-        {CATEGORIES.map((cat, i) => (
-          <div
-            key={cat.label}
-            style={{
-              border: '1px solid #ebebeb',
-              borderBottom: i < CATEGORIES.length - 1 ? 'none' : '1px solid #ebebeb',
-              background: cat.active ? '#111111' : '#f9f9f9',
-              padding: '24px 28px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-            }}
-          >
-            <h3
-              style={{
-                fontFamily: 'var(--font-heading)',
-                fontWeight: 700,
-                fontSize: 'clamp(1rem, 2vw, 1.375rem)',
-                textTransform: 'uppercase',
-                letterSpacing: '-0.01em',
-                color: cat.active ? '#ffffff' : '#555555',
-                margin: 0,
-              }}
-            >
-              {cat.label}
-            </h3>
-            {cat.active && cat.href ? (
-              <Link
-                href={cat.href}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+          {CATEGORIES.map((cat, i) => {
+            const isLast = i === CATEGORIES.length - 1;
+            const content = (
+              <div
                 style={{
-                  fontFamily: 'var(--font-heading)',
-                  fontSize: '0.75rem',
-                  fontWeight: 500,
-                  letterSpacing: '0.04em',
-                  color: '#3a3699',
-                  textDecoration: 'none',
-                  textTransform: 'uppercase',
+                  border: '1px solid #ebebeb',
+                  borderBottom: isLast ? '1px solid #ebebeb' : 'none',
+                  background: cat.active ? '#111111' : '#f9f9f9',
+                  padding: '24px 28px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  transition: 'background-color 0.2s ease',
+                  cursor: cat.active ? 'pointer' : 'default',
                 }}
               >
-                {cat.subLabel} →
+                <h3
+                  style={{
+                    fontFamily: 'var(--font-heading)',
+                    fontWeight: 900,
+                    fontSize: 'clamp(1rem, 2vw, 1.375rem)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '-0.025em',
+                    color: cat.active ? '#ffffff' : '#666666',
+                    margin: 0,
+                  }}
+                >
+                  {cat.label}
+                </h3>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    letterSpacing: '-0.025em',
+                    color: cat.active ? '#4f46e5' : '#aaaaaa',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {cat.subLabel} {cat.active ? '→' : ''}
+                </span>
+              </div>
+            );
+
+            return cat.active && cat.href ? (
+              <Link
+                key={cat.label}
+                href={cat.href}
+                style={{ textDecoration: 'none', display: 'block' }}
+                aria-label={`Explore ${cat.label}`}
+              >
+                {content}
               </Link>
             ) : (
-              <span
-                style={{
-                  fontFamily: 'var(--font-heading)',
-                  fontSize: '0.75rem',
-                  fontWeight: 400,
-                  letterSpacing: '0.04em',
-                  color: '#aaaaaa',
-                  textTransform: 'uppercase',
-                }}
-              >
-                {cat.subLabel}
-              </span>
-            )}
-          </div>
-        ))}
+              <div key={cat.label}>{content}</div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

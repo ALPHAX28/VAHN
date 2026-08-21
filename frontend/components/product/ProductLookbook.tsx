@@ -67,7 +67,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
           }}
         >
           <div>
-            <p className="section-title" style={{ letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            <p className="section-title" style={{ letterSpacing: '-0.025em', textTransform: 'uppercase' }}>
               Inspiration
             </p>
             <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2.5rem)', marginTop: '4px' }}>

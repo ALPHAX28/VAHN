@@ -66,7 +66,7 @@ const labelStyle: React.CSSProperties = {
   fontWeight: 800,
   color: "#555",
   textTransform: "uppercase" as const,
-  letterSpacing: "0.07em",
+  letterSpacing: '-0.025em',
   display: "block",
   marginBottom: 6
 };
@@ -360,7 +360,7 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
           position: "sticky", top: 0, background: "#fff", zIndex: 10
         }}>
           <div>
-            <h2 style={{ fontSize: "1.1rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.04em", margin: 0 }}>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', margin: 0 }}>
               {initialAddress ? "Edit Delivery Address" : "Add Delivery Address"}
             </h2>
             <p style={{ fontSize: "0.75rem", color: "#666", margin: "2px 0 0" }}>
@@ -399,7 +399,7 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
               onClick={() => setActiveTab("search")}
               style={{
                 flex: 1, padding: "10px", fontSize: "0.82rem", fontWeight: 900,
-                textTransform: "uppercase", letterSpacing: "0.05em", background: "none", border: "none",
+                textTransform: "uppercase", letterSpacing: '-0.025em', background: "none", border: "none",
                 borderBottom: activeTab === "search" ? "3px solid #000" : "3px solid transparent",
                 color: activeTab === "search" ? "#000" : "#888", cursor: "pointer", transition: "all 0.15s",
                 display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8
@@ -413,7 +413,7 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
               onClick={() => setActiveTab("manual")}
               style={{
                 flex: 1, padding: "10px", fontSize: "0.82rem", fontWeight: 900,
-                textTransform: "uppercase", letterSpacing: "0.05em", background: "none", border: "none",
+                textTransform: "uppercase", letterSpacing: '-0.025em', background: "none", border: "none",
                 borderBottom: activeTab === "manual" ? "3px solid #000" : "3px solid transparent",
                 color: activeTab === "manual" ? "#000" : "#888", cursor: "pointer", transition: "all 0.15s",
                 display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8
@@ -493,7 +493,7 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
                   style={{
                     background: "#000", color: "#fff", border: "none", padding: "12px",
                     fontWeight: 900, fontSize: "0.85rem", cursor: "pointer",
-                    textTransform: "uppercase", letterSpacing: "0.05em", width: "100%"
+                    textTransform: "uppercase", letterSpacing: '-0.025em', width: "100%"
                   }}
                 >
                   Continue to Complete Address Details →
@@ -520,7 +520,7 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
                           color: isActive ? "#fff" : "#000",
                           border: isActive ? "1px solid #000" : "1px solid #d1d5db",
                           padding: "7px 14px", fontSize: "0.78rem", fontWeight: 800,
-                          cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em",
+                          cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
                           display: "inline-flex", alignItems: "center", gap: 6,
                           transition: "all 0.15s"
                         }}
@@ -754,7 +754,7 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
                   style={{
                     background: "#fff", border: "2px solid #000", color: "#000",
                     padding: "12px 22px", fontWeight: 900, fontSize: "0.82rem",
-                    cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em",
+                    cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
                     transition: "background 0.15s"
                   }}
                   onMouseEnter={e => { e.currentTarget.style.background = "#f3f4f6"; }}
@@ -768,7 +768,7 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
                     background: loading ? "#666" : "#000", color: "#fff",
                     border: "none", padding: "12px 28px", fontWeight: 900, fontSize: "0.85rem",
                     cursor: loading ? "not-allowed" : "pointer",
-                    textTransform: "uppercase", letterSpacing: "0.05em", transition: "background 0.2s"
+                    textTransform: "uppercase", letterSpacing: '-0.025em', transition: "background 0.2s"
                   }}
                 >
                   {loading ? "Saving..." : initialAddress ? "Update Address →" : "Save Address →"}

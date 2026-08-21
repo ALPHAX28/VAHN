@@ -7,7 +7,9 @@ export default function HeroSection() {
         position: 'relative',
         width: '100%',
         height: '100vh',
-        minHeight: '600px',
+        minHeight: '640px',
+        marginTop: '-60px',
+        paddingTop: '60px',
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'flex-end',
@@ -15,7 +17,7 @@ export default function HeroSection() {
         paddingBottom: '80px',
       }}
     >
-      {/* Placeholder background — replace with <Image> or <video> when assets are ready */}
+      {/* Placeholder background */}
       <div
         style={{
           position: 'absolute',
@@ -25,7 +27,6 @@ export default function HeroSection() {
         }}
         aria-hidden="true"
       >
-        {/* Grey placeholder grid to indicate "image goes here" */}
         <div
           style={{
             width: '100%',
@@ -34,7 +35,6 @@ export default function HeroSection() {
               'repeating-linear-gradient(0deg,rgba(255,255,255,0.03) 0 1px,transparent 1px 60px),repeating-linear-gradient(90deg,rgba(255,255,255,0.03) 0 1px,transparent 1px 60px)',
           }}
         />
-        {/* Image placeholder label */}
         <div
           style={{
             position: 'absolute',
@@ -83,7 +83,7 @@ export default function HeroSection() {
             fontWeight: 900,
             fontSize: 'clamp(2.5rem, 7vw, 6rem)',
             textTransform: 'uppercase',
-            letterSpacing: '0.02em',
+            letterSpacing: '-0.025em',
             color: '#ffffff',
             lineHeight: 1,
             marginBottom: '12px',
@@ -99,7 +99,7 @@ export default function HeroSection() {
             fontSize: '1.0625rem',
             color: '#ffffff',
             textDecoration: 'none',
-            letterSpacing: '0.03em',
+            letterSpacing: '-0.025em',
             opacity: 0.9,
             display: 'inline-block',
           }}

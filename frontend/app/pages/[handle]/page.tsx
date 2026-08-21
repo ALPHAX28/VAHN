@@ -69,7 +69,7 @@ export default async function PageRoute({ params }: Props) {
             }}
           >
             <div style={{ textAlign: 'center', color: 'white' }}>
-              <p style={{ fontFamily: 'var(--font-heading)', fontSize: '3rem', letterSpacing: '0.2em' }}>VAHN</p>
+              <p style={{ fontFamily: 'var(--font-heading)', fontSize: '3rem', letterSpacing: '-0.025em' }}>VAHN</p>
               <p style={{ fontSize: '0.875rem', opacity: 0.7, marginTop: '8px' }}>Bespoke Teamwear 2025</p>
             </div>
           </div>

@@ -69,7 +69,7 @@ export default function SuspensionModal({ isOpen, message, onClose, noticeType }
             </div>
             <span style={{
               fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase",
-              letterSpacing: "0.12em"
+              letterSpacing: '-0.025em'
             }}>
               {badgeLabel}
             </span>
@@ -100,7 +100,7 @@ export default function SuspensionModal({ isOpen, message, onClose, noticeType }
 
           <h2 style={{
             fontSize: "1.25rem", fontWeight: 900, textTransform: "uppercase",
-            letterSpacing: "0.05em", margin: "0 0 10px", color: "#000000"
+            letterSpacing: '-0.025em', margin: "0 0 10px", color: "#000000"
           }}>
             {title}
           </h2>
@@ -121,7 +121,7 @@ export default function SuspensionModal({ isOpen, message, onClose, noticeType }
               fontSize: "0.83rem", color: "#334155", lineHeight: 1.5
             }}>
               <div style={{
-                fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em",
+                fontWeight: 800, textTransform: "uppercase", letterSpacing: '-0.025em',
                 color: isDeleted ? "#334155" : "#dc2626", fontSize: "0.72rem", marginBottom: 4
               }}>
                 Administration Notice
@@ -139,7 +139,7 @@ export default function SuspensionModal({ isOpen, message, onClose, noticeType }
               width: "100%", background: "#000000", color: "#ffffff",
               border: "none", padding: "14px 24px", fontSize: "0.85rem",
               fontWeight: 900, cursor: "pointer", textTransform: "uppercase",
-              letterSpacing: "0.08em", transition: "background 0.15s"
+              letterSpacing: '-0.025em', transition: "background 0.15s"
             }}
           >
             Understood — Return to Shop &rarr;

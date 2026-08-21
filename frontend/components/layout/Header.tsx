@@ -14,9 +14,6 @@ const NAV_LINKS = [
   { href: '/pages/about', label: 'Our Story' },
 ];
 
-// Pages where the header starts transparent over the hero
-const TRANSPARENT_PATHS = ['/'];
-
 export default function Header() {
   const { totalQuantity, openCart } = useCart();
   const { user, openAuthModal, logout } = useAuth();
@@ -27,7 +24,8 @@ export default function Header() {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [shouldRenderNav, setShouldRenderNav] = useState(false);
   const [isClosingNav, setIsClosingNav] = useState(false);
-  const [logoError, setLogoError] = useState(false);
+
+  const isHomepage = pathname === '/';
 
   useEffect(() => {
     if (mobileOpen || searchOpen) {
@@ -54,120 +52,165 @@ export default function Header() {
     }
   }, [mobileOpen, shouldRenderNav]);
 
-  // Derive transparent from pathname — no useEffect setState needed
-  const isTransparent = TRANSPARENT_PATHS.some(
-    (p) => p === pathname || (p !== '/' && pathname.startsWith(p))
-  );
-
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 80);
+    const handleScroll = () => setScrolled(window.scrollY > 30);
+    handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const headerClass = [
-    'header',
-    isTransparent && !scrolled ? 'transparent' : '',
-    scrolled ? 'scrolled' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const logoLight = isTransparent && !scrolled;
+  const isTransparent = isHomepage && !scrolled;
 
   return (
-    <>
-      {/* Announcement Bar */}
-      <div className="announcement-bar" role="banner">
+    <div
+      style={{
+        position: 'sticky',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 'var(--z-header)',
+      }}
+    >
+      {/* Announcement Bar — Solid Black at all times */}
+      <div
+        style={{
+          textAlign: 'center',
+          padding: '8px 16px',
+          fontSize: '0.75rem',
+          fontWeight: 600,
+          letterSpacing: '-0.025em',
+          textTransform: 'uppercase',
+          color: 'rgba(255, 255, 255, 0.9)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          backgroundColor: '#000000',
+          fontFamily: 'var(--font-heading)',
+        }}
+        role="banner"
+      >
         SHIPPING PAN INDIA
       </div>
 
-      <header className={headerClass}>
-        <div className="header-inner">
-          {/* Left: Desktop Nav */}
-          <nav className="header-nav" aria-label="Primary navigation">
-            {NAV_LINKS.slice(0, 3).map((link) => (
-              <Link key={link.href} href={link.href} className="nav-link">
+      {/* Main VAHN Header Bar — Transparent at top with thin white line, transitions to dark on scroll */}
+      <header
+        style={{
+          width: '100%',
+          backgroundColor: isTransparent ? 'transparent' : '#0d0d0f',
+          borderBottom: isTransparent
+            ? '1px solid rgba(255, 255, 255, 0.25)'
+            : '1px solid rgba(255, 255, 255, 0.12)',
+          boxShadow: scrolled ? '0 4px 20px rgba(0, 0, 0, 0.5)' : 'none',
+          transition: 'background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '1440px',
+            margin: '0 auto',
+            height: '60px',
+            display: 'grid',
+            gridTemplateColumns: '1fr auto 1fr',
+            alignItems: 'center',
+            padding: '0 clamp(16px, 4vw, 48px)',
+          }}
+        >
+          {/* Left: Desktop Nav Links */}
+          <nav
+            style={{ display: 'flex', alignItems: 'center', gap: '28px' }}
+            aria-label="Primary navigation"
+          >
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                style={{
+                  fontFamily: 'var(--font-ui)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 500,
+                  letterSpacing: '-0.025em',
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  textDecoration: 'none',
+                  transition: 'color 0.2s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)')}
+              >
                 {link.label}
               </Link>
             ))}
           </nav>
 
-          {/* Center: Logo */}
-          <Link href="/" className="header-logo" aria-label="VAHN — Go to homepage" style={{ display: 'flex', alignItems: 'center', height: '28px' }}>
-            {logoError ? (
-              <span
-                style={{
-                  fontFamily: 'var(--font-heading)',
-                  fontSize: '1.5rem',
-                  letterSpacing: '0.25em',
-                  textTransform: 'uppercase',
-                  color: logoLight ? '#ffffff' : '#000000',
-                  lineHeight: 1,
-                }}
-              >
-                VAHN
-              </span>
-            ) : (
-              <Image
-                src={logoLight ? '/assets/logo-white.png' : '/assets/logo.png'}
-                alt="VAHN"
-                width={120}
-                height={28}
-                priority
-                style={{ display: 'block', height: '28px', width: 'auto' }}
-                onError={() => setLogoError(true)}
-              />
-            )}
+          {/* Center: Official VAHN Logo */}
+          <Link
+            href="/"
+            aria-label="VAHN — Go to homepage"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textDecoration: 'none',
+            }}
+          >
+            <Image
+              src="/assets/logos/VAHN-Primary-colour-transparent.png"
+              alt="VAHN"
+              width={124}
+              height={30}
+              priority
+              style={{
+                height: '28px',
+                width: 'auto',
+                display: 'block',
+                objectFit: 'contain',
+              }}
+            />
           </Link>
 
-          {/* Right: Actions */}
-          <div className="header-actions">
-            {/* Extra nav links (hidden, handled in mobile nav) */}
-            {NAV_LINKS.slice(3).map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="nav-link"
-                aria-hidden="true"
-                tabIndex={-1}
-                style={{ display: 'none' }}
-              />
-            ))}
-
-            {/* Search */}
+          {/* Right: Actions (Search, Account, Cart, Mobile Menu) */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: '16px',
+            }}
+          >
+            {/* 1. Search Icon */}
             <button
-              className="header-icon"
               aria-label="Search"
               onClick={() => setSearchOpen(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'rgba(255, 255, 255, 0.9)',
+                padding: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'color 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)')}
             >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="8.5" cy="8.5" r="5.5" />
-                <line x1="13" y1="13" x2="18" y2="18" />
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
             </button>
 
-            {/* Cart */}
-            <button
-              className="header-icon"
-              aria-label={`Cart (${totalQuantity} items)`}
-              onClick={openCart}
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M2 2h2l2.68 9.39a1 1 0 0 0 .94.67h8.16a1 1 0 0 0 .94-.67L18 6H6" />
-                <circle cx="8" cy="17" r="1" fill="currentColor" stroke="none" />
-                <circle cx="15" cy="17" r="1" fill="currentColor" stroke="none" />
-              </svg>
-              {totalQuantity > 0 && (
-                <span className="cart-badge">{totalQuantity}</span>
-              )}
-            </button>
-
-            {/* User Account / Auth */}
-            <div className="header-user-menu-wrapper" style={{ position: 'relative' }}>
+            {/* 2. User Account Icon */}
+            <div style={{ position: 'relative' }}>
               <button
-                className="header-icon"
-                aria-label={user ? `Account (${user.full_name})` : "Sign In / Register"}
+                aria-label={user ? `Account (${user.full_name})` : 'Sign In / Register'}
                 onClick={() => {
                   if (user) {
                     setUserDropdownOpen(!userDropdownOpen);
@@ -175,71 +218,181 @@ export default function Header() {
                     openAuthModal();
                   }
                 }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  padding: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'color 0.2s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)')}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
               </button>
 
-              {/* Logged In Dropdown Menu */}
+              {/* Dropdown Menu when logged in */}
               {user && userDropdownOpen && (
-                <div className="header-user-dropdown" onClick={() => setUserDropdownOpen(false)}>
-                  <div className="dropdown-user-greeting">
-                    <span className="greeting-sub">Welcome</span>
-                    <strong className="greeting-name">{user.full_name}</strong>
+                <div
+                  className="header-user-dropdown"
+                  onClick={() => setUserDropdownOpen(false)}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '100%',
+                    marginTop: '8px',
+                    background: '#16181e',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '6px',
+                    padding: '12px',
+                    minWidth: '200px',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+                    zIndex: 200,
+                  }}
+                >
+                  <div style={{ padding: '4px 8px 8px' }}>
+                    <span style={{ fontSize: '0.6875rem', color: '#888', display: 'block' }}>Signed in as</span>
+                    <strong style={{ fontSize: '0.875rem', color: '#fff' }}>{user.full_name}</strong>
                   </div>
-                  <hr className="dropdown-divider" />
-                  <Link href="/account/profile" className="user-dropdown-item">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                      <circle cx="12" cy="7" r="4" />
-                    </svg>
+                  <hr style={{ borderColor: 'rgba(255, 255, 255, 0.1)', margin: '4px 0 8px' }} />
+                  <Link
+                    href="/account/profile"
+                    style={{
+                      display: 'block',
+                      padding: '6px 8px',
+                      color: 'rgba(255, 255, 255, 0.8)',
+                      textDecoration: 'none',
+                      fontSize: '0.8125rem',
+                    }}
+                  >
                     Profile & Password
                   </Link>
-                  <Link href="/account/addresses" className="user-dropdown-item">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                      <circle cx="12" cy="10" r="3" />
-                    </svg>
-                    Saved Delivery Addresses
-                  </Link>
-                  <Link href="/account/orders" className="user-dropdown-item">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                    </svg>
+                  <Link
+                    href="/account/orders"
+                    style={{
+                      display: 'block',
+                      padding: '6px 8px',
+                      color: 'rgba(255, 255, 255, 0.8)',
+                      textDecoration: 'none',
+                      fontSize: '0.8125rem',
+                    }}
+                  >
                     My Orders
                   </Link>
-                  <hr className="dropdown-divider" />
                   <button
-                    className="user-dropdown-item logout-btn"
                     onClick={() => {
                       logout();
                       setUserDropdownOpen(false);
                     }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '6px 8px',
+                      color: '#e02424',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '0.8125rem',
+                    }}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
                     Log Out
                   </button>
                 </div>
               )}
             </div>
 
+            {/* 3. Shopping Bag Cart Icon */}
+            <button
+              aria-label={`Cart (${totalQuantity} items)`}
+              onClick={openCart}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'rgba(255, 255, 255, 0.9)',
+                padding: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                transition: 'color 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)')}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+                <path d="M3 6h18" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+              {totalQuantity > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '0px',
+                    right: '0px',
+                    background: '#3a3699',
+                    color: '#ffffff',
+                    fontSize: '0.5625rem',
+                    fontWeight: 700,
+                    minWidth: '15px',
+                    height: '15px',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 3px',
+                  }}
+                >
+                  {totalQuantity}
+                </span>
+              )}
+            </button>
+
             {/* Mobile hamburger */}
             <button
-              className="hamburger header-icon"
+              className="hamburger"
               aria-label="Open menu"
               onClick={() => setMobileOpen(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#ffffff',
+                padding: '6px',
+                display: 'none',
+              }}
             >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <line x1="3" y1="5" x2="17" y2="5" />
-                <line x1="3" y1="10" x2="17" y2="10" />
-                <line x1="3" y1="15" x2="17" y2="15" />
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             </button>
           </div>
@@ -250,6 +403,6 @@ export default function Header() {
       {shouldRenderNav && (
         <MobileNav links={NAV_LINKS} isClosing={isClosingNav} onClose={() => setMobileOpen(false)} />
       )}
-    </>
+    </div>
   );
 }

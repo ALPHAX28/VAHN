@@ -102,7 +102,7 @@ export default function AdminUserDetailPage() {
           borderTopColor: "transparent", borderRadius: "50%",
           animation: "spin 0.8s linear infinite", margin: "0 auto 16px"
         }} />
-        <p style={{ color: "#888", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <p style={{ color: "#888", fontSize: "0.85rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
           Loading customer profile...
         </p>
       </div>
@@ -135,7 +135,7 @@ export default function AdminUserDetailPage() {
     <div>
       {/* Top Navigation & Breadcrumb */}
       <div style={{ marginBottom: 24 }}>
-        <Link href="/admin/users" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", fontWeight: 700, color: "#666", textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 12 }}>
+        <Link href="/admin/users" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", fontWeight: 700, color: "#666", textDecoration: "none", textTransform: "uppercase", letterSpacing: '-0.025em', marginBottom: 12 }}>
           <ChevronLeftIcon size={14} color="#666" />
           Back to Customers
         </Link>
@@ -145,14 +145,14 @@ export default function AdminUserDetailPage() {
             <div style={{
               width: 56, height: 56, background: "#000", color: "#fff",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "1.25rem", fontWeight: 900, letterSpacing: "0.05em",
+              fontSize: "1.25rem", fontWeight: 900, letterSpacing: '-0.025em',
               flexShrink: 0
             }}>
               {initials}
             </div>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <h1 style={{ fontSize: "1.6rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                <h1 style={{ fontSize: "1.6rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
                   {customer.full_name || "Customer Profile"}
                 </h1>
                 <AdminBadge variant={customer.is_verified ? "success" : "warning"}>
@@ -184,7 +184,7 @@ export default function AdminUserDetailPage() {
                 border: customer.is_active ? "1px solid #fca5a5" : "1px solid #86efac",
                 color: customer.is_active ? "#dc2626" : "#16a34a",
                 padding: "9px 18px", fontSize: "0.78rem", fontWeight: 800,
-                cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em"
+                cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em'
               }}
             >
               {customer.is_active ? "Suspend Account" : "Reactivate Account"}
@@ -196,7 +196,7 @@ export default function AdminUserDetailPage() {
               style={{
                 background: "#fff", border: "1px solid #e5e7eb", color: "#dc2626",
                 padding: "9px 14px", fontSize: "0.78rem", fontWeight: 800,
-                cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em",
+                cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
                 display: "inline-flex", alignItems: "center", gap: 6
               }}
             >
@@ -225,7 +225,7 @@ export default function AdminUserDetailPage() {
         gap: 16, marginBottom: 28
       }}>
         <div style={{ background: "#fff", border: "1px solid #e5e7eb", padding: "20px 24px" }}>
-          <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+          <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: '-0.025em', marginBottom: 6 }}>
             Total Orders
           </div>
           <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#000" }}>
@@ -237,7 +237,7 @@ export default function AdminUserDetailPage() {
         </div>
 
         <div style={{ background: "#fff", border: "1px solid #e5e7eb", padding: "20px 24px" }}>
-          <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+          <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: '-0.025em', marginBottom: 6 }}>
             Total Spend
           </div>
           <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#000" }}>
@@ -249,7 +249,7 @@ export default function AdminUserDetailPage() {
         </div>
 
         <div style={{ background: "#fff", border: "1px solid #e5e7eb", padding: "20px 24px" }}>
-          <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+          <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: '-0.025em', marginBottom: 6 }}>
             Avg. Order Value
           </div>
           <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#000" }}>
@@ -261,7 +261,7 @@ export default function AdminUserDetailPage() {
         </div>
 
         <div style={{ background: "#fff", border: "1px solid #e5e7eb", padding: "20px 24px" }}>
-          <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+          <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: '-0.025em', marginBottom: 6 }}>
             Customer Since
           </div>
           <div style={{ fontSize: "1.35rem", fontWeight: 900, color: "#000", marginTop: 4 }}>
@@ -284,7 +284,7 @@ export default function AdminUserDetailPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <ShoppingBagIcon size={18} color="#000" />
-                <h3 style={{ fontSize: "1rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>
+                <h3 style={{ fontSize: "1rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', margin: 0 }}>
                   Order History ({customer.orders.length})
                 </h3>
               </div>
@@ -300,7 +300,7 @@ export default function AdminUserDetailPage() {
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
                   <thead>
-                    <tr style={{ borderBottom: "2px solid #000", fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em", color: "#666" }}>
+                    <tr style={{ borderBottom: "2px solid #000", fontSize: "0.72rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#666" }}>
                       <th style={{ padding: "10px 12px" }}>Order ID</th>
                       <th style={{ padding: "10px 12px" }}>Date</th>
                       <th style={{ padding: "10px 12px" }}>Status</th>
@@ -344,7 +344,7 @@ export default function AdminUserDetailPage() {
                             style={{
                               background: "#000", color: "#fff", padding: "6px 12px",
                               fontSize: "0.72rem", fontWeight: 800, textDecoration: "none",
-                              textTransform: "uppercase", letterSpacing: "0.04em", display: "inline-block"
+                              textTransform: "uppercase", letterSpacing: '-0.025em', display: "inline-block"
                             }}
                           >
                             View →
@@ -363,7 +363,7 @@ export default function AdminUserDetailPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, borderBottom: "1px solid #f3f4f6", paddingBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <MapPinIcon size={18} color="#000" />
-                <h3 style={{ fontSize: "1rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>
+                <h3 style={{ fontSize: "1rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', margin: 0 }}>
                   Saved Delivery Locations ({customer.addresses.length})
                 </h3>
               </div>
@@ -390,12 +390,12 @@ export default function AdminUserDetailPage() {
                       <span style={{
                         background: "#000", color: "#fff",
                         padding: "2px 8px", fontSize: "0.65rem", fontWeight: 900,
-                        textTransform: "uppercase", letterSpacing: "0.06em"
+                        textTransform: "uppercase", letterSpacing: '-0.025em'
                       }}>
                         {addr.label}
                       </span>
                       {addr.is_default && (
-                        <span style={{ background: "#f0fdf4", border: "1px solid #16a34a", color: "#15803d", padding: "2px 7px", fontSize: "0.62rem", fontWeight: 900, letterSpacing: "0.06em" }}>
+                        <span style={{ background: "#f0fdf4", border: "1px solid #16a34a", color: "#15803d", padding: "2px 7px", fontSize: "0.62rem", fontWeight: 900, letterSpacing: '-0.025em' }}>
                           DEFAULT
                         </span>
                       )}
@@ -430,44 +430,44 @@ export default function AdminUserDetailPage() {
           
           {/* Customer Overview Card */}
           <div style={{ background: "#fff", border: "1px solid #e5e7eb", padding: "24px" }}>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 10 }}>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', margin: "0 0 16px", borderBottom: "1px solid #f3f4f6", paddingBottom: 10 }}>
               Profile Details
             </h3>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>User ID</div>
+                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: '-0.025em' }}>User ID</div>
                 <div style={{ fontSize: "0.9rem", fontWeight: 900, color: "#000", fontFamily: "monospace" }}>#{customer.id}</div>
               </div>
 
               <div>
-                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Full Name</div>
+                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: '-0.025em' }}>Full Name</div>
                 <div style={{ fontSize: "0.9rem", fontWeight: 800, color: "#000" }}>{customer.full_name || "—"}</div>
               </div>
 
               <div>
-                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Email Address</div>
+                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: '-0.025em' }}>Email Address</div>
                 <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#000", wordBreak: "break-all" }}>{customer.email}</div>
               </div>
 
               <div>
-                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Phone Number</div>
+                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: '-0.025em' }}>Phone Number</div>
                 <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#000" }}>{customer.phone || "—"}</div>
               </div>
 
               <div>
-                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Account Role</div>
+                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: '-0.025em' }}>Account Role</div>
                 <div style={{ fontSize: "0.85rem", fontWeight: 800, color: "#000", textTransform: "uppercase" }}>{customer.role}</div>
               </div>
 
               <div>
-                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Registration Date</div>
+                <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#888", textTransform: "uppercase", letterSpacing: '-0.025em' }}>Registration Date</div>
                 <div style={{ fontSize: "0.85rem", color: "#333" }}>{customer.created_at}</div>
               </div>
 
               {customer.suspended_at && (
                 <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", padding: "12px", marginTop: 6 }}>
-                  <div style={{ fontSize: "0.72rem", fontWeight: 900, color: "#dc2626", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
+                  <div style={{ fontSize: "0.72rem", fontWeight: 900, color: "#dc2626", textTransform: "uppercase", letterSpacing: '-0.025em', marginBottom: 2 }}>
                     Suspended On {customer.suspended_at}
                   </div>
                   <div style={{ fontSize: "0.78rem", color: "#991b1b" }}>
@@ -480,7 +480,7 @@ export default function AdminUserDetailPage() {
 
           {/* Account Security Card */}
           <div style={{ background: "#fff", border: "1px solid #e5e7eb", padding: "24px" }}>
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 14px", borderBottom: "1px solid #f3f4f6", paddingBottom: 10 }}>
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', margin: "0 0 14px", borderBottom: "1px solid #f3f4f6", paddingBottom: 10 }}>
               Account Management
             </h3>
 
@@ -495,7 +495,7 @@ export default function AdminUserDetailPage() {
                 width: "100%", background: customer.is_active ? "#dc2626" : "#16a34a",
                 color: "#fff", border: "none", padding: "11px 16px",
                 fontSize: "0.8rem", fontWeight: 900, cursor: "pointer",
-                textTransform: "uppercase", letterSpacing: "0.05em"
+                textTransform: "uppercase", letterSpacing: '-0.025em'
               }}
             >
               {customer.is_active ? "Suspend Customer Account" : "Reactivate Customer Account"}
@@ -514,7 +514,7 @@ export default function AdminUserDetailPage() {
           zIndex: 9999, padding: 20
         }}>
           <div style={{ background: "#fff", width: "100%", maxWidth: 460, padding: 28, border: "2px solid #000" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 900, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 900, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: '-0.025em' }}>
               {customer.is_active ? "Suspend Account?" : "Reactivate Account?"}
             </h3>
             <p style={{ fontSize: "0.85rem", color: "#555", margin: "0 0 16px", lineHeight: 1.5 }}>
@@ -526,7 +526,7 @@ export default function AdminUserDetailPage() {
 
             {customer.is_active && (
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: '-0.025em', marginBottom: 6 }}>
                   Suspension Reason (Optional)
                 </label>
                 <input
@@ -582,7 +582,7 @@ export default function AdminUserDetailPage() {
             <div style={{ width: 44, height: 44, background: "#fef2f2", border: "1px solid #fca5a5", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
               <AlertCircleIcon size={24} color="#dc2626" />
             </div>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 900, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.04em", color: "#dc2626" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 900, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: '-0.025em', color: "#dc2626" }}>
               Delete Customer Account?
             </h3>
             <p style={{ fontSize: "0.85rem", color: "#555", margin: "0 0 20px", lineHeight: 1.5 }}>

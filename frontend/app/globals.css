@@ -112,6 +112,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  letter-spacing: -0.025em;
 }
 
 html {
@@ -161,14 +162,14 @@ h4 { font-size: clamp(1.25rem, 2vw, 2rem); }
 h5 { font-size: 1.125rem; }
 h6 { font-size: 0.875rem; font-weight: 600; }
 
-/* SCRUM-50: Body paragraphs — Lora, NEVER uppercase */
+/* SCRUM-50: Body paragraphs — Lora, NEVER uppercase, -25 tracking */
 p {
   font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 400;
   line-height: 1.7;
   text-transform: none;
-  letter-spacing: normal;
+  letter-spacing: -0.025em;
   color: var(--color-text);
 }
 
@@ -232,7 +233,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.875rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   border: 2px solid transparent;
   cursor: pointer;
@@ -323,7 +324,7 @@ input, textarea, select {
   border: none;
   padding: 0;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   font-size: 0.875rem;
   text-decoration: underline;
@@ -509,7 +510,7 @@ input, textarea, select {
   font-family: var(--font-heading);
   font-size: clamp(2rem, 4vw, 3.5rem);
   color: rgba(255, 255, 255, 0.2);
-  letter-spacing: 0.25em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
 }
 
@@ -533,7 +534,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   color: #fff;
   background: rgba(255, 255, 255, 0.15);
@@ -557,7 +558,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   padding: 5px 12px;
   backdrop-filter: blur(6px);
@@ -576,7 +577,7 @@ input, textarea, select {
   font-size: 1rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: -0.025em;
   color: var(--color-black);
   margin: 0;
 }
@@ -593,7 +594,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   color: var(--color-navy);
   margin-top: 6px;
@@ -601,7 +602,7 @@ input, textarea, select {
 }
 
 .collection-card-wrapper:hover .collection-card-arrow {
-  letter-spacing: 0.16em;
+  letter-spacing: -0.025em;
 }
 
 /* Collection header animation */
@@ -634,22 +635,22 @@ input, textarea, select {
   padding: 8px var(--space-md);
   font-size: 0.75rem;
   font-family: var(--font-ui);
-  letter-spacing: 0.08em;
+  letter-spacing: -0.025em;
 }
-
-/* ---- Header ---- */
 
 .header {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
-  background: var(--color-white);
-  border-bottom: 1px solid var(--color-border);
+  background: #0d0d0d;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   transition: background var(--transition-mid), border-color var(--transition-mid);
 }
 
 .header.transparent {
-  background: transparent;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-color: transparent;
   color: var(--color-white);
 }
@@ -661,15 +662,15 @@ input, textarea, select {
 }
 
 .header.scrolled {
-  background: var(--color-white);
-  border-color: var(--color-border);
-  box-shadow: var(--shadow-sm);
+  background: #0d0d0d;
+  border-color: rgba(255,255,255,0.06);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.5);
 }
 
 .header.scrolled .header-logo,
 .header.scrolled .nav-link,
 .header.scrolled .header-icon {
-  color: var(--color-black);
+  color: var(--color-white);
   filter: none;
 }
 
@@ -696,11 +697,11 @@ input, textarea, select {
 
 .nav-link {
   font-family: var(--font-ui);
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-black);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  text-transform: none;
+  color: rgba(255,255,255,0.75);
   transition: color var(--transition-fast);
   position: relative;
 }
@@ -711,11 +712,12 @@ input, textarea, select {
   bottom: -4px;
   left: 0;
   width: 0;
-  height: 2px;
-  background: var(--color-maroon);
+  height: 1px;
+  background: rgba(255,255,255,0.5);
   transition: width var(--transition-mid);
 }
 
+.nav-link:hover { color: #fff !important; }
 .nav-link:hover::after,
 .nav-link.active::after { width: 100%; }
 
@@ -725,7 +727,7 @@ input, textarea, select {
   justify-content: center;
   width: 40px;
   height: 40px;
-  color: var(--color-black);
+  color: rgba(255,255,255,0.85);
   transition: color var(--transition-fast), background var(--transition-fast);
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -734,7 +736,7 @@ input, textarea, select {
   position: relative;
 }
 
-.header-icon:hover { color: var(--color-maroon); }
+.header-icon:hover { color: var(--color-white); }
 
 .cart-badge {
   position: absolute;
@@ -802,7 +804,7 @@ input, textarea, select {
   font-family: var(--font-body);
   font-weight: 400;
   text-transform: none;
-  letter-spacing: 0;
+  letter-spacing: -0.025em;
 }
 
 @media (max-width: 768px) {
@@ -854,7 +856,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: -0.025em;
   text-align: center;
   padding: 12px;
   transform: translateY(100%);
@@ -877,7 +879,7 @@ input, textarea, select {
   color: var(--color-black);
   margin-bottom: 6px;
   line-height: 1.3;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.025em;
 }
 
 .product-card-price {
@@ -901,7 +903,7 @@ input, textarea, select {
   color: var(--color-white);
   font-size: 0.625rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: 0 !important;
@@ -937,7 +939,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 1rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
 }
 
@@ -1069,7 +1071,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   margin-bottom: var(--space-md);
   color: var(--color-black);
@@ -1090,7 +1092,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   margin-bottom: var(--space-md);
 }
@@ -1145,7 +1147,7 @@ input, textarea, select {
   font-family: var(--font-ui) !important;
   font-size: 0.65rem !important;
   font-weight: 600 !important;
-  letter-spacing: 0.12em !important;
+  letter-spacing: -0.025em;
   text-transform: uppercase !important;
   margin: 0 !important;
   color: rgba(255, 255, 255, 0.45) !important;
@@ -1186,7 +1188,7 @@ input, textarea, select {
 .section-title {
   font-family: var(--font-body);
   font-size: 0.75rem;
-  letter-spacing: 0.16em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   font-style: italic;
   color: var(--color-grey-dark);
@@ -1263,18 +1265,21 @@ input, textarea, select {
   flex-shrink: 0;
 }
 
-/* ---- Product Detail ---- */
-
 .product-page {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
   gap: 0;
   min-height: auto;
   align-items: start;
+  padding-top: 14px;
+  padding-bottom: 40px;
 }
 
 @media (max-width: 900px) {
-  .product-page { grid-template-columns: 1fr; }
+  .product-page {
+    grid-template-columns: 1fr;
+    padding-top: 10px;
+  }
 }
 
 .product-gallery {
@@ -1492,7 +1497,7 @@ input, textarea, select {
 
 .highlight-label {
   font-size: 0.6875rem;
-  letter-spacing: 0.1em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   color: var(--color-grey-dark);
   font-weight: 600;
@@ -1501,7 +1506,7 @@ input, textarea, select {
 .highlight-value {
   font-size: 0.9375rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   color: var(--color-black);
   margin-top: 2px;
@@ -1511,7 +1516,7 @@ input, textarea, select {
 
   font-family: var(--font-ui);
   font-size: 0.75rem;
-  letter-spacing: 0.12em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   color: var(--color-grey-dark);
   margin: 0;
@@ -1547,7 +1552,7 @@ input, textarea, select {
 .variant-label {
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   margin-bottom: var(--space-sm);
 }
@@ -1578,7 +1583,7 @@ input, textarea, select {
   align-items: center;
   justify-content: center;
   border-radius: 0;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.025em;
 }
 
 .variant-option:hover {
@@ -1632,7 +1637,7 @@ input, textarea, select {
   transform: translateX(-50%);
   font-size: 0.6rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.025em;
   color: #c0392b;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1719,7 +1724,7 @@ input, textarea, select {
 .article-card-body { padding: var(--space-md) 0; }
 .article-card-title { font-family: var(--font-ui); font-weight: 600; font-size: 1rem; margin-bottom: 8px; }
 .article-card-excerpt { font-size: 0.875rem; color: var(--color-grey-dark); line-height: 1.5; }
-.article-meta { font-size: 0.75rem; color: var(--color-grey-dark); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 8px; }
+.article-meta { font-size: 0.75rem; color: var(--color-grey-dark); letter-spacing: -0.025em; text-transform: uppercase; margin-bottom: 8px; }
 
 /* ---- FAQ Accordion ---- */
 
@@ -1910,7 +1915,7 @@ input, textarea, select {
   font-size: 1.15rem;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.025em;
   color: var(--color-black);
   padding: 12px 0;
   border-bottom: 1px solid var(--color-grey-mid);
@@ -1992,7 +1997,7 @@ input, textarea, select {
 }
 
 .form-group { display: flex; flex-direction: column; gap: 8px; }
-.form-label { font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.form-label { font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: -0.025em; }
 
 /* ---- Lookbook Section ("How He Wears It") ---- */
 .lookbook-section {
@@ -2136,7 +2141,7 @@ input, textarea, select {
 .review-stars {
   color: #1056d1;
   font-size: 1.375rem;
-  letter-spacing: 2px;
+  letter-spacing: -0.025em;
   line-height: 1;
 }
 
@@ -2168,7 +2173,7 @@ input, textarea, select {
   padding: 1px 6px;
   border-radius: 0 !important;
   text-transform: none;
-  letter-spacing: normal;
+  letter-spacing: -0.025em;
   margin-left: 6px;
 }
 
@@ -2179,7 +2184,7 @@ input, textarea, select {
   color: var(--color-black);
   margin-top: 4px;
   text-transform: none;
-  letter-spacing: normal;
+  letter-spacing: -0.025em;
 }
 
 .review-content {
@@ -2305,7 +2310,7 @@ input, textarea, select {
   z-index: 2;
   color: #ffffff;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   font-size: 0.875rem;
   display: flex;
@@ -2361,7 +2366,7 @@ input, textarea, select {
   z-index: 2;
   color: #ffffff !important;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   font-size: 0.875rem;
   display: flex;
@@ -2454,7 +2459,7 @@ input, textarea, select {
   border: none !important;
   text-transform: uppercase !important;
   font-weight: 700 !important;
-  letter-spacing: 0.06em !important;
+  letter-spacing: -0.025em;
 }
 
 .reviews-icon-btn {
@@ -2689,7 +2694,7 @@ input, textarea, select {
   
   .header-logo span {
     font-size: 1.15rem !important;
-    letter-spacing: 0.15em !important;
+    letter-spacing: -0.025em;
   }
 
   .header-actions {
@@ -2716,7 +2721,7 @@ input, textarea, select {
   .btn-add-to-cart-text,
   .btn-buy-it-now-text {
     font-size: 0.8rem !important;
-    letter-spacing: 0.08em !important;
+    letter-spacing: -0.025em;
   }
 
   /* Footer adjustments */
@@ -2941,7 +2946,7 @@ input, textarea, select {
 
   .icons-with-text-grid > div h3 {
     font-size: 0.6875rem !important;
-    letter-spacing: 0.02em !important;
+    letter-spacing: -0.025em;
     line-height: 1.2 !important;
     margin: 0 !important;
     text-align: center !important;
@@ -3153,7 +3158,7 @@ input, textarea, select {
     font-family: var(--font-ui);
     font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: -0.025em;
     padding: 4px 10px;
     border-radius: 12px;
     z-index: 20;
@@ -3213,7 +3218,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   color: var(--color-black);
   cursor: pointer;
@@ -3390,14 +3395,14 @@ input, textarea, select {
   font-weight: 600;
   color: var(--color-grey-dark);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: -0.025em;
 }
 
 .highlight-value {
   font-family: var(--font-heading);
   font-size: 1.35rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   color: var(--color-black);
 }
@@ -3456,7 +3461,7 @@ input, textarea, select {
   .highlight-label {
     font-size: 0.65rem !important;
     font-weight: 600 !important;
-    letter-spacing: 0.03em !important;
+    letter-spacing: -0.025em;
     color: var(--color-grey-dark) !important;
     margin: 0 !important;
     line-height: 1.1 !important;
@@ -3465,7 +3470,7 @@ input, textarea, select {
   .highlight-value {
     font-size: 0.72rem !important;
     font-weight: 800 !important;
-    letter-spacing: -0.015em !important;
+    letter-spacing: -0.025em;
     color: var(--color-black) !important;
     margin: 0 !important;
     line-height: 1.1 !important;
@@ -3527,7 +3532,7 @@ input, textarea, select {
   font-family: var(--font-heading);
   font-size: 1.5rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.025em;
   margin: 0;
 }
 
@@ -3546,7 +3551,7 @@ input, textarea, select {
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.025em;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -3595,7 +3600,7 @@ input, textarea, select {
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.025em;
   color: var(--color-grey-dark);
   padding: 12px 8px;
   border-bottom: 2px solid var(--color-black);
@@ -3687,7 +3692,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.6875rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.025em;
   color: var(--color-grey-dark);
 }
 
@@ -3794,7 +3799,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.875rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   color: var(--color-grey-dark);
   cursor: pointer;
@@ -3852,7 +3857,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   color: var(--color-black);
 }
@@ -3908,7 +3913,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.8125rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -3933,7 +3938,7 @@ input, textarea, select {
   font-family: var(--font-heading);
   font-size: 1.35rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.025em;
   margin-bottom: 6px;
 }
 
@@ -3996,7 +4001,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   text-decoration: underline;
   cursor: pointer;
@@ -4019,7 +4024,7 @@ input, textarea, select {
   font-family: var(--font-heading);
   font-size: 1.35rem;
   font-weight: 400;
-  letter-spacing: 0.06em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   color: var(--color-black);
   text-align: center;
@@ -4072,7 +4077,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   padding: 0;
   transition: color var(--transition-fast);
@@ -4155,7 +4160,7 @@ input, textarea, select {
   font-family: var(--font-heading);
   font-size: 2rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.025em;
   margin-bottom: 6px;
 }
 
@@ -4194,7 +4199,7 @@ input, textarea, select {
   font-size: 1rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.025em;
   color: var(--color-black);
   margin-bottom: 8px;
   border-bottom: 2px solid var(--color-black);
@@ -4236,7 +4241,7 @@ input, textarea, select {
   font-family: var(--font-heading);
   font-size: 1.05rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.025em;
   display: block;
   color: var(--color-black);
 }
@@ -4251,7 +4256,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.6875rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: 2px;
@@ -4372,7 +4377,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -4398,7 +4403,7 @@ input, textarea, select {
   font-family: var(--font-ui);
   font-size: 0.6875rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.025em;
   color: var(--color-grey-dark);
 }
 
@@ -4443,7 +4448,7 @@ input, textarea, select {
   font-size: 0.8125rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.025em;
   cursor: pointer;
   margin-top: 4px;
 }
@@ -4786,7 +4791,7 @@ input, textarea, select {
   font-size: 1.1rem;
   font-weight: 800;
   color: #ffffff;
-  letter-spacing: 0.12em;
+  letter-spacing: -0.025em;
 }
 
 .admin-sidebar-logo-badge {
@@ -4794,7 +4799,7 @@ input, textarea, select {
   color: rgba(255,255,255,0.7);
   font-size: 0.6rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: -0.025em;
   padding: 2px 7px;
   border-radius: 4px;
   text-transform: uppercase;
@@ -4837,7 +4842,7 @@ input, textarea, select {
 .admin-nav-section-label {
   font-size: 0.65rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.3);
   padding: 0 10px;
@@ -5226,7 +5231,7 @@ input, textarea, select {
   border-radius: 20px;
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.025em;
   text-transform: uppercase;
 }
 .admin-badge--green { background: rgba(46,125,50,0.1); color: #2e7d32; }
@@ -5381,7 +5386,7 @@ input, textarea, select {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: -0.025em;
   color: var(--admin-text-muted);
   border-bottom: 1px solid var(--admin-card-border);
   white-space: nowrap;
@@ -5763,7 +5768,7 @@ input, textarea, select {
   color: white;
   font-size: 0.6rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: -0.025em;
   padding: 3px 8px;
   border-radius: 0px;
   text-transform: uppercase;
@@ -5819,11 +5824,11 @@ input, textarea, select {
   color: var(--admin-text-muted);
   cursor: pointer;
   padding: 4px 6px;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.025em;
 }
 .admin-form-toggle-pw:hover { color: var(--admin-text-primary); }
 
-.admin-form-input--secret { letter-spacing: 0.1em; }
+.admin-form-input--secret { letter-spacing: -0.025em; }
 
 .admin-auth-btn {
   width: 100%;
@@ -5840,7 +5845,7 @@ input, textarea, select {
   justify-content: center;
   gap: 8px;
   transition: opacity 0.2s;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.025em;
 }
 .admin-auth-btn:hover:not(:disabled) { opacity: 0.9; }
 .admin-auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -5956,7 +5961,7 @@ input, textarea, select {
 /* ---- Rating Stars ---- */
 .admin-rating-stars {
   color: #f9a825;
-  letter-spacing: 1px;
+  letter-spacing: -0.025em;
   font-size: 0.85rem;
 }
 
@@ -6090,7 +6095,7 @@ input, textarea, select {
   position: absolute; bottom: 0; left: 0; right: 0;
   background: rgba(46,125,50,0.85); color: white;
   font-size: 0.6rem; font-weight: 600; text-align: center; padding: 2px;
-  text-transform: uppercase; letter-spacing: 0.06em;
+  text-transform: uppercase; letter-spacing: -0.025em;
 }
 .admin-uploader-input { display: none; }
 
@@ -6595,7 +6600,7 @@ input, textarea, select {
   font-weight: 700;
   color: #aaaaaa;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: -0.025em;
   margin-bottom: 6px;
   display: block;
 }
@@ -6667,7 +6672,7 @@ input, textarea, select {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.025em;
 }
 
 .vahn-btn-primary:hover {

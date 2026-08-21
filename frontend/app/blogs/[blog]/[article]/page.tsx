@@ -41,7 +41,7 @@ export default async function ArticlePage({ params }: Props) {
       >
         <Link
           href={`/blogs/${blogHandle}`}
-          style={{ fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-grey-dark)' }}
+          style={{ fontSize: '0.75rem', letterSpacing: '-0.025em', textTransform: 'uppercase', color: 'var(--color-grey-dark)' }}
         >
           ← {article.blog.title}
         </Link>

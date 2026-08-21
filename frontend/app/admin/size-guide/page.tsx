@@ -211,7 +211,7 @@ export default function AdminSizeGuidePage() {
                     border: "none",
                     fontWeight: 700,
                     fontSize: "0.75rem",
-                    letterSpacing: "0.04em",
+                    letterSpacing: '-0.025em',
                     cursor: "pointer",
                     display: "inline-flex",
                     alignItems: "center",
@@ -239,7 +239,7 @@ export default function AdminSizeGuidePage() {
               {t.rows.length > 0 && (
                 <div style={{ borderTop:"1px solid #f0f0f0",padding:"10px 20px",overflowX:"auto" }}>
                   <table style={{ fontSize:"0.75rem",borderCollapse:"collapse" }}>
-                    <thead><tr>{t.columns.map((c) => (<th key={c} style={{ padding:"4px 12px 4px 0",textAlign:"left",fontWeight:700,color:"#555",textTransform:"uppercase",letterSpacing:"0.04em",whiteSpace:"nowrap" }}>{c}</th>))}</tr></thead>
+                    <thead><tr>{t.columns.map((c) => (<th key={c} style={{ padding:"4px 12px 4px 0",textAlign:"left",fontWeight:700,color:"#555",textTransform:"uppercase",letterSpacing: '-0.025em',whiteSpace:"nowrap" }}>{c}</th>))}</tr></thead>
                     <tbody>{t.rows.map((row, ri) => (<tr key={ri}>{t.columns.map((c) => (<td key={c} style={{ padding:"4px 12px 4px 0",color:"#333" }}>{row[c] ?? ""}</td>))}</tr>))}</tbody>
                   </table>
                 </div>
@@ -314,7 +314,7 @@ export default function AdminSizeGuidePage() {
                 <table style={{ width:"100%",borderCollapse:"collapse",fontSize:"0.8125rem" }}>
                   <thead>
                     <tr>
-                      {draft.columns.map((c) => (<th key={c} style={{ padding:"6px 8px",textAlign:"left",background:"#f9fafb",fontWeight:700,fontSize:"0.75rem",textTransform:"uppercase",letterSpacing:"0.04em",color:"#555",borderBottom:"1px solid #e5e7eb" }}>{c}</th>))}
+                      {draft.columns.map((c) => (<th key={c} style={{ padding:"6px 8px",textAlign:"left",background:"#f9fafb",fontWeight:700,fontSize:"0.75rem",textTransform:"uppercase",letterSpacing: '-0.025em',color:"#555",borderBottom:"1px solid #e5e7eb" }}>{c}</th>))}
                       <th style={{ padding:"6px 8px",background:"#f9fafb",borderBottom:"1px solid #e5e7eb",width:36 }} />
                     </tr>
                   </thead>
@@ -370,7 +370,7 @@ export default function AdminSizeGuidePage() {
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               </div>
-              <h3 style={{ fontSize: "1.1rem", fontWeight: 900, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.04em", color: "#dc2626" }}>
+              <h3 style={{ fontSize: "1.1rem", fontWeight: 900, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: '-0.025em', color: "#dc2626" }}>
                 Delete Measurement Type?
               </h3>
               <p style={{ fontSize: "0.85rem", color: "#555", margin: "0 0 20px", lineHeight: 1.5 }}>

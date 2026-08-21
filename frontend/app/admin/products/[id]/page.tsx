@@ -863,7 +863,7 @@ export default function AdminProductDetailPage() {
                 <div style={{
                   background: "var(--admin-bg-page)", border: "1px solid var(--admin-card-border)",
                   padding: "9px 14px", fontFamily: "monospace", fontSize: "0.875rem",
-                  color: "var(--admin-text-secondary)", letterSpacing: "0.02em"
+                  color: "var(--admin-text-secondary)", letterSpacing: '-0.025em'
                 }}>
                   {product?.handle}
                 </div>

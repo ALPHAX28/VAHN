@@ -20,7 +20,7 @@ export default function GlobalLoading() {
       <span style={{
         fontFamily: 'var(--font-heading)',
         fontSize: '1rem',
-        letterSpacing: '0.2em',
+        letterSpacing: '-0.025em',
         textTransform: 'uppercase',
         color: '#000000',
         animation: 'pulse 1.5s infinite ease-in-out'

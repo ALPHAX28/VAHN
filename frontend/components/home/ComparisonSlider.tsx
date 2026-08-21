@@ -64,7 +64,7 @@ export default function ComparisonSlider() {
             textTransform: 'uppercase',
             marginBottom: '12px',
             color: 'var(--color-black)',
-            letterSpacing: '-0.02em',
+            letterSpacing: '-0.025em',
           }}
         >
           VAHN TEAMWEAR

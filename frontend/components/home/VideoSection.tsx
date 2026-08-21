@@ -78,7 +78,7 @@ export default function VideoSection() {
             fontWeight: 900,
             fontSize: 'clamp(2rem, 6vw, 5rem)',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            letterSpacing: '-0.025em',
             color: '#e8475f',
           }}
         >
@@ -108,7 +108,7 @@ export default function VideoSection() {
             fontFamily: 'var(--font-heading)',
             fontSize: '0.75rem',
             color: '#fff',
-            letterSpacing: '0.1em',
+            letterSpacing: '-0.025em',
             textTransform: 'uppercase',
           }}
         >

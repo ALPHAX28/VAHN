@@ -16,7 +16,7 @@ export default function BrandStatement() {
             fontWeight: 900,
             fontSize: 'clamp(1.625rem, 4vw, 3rem)',
             textTransform: 'uppercase',
-            letterSpacing: '-0.01em',
+            letterSpacing: '-0.025em',
             color: '#ffffff',
             lineHeight: 1.1,
             marginBottom: '28px',
@@ -30,6 +30,7 @@ export default function BrandStatement() {
             fontFamily: 'var(--font-body)',
             fontSize: '0.9375rem',
             lineHeight: 1.75,
+            letterSpacing: '-0.025em',
             color: 'rgba(255,255,255,0.88)',
             marginBottom: '20px',
           }}
@@ -42,6 +43,7 @@ export default function BrandStatement() {
             fontFamily: 'var(--font-body)',
             fontSize: '0.9375rem',
             lineHeight: 1.75,
+            letterSpacing: '-0.025em',
             color: 'rgba(255,255,255,0.88)',
           }}
         >

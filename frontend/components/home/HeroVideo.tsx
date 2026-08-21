@@ -63,7 +63,7 @@ export default function HeroVideo() {
             fontWeight: 400,
             fontStyle: 'italic',
             textTransform: 'none',
-            letterSpacing: '0.02em',
+            letterSpacing: '-0.025em',
             color: 'var(--color-white)',
             marginBottom: 'var(--space-lg)',
             fontSize: 'clamp(1.5rem, 5vw, 3.5rem)',
@@ -74,7 +74,7 @@ export default function HeroVideo() {
         <Link
           href="/collections"
           className="btn btn-hero-cta"
-          style={{ letterSpacing: '0.12em' }}
+          style={{ letterSpacing: '-0.025em' }}
         >
           Shop Collection
         </Link>
