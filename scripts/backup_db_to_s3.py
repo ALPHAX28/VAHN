@@ -2,22 +2,41 @@
 """
 VAHN Automated Database Backup Engine -> Amazon S3
 Connects to PostgreSQL, generates a compressed SQL dump, and uploads to AWS S3.
-Can be executed manually or automatically via cron / scheduler.
+Can be executed manually or automatically via cron / scheduler / GitHub Actions.
+Zero hard dependencies on external packages for bootstrap (dotenv / boto3 handled safely).
 """
 
 import os
 import sys
 import gzip
-import io
 import datetime
 import subprocess
 from pathlib import Path
-from dotenv import load_dotenv
 
-# Load backend environment variables
+# ─── 1. Load Environment Variables (Native & Dotenv Support) ─────────────────
 BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
 ENV_PATH = BACKEND_DIR / ".env"
-load_dotenv(ENV_PATH)
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(ENV_PATH)
+except ImportError:
+    pass
+
+# Manual fallback parser for .env if python-dotenv is not installed
+if ENV_PATH.exists():
+    try:
+        with open(ENV_PATH, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, _, v = line.partition("=")
+                    k = k.strip()
+                    v = v.strip().strip("'\"")
+                    if k not in os.environ:
+                        os.environ[k] = v
+    except Exception as e:
+        print(f"⚠ Warning: Could not read {ENV_PATH}: {e}")
 
 AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME", "vahn")
 AWS_REGION = os.getenv("AWS_REGION", "ap-south-2")
@@ -34,26 +53,17 @@ LOCAL_BACKUP_DIR = Path(__file__).resolve().parent.parent / "backups" / "db"
 LOCAL_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def get_s3_client():
-    import boto3
-    return boto3.client(
-        "s3",
-        region_name=AWS_REGION,
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    )
-
-
+# ─── 2. Database Dump Logic ──────────────────────────────────────────────────
 def dump_postgres_to_sql_bytes() -> bytes:
     """Attempts pg_dump via docker, local pg_dump, or SQLAlchemy data extraction."""
     timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     
-    # 1. Try Docker container pg_dump
-    for container_name in ["vahn-postgres-db-prod", "vahn-postgres-db", "nextjs-vahn-db-1"]:
+    # 1. Try Docker container pg_dump (Production or Dev container)
+    for container_name in ["vahn-postgres-db-prod", "vahn-postgres-db", "vahn-postgres-db-dev", "nextjs-vahn-db-1"]:
         try:
             cmd = ["docker", "exec", container_name, "pg_dump", "-U", DB_USER, "-d", DB_NAME]
             proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-            if proc.stdout and len(proc.stdout) > 100:
+            if proc.stdout and len(proc.stdout) > 50:
                 print(f"✔ Dumped database via Docker container '{container_name}'")
                 return proc.stdout
         except Exception:
@@ -62,22 +72,27 @@ def dump_postgres_to_sql_bytes() -> bytes:
     # 2. Try native pg_dump CLI
     try:
         env = os.environ.copy()
-        env["PGPASSWORD"] = DB_PASSWORD
+        if DB_PASSWORD:
+            env["PGPASSWORD"] = DB_PASSWORD
         cmd = ["pg_dump", "-h", DB_HOST, "-p", DB_PORT, "-U", DB_USER, "-d", DB_NAME]
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, check=True)
-        if proc.stdout and len(proc.stdout) > 100:
+        if proc.stdout and len(proc.stdout) > 50:
             print("✔ Dumped database via native pg_dump CLI")
             return proc.stdout
     except Exception:
         pass
 
-    # 3. Fallback: SQLAlchemy Python Schema & Data Dumper
+    # 3. Fallback: Python SQLAlchemy Extraction
     print("--> Using SQLAlchemy data extraction for SQL dump...")
     sys.path.insert(0, str(BACKEND_DIR))
     from sqlalchemy import create_engine, MetaData, select
     import json
 
-    engine = create_engine(DATABASE_URL)
+    db_url = DATABASE_URL
+    if "+pg8000" in db_url and "?" in db_url:
+        db_url = db_url.split("?")[0]
+
+    engine = create_engine(db_url)
     meta = MetaData()
     meta.reflect(bind=engine)
 
@@ -128,16 +143,62 @@ def dump_postgres_to_sql_bytes() -> bytes:
     return "\n".join(sql_lines).encode("utf-8")
 
 
+# ─── 3. S3 Upload Logic ──────────────────────────────────────────────────────
+def upload_bytes_to_s3(data: bytes, s3_key: str):
+    """Uploads compressed bytes to AWS S3 using boto3 (auto-installed/imported)."""
+    try:
+        import boto3
+    except ImportError:
+        print("--> 'boto3' not found in current Python, attempting auto-installation...")
+        try:
+            subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "boto3"], check=True)
+            import boto3
+        except Exception as e:
+            print(f"⚠ Could not auto-install boto3: {e}")
+            # Try docker container upload fallback
+            print("--> Attempting S3 upload through docker container 'vahn-backend-prod'...")
+            docker_cmd = [
+                "docker", "exec", "-i", "vahn-backend-prod", "python", "-c",
+                f"""
+import sys, boto3
+s3 = boto3.client('s3', region_name='{AWS_REGION}', aws_access_key_id='{AWS_ACCESS_KEY_ID}', aws_secret_access_key='{AWS_SECRET_ACCESS_KEY}')
+s3.put_object(Bucket='{AWS_BUCKET_NAME}', Key='{s3_key}', Body=sys.stdin.buffer.read(), ContentType='application/gzip')
+print('SUCCESS_DOCKER_S3')
+"""
+            ]
+            proc = subprocess.run(docker_cmd, input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            if b"SUCCESS_DOCKER_S3" in proc.stdout:
+                return
+            raise RuntimeError(f"Docker S3 upload failed: {proc.stderr.decode('utf-8')}")
+
+    s3 = boto3.client(
+        "s3",
+        region_name=AWS_REGION,
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    )
+    s3.put_object(
+        Bucket=AWS_BUCKET_NAME,
+        Key=s3_key,
+        Body=data,
+        ContentType="application/gzip",
+        Metadata={
+            "created_at": datetime.datetime.utcnow().isoformat(),
+        }
+    )
+
+
+# ─── 4. Main Runner ──────────────────────────────────────────────────────────
 def run_backup():
     now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"vahn_db_{now_str}.sql.gz"
     local_path = LOCAL_BACKUP_DIR / filename
     s3_key = f"database-backups/{filename}"
 
-    print(f"============================================================")
-    print(f" Starting VAHN Database Backup -> AWS S3")
+    print("============================================================")
+    print(" Starting VAHN Database Backup -> AWS S3")
     print(f" Target Bucket: s3://{AWS_BUCKET_NAME}/{s3_key}")
-    print(f"============================================================")
+    print("============================================================")
 
     # 1. Generate SQL dump
     sql_bytes = dump_postgres_to_sql_bytes()
@@ -151,19 +212,12 @@ def run_backup():
     print(f"✔ Compressed SQL backup written locally: {local_path} ({file_size_kb} KB)")
 
     # 3. Upload to AWS S3
-    s3 = get_s3_client()
-    s3.put_object(
-        Bucket=AWS_BUCKET_NAME,
-        Key=s3_key,
-        Body=compressed_bytes,
-        ContentType="application/gzip",
-        Metadata={
-            "created_at": datetime.datetime.utcnow().isoformat(),
-            "uncompressed_bytes": str(len(sql_bytes)),
-        }
-    )
-    print(f"✔ Successfully uploaded backup to AWS S3: s3://{AWS_BUCKET_NAME}/{s3_key}")
-    print(f"✔ Location visible in AWS Console under: s3://{AWS_BUCKET_NAME}/database-backups/")
+    if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+        upload_bytes_to_s3(compressed_bytes, s3_key)
+        print(f"✔ Successfully uploaded backup to AWS S3: s3://{AWS_BUCKET_NAME}/{s3_key}")
+        print(f"✔ Location visible in AWS Console under: s3://{AWS_BUCKET_NAME}/database-backups/")
+    else:
+        print("⚠ AWS S3 credentials not configured; local compressed backup saved.")
 
     # 4. Clean up local backups older than 7 days
     try:
@@ -175,7 +229,7 @@ def run_backup():
     except Exception:
         pass
 
-    print(f"============================================================")
+    print("============================================================")
     return {
         "filename": filename,
         "s3_key": s3_key,

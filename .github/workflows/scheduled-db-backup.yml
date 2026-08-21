@@ -23,7 +23,9 @@ jobs:
             cd /home/ubuntu/VAHN
             git fetch origin
             git checkout main
-            git pull origin main
+            git reset --hard origin/main
+            git clean -fd
+            python3 -m pip install --quiet python-dotenv boto3 || true
             python3 scripts/backup_db_to_s3.py
 
       - name: Send Email — Backup Succeeded

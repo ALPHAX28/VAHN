@@ -20,6 +20,7 @@ jobs:
             cd /home/ubuntu/VAHN
             git fetch origin
             git checkout dev
-            git pull origin dev
+            git reset --hard origin/dev
+            git clean -fd
             chmod +x scripts/migrate_prod_to_dev_and_clear_prod.sh
             ./scripts/migrate_prod_to_dev_and_clear_prod.sh
