@@ -42,14 +42,7 @@ except subprocess.CalledProcessError as err:
     print(f"✘ Alembic migrations failed: {err}")
     sys.exit(1)
 
-# Run Database Seeder
-print("\n--- Running Database Seeder ---")
-try:
-    subprocess.run(["python", "seed.py"], check=True)
-    print("✔ Database seeding completed.")
-except subprocess.CalledProcessError as err:
-    print(f"✘ Database seeding failed: {err}")
-    sys.exit(1)
+
 
 # Start FastAPI production instance
 print("\n--- Starting FastAPI Production Server ---")

@@ -130,16 +130,8 @@ if (!runCommand(`"${venvPython}" -m alembic upgrade head`, { cwd: backendDir }))
 }
 console.log('\x1b[32m✔ Migrations applied\x1b[0m');
 
-// ─── Step 6: Seed database ───────────────────────────────────────────────────
-step(6, 7, 'Seeding mock VAHN product data');
-if (!runCommand(`"${venvPython}" seed.py`, { cwd: backendDir })) {
-  console.error('\nERROR: Database seeding failed.');
-  process.exit(1);
-}
-console.log('\x1b[32m✔ Database seeded\x1b[0m');
-
-// ─── Step 7: Frontend deps ───────────────────────────────────────────────────
-step(7, 7, 'Installing Frontend dependencies (npm install)');
+// ─── Step 6: Frontend deps ───────────────────────────────────────────────────
+step(6, 6, 'Installing Frontend dependencies (npm install)');
 if (!runCommand('npm install', { cwd: path.join(ROOT, 'frontend') })) {
   console.error('\nERROR: Next.js npm install failed.');
   process.exit(1);
