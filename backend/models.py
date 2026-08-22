@@ -285,3 +285,25 @@ class SizeGuideType(Base):
     measuring_tips = Column(JSON, default=list, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class NotificationBanner(Base):
+    """Storefront notification and announcement banners (e.g. Sales, Alerts, Maintenance, Shipping)."""
+    __tablename__ = "notification_banners"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)                         # Internal title/reference
+    message = Column(String, nullable=False)                       # Banner text content
+    link_url = Column(String, nullable=True)                       # Optional destination link
+    link_text = Column(String, nullable=True)                      # Optional CTA button text (e.g. "Shop Now")
+    banner_type = Column(String, default="ANNOUNCEMENT", nullable=False)  # ANNOUNCEMENT | SALE | ALERT | MAINTENANCE | INFO
+    bg_color = Column(String, nullable=True)                       # Custom hex background (e.g. #3a3699)
+    text_color = Column(String, nullable=True)                     # Custom hex text color (e.g. #ffffff)
+    is_active = Column(Boolean, default=True, nullable=False)      # Master toggle switch
+    is_closable = Column(Boolean, default=False, nullable=False)   # Customer dismiss button [X]
+    display_order = Column(Integer, default=0, nullable=False)     # Order of display (lower = higher priority)
+    start_date = Column(DateTime, nullable=True)                   # Optional schedule start
+    end_date = Column(DateTime, nullable=True)                     # Optional schedule end
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+

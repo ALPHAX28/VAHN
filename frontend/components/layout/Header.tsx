@@ -8,6 +8,7 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import SearchModal from '@/components/layout/SearchModal';
 import MobileNav from '@/components/layout/MobileNav';
+import AnnouncementBanner from '@/components/layout/AnnouncementBanner';
 
 const NAV_LINKS = [
   { href: '/products', label: 'All Products' },
@@ -71,24 +72,8 @@ export default function Header() {
         zIndex: 'var(--z-header)',
       }}
     >
-      {/* Announcement Bar — Solid Black */}
-      <div
-        style={{
-          textAlign: 'center',
-          padding: '8px 16px',
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          letterSpacing: '-0.025em',
-          textTransform: 'uppercase',
-          color: 'rgba(255, 255, 255, 0.9)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          backgroundColor: '#000000',
-          fontFamily: 'var(--font-heading)',
-        }}
-        role="banner"
-      >
-        SHIPPING PAN INDIA
-      </div>
+      {/* Dynamic Announcement & Notification Banner */}
+      <AnnouncementBanner />
 
       {/* Main VAHN Header Bar */}
       <header

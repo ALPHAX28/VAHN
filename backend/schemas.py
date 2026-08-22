@@ -991,3 +991,56 @@ class SizeGuideTypeUpdate(BaseModel):
 class SizeGuideReorderItem(BaseModel):
     id: int
     display_order: int
+
+
+# ============================================================
+# Notification / Announcement Banner Schemas
+# ============================================================
+
+class NotificationBannerBase(BaseModel):
+    title: str
+    message: str
+    link_url: Optional[str] = None
+    link_text: Optional[str] = None
+    banner_type: str = "ANNOUNCEMENT"  # ANNOUNCEMENT | SALE | ALERT | MAINTENANCE | INFO
+    bg_color: Optional[str] = None
+    text_color: Optional[str] = None
+    is_active: bool = True
+    is_closable: bool = False
+    display_order: int = 0
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+
+class NotificationBannerCreate(NotificationBannerBase):
+    pass
+
+
+class NotificationBannerUpdate(BaseModel):
+    title: Optional[str] = None
+    message: Optional[str] = None
+    link_url: Optional[str] = None
+    link_text: Optional[str] = None
+    banner_type: Optional[str] = None
+    bg_color: Optional[str] = None
+    text_color: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_closable: Optional[bool] = None
+    display_order: Optional[int] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+
+class NotificationBannerOut(NotificationBannerBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationBannerReorderItem(BaseModel):
+    id: int
+    display_order: int
+

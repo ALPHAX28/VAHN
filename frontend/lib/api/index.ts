@@ -260,3 +260,12 @@ export async function createRestockSubscription(payload: {
     body: payload,
   });
 }
+
+// ---- Notification / Announcement Banners ----
+
+export async function getActiveAnnouncements(): Promise<import('./types').NotificationBanner[]> {
+  return fetchAPI<import('./types').NotificationBanner[]>('/announcements/active', {
+    cache: 'no-store',
+  }).catch(() => []);
+}
+

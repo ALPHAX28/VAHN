@@ -293,3 +293,22 @@ export interface OrderDetail {
   createdAt: string;
   items: OrderItem[];
 }
+
+export interface NotificationBanner {
+  id: number;
+  title: string;
+  message: string;
+  link_url?: string | null;
+  link_text?: string | null;
+  banner_type: 'ANNOUNCEMENT' | 'SALE' | 'ALERT' | 'MAINTENANCE' | 'INFO';
+  bg_color?: string | null;
+  text_color?: string | null;
+  is_active: boolean;
+  is_closable: boolean;
+  display_order: number;
+  start_date?: string | null;
+  end_date?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+

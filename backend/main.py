@@ -2769,3 +2769,149 @@ def admin_list_database_backups(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list backups: {str(e)}")
 
+
+# ============================================================
+# NOTIFICATION & ANNOUNCEMENT BANNERS (STOREFRONT & ADMIN)
+# ============================================================
+
+@app.get("/api/announcements/active", response_model=List[schemas.NotificationBannerOut])
+def get_active_announcements(db: Session = Depends(get_db)):
+    """Public storefront: returns all currently active notification/announcement banners."""
+    now = datetime.utcnow()
+    banners = (
+        db.query(models.NotificationBanner)
+        .filter(models.NotificationBanner.is_active == True)
+        .filter(
+            (models.NotificationBanner.start_date == None) | (models.NotificationBanner.start_date <= now)
+        )
+        .filter(
+            (models.NotificationBanner.end_date == None) | (models.NotificationBanner.end_date >= now)
+        )
+        .order_by(models.NotificationBanner.display_order.asc(), models.NotificationBanner.created_at.desc())
+        .all()
+    )
+    return banners
+
+
+@app.get("/api/admin/announcements", response_model=List[schemas.NotificationBannerOut])
+def admin_list_announcements(
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: list all announcement banners."""
+    return (
+        db.query(models.NotificationBanner)
+        .order_by(models.NotificationBanner.display_order.asc(), models.NotificationBanner.created_at.desc())
+        .all()
+    )
+
+
+@app.post("/api/admin/announcements", response_model=schemas.NotificationBannerOut, status_code=201)
+def admin_create_announcement(
+    payload: schemas.NotificationBannerCreate,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: create a new notification/announcement banner."""
+    banner = models.NotificationBanner(
+        title=payload.title,
+        message=payload.message,
+        link_url=payload.link_url,
+        link_text=payload.link_text,
+        banner_type=payload.banner_type,
+        bg_color=payload.bg_color,
+        text_color=payload.text_color,
+        is_active=payload.is_active,
+        is_closable=payload.is_closable,
+        display_order=payload.display_order,
+        start_date=payload.start_date,
+        end_date=payload.end_date,
+    )
+    db.add(banner)
+    db.commit()
+    db.refresh(banner)
+    return banner
+
+
+@app.get("/api/admin/announcements/{banner_id}", response_model=schemas.NotificationBannerOut)
+def admin_get_announcement(
+    banner_id: int,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: get single banner details."""
+    banner = db.query(models.NotificationBanner).filter_by(id=banner_id).first()
+    if not banner:
+        raise HTTPException(status_code=404, detail="Announcement banner not found")
+    return banner
+
+
+@app.put("/api/admin/announcements/{banner_id}", response_model=schemas.NotificationBannerOut)
+def admin_update_announcement(
+    banner_id: int,
+    payload: schemas.NotificationBannerUpdate,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: update an announcement banner."""
+    banner = db.query(models.NotificationBanner).filter_by(id=banner_id).first()
+    if not banner:
+        raise HTTPException(status_code=404, detail="Announcement banner not found")
+
+    data = payload.model_dump(exclude_unset=True)
+    for field, value in data.items():
+        setattr(banner, field, value)
+    banner.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(banner)
+    return banner
+
+
+@app.patch("/api/admin/announcements/{banner_id}/toggle", response_model=schemas.NotificationBannerOut)
+def admin_toggle_announcement(
+    banner_id: int,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: 1-click active/inactive toggle."""
+    banner = db.query(models.NotificationBanner).filter_by(id=banner_id).first()
+    if not banner:
+        raise HTTPException(status_code=404, detail="Announcement banner not found")
+
+    banner.is_active = not banner.is_active
+    banner.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(banner)
+    return banner
+
+
+@app.delete("/api/admin/announcements/{banner_id}", status_code=204)
+def admin_delete_announcement(
+    banner_id: int,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: delete an announcement banner."""
+    banner = db.query(models.NotificationBanner).filter_by(id=banner_id).first()
+    if not banner:
+        raise HTTPException(status_code=404, detail="Announcement banner not found")
+
+    db.delete(banner)
+    db.commit()
+
+
+@app.put("/api/admin/announcements-reorder", status_code=200)
+def admin_reorder_announcements(
+    items: List[schemas.NotificationBannerReorderItem],
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: bulk reorder announcement banners."""
+    for item in items:
+        b = db.query(models.NotificationBanner).filter_by(id=item.id).first()
+        if b:
+            b.display_order = item.display_order
+    db.commit()
+    return {"message": "Reordered successfully"}
+
+
