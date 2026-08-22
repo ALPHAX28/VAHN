@@ -6,40 +6,35 @@ import { NotificationBanner } from "@/lib/api/types";
 import { getApiBaseUrl } from "@/lib/api/client";
 import Link from "next/link";
 
-const BANNER_TYPE_PRESETS: Record<string, { label: string; bg: string; text: string; badgeClass: string; icon: string }> = {
+const BANNER_TYPE_PRESETS: Record<string, { label: string; bg: string; text: string; icon: string }> = {
   ANNOUNCEMENT: {
     label: "Announcement",
     bg: "#000000",
     text: "#ffffff",
-    badgeClass: "badge-dark",
     icon: "📢",
   },
   SALE: {
     label: "Flash Sale / Promo",
     bg: "#3a3699",
     text: "#ffffff",
-    badgeClass: "badge-blue",
     icon: "⚡",
   },
   ALERT: {
     label: "Alert / Urgent",
     bg: "#dc2626",
     text: "#ffffff",
-    badgeClass: "badge-red",
     icon: "🚨",
   },
   MAINTENANCE: {
     label: "Maintenance",
     bg: "#1e293b",
     text: "#f8fafc",
-    badgeClass: "badge-slate",
     icon: "🛠️",
   },
   INFO: {
     label: "Information",
     bg: "#0f766e",
     text: "#ffffff",
-    badgeClass: "badge-teal",
     icon: "ℹ️",
   },
 };
@@ -60,7 +55,6 @@ export default function AdminAnnouncementsPage() {
   const [banners, setBanners] = useState<NotificationBanner[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Modal State
@@ -98,7 +92,7 @@ export default function AdminAnnouncementsPage() {
       const data = await res.json();
       setBanners(data);
     } catch (err: any) {
-      setError(err.message || "Failed to load announcement banners");
+      alert(err.message || "Failed to load announcement banners");
     } finally {
       setLoading(false);
     }
@@ -265,19 +259,20 @@ export default function AdminAnnouncementsPage() {
             position: "fixed",
             bottom: "32px",
             right: "32px",
-            background: "#111111",
+            background: "#000000",
             color: "#ffffff",
             padding: "14px 24px",
-            borderRadius: "6px",
+            borderRadius: "0px",
             fontSize: "0.875rem",
-            fontWeight: 600,
+            fontWeight: 800,
+            letterSpacing: "-0.025em",
+            textTransform: "uppercase",
             zIndex: 999999,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.25)",
-            border: "1px solid rgba(255,255,255,0.15)",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+            border: "1.5px solid #ffffff",
             display: "flex",
             alignItems: "center",
             gap: "10px",
-            animation: "slideUpToast 0.25s ease-out",
           }}
         >
           <span>✔</span>
@@ -324,33 +319,36 @@ export default function AdminAnnouncementsPage() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {/* Solid Black Square Button */}
           <button
             onClick={openCreateModal}
             style={{
-              background: "#3a3699",
+              background: "#000000",
               color: "#ffffff",
-              border: "none",
-              padding: "10px 20px",
-              borderRadius: "4px",
+              border: "1.5px solid #000000",
+              padding: "12px 24px",
+              borderRadius: "0px",
               fontFamily: "var(--font-heading)",
               fontSize: "0.8125rem",
-              fontWeight: 800,
+              fontWeight: 900,
               textTransform: "uppercase",
               letterSpacing: "-0.025em",
               cursor: "pointer",
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              gap: "8px",
-              transition: "background-color 0.2s ease",
+              justifyContent: "center",
+              transition: "all 0.15s ease",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#2a267a")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#3a3699")}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#222222";
+              e.currentTarget.style.borderColor = "#222222";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#000000";
+              e.currentTarget.style.borderColor = "#000000";
+            }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            <span>+ Create Banner</span>
+            + Create Banner
           </button>
         </div>
       </div>
@@ -359,7 +357,7 @@ export default function AdminAnnouncementsPage() {
       <div
         style={{
           background: "#ffffff",
-          borderRadius: "8px",
+          borderRadius: "0px",
           border: "1px solid #e5e7eb",
           padding: "20px",
           marginBottom: "28px",
@@ -370,19 +368,19 @@ export default function AdminAnnouncementsPage() {
           <span style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151" }}>
             🖥️ Live Storefront Top-Bar Simulation ({activeCount} Active)
           </span>
-          <span style={{ fontSize: "0.6875rem", color: activeCount > 0 ? "#059669" : "#6b7280", fontWeight: 700 }}>
-            {activeCount > 0 ? `● ${activeCount} Banner${activeCount > 1 ? "s" : ""} Live on Customer Storefront (Auto-Scrolling)` : "○ No Custom Banners Active (Showing Default 'SHIPPING PAN INDIA')"}
+          <span style={{ fontSize: "0.6875rem", color: activeCount > 0 ? "#059669" : "#6b7280", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
+            {activeCount > 0 ? `● ${activeCount} Banner${activeCount > 1 ? "s" : ""} Live (Auto-Scrolling)` : "○ Default 'SHIPPING PAN INDIA'"}
           </span>
         </div>
 
         {/* Browser Mockup Window */}
-        <div style={{ borderRadius: "6px", overflow: "hidden", border: "1px solid #d1d5db" }}>
+        <div style={{ borderRadius: "0px", overflow: "hidden", border: "1.5px solid #000000" }}>
           {/* Mock Browser Header */}
-          <div style={{ background: "#f3f4f6", padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", borderBottom: "1px solid #e5e7eb" }}>
-            <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#ef4444" }} />
-            <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#f59e0b" }} />
-            <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#10b981" }} />
-            <span style={{ fontSize: "0.6875rem", color: "#9ca3af", marginLeft: "12px", fontFamily: "monospace" }}>https://vahnsports.com</span>
+          <div style={{ background: "#f3f4f6", padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", borderBottom: "1px solid #000000" }}>
+            <div style={{ width: "8px", height: "8px", borderRadius: "0px", background: "#ef4444" }} />
+            <div style={{ width: "8px", height: "8px", borderRadius: "0px", background: "#f59e0b" }} />
+            <div style={{ width: "8px", height: "8px", borderRadius: "0px", background: "#10b981" }} />
+            <span style={{ fontSize: "0.6875rem", color: "#6b7280", marginLeft: "12px", fontFamily: "monospace", fontWeight: 600 }}>https://vahnsports.com</span>
           </div>
 
           {/* Active Banner in Simulation */}
@@ -400,6 +398,7 @@ export default function AdminAnnouncementsPage() {
                 fontSize: "0.75rem",
                 fontWeight: 700,
                 letterSpacing: "-0.025em",
+                textTransform: "uppercase",
                 textAlign: "center",
                 transition: "all 0.4s ease",
               }}
@@ -409,8 +408,9 @@ export default function AdminAnnouncementsPage() {
                 <span
                   style={{
                     fontSize: "0.6875rem",
+                    fontWeight: 800,
                     padding: "2px 8px",
-                    borderRadius: "3px",
+                    borderRadius: "0px",
                     background: "rgba(255,255,255,0.22)",
                     textDecoration: "underline",
                     textUnderlineOffset: "3px",
@@ -420,17 +420,17 @@ export default function AdminAnnouncementsPage() {
                 </span>
               )}
 
-              {/* Dots indicator in preview */}
+              {/* Square Dots indicator in preview */}
               {activeBanners.length > 1 && (
                 <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", display: "flex", gap: "4px" }}>
                   {activeBanners.map((_, i) => (
                     <div
                       key={i}
                       style={{
-                        width: "5px",
-                        height: "5px",
-                        borderRadius: "50%",
-                        background: i === previewIndex % activeBanners.length ? currentPreviewBanner.text_color || "#ffffff" : "rgba(255,255,255,0.3)",
+                        width: "6px",
+                        height: "6px",
+                        borderRadius: "0px",
+                        background: i === previewIndex % activeBanners.length ? currentPreviewBanner.text_color || "#ffffff" : "rgba(255,255,255,0.35)",
                         transition: "all 0.3s ease",
                       }}
                     />
@@ -459,8 +459,8 @@ export default function AdminAnnouncementsPage() {
           <div style={{ background: "#0d0d0f", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ color: "#ffffff", fontWeight: 900, letterSpacing: "-0.025em", fontSize: "0.875rem" }}>VAHN</span>
             <div style={{ display: "flex", gap: "12px" }}>
-              <div style={{ width: "40px", height: "6px", borderRadius: "3px", background: "#374151" }} />
-              <div style={{ width: "40px", height: "6px", borderRadius: "3px", background: "#374151" }} />
+              <div style={{ width: "40px", height: "4px", borderRadius: "0px", background: "#374151" }} />
+              <div style={{ width: "40px", height: "4px", borderRadius: "0px", background: "#374151" }} />
             </div>
           </div>
         </div>
@@ -470,14 +470,14 @@ export default function AdminAnnouncementsPage() {
       <div
         style={{
           background: "#ffffff",
-          borderRadius: "8px",
+          borderRadius: "0px",
           border: "1px solid #e5e7eb",
           overflow: "hidden",
           boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
         }}
       >
         <div style={{ padding: "16px 20px", borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ fontSize: "1rem", fontWeight: 800, letterSpacing: "-0.025em", color: "#111827", margin: 0 }}>
+          <h2 style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "-0.025em", textTransform: "uppercase", color: "#111827", margin: 0 }}>
             Configured Banners ({banners.length})
           </h2>
         </div>
@@ -489,7 +489,7 @@ export default function AdminAnnouncementsPage() {
         ) : banners.length === 0 ? (
           <div style={{ padding: "60px 20px", textAlign: "center" }}>
             <span style={{ fontSize: "2.5rem", display: "block", marginBottom: "12px" }}>📢</span>
-            <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#111827", marginBottom: "6px" }}>
+            <h3 style={{ fontSize: "1.125rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#111827", marginBottom: "6px" }}>
               No custom banners yet
             </h3>
             <p style={{ fontSize: "0.875rem", color: "#6b7280", maxWidth: "420px", margin: "0 auto 20px" }}>
@@ -498,13 +498,15 @@ export default function AdminAnnouncementsPage() {
             <button
               onClick={openCreateModal}
               style={{
-                background: "#3a3699",
+                background: "#000000",
                 color: "#ffffff",
-                border: "none",
-                padding: "8px 18px",
-                borderRadius: "4px",
-                fontWeight: 700,
+                border: "1.5px solid #000000",
+                padding: "10px 20px",
+                borderRadius: "0px",
+                fontWeight: 900,
                 fontSize: "0.8125rem",
+                textTransform: "uppercase",
+                letterSpacing: "-0.025em",
                 cursor: "pointer",
               }}
             >
@@ -515,13 +517,13 @@ export default function AdminAnnouncementsPage() {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
               <thead>
-                <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e5e7eb", color: "#4b5563", fontWeight: 700, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "-0.025em" }}>
+                <tr style={{ background: "#f9fafb", borderBottom: "1.5px solid #000000", color: "#111827", fontWeight: 900, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "-0.025em" }}>
                   <th style={{ padding: "12px 16px", width: "90px" }}>Active</th>
-                  <th style={{ padding: "12px 16px", width: "130px" }}>Type</th>
+                  <th style={{ padding: "12px 16px", width: "140px" }}>Type</th>
                   <th style={{ padding: "12px 16px" }}>Title &amp; Message</th>
                   <th style={{ padding: "12px 16px", width: "140px" }}>Colors</th>
-                  <th style={{ padding: "12px 16px", width: "120px" }}>Link / CTA</th>
-                  <th style={{ padding: "12px 16px", width: "110px", textAlign: "right" }}>Actions</th>
+                  <th style={{ padding: "12px 16px", width: "130px" }}>Link / CTA</th>
+                  <th style={{ padding: "12px 16px", width: "120px", textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -531,22 +533,22 @@ export default function AdminAnnouncementsPage() {
                     <tr
                       key={b.id}
                       style={{
-                        borderBottom: "1px solid #f3f4f6",
+                        borderBottom: "1px solid #e5e7eb",
                         background: b.is_active ? "#ffffff" : "#fafafa",
                         transition: "background 0.15s ease",
                       }}
                     >
-                      {/* Toggle */}
+                      {/* Square Toggle */}
                       <td style={{ padding: "14px 16px" }}>
                         <button
                           type="button"
                           onClick={() => handleToggle(b)}
                           style={{
-                            width: "42px",
+                            width: "40px",
                             height: "22px",
-                            borderRadius: "12px",
+                            borderRadius: "0px",
                             background: b.is_active ? "#10b981" : "#d1d5db",
-                            border: "none",
+                            border: "1.5px solid #000000",
                             cursor: "pointer",
                             position: "relative",
                             transition: "background-color 0.2s ease",
@@ -556,33 +558,33 @@ export default function AdminAnnouncementsPage() {
                         >
                           <div
                             style={{
-                              width: "18px",
-                              height: "18px",
-                              borderRadius: "50%",
+                              width: "14px",
+                              height: "14px",
+                              borderRadius: "0px",
                               background: "#ffffff",
-                              transform: b.is_active ? "translateX(20px)" : "translateX(0px)",
+                              transform: b.is_active ? "translateX(18px)" : "translateX(0px)",
                               transition: "transform 0.2s ease",
-                              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
                             }}
                           />
                         </button>
                       </td>
 
-                      {/* Type Badge */}
+                      {/* Type Badge - Square */}
                       <td style={{ padding: "14px 16px" }}>
                         <span
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
-                            gap: "4px",
+                            gap: "6px",
                             fontSize: "0.6875rem",
-                            fontWeight: 800,
-                            padding: "3px 8px",
-                            borderRadius: "4px",
+                            fontWeight: 900,
+                            padding: "4px 8px",
+                            borderRadius: "0px",
                             background: b.bg_color || preset.bg,
                             color: b.text_color || preset.text,
                             textTransform: "uppercase",
                             letterSpacing: "-0.025em",
+                            border: "1px solid rgba(0,0,0,0.2)",
                           }}
                         >
                           <span>{preset.icon}</span>
@@ -592,7 +594,7 @@ export default function AdminAnnouncementsPage() {
 
                       {/* Title & Message */}
                       <td style={{ padding: "14px 16px" }}>
-                        <div style={{ fontWeight: 800, color: "#111827", marginBottom: "2px", letterSpacing: "-0.025em" }}>
+                        <div style={{ fontWeight: 900, color: "#111827", marginBottom: "2px", letterSpacing: "-0.025em", textTransform: "uppercase" }}>
                           {b.title}
                         </div>
                         <div style={{ color: "#4b5563", fontSize: "0.8125rem", lineHeight: 1.4 }}>
@@ -600,21 +602,20 @@ export default function AdminAnnouncementsPage() {
                         </div>
                       </td>
 
-                      {/* Color Preview */}
+                      {/* Color Preview - Square */}
                       <td style={{ padding: "14px 16px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                           <div
                             style={{
                               width: "24px",
                               height: "24px",
-                              borderRadius: "4px",
+                              borderRadius: "0px",
                               background: b.bg_color || preset.bg,
-                              border: "1px solid rgba(0,0,0,0.15)",
-                              boxShadow: "inset 0 0 2px rgba(0,0,0,0.2)",
+                              border: "1.5px solid #000000",
                             }}
                             title={`Background: ${b.bg_color || preset.bg}`}
                           />
-                          <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#6b7280" }}>
+                          <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#111827", fontWeight: 700 }}>
                             {b.bg_color || preset.bg}
                           </span>
                         </div>
@@ -624,10 +625,10 @@ export default function AdminAnnouncementsPage() {
                       <td style={{ padding: "14px 16px" }}>
                         {b.link_url ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#3a3699" }}>
+                            <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#000000", textTransform: "uppercase" }}>
                               {b.link_text || "Link"} →
                             </span>
-                            <span style={{ fontSize: "0.6875rem", color: "#9ca3af", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <span style={{ fontSize: "0.6875rem", color: "#6b7280", maxWidth: "130px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {b.link_url}
                             </span>
                           </div>
@@ -636,20 +637,22 @@ export default function AdminAnnouncementsPage() {
                         )}
                       </td>
 
-                      {/* Actions */}
+                      {/* Actions - Square */}
                       <td style={{ padding: "14px 16px", textAlign: "right" }}>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
                           <button
                             type="button"
                             onClick={() => openEditModal(b)}
                             style={{
-                              background: "none",
-                              border: "1px solid #d1d5db",
-                              borderRadius: "4px",
-                              padding: "4px 8px",
+                              background: "#ffffff",
+                              border: "1.5px solid #000000",
+                              borderRadius: "0px",
+                              padding: "4px 10px",
                               fontSize: "0.75rem",
-                              fontWeight: 700,
-                              color: "#374151",
+                              fontWeight: 800,
+                              textTransform: "uppercase",
+                              letterSpacing: "-0.025em",
+                              color: "#000000",
                               cursor: "pointer",
                             }}
                           >
@@ -664,11 +667,12 @@ export default function AdminAnnouncementsPage() {
                                 style={{
                                   background: "#dc2626",
                                   color: "#ffffff",
-                                  border: "none",
-                                  borderRadius: "4px",
+                                  border: "1.5px solid #dc2626",
+                                  borderRadius: "0px",
                                   padding: "4px 8px",
                                   fontSize: "0.6875rem",
-                                  fontWeight: 800,
+                                  fontWeight: 900,
+                                  textTransform: "uppercase",
                                   cursor: "pointer",
                                 }}
                               >
@@ -679,9 +683,9 @@ export default function AdminAnnouncementsPage() {
                                 onClick={() => setDeleteConfirmId(null)}
                                 style={{
                                   background: "#f3f4f6",
-                                  color: "#374151",
-                                  border: "none",
-                                  borderRadius: "4px",
+                                  color: "#000000",
+                                  border: "1.5px solid #000000",
+                                  borderRadius: "0px",
                                   padding: "4px 6px",
                                   fontSize: "0.6875rem",
                                   cursor: "pointer",
@@ -695,12 +699,14 @@ export default function AdminAnnouncementsPage() {
                               type="button"
                               onClick={() => setDeleteConfirmId(b.id)}
                               style={{
-                                background: "none",
-                                border: "1px solid #fee2e2",
-                                borderRadius: "4px",
+                                background: "#ffffff",
+                                border: "1.5px solid #dc2626",
+                                borderRadius: "0px",
                                 padding: "4px 8px",
                                 fontSize: "0.75rem",
-                                fontWeight: 700,
+                                fontWeight: 800,
+                                textTransform: "uppercase",
+                                letterSpacing: "-0.025em",
                                 color: "#dc2626",
                                 cursor: "pointer",
                               }}
@@ -719,13 +725,13 @@ export default function AdminAnnouncementsPage() {
         )}
       </div>
 
-      {/* Create / Edit Modal */}
+      {/* Create / Edit Modal - 100% Square */}
       {isModalOpen && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0, 0, 0, 0.6)",
+            background: "rgba(0, 0, 0, 0.7)",
             backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
@@ -738,33 +744,34 @@ export default function AdminAnnouncementsPage() {
           <div
             style={{
               background: "#ffffff",
-              borderRadius: "10px",
+              borderRadius: "0px",
+              border: "2px solid #000000",
               maxWidth: "680px",
               width: "100%",
               maxHeight: "90vh",
               overflowY: "auto",
               padding: "28px",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.4)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", borderBottom: "1.5px solid #000000", paddingBottom: "12px" }}>
               <h2 style={{ fontSize: "1.25rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", margin: 0 }}>
                 {editingBanner ? "Edit Banner" : "Create New Announcement Banner"}
               </h2>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", color: "#6b7280" }}
+                style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", color: "#000000", fontWeight: 900 }}
               >
                 ✕
               </button>
             </div>
 
-            {/* Realtime Live Preview in Modal */}
+            {/* Realtime Live Preview in Modal - Square */}
             <div style={{ marginBottom: "24px" }}>
-              <label style={{ display: "block", fontSize: "0.6875rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#4b5563", marginBottom: "6px" }}>
+              <label style={{ display: "block", fontSize: "0.6875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#111827", marginBottom: "6px" }}>
                 Live Visual Preview
               </label>
               <div
@@ -772,16 +779,17 @@ export default function AdminAnnouncementsPage() {
                   background: formData.bg_color || "#000000",
                   color: formData.text_color || "#ffffff",
                   padding: "10px 16px",
-                  borderRadius: "4px",
+                  borderRadius: "0px",
                   fontSize: "0.75rem",
                   fontWeight: 700,
                   letterSpacing: "-0.025em",
+                  textTransform: "uppercase",
                   textAlign: "center",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: "10px",
-                  border: "1px solid rgba(0,0,0,0.1)",
+                  border: "1.5px solid #000000",
                   minHeight: "38px",
                   transition: "all 0.2s ease",
                 }}
@@ -792,7 +800,7 @@ export default function AdminAnnouncementsPage() {
                     style={{
                       fontSize: "0.6875rem",
                       padding: "2px 8px",
-                      borderRadius: "3px",
+                      borderRadius: "0px",
                       background: "rgba(255,255,255,0.25)",
                       textDecoration: "underline",
                       textUnderlineOffset: "3px",
@@ -810,7 +818,7 @@ export default function AdminAnnouncementsPage() {
             <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
               {/* Internal Title */}
               <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151", marginBottom: "6px" }}>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "6px" }}>
                   Internal Reference Title *
                 </label>
                 <input
@@ -822,8 +830,8 @@ export default function AdminAnnouncementsPage() {
                   style={{
                     width: "100%",
                     padding: "10px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
+                    border: "1.5px solid #000000",
+                    borderRadius: "0px",
                     fontSize: "0.875rem",
                   }}
                 />
@@ -831,7 +839,7 @@ export default function AdminAnnouncementsPage() {
 
               {/* Message */}
               <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151", marginBottom: "6px" }}>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "6px" }}>
                   Storefront Banner Message *
                 </label>
                 <input
@@ -843,16 +851,16 @@ export default function AdminAnnouncementsPage() {
                   style={{
                     width: "100%",
                     padding: "10px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "4px",
+                    border: "1.5px solid #000000",
+                    borderRadius: "0px",
                     fontSize: "0.875rem",
                   }}
                 />
               </div>
 
-              {/* Banner Type Presets */}
+              {/* Banner Type Presets - Square */}
               <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151", marginBottom: "8px" }}>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "8px" }}>
                   Banner Category &amp; Preset
                 </label>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(115px, 1fr))", gap: "8px" }}>
@@ -862,10 +870,11 @@ export default function AdminAnnouncementsPage() {
                       type="button"
                       onClick={() => handleTypeChange(key)}
                       style={{
-                        padding: "8px 10px",
-                        borderRadius: "4px",
-                        border: formData.banner_type === key ? "2px solid #3a3699" : "1px solid #e5e7eb",
-                        background: formData.banner_type === key ? "#f5f3ff" : "#ffffff",
+                        padding: "10px",
+                        borderRadius: "0px",
+                        border: formData.banner_type === key ? "2px solid #000000" : "1px solid #d1d5db",
+                        background: formData.banner_type === key ? "#000000" : "#ffffff",
+                        color: formData.banner_type === key ? "#ffffff" : "#000000",
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
@@ -874,7 +883,7 @@ export default function AdminAnnouncementsPage() {
                       }}
                     >
                       <span style={{ fontSize: "1.125rem" }}>{p.icon}</span>
-                      <span style={{ fontSize: "0.6875rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: formData.banner_type === key ? "#3a3699" : "#4b5563" }}>
+                      <span style={{ fontSize: "0.6875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
                         {p.label}
                       </span>
                     </button>
@@ -882,9 +891,9 @@ export default function AdminAnnouncementsPage() {
                 </div>
               </div>
 
-              {/* Color Customization & Palette Presets */}
+              {/* Color Customization & Palette Presets - Square */}
               <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151", marginBottom: "6px" }}>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "6px" }}>
                   Color Presets &amp; Custom Overrides
                 </label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
@@ -897,16 +906,18 @@ export default function AdminAnnouncementsPage() {
                         display: "flex",
                         alignItems: "center",
                         gap: "6px",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        border: formData.bg_color === p.bg ? "2px solid #3a3699" : "1px solid #d1d5db",
+                        padding: "6px 10px",
+                        borderRadius: "0px",
+                        border: formData.bg_color === p.bg ? "2px solid #000000" : "1px solid #d1d5db",
                         background: "#ffffff",
                         cursor: "pointer",
                         fontSize: "0.6875rem",
-                        fontWeight: 700,
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        letterSpacing: "-0.025em",
                       }}
                     >
-                      <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: p.bg, border: "1px solid rgba(0,0,0,0.2)" }} />
+                      <div style={{ width: "10px", height: "10px", borderRadius: "0px", background: p.bg, border: "1px solid rgba(0,0,0,0.3)" }} />
                       <span>{p.name}</span>
                     </button>
                   ))}
@@ -914,7 +925,7 @@ export default function AdminAnnouncementsPage() {
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                   <div>
-                    <label style={{ display: "block", fontSize: "0.6875rem", color: "#6b7280", marginBottom: "4px" }}>
+                    <label style={{ display: "block", fontSize: "0.6875rem", fontWeight: 700, color: "#374151", marginBottom: "4px" }}>
                       Background Color (Hex)
                     </label>
                     <div style={{ display: "flex", gap: "6px" }}>
@@ -922,19 +933,19 @@ export default function AdminAnnouncementsPage() {
                         type="color"
                         value={formData.bg_color}
                         onChange={(e) => setFormData({ ...formData, bg_color: e.target.value })}
-                        style={{ width: "36px", height: "36px", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer", padding: "2px" }}
+                        style={{ width: "38px", height: "38px", border: "1.5px solid #000000", borderRadius: "0px", cursor: "pointer", padding: "2px" }}
                       />
                       <input
                         type="text"
                         value={formData.bg_color}
                         onChange={(e) => setFormData({ ...formData, bg_color: e.target.value })}
-                        style={{ width: "100%", padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "0.8125rem", fontFamily: "monospace" }}
+                        style={{ width: "100%", padding: "6px 10px", border: "1.5px solid #000000", borderRadius: "0px", fontSize: "0.8125rem", fontFamily: "monospace", fontWeight: 700 }}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label style={{ display: "block", fontSize: "0.6875rem", color: "#6b7280", marginBottom: "4px" }}>
+                    <label style={{ display: "block", fontSize: "0.6875rem", fontWeight: 700, color: "#374151", marginBottom: "4px" }}>
                       Text Color (Hex)
                     </label>
                     <div style={{ display: "flex", gap: "6px" }}>
@@ -942,13 +953,13 @@ export default function AdminAnnouncementsPage() {
                         type="color"
                         value={formData.text_color}
                         onChange={(e) => setFormData({ ...formData, text_color: e.target.value })}
-                        style={{ width: "36px", height: "36px", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer", padding: "2px" }}
+                        style={{ width: "38px", height: "38px", border: "1.5px solid #000000", borderRadius: "0px", cursor: "pointer", padding: "2px" }}
                       />
                       <input
                         type="text"
                         value={formData.text_color}
                         onChange={(e) => setFormData({ ...formData, text_color: e.target.value })}
-                        style={{ width: "100%", padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "0.8125rem", fontFamily: "monospace" }}
+                        style={{ width: "100%", padding: "6px 10px", border: "1.5px solid #000000", borderRadius: "0px", fontSize: "0.8125rem", fontFamily: "monospace", fontWeight: 700 }}
                       />
                     </div>
                   </div>
@@ -958,7 +969,7 @@ export default function AdminAnnouncementsPage() {
               {/* Link URL & Link Text */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151", marginBottom: "6px" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "6px" }}>
                     Destination Link (Optional)
                   </label>
                   <input
@@ -966,12 +977,12 @@ export default function AdminAnnouncementsPage() {
                     placeholder="e.g. /products or /collections/jersey"
                     value={formData.link_url}
                     onChange={(e) => setFormData({ ...formData, link_url: e.target.value })}
-                    style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "0.8125rem" }}
+                    style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #000000", borderRadius: "0px", fontSize: "0.8125rem" }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151", marginBottom: "6px" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "6px" }}>
                     Button / CTA Text (Optional)
                   </label>
                   <input
@@ -979,46 +990,48 @@ export default function AdminAnnouncementsPage() {
                     placeholder="e.g. Shop Now"
                     value={formData.link_text}
                     onChange={(e) => setFormData({ ...formData, link_text: e.target.value })}
-                    style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "0.8125rem" }}
+                    style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #000000", borderRadius: "0px", fontSize: "0.8125rem" }}
                   />
                 </div>
               </div>
 
-              {/* Checkbox Options */}
-              <div style={{ display: "flex", gap: "24px", padding: "12px", background: "#f9fafb", borderRadius: "6px" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.8125rem", fontWeight: 700 }}>
+              {/* Checkbox Options - Square */}
+              <div style={{ display: "flex", gap: "24px", padding: "14px", background: "#f9fafb", border: "1.5px solid #000000", borderRadius: "0px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.8125rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
                   <input
                     type="checkbox"
                     checked={formData.is_active}
                     onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    style={{ width: "16px", height: "16px", accentColor: "#3a3699" }}
+                    style={{ width: "16px", height: "16px", accentColor: "#000000" }}
                   />
                   <span>Active on Storefront</span>
                 </label>
 
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.8125rem", fontWeight: 700 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.8125rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
                   <input
                     type="checkbox"
                     checked={formData.is_closable}
                     onChange={(e) => setFormData({ ...formData, is_closable: e.target.checked })}
-                    style={{ width: "16px", height: "16px", accentColor: "#3a3699" }}
+                    style={{ width: "16px", height: "16px", accentColor: "#000000" }}
                   />
                   <span>Allow Customer to Dismiss [✕]</span>
                 </label>
               </div>
 
-              {/* Form Buttons */}
+              {/* Form Buttons - Square & Black */}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   style={{
-                    padding: "10px 18px",
-                    borderRadius: "4px",
-                    border: "1px solid #d1d5db",
+                    padding: "10px 20px",
+                    borderRadius: "0px",
+                    border: "1.5px solid #000000",
                     background: "#ffffff",
-                    fontWeight: 700,
+                    fontWeight: 900,
                     fontSize: "0.8125rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "-0.025em",
                     cursor: "pointer",
                   }}
                 >
@@ -1028,12 +1041,12 @@ export default function AdminAnnouncementsPage() {
                   type="submit"
                   disabled={saving}
                   style={{
-                    padding: "10px 24px",
-                    borderRadius: "4px",
-                    border: "none",
-                    background: "#3a3699",
+                    padding: "10px 28px",
+                    borderRadius: "0px",
+                    border: "1.5px solid #000000",
+                    background: "#000000",
                     color: "#ffffff",
-                    fontWeight: 800,
+                    fontWeight: 900,
                     fontSize: "0.8125rem",
                     textTransform: "uppercase",
                     letterSpacing: "-0.025em",
