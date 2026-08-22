@@ -14,6 +14,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dismissedIds, setDismissedIds] = useState<number[]>([]);
   const [isHovered, setIsHovered] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load dismissed banners from sessionStorage on mount
@@ -28,17 +29,17 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
     }
   }, []);
 
-  // Fetch active banners on mount if not provided via SSR props
+  // Fetch active banners on mount
   useEffect(() => {
     let isMounted = true;
     async function loadActiveBanners() {
       try {
         const data = await getActiveAnnouncements();
-        if (isMounted && data) {
+        if (isMounted && data && Array.isArray(data)) {
           setBanners(data);
         }
       } catch {
-        // Graceful fallback to default
+        // Graceful fallback
       }
     }
     loadActiveBanners();
@@ -48,20 +49,46 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
   }, []);
 
   // Filter out banners dismissed by this user
-  const visibleBanners = banners.filter((b) => !dismissedIds.includes(b.id));
+  const visibleBanners = banners.filter((b) => b.is_active && !dismissedIds.includes(b.id));
 
-  // Auto-cycle through multiple active banners every 5.5 seconds
+  // Auto-cycle through multiple active banners every 4 seconds
   useEffect(() => {
     if (visibleBanners.length <= 1 || isHovered) return;
 
     timerRef.current = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % visibleBanners.length);
-    }, 5500);
+      setIsAnimating(true);
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % visibleBanners.length);
+        setIsAnimating(false);
+      }, 200);
+    }, 4000);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [visibleBanners.length, isHovered]);
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (visibleBanners.length <= 1) return;
+    setIsAnimating(true);
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev + 1) % visibleBanners.length);
+      setIsAnimating(false);
+    }, 150);
+  };
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (visibleBanners.length <= 1) return;
+    setIsAnimating(true);
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev - 1 + visibleBanners.length) % visibleBanners.length);
+      setIsAnimating(false);
+    }, 150);
+  };
 
   const handleDismiss = (e: React.MouseEvent, bannerId: number) => {
     e.stopPropagation();
@@ -111,6 +138,9 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
         gap: '10px',
         flexWrap: 'wrap',
         minHeight: '20px',
+        opacity: isAnimating ? 0 : 1,
+        transform: isAnimating ? 'translateY(-4px)' : 'translateY(0)',
+        transition: 'opacity 0.2s ease, transform 0.2s ease',
       }}
     >
       <span style={{ fontWeight: 700 }}>{currentBanner?.message}</span>
@@ -142,7 +172,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
         position: 'relative',
         backgroundColor: bg,
         color: textColor,
-        padding: '8px 40px 8px 16px',
+        padding: visibleBanners.length > 1 ? '8px 48px' : '8px 40px 8px 16px',
         textAlign: 'center',
         fontSize: '0.75rem',
         fontWeight: 600,
@@ -152,11 +182,50 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
         fontFamily: 'var(--font-heading)',
         transition: 'background-color 0.4s ease, color 0.4s ease',
         overflow: 'hidden',
+        userSelect: 'none',
       }}
       role="banner"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Left Arrow button (if multiple active banners) */}
+      {visibleBanners.length > 1 && (
+        <button
+          type="button"
+          onClick={handlePrev}
+          aria-label="Previous announcement"
+          style={{
+            position: 'absolute',
+            left: '10px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: 'none',
+            border: 'none',
+            color: textColor,
+            opacity: 0.75,
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            transition: 'opacity 0.2s ease, transform 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '1';
+            e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '0.75';
+            e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+      )}
+
       {/* Clickable Destination Link or Plain Content */}
       {currentBanner?.link_url ? (
         <Link
@@ -173,66 +242,82 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
         bannerContent
       )}
 
-      {/* Dismiss [✕] button if banner is configured as closable */}
-      {currentBanner?.is_closable && (
-        <button
-          type="button"
-          onClick={(e) => handleDismiss(e, currentBanner.id)}
-          aria-label="Dismiss banner"
-          style={{
-            position: 'absolute',
-            right: '12px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            background: 'none',
-            border: 'none',
-            color: textColor,
-            opacity: 0.75,
-            cursor: 'pointer',
-            padding: '4px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '0.75rem',
-            lineHeight: 1,
-            transition: 'opacity 0.2s ease',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.75')}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-      )}
+      {/* Right controls: Next Arrow + Dismiss [✕] */}
+      <div
+        style={{
+          position: 'absolute',
+          right: '10px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          zIndex: 10,
+        }}
+      >
+        {/* Right Arrow button (if multiple active banners) */}
+        {visibleBanners.length > 1 && (
+          <button
+            type="button"
+            onClick={handleNext}
+            aria-label="Next announcement"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: textColor,
+              opacity: 0.75,
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'opacity 0.2s ease, transform 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = '1';
+              e.currentTarget.style.transform = 'scale(1.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = '0.75';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        )}
 
-      {/* Multi-banner indicator dots (if > 1 banner) */}
-      {visibleBanners.length > 1 && (
-        <div
-          style={{
-            position: 'absolute',
-            left: '12px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            display: 'flex',
-            gap: '4px',
-          }}
-        >
-          {visibleBanners.map((_, i) => (
-            <div
-              key={i}
-              style={{
-                width: '5px',
-                height: '5px',
-                borderRadius: '50%',
-                background: i === currentIndex % visibleBanners.length ? textColor : 'rgba(255,255,255,0.3)',
-                transition: 'all 0.3s ease',
-              }}
-            />
-          ))}
-        </div>
-      )}
+        {/* Dismiss [✕] button if banner is configured as closable */}
+        {currentBanner?.is_closable && (
+          <button
+            type="button"
+            onClick={(e) => handleDismiss(e, currentBanner.id)}
+            aria-label="Dismiss banner"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: textColor,
+              opacity: 0.75,
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.75rem',
+              lineHeight: 1,
+              transition: 'opacity 0.2s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.75')}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
