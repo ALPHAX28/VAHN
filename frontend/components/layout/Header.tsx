@@ -71,7 +71,7 @@ export default function Header() {
         zIndex: 'var(--z-header)',
       }}
     >
-      {/* Announcement Bar — Solid Black at all times */}
+      {/* Announcement Bar — Solid Black */}
       <div
         style={{
           textAlign: 'center',
@@ -90,7 +90,7 @@ export default function Header() {
         SHIPPING PAN INDIA
       </div>
 
-      {/* Main VAHN Header Bar — Transparent at top with thin white line, transitions to dark on scroll */}
+      {/* Main VAHN Header Bar */}
       <header
         style={{
           width: '100%',
@@ -110,34 +110,69 @@ export default function Header() {
             display: 'grid',
             gridTemplateColumns: '1fr auto 1fr',
             alignItems: 'center',
-            padding: '0 clamp(16px, 4vw, 48px)',
+            padding: '0 clamp(12px, 3vw, 48px)',
           }}
         >
-          {/* Left: Desktop Nav Links */}
-          <nav
-            style={{ display: 'flex', alignItems: 'center', gap: '28px' }}
-            aria-label="Primary navigation"
-          >
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={{
-                  fontFamily: 'var(--font-ui)',
-                  fontSize: '0.8125rem',
-                  fontWeight: 500,
-                  letterSpacing: '-0.025em',
-                  color: 'rgba(255, 255, 255, 0.9)',
-                  textDecoration: 'none',
-                  transition: 'color 0.2s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)')}
+          {/* Left: Desktop Nav Links (Desktop) OR Hamburger (Mobile) */}
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {/* Desktop Navigation */}
+            <nav
+              className="header-desktop-nav"
+              aria-label="Primary navigation"
+            >
+              {NAV_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  style={{
+                    fontFamily: 'var(--font-ui)',
+                    fontSize: '0.8125rem',
+                    fontWeight: 500,
+                    letterSpacing: '-0.025em',
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)')}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Mobile Hamburger Button */}
+            <button
+              className="header-mobile-hamburger"
+              aria-label="Open navigation menu"
+              onClick={() => setMobileOpen(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'rgba(255, 255, 255, 0.9)',
+                padding: '6px',
+                transition: 'color 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)')}
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+          </div>
 
           {/* Center: Official VAHN Logo */}
           <Link
@@ -157,7 +192,7 @@ export default function Header() {
               height={30}
               priority
               style={{
-                height: '28px',
+                height: '26px',
                 width: 'auto',
                 display: 'block',
                 objectFit: 'contain',
@@ -165,13 +200,13 @@ export default function Header() {
             />
           </Link>
 
-          {/* Right: Actions (Search, Account, Cart, Mobile Menu) */}
+          {/* Right: Actions (Search, Account, Cart) */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'flex-end',
-              gap: '16px',
+              gap: 'clamp(8px, 2vw, 16px)',
             }}
           >
             {/* 1. Search Icon */}
@@ -207,8 +242,8 @@ export default function Header() {
               </svg>
             </button>
 
-            {/* 2. User Account Icon */}
-            <div style={{ position: 'relative' }}>
+            {/* 2. User Account Icon (Desktop) */}
+            <div className="header-desktop-account" style={{ position: 'relative' }}>
               <button
                 aria-label={user ? `Account (${user.full_name})` : 'Sign In / Register'}
                 onClick={() => {
@@ -373,27 +408,6 @@ export default function Header() {
                   {totalQuantity}
                 </span>
               )}
-            </button>
-
-            {/* Mobile hamburger */}
-            <button
-              className="hamburger"
-              aria-label="Open menu"
-              onClick={() => setMobileOpen(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: '#ffffff',
-                padding: '6px',
-                display: 'none',
-              }}
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
             </button>
           </div>
         </div>

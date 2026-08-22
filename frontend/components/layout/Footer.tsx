@@ -32,12 +32,12 @@ export default function Footer() {
         style={{
           maxWidth: '1440px',
           margin: '0 auto',
-          padding: 'clamp(36px, 4vw, 56px) clamp(20px, 5vw, 80px) clamp(48px, 6vw, 80px)',
+          padding: 'clamp(36px, 5vw, 56px) clamp(16px, 5vw, 80px) clamp(40px, 6vw, 80px)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
           flexWrap: 'wrap',
-          gap: 'clamp(32px, 5vw, 64px)',
+          gap: 'clamp(28px, 4vw, 64px)',
         }}
       >
         {/* Left Group: ABOUT, SUPPORT, SOCIALS */}
@@ -45,12 +45,12 @@ export default function Footer() {
           style={{
             display: 'flex',
             flexWrap: 'wrap',
-            gap: 'clamp(36px, 5vw, 64px)',
+            gap: 'clamp(28px, 4vw, 64px)',
             alignItems: 'flex-start',
           }}
         >
           {/* Column 1: ABOUT */}
-          <div style={{ minWidth: '110px' }}>
+          <div style={{ minWidth: '100px' }}>
             <h5
               style={{
                 fontFamily: 'var(--font-heading)',
@@ -98,7 +98,7 @@ export default function Footer() {
           </div>
 
           {/* Column 2: SUPPORT */}
-          <div style={{ minWidth: '140px' }}>
+          <div style={{ minWidth: '130px' }}>
             <h5
               style={{
                 fontFamily: 'var(--font-heading)',
@@ -250,7 +250,7 @@ export default function Footer() {
         </div>
 
         {/* Right Group: Logo + Early Access Text + Form */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', maxWidth: '440px' }}>
           {/* Official VAHN Logo */}
           <Link
             href="/"
@@ -264,7 +264,7 @@ export default function Footer() {
               height={34}
               priority
               style={{
-                height: '32px',
+                height: '30px',
                 width: 'auto',
                 display: 'block',
                 objectFit: 'contain',
@@ -277,12 +277,11 @@ export default function Footer() {
             style={{
               fontFamily: 'var(--font-heading)',
               fontWeight: 600,
-              fontSize: 'clamp(0.75rem, 1.1vw, 0.875rem)',
+              fontSize: 'clamp(0.75rem, 3vw, 0.875rem)',
               textTransform: 'uppercase',
               letterSpacing: '-0.025em',
               color: '#ffffff',
               marginBottom: '14px',
-              whiteSpace: 'nowrap',
             }}
           >
             JOIN TEAM VAHN TO GET EARLY ACCESS
@@ -302,7 +301,6 @@ export default function Footer() {
               alignItems: 'center',
               gap: '10px',
               width: '100%',
-              maxWidth: '440px',
             }}
           >
             <input
@@ -315,7 +313,7 @@ export default function Footer() {
               style={{
                 flex: 1,
                 height: '46px',
-                padding: '0 18px',
+                padding: '0 16px',
                 background: 'transparent',
                 border: '1px solid #3b379e',
                 borderRadius: '2px',
@@ -324,7 +322,8 @@ export default function Footer() {
                 fontSize: '0.9375rem',
                 letterSpacing: '-0.025em',
                 outline: 'none',
-                minWidth: '280px',
+                minWidth: 0,
+                width: '100%',
               }}
             />
             <button

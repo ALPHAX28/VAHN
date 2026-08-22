@@ -3,7 +3,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import type { Product } from '@/lib/api/types';
+import type { Product, ProductVariant } from '@/lib/api/types';
+import { useCart } from '@/context/CartContext';
 
 interface Props {
   products: Product[];
@@ -19,6 +20,7 @@ interface ExpandedLockerItem {
   tag: string;
   title: string;
   targetHref: string;
+  variants: ProductVariant[];
 }
 
 function getExpandedLockerItems(products: Product[]): ExpandedLockerItem[] {
@@ -85,6 +87,7 @@ function getExpandedLockerItems(products: Product[]): ExpandedLockerItem[] {
           tag,
           title: product.title,
           targetHref: `/products/${product.handle}?colour=${encodeURIComponent(colourName)}`,
+          variants: pool,
         });
       });
     } else {
@@ -149,6 +152,7 @@ function getExpandedLockerItems(products: Product[]): ExpandedLockerItem[] {
             tag,
             title: product.title,
             targetHref: `/products/${product.handle}?colour=${encodeURIComponent(col)}`,
+            variants: pool,
           });
         });
       } else {
@@ -188,6 +192,7 @@ function getExpandedLockerItems(products: Product[]): ExpandedLockerItem[] {
           tag,
           title: product.title,
           targetHref: `/products/${product.handle}`,
+          variants: allVariants,
         });
       }
     }
@@ -203,8 +208,12 @@ function LockerCard({
   item?: ExpandedLockerItem;
   fallbackIndex: number;
 }) {
+  const { addItem } = useCart();
   const [imgIdx, setImgIdx] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const images = item?.images || [];
   const hasMultipleImages = images.length > 1;
@@ -217,7 +226,66 @@ function LockerCard({
   const isFewLeft = item?.isFewLeft ?? false;
   const targetHref = item?.targetHref || '/products';
 
-  const BRAND_COLOR = '#3b379e';
+  const BRAND_COLOR = '#3a3699';
+
+  // Extract distinct sizes from variants for this colorway
+  const sizeVariants = useMemo(() => {
+    const vars = item?.variants || [];
+    return vars.map((v) => {
+      const sizeOpt = v.selectedOptions?.find(
+        (o) => o.name.toLowerCase() === 'size'
+      );
+      const sizeLabel = sizeOpt ? sizeOpt.value.trim() : v.title !== 'Default Title' ? v.title : 'ONE SIZE';
+      const isAvailable = v.availableForSale && (v.quantityAvailable === undefined || v.quantityAvailable > 0);
+      const isFew = isAvailable && typeof v.quantityAvailable === 'number' && v.quantityAvailable <= 5;
+      return {
+        variant: v,
+        sizeLabel,
+        isAvailable,
+        isFew,
+      };
+    });
+  }, [item?.variants]);
+
+  // Handle Quick Add to Cart
+  const handleAddToCart = (v: ProductVariant) => {
+    if (!item) return;
+    setAddedVariantId(v.id);
+
+    addItem(
+      v.id,
+      1,
+      {
+        productTitle: item.title,
+        productHandle: item.product.handle,
+        variantTitle: v.title,
+        price: v.price,
+        image: currentImg
+          ? { url: currentImg.url, altText: currentImg.altText || item.title, width: 800, height: 800 }
+          : null,
+        selectedOptions: v.selectedOptions,
+        quantityAvailable: v.quantityAvailable,
+      },
+      true // open drawer immediately!
+    );
+
+    setTimeout(() => {
+      setAddedVariantId(null);
+      setShowQuickAdd(false);
+    }, 600);
+  };
+
+  // Close size picker on outside click
+  useEffect(() => {
+    if (!showQuickAdd) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        setShowQuickAdd(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [showQuickAdd]);
 
   const handlePrev = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -237,18 +305,20 @@ function LockerCard({
 
   return (
     <div
+      ref={cardRef}
+      className="locker-card-wrapper"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
-        width: 'clamp(300px, 26vw, 420px)',
-        flex: '0 0 clamp(300px, 26vw, 420px)',
+        width: 'clamp(280px, 75vw, 420px)',
+        flex: '0 0 clamp(280px, 75vw, 420px)',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
         userSelect: 'none',
       }}
     >
-      {/* 1. Media Frame — Clean borderless container */}
+      {/* 1. Media Frame */}
       <div
         style={{
           position: 'relative',
@@ -261,18 +331,19 @@ function LockerCard({
           justifyContent: 'center',
         }}
       >
-        {/* Left Arrow Button — Pure Blue Arrow, appears on hover */}
+        {/* Left Arrow Button — Pure Blue Arrow, no white circle background */}
         {hasMultipleImages && (
           <button
             type="button"
             onClick={handlePrev}
             aria-label="Previous view"
+            className="locker-card-arrow"
             style={{
               position: 'absolute',
-              left: '12px',
+              left: '8px',
               top: '50%',
-              transform: `translateY(-50%) ${isHovered ? 'scale(1.1)' : 'scale(0.85)'}`,
-              zIndex: 10,
+              transform: 'translateY(-50%)',
+              zIndex: 15,
               background: 'transparent',
               border: 'none',
               borderRadius: 0,
@@ -283,12 +354,16 @@ function LockerCard({
               cursor: 'pointer',
               color: BRAND_COLOR,
               boxShadow: 'none',
-              opacity: isHovered ? 1 : 0,
-              pointerEvents: isHovered ? 'auto' : 'none',
-              transition: 'opacity 0.2s ease, transform 0.2s ease, color 0.2s ease',
+              transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#262272')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = BRAND_COLOR)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#262272';
+              e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = BRAND_COLOR;
+              e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+            }}
           >
             <svg
               width="24"
@@ -345,18 +420,19 @@ function LockerCard({
           )}
         </Link>
 
-        {/* Right Arrow Button — Pure Blue Arrow, appears on hover */}
+        {/* Right Arrow Button — Pure Blue Arrow, no white circle background */}
         {hasMultipleImages && (
           <button
             type="button"
             onClick={handleNext}
             aria-label="Next view"
+            className="locker-card-arrow"
             style={{
               position: 'absolute',
-              right: '12px',
+              right: '8px',
               top: '50%',
-              transform: `translateY(-50%) ${isHovered ? 'scale(1.1)' : 'scale(0.85)'}`,
-              zIndex: 10,
+              transform: 'translateY(-50%)',
+              zIndex: 15,
               background: 'transparent',
               border: 'none',
               borderRadius: 0,
@@ -367,12 +443,16 @@ function LockerCard({
               cursor: 'pointer',
               color: BRAND_COLOR,
               boxShadow: 'none',
-              opacity: isHovered ? 1 : 0,
-              pointerEvents: isHovered ? 'auto' : 'none',
-              transition: 'opacity 0.2s ease, transform 0.2s ease, color 0.2s ease',
+              transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#262272')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = BRAND_COLOR)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#262272';
+              e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = BRAND_COLOR;
+              e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+            }}
           >
             <svg
               width="24"
@@ -387,6 +467,152 @@ function LockerCard({
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>
+        )}
+
+        {/* Image Pagination Dots if multiple photos exist */}
+        {hasMultipleImages && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '10px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              zIndex: 10,
+              pointerEvents: 'none',
+            }}
+          >
+            {images.map((_, dotIdx) => (
+              <span
+                key={dotIdx}
+                style={{
+                  width: dotIdx === imgIdx ? '16px' : '5px',
+                  height: '5px',
+                  borderRadius: '3px',
+                  background: dotIdx === imgIdx ? BRAND_COLOR : 'rgba(255, 255, 255, 0.7)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  transition: 'all 0.25s ease',
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Quick Size Selector Slide-up Overlay */}
+        {showQuickAdd && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: 'rgba(255, 255, 255, 0.98)',
+              backdropFilter: 'blur(12px)',
+              borderTop: '1px solid rgba(0, 0, 0, 0.08)',
+              padding: '14px 12px 12px',
+              zIndex: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.12)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: '0.6875rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '-0.025em',
+                  color: '#000000',
+                }}
+              >
+                SELECT SIZE
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowQuickAdd(false)}
+                aria-label="Close size picker"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '2px',
+                  cursor: 'pointer',
+                  color: '#888888',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Sizes Grid */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {sizeVariants.map(({ variant, sizeLabel, isAvailable, isFew }) => (
+                <button
+                  key={variant.id}
+                  type="button"
+                  disabled={!isAvailable || addedVariantId === variant.id}
+                  onClick={() => handleAddToCart(variant)}
+                  style={{
+                    flex: '1 0 calc(25% - 6px)',
+                    minWidth: '40px',
+                    height: '36px',
+                    padding: '0 6px',
+                    background: addedVariantId === variant.id ? '#3b379e' : isAvailable ? '#ffffff' : '#f5f5f7',
+                    color: addedVariantId === variant.id ? '#ffffff' : isAvailable ? '#000000' : '#b0b0b5',
+                    border: addedVariantId === variant.id
+                      ? '1.5px solid #3b379e'
+                      : isAvailable
+                      ? '1.5px solid #000000'
+                      : '1px solid rgba(0,0,0,0.08)',
+                    borderRadius: '2px',
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    letterSpacing: '-0.025em',
+                    cursor: isAvailable ? 'pointer' : 'not-allowed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    textDecoration: isAvailable ? 'none' : 'line-through',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (isAvailable && addedVariantId !== variant.id) {
+                      e.currentTarget.style.backgroundColor = '#3b379e';
+                      e.currentTarget.style.borderColor = '#3b379e';
+                      e.currentTarget.style.color = '#ffffff';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (isAvailable && addedVariantId !== variant.id) {
+                      e.currentTarget.style.backgroundColor = '#ffffff';
+                      e.currentTarget.style.borderColor = '#000000';
+                      e.currentTarget.style.color = '#000000';
+                    }
+                  }}
+                >
+                  {addedVariantId === variant.id ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    sizeLabel
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
@@ -465,19 +691,30 @@ function LockerCard({
           )}
         </div>
 
-        {/* Right Side: Plus Button in brand purple/blue (Highlights on hover) */}
-        <Link
-          href={targetHref}
-          aria-label={`View ${title}`}
+        {/* Right Side: Quick Add Button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (sizeVariants.length <= 1) {
+              const targetVar = sizeVariants[0]?.variant;
+              if (targetVar) handleAddToCart(targetVar);
+            } else {
+              setShowQuickAdd((prev) => !prev);
+            }
+          }}
+          aria-label={showQuickAdd ? 'Close size picker' : `Add ${title} to cart`}
           style={{
-            color: isHovered ? '#262272' : BRAND_COLOR,
+            background: showQuickAdd ? '#3b379e' : 'none',
+            border: 'none',
+            color: showQuickAdd ? '#ffffff' : isHovered ? '#262272' : BRAND_COLOR,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: '4px',
-            textDecoration: 'none',
-            transition: 'transform 0.2s ease, color 0.2s ease',
-            transform: isHovered ? 'scale(1.25)' : 'scale(1)',
+            borderRadius: showQuickAdd ? '50%' : '0',
+            cursor: 'pointer',
+            transition: 'transform 0.25s ease, color 0.2s ease, background-color 0.2s ease',
+            transform: showQuickAdd ? 'rotate(45deg)' : isHovered ? 'scale(1.25)' : 'scale(1)',
           }}
         >
           <svg
@@ -492,7 +729,7 @@ function LockerCard({
             <line x1="12" y1="4" x2="12" y2="20" />
             <line x1="4" y1="12" x2="20" y2="12" />
           </svg>
-        </Link>
+        </button>
       </div>
     </div>
   );
@@ -539,7 +776,7 @@ export default function FreshOutLocker({ products }: Props) {
     <section
       style={{
         background: '#ffffff',
-        padding: 'clamp(48px, 6vw, 80px) 0 clamp(48px, 6vw, 80px) clamp(24px, 8vw, 140px)',
+        padding: 'clamp(48px, 6vw, 80px) 0 clamp(48px, 6vw, 80px) clamp(20px, 6vw, 140px)',
       }}
     >
       <div style={{ maxWidth: '1440px' }}>
@@ -550,7 +787,7 @@ export default function FreshOutLocker({ products }: Props) {
             alignItems: 'center',
             justifyContent: 'space-between',
             marginBottom: '28px',
-            paddingRight: 'clamp(24px, 6vw, 80px)',
+            paddingRight: 'clamp(20px, 6vw, 80px)',
           }}
         >
           <h2
@@ -668,7 +905,7 @@ export default function FreshOutLocker({ products }: Props) {
           ref={scrollContainerRef}
           style={{
             display: 'flex',
-            gap: 'clamp(20px, 3.5vw, 36px)',
+            gap: 'clamp(16px, 3.5vw, 36px)',
             overflowX: 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',

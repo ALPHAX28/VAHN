@@ -213,6 +213,66 @@ input, textarea, select {
   .container { padding: 0 var(--space-md); }
 }
 
+/* ---- Responsive Mobile Header ---- */
+.header-desktop-nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.header-mobile-hamburger {
+  display: none;
+}
+
+.header-desktop-account {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .header-desktop-nav {
+    display: none !important;
+  }
+  .header-mobile-hamburger {
+    display: flex !important;
+    align-items: center;
+    justifyContent: center;
+  }
+  .header-desktop-account {
+    display: none !important;
+  }
+}
+
+/* ---- Pick Your Side Responsive Grid ---- */
+.pick-your-side-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 768px) {
+  .pick-your-side-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ---- Fresh Out of the Locker Swiper Arrows ---- */
+.locker-card-arrow {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.locker-card-wrapper:hover .locker-card-arrow {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+  .locker-card-arrow {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

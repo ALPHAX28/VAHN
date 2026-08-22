@@ -10,7 +10,7 @@ export default function PickYourSide() {
       <div
         style={{
           background: '#111111',
-          padding: '52px 24px 48px',
+          padding: 'clamp(36px, 6vw, 52px) clamp(16px, 4vw, 24px) clamp(32px, 5vw, 48px)',
           textAlign: 'center',
         }}
       >
@@ -41,7 +41,7 @@ export default function PickYourSide() {
         <p
           style={{
             fontFamily: 'var(--font-body)',
-            fontSize: '0.9375rem',
+            fontSize: 'clamp(0.875rem, 2vw, 0.9375rem)',
             color: '#aaaaaa',
             maxWidth: '520px',
             margin: '0 auto',
@@ -53,8 +53,8 @@ export default function PickYourSide() {
         </p>
       </div>
 
-      {/* Two-panel image section */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+      {/* Two-panel image section — 2 columns on desktop, stacks vertically on mobile */}
+      <div className="pick-your-side-grid">
         {/* Left Panel */}
         <div
           style={{
