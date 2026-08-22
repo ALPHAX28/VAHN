@@ -8,9 +8,9 @@ load_dotenv()
 
 
 def _get_ses_client():
-    """Returns a boto3 SES client if AWS credentials are configured in environment."""
-    aws_access_key = os.getenv("AWS_ACCESS_KEY_ID", "").strip()
-    aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "").strip()
+    """Returns a boto3 SES client if explicit SES AWS credentials are configured in environment."""
+    aws_access_key = (os.getenv("AWS_SES_ACCESS_KEY_ID") or "").strip()
+    aws_secret_key = (os.getenv("AWS_SES_SECRET_ACCESS_KEY") or "").strip()
     aws_ses_region = os.getenv("AWS_SES_REGION", os.getenv("AWS_REGION", "ap-south-1")).strip()
 
     if not aws_access_key or not aws_secret_key:
@@ -32,8 +32,8 @@ def _get_ses_client():
 def _send_email(to_email: str, subject: str, html_content: str, text_content: Optional[str] = None) -> bool:
     """
     Central Email Dispatcher for VAHN using Amazon SES.
-    1. Attempts native Amazon SES API via boto3 (high performance, direct HTTPS).
-    2. Falls back to Amazon SES SMTP if SMTP credentials are provided.
+    1. Uses Amazon SES SMTP (smtplib) with configured IAM SES credentials for instant, verified delivery.
+    2. Uses native Amazon SES API if explicit AWS_SES_ACCESS_KEY_ID is provided.
     3. In local development with no credentials, logs message to console and returns True.
     """
     from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahnsports.com").strip()
@@ -42,7 +42,35 @@ def _send_email(to_email: str, subject: str, html_content: str, text_content: Op
     plain_text = text_content or subject
 
     # ------------------------------------------------------------
-    # Method 1: Amazon SES Direct HTTPS API (boto3)
+    # Method 1: Amazon SES SMTP (Primary Dispatcher)
+    # ------------------------------------------------------------
+    smtp_host = os.getenv("SMTP_HOST", "email-smtp.ap-south-1.amazonaws.com").strip()
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "").strip()
+    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
+
+    if smtp_user and smtp_password and not smtp_user.startswith("your_"):
+        try:
+            msg = EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = source_address
+            msg["To"] = to_email
+            msg.set_content(plain_text)
+            msg.add_alternative(html_content, subtype="html")
+
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.send_message(msg)
+
+            print(f"[EMAIL SERVICE] Email successfully sent to {to_email} via Amazon SES SMTP.")
+            return True
+        except Exception as e:
+            print(f"[EMAIL SERVICE ERROR] Failed to send email via Amazon SES SMTP: {e}")
+            # Try fallback to SES API if configured below
+
+    # ------------------------------------------------------------
+    # Method 2: Amazon SES Direct HTTPS API (boto3 fallback)
     # ------------------------------------------------------------
     ses_client = _get_ses_client()
     if ses_client is not None:
@@ -62,34 +90,7 @@ def _send_email(to_email: str, subject: str, html_content: str, text_content: Op
             print(f"[EMAIL SERVICE] Email successfully sent to {to_email} via Amazon SES API (MessageId: {message_id})")
             return True
         except Exception as e:
-            print(f"[EMAIL SERVICE WARNING] Amazon SES API send failed: {e}. Falling back to SMTP...")
-
-    # ------------------------------------------------------------
-    # Method 2: Amazon SES SMTP (smtplib fallback)
-    # ------------------------------------------------------------
-    smtp_host = os.getenv("SMTP_HOST", "email-smtp.ap-south-1.amazonaws.com").strip()
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "").strip()
-    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
-
-    if smtp_user and smtp_password:
-        try:
-            msg = EmailMessage()
-            msg["Subject"] = subject
-            msg["From"] = source_address
-            msg["To"] = to_email
-            msg.set_content(plain_text)
-            msg.add_alternative(html_content, subtype="html")
-
-            with smtplib.SMTP(smtp_host, smtp_port) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.send_message(msg)
-
-            print(f"[EMAIL SERVICE] Email successfully sent to {to_email} via Amazon SES SMTP.")
-            return True
-        except Exception as e:
-            print(f"[EMAIL SERVICE ERROR] Failed to send email via Amazon SES SMTP: {e}")
+            print(f"[EMAIL SERVICE ERROR] Amazon SES API send failed: {e}")
             return False
 
     # ------------------------------------------------------------

@@ -258,8 +258,26 @@ jobs:
             git reset --hard origin/dev
             git clean -fd
 
-            # Setup dev .env if not present
-            if [ ! -f backend/.env.dev ]; then
+            # Setup dev .env: use DEV_ENV_FILE or adapt PROD_ENV_FILE / existing backend/.env
+            if [ -n "${{ secrets.DEV_ENV_FILE }}" ]; then
+              echo "${{ secrets.DEV_ENV_FILE }}" > backend/.env.dev
+            elif [ -n "${{ secrets.PROD_ENV_FILE }}" ]; then
+              echo "${{ secrets.PROD_ENV_FILE }}" > backend/.env.dev
+              sed -i 's|DATABASE_URL=.*|DATABASE_URL=postgresql+pg8000://vahn_dev_user:vahn_dev_pass@db-dev:5432/vahn_dev_db|g' backend/.env.dev
+              sed -i 's|DB_USER=.*|DB_USER=vahn_dev_user|g' backend/.env.dev
+              sed -i 's|DB_PASSWORD=.*|DB_PASSWORD=vahn_dev_pass|g' backend/.env.dev
+              sed -i 's|DB_HOST=.*|DB_HOST=db-dev|g' backend/.env.dev
+              sed -i 's|DB_NAME=.*|DB_NAME=vahn_dev_db|g' backend/.env.dev
+              sed -i 's|S3_FOLDER_PREFIX=.*|S3_FOLDER_PREFIX=dev|g' backend/.env.dev
+            elif [ -f backend/.env ]; then
+              cp backend/.env backend/.env.dev
+              sed -i 's|DATABASE_URL=.*|DATABASE_URL=postgresql+pg8000://vahn_dev_user:vahn_dev_pass@db-dev:5432/vahn_dev_db|g' backend/.env.dev
+              sed -i 's|DB_USER=.*|DB_USER=vahn_dev_user|g' backend/.env.dev
+              sed -i 's|DB_PASSWORD=.*|DB_PASSWORD=vahn_dev_pass|g' backend/.env.dev
+              sed -i 's|DB_HOST=.*|DB_HOST=db-dev|g' backend/.env.dev
+              sed -i 's|DB_NAME=.*|DB_NAME=vahn_dev_db|g' backend/.env.dev
+              sed -i 's|S3_FOLDER_PREFIX=.*|S3_FOLDER_PREFIX=dev|g' backend/.env.dev
+            else
               cp backend/.env.dev.example backend/.env.dev
             fi
 
