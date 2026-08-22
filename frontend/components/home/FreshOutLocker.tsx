@@ -203,10 +203,8 @@ function getExpandedLockerItems(products: Product[]): ExpandedLockerItem[] {
 
 function LockerCard({
   item,
-  fallbackIndex,
 }: {
-  item?: ExpandedLockerItem;
-  fallbackIndex: number;
+  item: ExpandedLockerItem;
 }) {
   const { addItem } = useCart();
   const [imgIdx, setImgIdx] = useState(0);
@@ -772,6 +770,11 @@ export default function FreshOutLocker({ products }: Props) {
     });
   };
 
+  // If no products exist, hide section completely
+  if (!displayItems || displayItems.length === 0) {
+    return null;
+  }
+
   return (
     <section
       style={{
@@ -913,16 +916,9 @@ export default function FreshOutLocker({ products }: Props) {
             alignItems: 'flex-start',
           }}
         >
-          {displayItems.length > 0 ? (
-            displayItems.map((item, idx) => (
-              <LockerCard key={item.id} item={item} fallbackIndex={idx} />
-            ))
-          ) : (
-            <>
-              <LockerCard fallbackIndex={0} />
-              <LockerCard fallbackIndex={1} />
-            </>
-          )}
+          {displayItems.map((item) => (
+            <LockerCard key={item.id} item={item} />
+          ))}
         </div>
       </div>
     </section>
