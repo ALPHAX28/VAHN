@@ -7,7 +7,7 @@ import ProductCard from '@/components/collection/ProductCard';
 import CollectionFilters from '@/components/collection/CollectionFilters';
 import type { CollectionListItem } from '@/lib/api/types';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 interface Props {
   params: Promise<{ handle: string }>;

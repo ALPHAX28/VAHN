@@ -14,6 +14,9 @@ export const metadata: Metadata = {
     'Premium performance sportswear crafted for athletes. Discover the VAHN collection — Tops, Jerseys, and more. This is where it starts.',
 };
 
+// Enable ISR (Incremental Static Regeneration) — page renders statically in 0ms, revalidates in background
+export const revalidate = 60;
+
 export default async function HomePage() {
   const { products } = await getProducts({ first: 24 }).catch(() => ({
     products: [],

@@ -11,6 +11,8 @@ interface Props {
   params: Promise<{ handle: string }>;
 }
 
+export const revalidate = 60;
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { handle } = await params;
   const product = await getProduct(handle).catch(() => null);

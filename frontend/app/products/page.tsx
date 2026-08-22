@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { getProducts } from '@/lib/api';
 import ShopProductsClient from '@/components/shop/ShopProductsClient';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: 'Shop All Products — VAHN',
