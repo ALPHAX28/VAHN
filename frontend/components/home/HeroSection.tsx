@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function HeroSection() {
   return (
@@ -17,52 +18,33 @@ export default function HeroSection() {
         paddingBottom: '80px',
       }}
     >
-      {/* Placeholder background */}
+      {/* Real Top Banner Hero Image */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(180deg, #2a2e38 0%, #1a1c22 40%, #0e0f12 100%)',
           zIndex: 0,
         }}
-        aria-hidden="true"
       >
-        <div
+        <Image
+          src="/assets/top-banner.png"
+          alt="THIS IS VAHN"
+          fill
+          priority
+          sizes="100vw"
           style={{
-            width: '100%',
-            height: '100%',
-            backgroundImage:
-              'repeating-linear-gradient(0deg,rgba(255,255,255,0.03) 0 1px,transparent 1px 60px),repeating-linear-gradient(90deg,rgba(255,255,255,0.03) 0 1px,transparent 1px 60px)',
+            objectFit: 'cover',
+            objectPosition: 'center',
           }}
         />
-        <div
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%,-50%)',
-            textAlign: 'center',
-            opacity: 0.2,
-            pointerEvents: 'none',
-          }}
-        >
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <path d="m21 15-5-5L5 21" />
-          </svg>
-          <p style={{ color: '#fff', fontFamily: 'sans-serif', fontSize: '0.75rem', marginTop: '8px' }}>
-            HERO IMAGE PLACEHOLDER
-          </p>
-        </div>
       </div>
 
-      {/* Gradient overlay from bottom */}
+      {/* Subtle gradient overlay from bottom for text legibility */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 40%, transparent 70%)',
+          background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 40%, transparent 70%)',
           zIndex: 1,
         }}
         aria-hidden="true"

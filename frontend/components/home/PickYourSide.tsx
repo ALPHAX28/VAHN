@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -12,6 +14,7 @@ export default function PickYourSide() {
           background: '#111111',
           padding: 'clamp(36px, 6vw, 52px) clamp(16px, 4vw, 24px) clamp(32px, 5vw, 48px)',
           textAlign: 'center',
+          borderBottom: '3px solid #ffffff',
         }}
       >
         {/* Official VAHN Symbol 'V' Logo in Blue from drive_logos */}
@@ -64,32 +67,32 @@ export default function PickYourSide() {
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'center',
-            paddingBottom: '32px',
+            paddingBottom: '36px',
             overflow: 'hidden',
           }}
         >
-          {/* Image placeholder */}
+          {/* Real Athlete Image Card 01 */}
+          <Image
+            src="/assets/pick-your-side-01.png"
+            alt="Pick Your Side — Athlete 01"
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'top center',
+            }}
+          />
+
+          {/* Gradient overlay for CTA contrast */}
           <div
             style={{
               position: 'absolute',
               inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'column',
-              gap: '8px',
-              opacity: 0.15,
-              pointerEvents: 'none',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 40%)',
+              zIndex: 1,
             }}
             aria-hidden="true"
-          >
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="m21 15-5-5L5 21" />
-            </svg>
-            <span style={{ fontFamily: 'sans-serif', fontSize: '0.6875rem', color: '#fff' }}>ATHLETE IMAGE</span>
-          </div>
+          />
 
           {/* BUY NOW button */}
           <Link
@@ -99,7 +102,7 @@ export default function PickYourSide() {
               zIndex: 2,
               background: BRAND_BLUE,
               color: '#fff',
-              border: '2px solid rgba(255,255,255,0.5)',
+              border: '2px solid rgba(255,255,255,0.7)',
               padding: '12px 40px',
               fontFamily: 'var(--font-heading)',
               fontWeight: 900,
@@ -108,6 +111,15 @@ export default function PickYourSide() {
               letterSpacing: '-0.025em',
               textDecoration: 'none',
               display: 'inline-block',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#2a267a';
+              e.currentTarget.style.borderColor = '#ffffff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = BRAND_BLUE;
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)';
             }}
           >
             Buy Now
@@ -123,32 +135,32 @@ export default function PickYourSide() {
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'center',
-            paddingBottom: '32px',
+            paddingBottom: '36px',
             overflow: 'hidden',
           }}
         >
-          {/* Image placeholder */}
+          {/* Real Athlete Image Card 02 */}
+          <Image
+            src="/assets/pick-your-side-02.png"
+            alt="Pick Your Side — Athlete 02"
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'top center',
+            }}
+          />
+
+          {/* Gradient overlay for CTA contrast */}
           <div
             style={{
               position: 'absolute',
               inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'column',
-              gap: '8px',
-              opacity: 0.15,
-              pointerEvents: 'none',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 40%)',
+              zIndex: 1,
             }}
             aria-hidden="true"
-          >
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="m21 15-5-5L5 21" />
-            </svg>
-            <span style={{ fontFamily: 'sans-serif', fontSize: '0.6875rem', color: '#fff' }}>ATHLETE IMAGE</span>
-          </div>
+          />
 
           {/* BUY NOW button */}
           <Link
@@ -158,7 +170,7 @@ export default function PickYourSide() {
               zIndex: 2,
               background: BRAND_BLUE,
               color: '#fff',
-              border: '2px solid rgba(255,255,255,0.5)',
+              border: '2px solid rgba(255,255,255,0.7)',
               padding: '12px 40px',
               fontFamily: 'var(--font-heading)',
               fontWeight: 900,
@@ -167,6 +179,15 @@ export default function PickYourSide() {
               letterSpacing: '-0.025em',
               textDecoration: 'none',
               display: 'inline-block',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#2a267a';
+              e.currentTarget.style.borderColor = '#ffffff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = BRAND_BLUE;
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)';
             }}
           >
             Buy Now

@@ -316,13 +316,13 @@ function LockerCard({
         userSelect: 'none',
       }}
     >
-      {/* 1. Media Frame */}
+      {/* 1. Media Frame — Elongated portrait (4/5 ratio) with edge-to-edge cover */}
       <div
         style={{
           position: 'relative',
           width: '100%',
-          aspectRatio: '1 / 1',
-          background: '#ffffff',
+          aspectRatio: '4 / 5',
+          background: '#f5f5f7',
           overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
@@ -399,18 +399,20 @@ function LockerCard({
               sizes="(max-width: 768px) 100vw, 420px"
               style={{
                 objectFit: 'cover',
+                objectPosition: 'center',
                 transition: 'transform 0.4s ease',
                 transform: isHovered ? 'scale(1.02)' : 'scale(1)',
               }}
             />
           ) : (
             <Image
-              src="/assets/locker_jersey_only.png"
+              src="/assets/product-card.png"
               alt={title}
               fill
               sizes="(max-width: 768px) 100vw, 420px"
               style={{
-                objectFit: 'contain',
+                objectFit: 'cover',
+                objectPosition: 'center',
                 transition: 'transform 0.4s ease',
                 transform: isHovered ? 'scale(1.02)' : 'scale(1)',
               }}
@@ -554,14 +556,18 @@ function LockerCard({
 
             {/* Sizes Grid */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              {sizeVariants.map(({ variant, sizeLabel, isAvailable, isFew }) => (
+              {sizeVariants.map(({ variant, sizeLabel, isAvailable }) => (
                 <button
                   key={variant.id}
                   type="button"
                   disabled={!isAvailable || addedVariantId === variant.id}
-                  onClick={() => handleAddToCart(variant)}
+                  onClick={() => {
+                    if (isAvailable) {
+                      handleAddToCart(variant);
+                    }
+                  }}
                   style={{
-                    flex: '1 0 calc(25% - 6px)',
+                    flex: sizeVariants.length === 1 ? '1 0 100%' : '1 0 calc(25% - 6px)',
                     minWidth: '40px',
                     height: '36px',
                     padding: '0 6px',
@@ -571,7 +577,7 @@ function LockerCard({
                       ? '1.5px solid #3b379e'
                       : isAvailable
                       ? '1.5px solid #000000'
-                      : '1px solid rgba(0,0,0,0.08)',
+                      : '1px solid rgba(0,0,0,0.12)',
                     borderRadius: '2px',
                     fontFamily: 'var(--font-heading)',
                     fontSize: '0.75rem',
@@ -583,6 +589,7 @@ function LockerCard({
                     justifyContent: 'center',
                     position: 'relative',
                     textDecoration: isAvailable ? 'none' : 'line-through',
+                    opacity: isAvailable ? 1 : 0.6,
                     transition: 'all 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
@@ -693,14 +700,9 @@ function LockerCard({
         <button
           type="button"
           onClick={() => {
-            if (sizeVariants.length <= 1) {
-              const targetVar = sizeVariants[0]?.variant;
-              if (targetVar) handleAddToCart(targetVar);
-            } else {
-              setShowQuickAdd((prev) => !prev);
-            }
+            setShowQuickAdd((prev) => !prev);
           }}
-          aria-label={showQuickAdd ? 'Close size picker' : `Add ${title} to cart`}
+          aria-label={showQuickAdd ? 'Close size picker' : `Select size for ${title}`}
           style={{
             background: showQuickAdd ? '#3b379e' : 'none',
             border: 'none',
@@ -782,7 +784,7 @@ export default function FreshOutLocker({ products }: Props) {
         padding: 'clamp(48px, 6vw, 80px) 0 clamp(48px, 6vw, 80px) clamp(20px, 6vw, 140px)',
       }}
     >
-      <div style={{ maxWidth: '1440px' }}>
+      <div style={{ maxWidth: '100%' }}>
         {/* Header Row: Title on Left, Carousel Navigation Arrows on Right for Desktop Mouse users */}
         <div
           style={{
