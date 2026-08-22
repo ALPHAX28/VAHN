@@ -48,12 +48,13 @@ except subprocess.CalledProcessError as err:
 print("\n--- Starting FastAPI Production Server ---")
 host = os.getenv("HOST", "0.0.0.0")
 port = os.getenv("PORT", "8000")
+workers = os.getenv("WEB_CONCURRENCY", "2")
 try:
     subprocess.run([
         "python", "-m", "uvicorn", "main:app",
         "--host", host,
         "--port", port,
-        "--workers", "4"
+        "--workers", workers
     ], check=True)
 except subprocess.CalledProcessError as err:
     print(f"✘ FastAPI server process exited with error: {err}")
