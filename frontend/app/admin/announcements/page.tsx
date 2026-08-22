@@ -62,19 +62,6 @@ export default function AdminAnnouncementsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [previewIndex, setPreviewIndex] = useState(0);
-
-  // Active banners list
-  const activeBanners = useMemo(() => banners.filter((b) => b.is_active), [banners]);
-
-  // Auto-cycle simulation preview every 4 seconds if > 1 active banner
-  useEffect(() => {
-    if (activeBanners.length <= 1) return;
-    const interval = setInterval(() => {
-      setPreviewIndex((prev) => (prev + 1) % activeBanners.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [activeBanners.length]);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -254,8 +241,20 @@ export default function AdminAnnouncementsPage() {
     }
   };
 
-  // Active banner count
-  const activeCount = useMemo(() => banners.filter((b) => b.is_active).length, [banners]);
+  // Active banner count & simulation cycling
+  const activeBanners = useMemo(() => banners.filter((b) => b.is_active), [banners]);
+  const activeCount = activeBanners.length;
+  const [previewIndex, setPreviewIndex] = useState(0);
+
+  useEffect(() => {
+    if (activeBanners.length <= 1) return;
+    const interval = setInterval(() => {
+      setPreviewIndex((prev) => (prev + 1) % activeBanners.length);
+    }, 3800);
+    return () => clearInterval(interval);
+  }, [activeBanners.length]);
+
+  const currentPreviewBanner = activeBanners[previewIndex % (activeBanners.length || 1)];
 
   return (
     <div style={{ maxWidth: "1280px", margin: "0 auto", paddingBottom: "60px" }}>
@@ -367,19 +366,12 @@ export default function AdminAnnouncementsPage() {
           boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151" }}>
-              🖥️ Live Storefront Top-Bar Simulation ({activeBanners.length} Active)
-            </span>
-            {activeBanners.length > 1 && (
-              <span style={{ fontSize: "0.6875rem", background: "#f3f4f6", padding: "2px 8px", borderRadius: "10px", fontWeight: 700, color: "#4b5563" }}>
-                Auto-cycling (Banner {(previewIndex % activeBanners.length) + 1} of {activeBanners.length})
-              </span>
-            )}
-          </div>
-          <span style={{ fontSize: "0.6875rem", color: activeBanners.length > 0 ? "#059669" : "#6b7280", fontWeight: 700 }}>
-            {activeBanners.length > 0 ? `● ${activeBanners.length} Banner${activeBanners.length > 1 ? "s" : ""} Live on Customer Storefront` : "○ No Custom Banners Active (Showing Default 'SHIPPING PAN INDIA')"}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+          <span style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151" }}>
+            🖥️ Live Storefront Top-Bar Simulation ({activeCount} Active)
+          </span>
+          <span style={{ fontSize: "0.6875rem", color: activeCount > 0 ? "#059669" : "#6b7280", fontWeight: 700 }}>
+            {activeCount > 0 ? `● ${activeCount} Banner${activeCount > 1 ? "s" : ""} Live on Customer Storefront (Auto-Scrolling)` : "○ No Custom Banners Active (Showing Default 'SHIPPING PAN INDIA')"}
           </span>
         </div>
 
@@ -394,13 +386,13 @@ export default function AdminAnnouncementsPage() {
           </div>
 
           {/* Active Banner in Simulation */}
-          {activeBanners.length > 0 ? (
+          {activeCount > 0 && currentPreviewBanner ? (
             <div
               style={{
                 position: "relative",
-                background: activeBanners[previewIndex % activeBanners.length]?.bg_color || "#000000",
-                color: activeBanners[previewIndex % activeBanners.length]?.text_color || "#ffffff",
-                padding: "10px 48px",
+                background: currentPreviewBanner.bg_color || "#000000",
+                color: currentPreviewBanner.text_color || "#ffffff",
+                padding: "10px 16px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -409,77 +401,41 @@ export default function AdminAnnouncementsPage() {
                 fontWeight: 700,
                 letterSpacing: "-0.025em",
                 textAlign: "center",
-                transition: "background-color 0.3s ease, color 0.3s ease",
+                transition: "all 0.4s ease",
               }}
             >
-              {/* Prev Preview Button */}
-              {activeBanners.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setPreviewIndex((prev) => (prev - 1 + activeBanners.length) % activeBanners.length)}
-                  aria-label="Previous banner preview"
-                  style={{
-                    position: "absolute",
-                    left: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    color: activeBanners[previewIndex % activeBanners.length]?.text_color || "#ffffff",
-                    cursor: "pointer",
-                    padding: "2px",
-                    display: "flex",
-                    alignItems: "center",
-                    opacity: 0.8,
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <polyline points="15 18 9 12 15 6" />
-                  </svg>
-                </button>
-              )}
-
-              <span>{activeBanners[previewIndex % activeBanners.length]?.message}</span>
-              {activeBanners[previewIndex % activeBanners.length]?.link_text && (
+              <span>{currentPreviewBanner.message}</span>
+              {currentPreviewBanner.link_text && (
                 <span
                   style={{
                     fontSize: "0.6875rem",
                     padding: "2px 8px",
                     borderRadius: "3px",
-                    background: "rgba(255,255,255,0.2)",
+                    background: "rgba(255,255,255,0.22)",
                     textDecoration: "underline",
                     textUnderlineOffset: "3px",
                   }}
                 >
-                  {activeBanners[previewIndex % activeBanners.length]?.link_text} →
+                  {currentPreviewBanner.link_text} →
                 </span>
               )}
 
-              {/* Next Preview Button */}
+              {/* Dots indicator in preview */}
               {activeBanners.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setPreviewIndex((prev) => (prev + 1) % activeBanners.length)}
-                  aria-label="Next banner preview"
-                  style={{
-                    position: "absolute",
-                    right: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    color: activeBanners[previewIndex % activeBanners.length]?.text_color || "#ffffff",
-                    cursor: "pointer",
-                    padding: "2px",
-                    display: "flex",
-                    alignItems: "center",
-                    opacity: 0.8,
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </button>
+                <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", display: "flex", gap: "4px" }}>
+                  {activeBanners.map((_, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        width: "5px",
+                        height: "5px",
+                        borderRadius: "50%",
+                        background: i === previewIndex % activeBanners.length ? currentPreviewBanner.text_color || "#ffffff" : "rgba(255,255,255,0.3)",
+                        transition: "all 0.3s ease",
+                      }}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           ) : (
