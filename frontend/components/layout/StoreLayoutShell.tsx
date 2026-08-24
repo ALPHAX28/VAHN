@@ -18,7 +18,7 @@ export default function StoreLayoutShell({ children }: { children: React.ReactNo
   return (
     <>
       <Header />
-      <main id="main-content" style={{ minHeight: '100vh', backgroundColor: '#0d0d0f' }}>{children}</main>
+      <main id="main-content" style={{ minHeight: '100vh' }}>{children}</main>
       <Footer />
       <CartDrawer />
       <AuthModal />
