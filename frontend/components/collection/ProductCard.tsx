@@ -186,7 +186,7 @@ export default function ProductCard({
       </div>
 
       {/* ── Info Metadata ── */}
-      <div className="product-card-info" style={{ marginTop: '12px' }}>
+      <div className="product-card-info" style={{ marginTop: '12px', paddingLeft: '8px', paddingRight: '8px' }}>
         {/* Colourway Badge / Label */}
         {activeColour && (
           <p

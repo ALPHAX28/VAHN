@@ -24,7 +24,7 @@ import {
 
 export default function CheckoutPage() {
   const { user, token, openAuthModal } = useAuth();
-  const { cart, clearCart } = useCart();
+  const { cart, clearCart, updateItem, removeItem } = useCart();
   const router = useRouter();
 
   const [step, setStep] = useState<"address" | "review">("address");
@@ -482,8 +482,89 @@ export default function CheckoutPage() {
                           <div style={{ fontSize: "0.82rem", color: "#666" }}>
                             {line.merchandise.title}
                           </div>
-                          <div style={{ fontSize: "0.78rem", color: "#999", marginTop: 2 }}>
-                            Qty: <strong style={{ color: "#333" }}>{line.quantity}</strong>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+                            {/* Quantity Stepper */}
+                            <div style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              border: "1px solid #000",
+                              background: "#fff",
+                            }}>
+                              <button
+                                type="button"
+                                aria-label="Decrease quantity"
+                                onClick={() => {
+                                  if (line.quantity > 1) {
+                                    updateItem(line.id, line.quantity - 1);
+                                  } else {
+                                    removeItem(line.id);
+                                  }
+                                }}
+                                style={{
+                                  width: 28,
+                                  height: 28,
+                                  background: "transparent",
+                                  border: "none",
+                                  borderRight: "1px solid #000",
+                                  cursor: "pointer",
+                                  fontWeight: 900,
+                                  fontSize: "0.9rem",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                −
+                              </button>
+                              <span style={{
+                                width: 32,
+                                textAlign: "center",
+                                fontSize: "0.82rem",
+                                fontWeight: 900,
+                                color: "#000",
+                              }}>
+                                {line.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                aria-label="Increase quantity"
+                                onClick={() => updateItem(line.id, line.quantity + 1)}
+                                style={{
+                                  width: 28,
+                                  height: 28,
+                                  background: "transparent",
+                                  border: "none",
+                                  borderLeft: "1px solid #000",
+                                  cursor: "pointer",
+                                  fontWeight: 900,
+                                  fontSize: "0.9rem",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            {/* Remove item button */}
+                            <button
+                              type="button"
+                              onClick={() => removeItem(line.id)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#777",
+                                fontSize: "0.75rem",
+                                cursor: "pointer",
+                                textDecoration: "underline",
+                                padding: "4px 6px",
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = "#777")}
+                            >
+                              Remove
+                            </button>
                           </div>
                         </div>
                         <div style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000", flexShrink: 0 }}>

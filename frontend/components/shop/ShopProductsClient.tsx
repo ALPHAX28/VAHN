@@ -405,7 +405,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
           borderBottom: '1px solid var(--color-grey-light, #e4e4e7)',
-          padding: '10px 20px',
+          padding: '10px clamp(16px, 3.5vw, 48px)',
         }}
       >
         <div
@@ -586,7 +586,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
         style={{
           maxWidth: 'var(--page-width, 1440px)',
           margin: '0 auto',
-          padding: '24px 20px',
+          padding: '24px clamp(16px, 3.5vw, 48px)',
         }}
       >
         <div style={{ marginBottom: '16px' }}>
@@ -619,16 +619,9 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             <p style={{ fontSize: '1.125rem', fontWeight: 700, color: '#000000', marginBottom: '6px' }}>
               No products found
             </p>
-            <p style={{ fontSize: '0.875rem', color: '#71717a', marginBottom: '20px' }}>
+            <p style={{ fontSize: '0.875rem', color: '#71717a', margin: 0 }}>
               Try adjusting your search query or removing active filters.
             </p>
-            <button
-              onClick={resetFilters}
-              className="btn btn-primary"
-              style={{ padding: '8px 20px', fontSize: '0.8125rem' }}
-            >
-              Reset Filters
-            </button>
           </div>
         ) : (
           <div

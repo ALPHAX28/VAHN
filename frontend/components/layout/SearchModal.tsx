@@ -58,7 +58,6 @@ export default function SearchModal({ onClose }: Props) {
 
   const totalResults =
     (results?.products.length ?? 0) +
-    (results?.collections.length ?? 0) +
     (results?.pages.length ?? 0);
 
   return (
@@ -73,7 +72,7 @@ export default function SearchModal({ onClose }: Props) {
           <input
             ref={inputRef}
             className="search-modal-input"
-            placeholder="Search products, collections…"
+            placeholder="Search products…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search"
@@ -121,17 +120,6 @@ export default function SearchModal({ onClose }: Props) {
                         {formatMoney(p.priceRange.minVariantPrice)}
                       </div>
                     </div>
-                  </Link>
-                ))}
-              </>
-            )}
-
-            {results.collections.length > 0 && (
-              <>
-                <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '-0.025em', textTransform: 'uppercase', color: 'var(--color-grey-dark)', margin: '16px 0 8px' }}>Collections</p>
-                {results.collections.map((c) => (
-                  <Link key={c.id} href={`/collections/${c.handle}`} className="search-result-item" onClick={onClose}>
-                    <div style={{ fontWeight: 500 }}>{c.title}</div>
                   </Link>
                 ))}
               </>

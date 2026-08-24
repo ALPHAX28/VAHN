@@ -4,38 +4,45 @@ import { useEffect, useState, useMemo } from "react";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import { NotificationBanner } from "@/lib/api/types";
 import { getApiBaseUrl } from "@/lib/api/client";
-import Link from "next/link";
 
-const BANNER_TYPE_PRESETS: Record<string, { label: string; bg: string; text: string; icon: string }> = {
+const BANNER_TYPE_PRESETS: Record<
+  string,
+  { label: string; bg: string; text: string; icon: string; defaultMessage: string }
+> = {
   ANNOUNCEMENT: {
     label: "Announcement",
     bg: "#000000",
     text: "#ffffff",
     icon: "📢",
+    defaultMessage: "📢 FREE WORLDWIDE SHIPPING ON ORDERS OVER ₹1999",
   },
   SALE: {
     label: "Flash Sale / Promo",
     bg: "#3a3699",
     text: "#ffffff",
     icon: "⚡",
+    defaultMessage: "⚡ FLASH SALE: USE CODE VAHN20 FOR 20% OFF | SHIPPING PAN INDIA",
   },
   ALERT: {
     label: "Alert / Urgent",
     bg: "#dc2626",
     text: "#ffffff",
     icon: "🚨",
+    defaultMessage: "🚨 LIMITED STOCK: EXCLUSIVE VA-01 RELEASE SELLING FAST",
   },
   MAINTENANCE: {
     label: "Maintenance",
     bg: "#1e293b",
     text: "#f8fafc",
     icon: "🛠️",
+    defaultMessage: "🛠️ SCHEDULED SYSTEM UPDATE SUNDAY 2:00 AM - 4:00 AM IST",
   },
   INFO: {
     label: "Information",
     bg: "#0f766e",
     text: "#ffffff",
     icon: "ℹ️",
+    defaultMessage: "ℹ️ NEW SAME-DAY DISPATCH AVAILABLE ON ALL METRO ORDERS",
   },
 };
 
@@ -68,8 +75,8 @@ export default function AdminAnnouncementsPage() {
     message: "",
     link_url: "",
     link_text: "",
-    banner_type: "ANNOUNCEMENT",
-    bg_color: "#000000",
+    banner_type: "SALE",
+    bg_color: "#3a3699",
     text_color: "#ffffff",
     is_active: true,
     is_closable: false,
@@ -91,8 +98,8 @@ export default function AdminAnnouncementsPage() {
       if (!res.ok) throw new Error("Failed to load banners");
       const data = await res.json();
       setBanners(data);
-    } catch (err: any) {
-      alert(err.message || "Failed to load announcement banners");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to load announcement banners");
     } finally {
       setLoading(false);
     }
@@ -104,14 +111,15 @@ export default function AdminAnnouncementsPage() {
 
   const openCreateModal = () => {
     setEditingBanner(null);
+    const preset = BANNER_TYPE_PRESETS.SALE;
     setFormData({
       title: "",
-      message: "⚡ FLASH SALE: USE CODE VAHN20 FOR 20% OFF | SHIPPING PAN INDIA",
+      message: preset.defaultMessage,
       link_url: "/products",
       link_text: "Shop Now",
       banner_type: "SALE",
-      bg_color: "#3a3699",
-      text_color: "#ffffff",
+      bg_color: preset.bg,
+      text_color: preset.text,
       is_active: true,
       is_closable: false,
       display_order: banners.length,
@@ -143,6 +151,7 @@ export default function AdminAnnouncementsPage() {
       banner_type: typeKey,
       bg_color: preset?.bg || prev.bg_color,
       text_color: preset?.text || prev.text_color,
+      message: preset?.defaultMessage || prev.message,
     }));
   };
 
@@ -189,8 +198,8 @@ export default function AdminAnnouncementsPage() {
       showToast(editingBanner ? "Banner updated successfully" : "Banner created successfully");
       setIsModalOpen(false);
       fetchBanners();
-    } catch (err: any) {
-      alert(err.message || "Failed to save banner");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to save banner");
     } finally {
       setSaving(false);
     }
@@ -212,7 +221,7 @@ export default function AdminAnnouncementsPage() {
       const updated = await res.json();
       setBanners((prev) => prev.map((b) => (b.id === banner.id ? updated : b)));
       showToast(updated.is_active ? `"${updated.title}" activated` : `"${updated.title}" deactivated`);
-    } catch (err) {
+    } catch {
       // Revert on error
       fetchBanners();
       alert("Failed to toggle banner status");
@@ -230,7 +239,7 @@ export default function AdminAnnouncementsPage() {
       setBanners((prev) => prev.filter((b) => b.id !== id));
       setDeleteConfirmId(null);
       showToast("Banner deleted successfully");
-    } catch (err) {
+    } catch {
       alert("Failed to delete banner");
     }
   };
@@ -251,7 +260,7 @@ export default function AdminAnnouncementsPage() {
   const currentPreviewBanner = activeBanners[previewIndex % (activeBanners.length || 1)];
 
   return (
-    <div style={{ maxWidth: "1280px", margin: "0 auto", paddingBottom: "60px" }}>
+    <div className="admin-page">
       {/* Toast Notification */}
       {toastMessage && (
         <div
@@ -261,15 +270,14 @@ export default function AdminAnnouncementsPage() {
             right: "32px",
             background: "#000000",
             color: "#ffffff",
-            padding: "14px 24px",
-            borderRadius: "0px",
-            fontSize: "0.875rem",
-            fontWeight: 800,
+            padding: "12px 20px",
+            borderRadius: "4px",
+            fontSize: "0.85rem",
+            fontWeight: 700,
             letterSpacing: "-0.025em",
             textTransform: "uppercase",
             zIndex: 999999,
             boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
-            border: "1.5px solid #ffffff",
             display: "flex",
             alignItems: "center",
             gap: "10px",
@@ -280,73 +288,19 @@ export default function AdminAnnouncementsPage() {
         </div>
       )}
 
-      {/* Header Row */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "16px",
-          marginBottom: "24px",
-        }}
-      >
+      {/* Header Row — Standardized with other Admin tabs */}
+      <div className="admin-page-header">
         <div>
-          <h1
-            style={{
-              fontFamily: "var(--font-heading)",
-              fontSize: "1.75rem",
-              fontWeight: 900,
-              textTransform: "uppercase",
-              letterSpacing: "-0.025em",
-              color: "#000000",
-              margin: 0,
-            }}
-          >
-            Banners &amp; Alerts
-          </h1>
-          <p
-            style={{
-              fontFamily: "var(--font-body)",
-              fontSize: "0.875rem",
-              color: "#6b7280",
-              marginTop: "4px",
-              marginBottom: 0,
-            }}
-          >
+          <h1 className="admin-page-title">Banners &amp; Alerts</h1>
+          <p className="admin-page-subtitle">
             Manage storefront top announcement banners, promotional sales, urgent notices, and maintenance alerts.
           </p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {/* Solid Black Square Button */}
+        <div>
           <button
             onClick={openCreateModal}
-            style={{
-              background: "#000000",
-              color: "#ffffff",
-              border: "1.5px solid #000000",
-              padding: "12px 24px",
-              borderRadius: "0px",
-              fontFamily: "var(--font-heading)",
-              fontSize: "0.8125rem",
-              fontWeight: 900,
-              textTransform: "uppercase",
-              letterSpacing: "-0.025em",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#222222";
-              e.currentTarget.style.borderColor = "#222222";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#000000";
-              e.currentTarget.style.borderColor = "#000000";
-            }}
+            className="admin-btn admin-btn--primary"
           >
             + Create Banner
           </button>
@@ -354,36 +308,27 @@ export default function AdminAnnouncementsPage() {
       </div>
 
       {/* Live Storefront Preview Widget */}
-      <div
-        style={{
-          background: "#ffffff",
-          borderRadius: "0px",
-          border: "1px solid #e5e7eb",
-          padding: "20px",
-          marginBottom: "28px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-        }}
-      >
+      <div className="admin-card" style={{ marginBottom: "24px", padding: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-          <span style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151" }}>
+          <span style={{ fontSize: "0.8rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151" }}>
             🖥️ Live Storefront Top-Bar Simulation ({activeCount} Active)
           </span>
-          <span style={{ fontSize: "0.6875rem", color: activeCount > 0 ? "#059669" : "#6b7280", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
+          <span style={{ fontSize: "0.75rem", color: activeCount > 0 ? "#059669" : "#6b7280", fontWeight: 700, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
             {activeCount > 0 ? `● ${activeCount} Banner${activeCount > 1 ? "s" : ""} Live (Auto-Scrolling)` : "○ Default 'SHIPPING PAN INDIA'"}
           </span>
         </div>
 
         {/* Browser Mockup Window */}
-        <div style={{ borderRadius: "0px", overflow: "hidden", border: "1.5px solid #000000" }}>
+        <div style={{ borderRadius: "6px", overflow: "hidden", border: "1px solid #e5e7eb" }}>
           {/* Mock Browser Header */}
-          <div style={{ background: "#f3f4f6", padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", borderBottom: "1px solid #000000" }}>
-            <div style={{ width: "8px", height: "8px", borderRadius: "0px", background: "#ef4444" }} />
-            <div style={{ width: "8px", height: "8px", borderRadius: "0px", background: "#f59e0b" }} />
-            <div style={{ width: "8px", height: "8px", borderRadius: "0px", background: "#10b981" }} />
-            <span style={{ fontSize: "0.6875rem", color: "#6b7280", marginLeft: "12px", fontFamily: "monospace", fontWeight: 600 }}>https://vahnsports.com</span>
+          <div style={{ background: "#f3f4f6", padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", borderBottom: "1px solid #e5e7eb" }}>
+            <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#ef4444" }} />
+            <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#f59e0b" }} />
+            <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981" }} />
+            <span style={{ fontSize: "0.7rem", color: "#6b7280", marginLeft: "12px", fontFamily: "monospace", fontWeight: 600 }}>https://vahnsports.com</span>
           </div>
 
-          {/* Active Banner in Simulation */}
+          {/* Active Banner in Simulation with text wrapping & boundary safety */}
           {activeCount > 0 && currentPreviewBanner ? (
             <div
               style={{
@@ -395,32 +340,39 @@ export default function AdminAnnouncementsPage() {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "12px",
-                fontSize: "0.75rem",
+                fontSize: "0.78rem",
                 fontWeight: 700,
                 letterSpacing: "-0.025em",
                 textTransform: "uppercase",
                 textAlign: "center",
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+                whiteSpace: "normal",
                 transition: "all 0.4s ease",
               }}
             >
-              <span>{currentPreviewBanner.message}</span>
+              <span style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
+                {currentPreviewBanner.message}
+              </span>
               {currentPreviewBanner.link_text && (
                 <span
                   style={{
-                    fontSize: "0.6875rem",
+                    fontSize: "0.7rem",
                     fontWeight: 800,
                     padding: "2px 8px",
-                    borderRadius: "0px",
+                    borderRadius: "3px",
                     background: "rgba(255,255,255,0.22)",
                     textDecoration: "underline",
                     textUnderlineOffset: "3px",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
                   }}
                 >
                   {currentPreviewBanner.link_text} →
                 </span>
               )}
 
-              {/* Square Dots indicator in preview */}
+              {/* Dots indicator in preview */}
               {activeBanners.length > 1 && (
                 <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", display: "flex", gap: "4px" }}>
                   {activeBanners.map((_, i) => (
@@ -429,7 +381,7 @@ export default function AdminAnnouncementsPage() {
                       style={{
                         width: "6px",
                         height: "6px",
-                        borderRadius: "0px",
+                        borderRadius: "50%",
                         background: i === previewIndex % activeBanners.length ? currentPreviewBanner.text_color || "#ffffff" : "rgba(255,255,255,0.35)",
                         transition: "all 0.3s ease",
                       }}
@@ -445,7 +397,7 @@ export default function AdminAnnouncementsPage() {
                 color: "rgba(255,255,255,0.9)",
                 padding: "10px 16px",
                 textAlign: "center",
-                fontSize: "0.75rem",
+                fontSize: "0.78rem",
                 fontWeight: 700,
                 letterSpacing: "-0.025em",
                 textTransform: "uppercase",
@@ -459,25 +411,17 @@ export default function AdminAnnouncementsPage() {
           <div style={{ background: "#0d0d0f", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ color: "#ffffff", fontWeight: 900, letterSpacing: "-0.025em", fontSize: "0.875rem" }}>VAHN</span>
             <div style={{ display: "flex", gap: "12px" }}>
-              <div style={{ width: "40px", height: "4px", borderRadius: "0px", background: "#374151" }} />
-              <div style={{ width: "40px", height: "4px", borderRadius: "0px", background: "#374151" }} />
+              <div style={{ width: "40px", height: "4px", borderRadius: "2px", background: "#374151" }} />
+              <div style={{ width: "40px", height: "4px", borderRadius: "2px", background: "#374151" }} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Banners List Table */}
-      <div
-        style={{
-          background: "#ffffff",
-          borderRadius: "0px",
-          border: "1px solid #e5e7eb",
-          overflow: "hidden",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-        }}
-      >
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "-0.025em", textTransform: "uppercase", color: "#111827", margin: 0 }}>
+      {/* Banners List Table — Standardized Admin Card & Table */}
+      <div className="admin-card">
+        <div className="admin-card-header">
+          <h2 className="admin-card-title">
             Configured Banners ({banners.length})
           </h2>
         </div>
@@ -489,7 +433,7 @@ export default function AdminAnnouncementsPage() {
         ) : banners.length === 0 ? (
           <div style={{ padding: "60px 20px", textAlign: "center" }}>
             <span style={{ fontSize: "2.5rem", display: "block", marginBottom: "12px" }}>📢</span>
-            <h3 style={{ fontSize: "1.125rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#111827", marginBottom: "6px" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#111827", marginBottom: "6px" }}>
               No custom banners yet
             </h3>
             <p style={{ fontSize: "0.875rem", color: "#6b7280", maxWidth: "420px", margin: "0 auto 20px" }}>
@@ -497,33 +441,22 @@ export default function AdminAnnouncementsPage() {
             </p>
             <button
               onClick={openCreateModal}
-              style={{
-                background: "#000000",
-                color: "#ffffff",
-                border: "1.5px solid #000000",
-                padding: "10px 20px",
-                borderRadius: "0px",
-                fontWeight: 900,
-                fontSize: "0.8125rem",
-                textTransform: "uppercase",
-                letterSpacing: "-0.025em",
-                cursor: "pointer",
-              }}
+              className="admin-btn admin-btn--primary"
             >
               + Create First Banner
             </button>
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
+            <table className="admin-table">
               <thead>
-                <tr style={{ background: "#f9fafb", borderBottom: "1.5px solid #000000", color: "#111827", fontWeight: 900, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "-0.025em" }}>
-                  <th style={{ padding: "12px 16px", width: "90px" }}>Active</th>
-                  <th style={{ padding: "12px 16px", width: "140px" }}>Type</th>
-                  <th style={{ padding: "12px 16px" }}>Title &amp; Message</th>
-                  <th style={{ padding: "12px 16px", width: "140px" }}>Colors</th>
-                  <th style={{ padding: "12px 16px", width: "130px" }}>Link / CTA</th>
-                  <th style={{ padding: "12px 16px", width: "120px", textAlign: "right" }}>Actions</th>
+                <tr>
+                  <th style={{ width: "90px" }}>Active</th>
+                  <th style={{ width: "160px" }}>Type</th>
+                  <th>Title &amp; Message</th>
+                  <th style={{ width: "130px" }}>Colors</th>
+                  <th style={{ width: "140px" }}>Link / CTA</th>
+                  <th style={{ width: "130px", textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -533,22 +466,20 @@ export default function AdminAnnouncementsPage() {
                     <tr
                       key={b.id}
                       style={{
-                        borderBottom: "1px solid #e5e7eb",
                         background: b.is_active ? "#ffffff" : "#fafafa",
-                        transition: "background 0.15s ease",
                       }}
                     >
-                      {/* Square Toggle */}
-                      <td style={{ padding: "14px 16px" }}>
+                      {/* Active Toggle Switch */}
+                      <td>
                         <button
                           type="button"
                           onClick={() => handleToggle(b)}
                           style={{
-                            width: "40px",
+                            width: "38px",
                             height: "22px",
-                            borderRadius: "0px",
+                            borderRadius: "11px",
                             background: b.is_active ? "#10b981" : "#d1d5db",
-                            border: "1.5px solid #000000",
+                            border: "none",
                             cursor: "pointer",
                             position: "relative",
                             transition: "background-color 0.2s ease",
@@ -558,33 +489,33 @@ export default function AdminAnnouncementsPage() {
                         >
                           <div
                             style={{
-                              width: "14px",
-                              height: "14px",
-                              borderRadius: "0px",
+                              width: "18px",
+                              height: "18px",
+                              borderRadius: "50%",
                               background: "#ffffff",
-                              transform: b.is_active ? "translateX(18px)" : "translateX(0px)",
+                              transform: b.is_active ? "translateX(16px)" : "translateX(0px)",
                               transition: "transform 0.2s ease",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
                             }}
                           />
                         </button>
                       </td>
 
-                      {/* Type Badge - Square */}
-                      <td style={{ padding: "14px 16px" }}>
+                      {/* Type Badge */}
+                      <td>
                         <span
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
                             gap: "6px",
-                            fontSize: "0.6875rem",
-                            fontWeight: 900,
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
                             padding: "4px 8px",
-                            borderRadius: "0px",
+                            borderRadius: "4px",
                             background: b.bg_color || preset.bg,
                             color: b.text_color || preset.text,
                             textTransform: "uppercase",
                             letterSpacing: "-0.025em",
-                            border: "1px solid rgba(0,0,0,0.2)",
                           }}
                         >
                           <span>{preset.icon}</span>
@@ -593,25 +524,25 @@ export default function AdminAnnouncementsPage() {
                       </td>
 
                       {/* Title & Message */}
-                      <td style={{ padding: "14px 16px" }}>
-                        <div style={{ fontWeight: 900, color: "#111827", marginBottom: "2px", letterSpacing: "-0.025em", textTransform: "uppercase" }}>
+                      <td>
+                        <div style={{ fontWeight: 800, color: "#111827", marginBottom: "3px", letterSpacing: "-0.025em" }}>
                           {b.title}
                         </div>
-                        <div style={{ color: "#4b5563", fontSize: "0.8125rem", lineHeight: 1.4 }}>
+                        <div style={{ color: "#4b5563", fontSize: "0.82rem", lineHeight: 1.4, wordBreak: "break-word" }}>
                           {b.message}
                         </div>
                       </td>
 
-                      {/* Color Preview - Square */}
-                      <td style={{ padding: "14px 16px" }}>
+                      {/* Color Preview */}
+                      <td>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                           <div
                             style={{
-                              width: "24px",
-                              height: "24px",
-                              borderRadius: "0px",
+                              width: "22px",
+                              height: "22px",
+                              borderRadius: "4px",
                               background: b.bg_color || preset.bg,
-                              border: "1.5px solid #000000",
+                              border: "1px solid rgba(0,0,0,0.15)",
                             }}
                             title={`Background: ${b.bg_color || preset.bg}`}
                           />
@@ -622,39 +553,28 @@ export default function AdminAnnouncementsPage() {
                       </td>
 
                       {/* Link / CTA */}
-                      <td style={{ padding: "14px 16px" }}>
+                      <td>
                         {b.link_url ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#000000", textTransform: "uppercase" }}>
+                            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#000000" }}>
                               {b.link_text || "Link"} →
                             </span>
-                            <span style={{ fontSize: "0.6875rem", color: "#6b7280", maxWidth: "130px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <span style={{ fontSize: "0.7rem", color: "#6b7280", maxWidth: "130px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {b.link_url}
                             </span>
                           </div>
                         ) : (
-                          <span style={{ fontSize: "0.75rem", color: "#9ca3af" }}>None</span>
+                          <span style={{ fontSize: "0.78rem", color: "#9ca3af" }}>None</span>
                         )}
                       </td>
 
-                      {/* Actions - Square */}
-                      <td style={{ padding: "14px 16px", textAlign: "right" }}>
+                      {/* Actions */}
+                      <td style={{ textAlign: "right" }}>
                         <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
                           <button
                             type="button"
                             onClick={() => openEditModal(b)}
-                            style={{
-                              background: "#ffffff",
-                              border: "1.5px solid #000000",
-                              borderRadius: "0px",
-                              padding: "4px 10px",
-                              fontSize: "0.75rem",
-                              fontWeight: 800,
-                              textTransform: "uppercase",
-                              letterSpacing: "-0.025em",
-                              color: "#000000",
-                              cursor: "pointer",
-                            }}
+                            className="admin-btn admin-btn--secondary admin-btn--sm"
                           >
                             Edit
                           </button>
@@ -664,32 +584,14 @@ export default function AdminAnnouncementsPage() {
                               <button
                                 type="button"
                                 onClick={() => handleDelete(b.id)}
-                                style={{
-                                  background: "#dc2626",
-                                  color: "#ffffff",
-                                  border: "1.5px solid #dc2626",
-                                  borderRadius: "0px",
-                                  padding: "4px 8px",
-                                  fontSize: "0.6875rem",
-                                  fontWeight: 900,
-                                  textTransform: "uppercase",
-                                  cursor: "pointer",
-                                }}
+                                className="admin-btn admin-btn--danger admin-btn--sm"
                               >
                                 Confirm
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setDeleteConfirmId(null)}
-                                style={{
-                                  background: "#f3f4f6",
-                                  color: "#000000",
-                                  border: "1.5px solid #000000",
-                                  borderRadius: "0px",
-                                  padding: "4px 6px",
-                                  fontSize: "0.6875rem",
-                                  cursor: "pointer",
-                                }}
+                                className="admin-btn admin-btn--secondary admin-btn--sm"
                               >
                                 ✕
                               </button>
@@ -698,18 +600,7 @@ export default function AdminAnnouncementsPage() {
                             <button
                               type="button"
                               onClick={() => setDeleteConfirmId(b.id)}
-                              style={{
-                                background: "#ffffff",
-                                border: "1.5px solid #dc2626",
-                                borderRadius: "0px",
-                                padding: "4px 8px",
-                                fontSize: "0.75rem",
-                                fontWeight: 800,
-                                textTransform: "uppercase",
-                                letterSpacing: "-0.025em",
-                                color: "#dc2626",
-                                cursor: "pointer",
-                              }}
+                              className="admin-btn admin-btn--danger admin-btn--sm"
                             >
                               Delete
                             </button>
@@ -725,13 +616,13 @@ export default function AdminAnnouncementsPage() {
         )}
       </div>
 
-      {/* Create / Edit Modal - 100% Square */}
+      {/* Create / Edit Modal */}
       {isModalOpen && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0, 0, 0, 0.7)",
+            background: "rgba(0, 0, 0, 0.6)",
             backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
@@ -744,43 +635,43 @@ export default function AdminAnnouncementsPage() {
           <div
             style={{
               background: "#ffffff",
-              borderRadius: "0px",
-              border: "2px solid #000000",
-              maxWidth: "680px",
+              borderRadius: "8px",
+              border: "1px solid #e5e7eb",
+              maxWidth: "640px",
               width: "100%",
               maxHeight: "90vh",
               overflowY: "auto",
-              padding: "28px",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.4)",
+              padding: "24px",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", borderBottom: "1.5px solid #000000", paddingBottom: "12px" }}>
-              <h2 style={{ fontSize: "1.25rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", margin: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px", borderBottom: "1px solid #e5e7eb", paddingBottom: "12px" }}>
+              <h2 style={{ fontSize: "1.15rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", margin: 0 }}>
                 {editingBanner ? "Edit Banner" : "Create New Announcement Banner"}
               </h2>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", color: "#000000", fontWeight: 900 }}
+                style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", color: "#6b7280", fontWeight: 700 }}
               >
                 ✕
               </button>
             </div>
 
-            {/* Realtime Live Preview in Modal - Square */}
-            <div style={{ marginBottom: "24px" }}>
-              <label style={{ display: "block", fontSize: "0.6875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#111827", marginBottom: "6px" }}>
+            {/* Realtime Live Preview in Modal with Word Wrapping and Boundary Protection */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#374151", marginBottom: "6px" }}>
                 Live Visual Preview
               </label>
               <div
                 style={{
                   background: formData.bg_color || "#000000",
                   color: formData.text_color || "#ffffff",
-                  padding: "10px 16px",
-                  borderRadius: "0px",
-                  fontSize: "0.75rem",
+                  padding: "10px 14px",
+                  borderRadius: "4px",
+                  fontSize: "0.78rem",
                   fontWeight: 700,
                   letterSpacing: "-0.025em",
                   textTransform: "uppercase",
@@ -788,102 +679,128 @@ export default function AdminAnnouncementsPage() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: "10px",
-                  border: "1.5px solid #000000",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                  border: "1px solid #000000",
                   minHeight: "38px",
+                  maxHeight: "110px",
+                  overflowY: "auto",
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
+                  whiteSpace: "normal",
+                  boxSizing: "border-box",
                   transition: "all 0.2s ease",
                 }}
               >
-                <span>{formData.message || "(Enter banner message below...)"}</span>
+                <span style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}>
+                  {formData.message || "(Enter banner message below...)"}
+                </span>
                 {formData.link_text && (
                   <span
                     style={{
                       fontSize: "0.6875rem",
                       padding: "2px 8px",
-                      borderRadius: "0px",
+                      borderRadius: "3px",
                       background: "rgba(255,255,255,0.25)",
                       textDecoration: "underline",
                       textUnderlineOffset: "3px",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                   >
                     {formData.link_text} →
                   </span>
                 )}
                 {formData.is_closable && (
-                  <span style={{ opacity: 0.7, fontSize: "0.6875rem", marginLeft: "auto" }}>✕</span>
+                  <span style={{ opacity: 0.7, fontSize: "0.6875rem", marginLeft: "auto", flexShrink: 0 }}>✕</span>
                 )}
               </div>
             </div>
 
-            <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-              {/* Internal Title */}
+            <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* Internal Title with Character Counter */}
               <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "6px" }}>
-                  Internal Reference Title *
-                </label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#111827" }}>
+                    Internal Reference Title *
+                  </label>
+                  <span style={{ fontSize: "0.7rem", color: formData.title.length > 50 ? "#dc2626" : "#6b7280" }}>
+                    {formData.title.length} / 60
+                  </span>
+                </div>
                 <input
                   type="text"
                   required
+                  maxLength={60}
                   placeholder="e.g. Summer Flash Sale 20% Off"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   style={{
                     width: "100%",
-                    padding: "10px 12px",
-                    border: "1.5px solid #000000",
-                    borderRadius: "0px",
-                    fontSize: "0.875rem",
+                    padding: "9px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "0.85rem",
+                    boxSizing: "border-box",
                   }}
                 />
               </div>
 
-              {/* Message */}
+              {/* Storefront Banner Message with Character Counter & Preset Sync */}
               <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "6px" }}>
-                  Storefront Banner Message *
-                </label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#111827" }}>
+                    Storefront Banner Message *
+                  </label>
+                  <span style={{ fontSize: "0.7rem", color: formData.message.length > 100 ? "#dc2626" : "#6b7280" }}>
+                    {formData.message.length} / 120
+                  </span>
+                </div>
                 <input
                   type="text"
                   required
+                  maxLength={120}
                   placeholder="e.g. ⚡ FLASH SALE: USE CODE VAHN20 FOR 20% OFF | SHIPPING PAN INDIA"
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   style={{
                     width: "100%",
-                    padding: "10px 12px",
-                    border: "1.5px solid #000000",
-                    borderRadius: "0px",
-                    fontSize: "0.875rem",
+                    padding: "9px 12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "4px",
+                    fontSize: "0.85rem",
+                    boxSizing: "border-box",
                   }}
                 />
               </div>
 
-              {/* Banner Type Presets - Square */}
+              {/* Banner Type Presets */}
               <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "8px" }}>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#111827", marginBottom: "8px" }}>
                   Banner Category &amp; Preset
                 </label>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(115px, 1fr))", gap: "8px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: "8px" }}>
                   {Object.entries(BANNER_TYPE_PRESETS).map(([key, p]) => (
                     <button
                       key={key}
                       type="button"
                       onClick={() => handleTypeChange(key)}
                       style={{
-                        padding: "10px",
-                        borderRadius: "0px",
+                        padding: "8px 6px",
+                        borderRadius: "4px",
                         border: formData.banner_type === key ? "2px solid #000000" : "1px solid #d1d5db",
                         background: formData.banner_type === key ? "#000000" : "#ffffff",
-                        color: formData.banner_type === key ? "#ffffff" : "#000000",
+                        color: formData.banner_type === key ? "#ffffff" : "#111827",
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
                         gap: "4px",
                         cursor: "pointer",
+                        transition: "all 0.15s ease",
                       }}
                     >
-                      <span style={{ fontSize: "1.125rem" }}>{p.icon}</span>
-                      <span style={{ fontSize: "0.6875rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
+                      <span style={{ fontSize: "1.1rem" }}>{p.icon}</span>
+                      <span style={{ fontSize: "0.6875rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
                         {p.label}
                       </span>
                     </button>
@@ -891,9 +808,9 @@ export default function AdminAnnouncementsPage() {
                 </div>
               </div>
 
-              {/* Color Customization & Palette Presets - Square */}
+              {/* Color Customization & Palette Presets */}
               <div>
-                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "6px" }}>
+                <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#111827", marginBottom: "6px" }}>
                   Color Presets &amp; Custom Overrides
                 </label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
@@ -906,18 +823,18 @@ export default function AdminAnnouncementsPage() {
                         display: "flex",
                         alignItems: "center",
                         gap: "6px",
-                        padding: "6px 10px",
-                        borderRadius: "0px",
+                        padding: "5px 9px",
+                        borderRadius: "4px",
                         border: formData.bg_color === p.bg ? "2px solid #000000" : "1px solid #d1d5db",
                         background: "#ffffff",
                         cursor: "pointer",
-                        fontSize: "0.6875rem",
-                        fontWeight: 800,
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
                         textTransform: "uppercase",
                         letterSpacing: "-0.025em",
                       }}
                     >
-                      <div style={{ width: "10px", height: "10px", borderRadius: "0px", background: p.bg, border: "1px solid rgba(0,0,0,0.3)" }} />
+                      <div style={{ width: "10px", height: "10px", borderRadius: "2px", background: p.bg, border: "1px solid rgba(0,0,0,0.2)" }} />
                       <span>{p.name}</span>
                     </button>
                   ))}
@@ -925,7 +842,7 @@ export default function AdminAnnouncementsPage() {
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                   <div>
-                    <label style={{ display: "block", fontSize: "0.6875rem", fontWeight: 700, color: "#374151", marginBottom: "4px" }}>
+                    <label style={{ display: "block", fontSize: "0.7rem", fontWeight: 700, color: "#374151", marginBottom: "4px" }}>
                       Background Color (Hex)
                     </label>
                     <div style={{ display: "flex", gap: "6px" }}>
@@ -933,19 +850,19 @@ export default function AdminAnnouncementsPage() {
                         type="color"
                         value={formData.bg_color}
                         onChange={(e) => setFormData({ ...formData, bg_color: e.target.value })}
-                        style={{ width: "38px", height: "38px", border: "1.5px solid #000000", borderRadius: "0px", cursor: "pointer", padding: "2px" }}
+                        style={{ width: "36px", height: "36px", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer", padding: "2px" }}
                       />
                       <input
                         type="text"
                         value={formData.bg_color}
                         onChange={(e) => setFormData({ ...formData, bg_color: e.target.value })}
-                        style={{ width: "100%", padding: "6px 10px", border: "1.5px solid #000000", borderRadius: "0px", fontSize: "0.8125rem", fontFamily: "monospace", fontWeight: 700 }}
+                        style={{ width: "100%", padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "0.8rem", fontFamily: "monospace", fontWeight: 700 }}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label style={{ display: "block", fontSize: "0.6875rem", fontWeight: 700, color: "#374151", marginBottom: "4px" }}>
+                    <label style={{ display: "block", fontSize: "0.7rem", fontWeight: 700, color: "#374151", marginBottom: "4px" }}>
                       Text Color (Hex)
                     </label>
                     <div style={{ display: "flex", gap: "6px" }}>
@@ -953,13 +870,13 @@ export default function AdminAnnouncementsPage() {
                         type="color"
                         value={formData.text_color}
                         onChange={(e) => setFormData({ ...formData, text_color: e.target.value })}
-                        style={{ width: "38px", height: "38px", border: "1.5px solid #000000", borderRadius: "0px", cursor: "pointer", padding: "2px" }}
+                        style={{ width: "36px", height: "36px", border: "1px solid #d1d5db", borderRadius: "4px", cursor: "pointer", padding: "2px" }}
                       />
                       <input
                         type="text"
                         value={formData.text_color}
                         onChange={(e) => setFormData({ ...formData, text_color: e.target.value })}
-                        style={{ width: "100%", padding: "6px 10px", border: "1.5px solid #000000", borderRadius: "0px", fontSize: "0.8125rem", fontFamily: "monospace", fontWeight: 700 }}
+                        style={{ width: "100%", padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "0.8rem", fontFamily: "monospace", fontWeight: 700 }}
                       />
                     </div>
                   </div>
@@ -969,35 +886,41 @@ export default function AdminAnnouncementsPage() {
               {/* Link URL & Link Text */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "6px" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#111827", marginBottom: "6px" }}>
                     Destination Link (Optional)
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. /products or /collections/jersey"
+                    placeholder="e.g. /products"
                     value={formData.link_url}
                     onChange={(e) => setFormData({ ...formData, link_url: e.target.value })}
-                    style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #000000", borderRadius: "0px", fontSize: "0.8125rem" }}
+                    style={{ width: "100%", padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "0.82rem", boxSizing: "border-box" }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#000000", marginBottom: "6px" }}>
-                    Button / CTA Text (Optional)
-                  </label>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                    <label style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em", color: "#111827" }}>
+                      Button Text (Optional)
+                    </label>
+                    <span style={{ fontSize: "0.6875rem", color: "#6b7280" }}>
+                      {formData.link_text.length} / 30
+                    </span>
+                  </div>
                   <input
                     type="text"
+                    maxLength={30}
                     placeholder="e.g. Shop Now"
                     value={formData.link_text}
                     onChange={(e) => setFormData({ ...formData, link_text: e.target.value })}
-                    style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #000000", borderRadius: "0px", fontSize: "0.8125rem" }}
+                    style={{ width: "100%", padding: "9px 12px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "0.82rem", boxSizing: "border-box" }}
                   />
                 </div>
               </div>
 
-              {/* Checkbox Options - Square */}
-              <div style={{ display: "flex", gap: "24px", padding: "14px", background: "#f9fafb", border: "1.5px solid #000000", borderRadius: "0px" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.8125rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
+              {/* Checkbox Options */}
+              <div style={{ display: "flex", gap: "20px", padding: "12px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "4px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
                   <input
                     type="checkbox"
                     checked={formData.is_active}
@@ -1007,7 +930,7 @@ export default function AdminAnnouncementsPage() {
                   <span>Active on Storefront</span>
                 </label>
 
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.8125rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "-0.025em" }}>
                   <input
                     type="checkbox"
                     checked={formData.is_closable}
@@ -1018,41 +941,20 @@ export default function AdminAnnouncementsPage() {
                 </label>
               </div>
 
-              {/* Form Buttons - Square & Black */}
+              {/* Form Buttons */}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  style={{
-                    padding: "10px 20px",
-                    borderRadius: "0px",
-                    border: "1.5px solid #000000",
-                    background: "#ffffff",
-                    fontWeight: 900,
-                    fontSize: "0.8125rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "-0.025em",
-                    cursor: "pointer",
-                  }}
+                  className="admin-btn admin-btn--secondary"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  style={{
-                    padding: "10px 28px",
-                    borderRadius: "0px",
-                    border: "1.5px solid #000000",
-                    background: "#000000",
-                    color: "#ffffff",
-                    fontWeight: 900,
-                    fontSize: "0.8125rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "-0.025em",
-                    cursor: saving ? "not-allowed" : "pointer",
-                    opacity: saving ? 0.7 : 1,
-                  }}
+                  className="admin-btn admin-btn--primary"
+                  style={{ opacity: saving ? 0.7 : 1 }}
                 >
                   {saving ? "Saving..." : editingBanner ? "Save Changes" : "Publish Banner"}
                 </button>

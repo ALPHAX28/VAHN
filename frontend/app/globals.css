@@ -932,7 +932,7 @@ input, textarea, select {
 }
 
 .product-card-info {
-  padding: 12px 0 var(--space-md);
+  padding: 12px 8px var(--space-md);
 }
 
 .product-card-title {

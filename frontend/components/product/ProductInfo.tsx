@@ -924,29 +924,6 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
         })}
       </div>
 
-
-      {/* Tags */}
-      {product.tags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '14px' }}>
-          {product.tags.map((tag) => (
-            <Link
-              key={tag}
-              href={`/search?q=${encodeURIComponent(tag)}`}
-              style={{
-                fontSize: '0.75rem',
-                letterSpacing: '-0.025em',
-                textTransform: 'uppercase',
-                padding: '4px 10px',
-                border: '1px solid var(--color-border)',
-                color: 'var(--color-grey-dark)',
-              }}
-            >
-              {tag}
-            </Link>
-          ))}
-        </div>
-      )}
-
       {mounted && sizeGuideOpen && createPortal(
         <div className="size-guide-modal-overlay" onClick={() => setSizeGuideOpen(false)}>
           <div className="size-guide-modal-card" onClick={(e) => e.stopPropagation()}>
