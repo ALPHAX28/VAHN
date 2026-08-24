@@ -22,7 +22,7 @@ export default function Footer() {
   return (
     <footer
       style={{
-        background: '#141416',
+        background: '#111111',
         borderTop: '1px solid rgba(255, 255, 255, 0.08)',
         color: '#ffffff',
       }}
@@ -30,14 +30,14 @@ export default function Footer() {
       {/* Main Footer Container */}
       <div
         style={{
-          maxWidth: '1440px',
+          maxWidth: '100%',
           margin: '0 auto',
-          padding: 'clamp(36px, 5vw, 56px) clamp(16px, 5vw, 80px) clamp(40px, 6vw, 80px)',
+          padding: 'clamp(44px, 5vw, 60px) clamp(24px, 4.5vw, 64px) clamp(70px, 9vw, 110px)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
           flexWrap: 'wrap',
-          gap: 'clamp(28px, 4vw, 64px)',
+          gap: 'clamp(32px, 5vw, 80px)',
         }}
       >
         {/* Left Group: ABOUT, SUPPORT, SOCIALS */}
@@ -45,7 +45,7 @@ export default function Footer() {
           style={{
             display: 'flex',
             flexWrap: 'wrap',
-            gap: 'clamp(28px, 4vw, 64px)',
+            gap: 'clamp(40px, 6vw, 96px)',
             alignItems: 'flex-start',
           }}
         >
@@ -55,11 +55,11 @@ export default function Footer() {
               style={{
                 fontFamily: 'var(--font-heading)',
                 fontWeight: 600,
-                fontSize: '0.875rem',
+                fontSize: '0.8125rem',
                 textTransform: 'uppercase',
-                letterSpacing: '-0.025em',
+                letterSpacing: '0.02em',
                 color: '#ffffff',
-                marginBottom: '14px',
+                marginBottom: '18px',
               }}
             >
               ABOUT
@@ -71,7 +71,7 @@ export default function Footer() {
                 margin: 0,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '8px',
+                gap: '10px',
               }}
             >
               {ABOUT_LINKS.map((link) => (
@@ -80,8 +80,8 @@ export default function Footer() {
                     href={link.href}
                     style={{
                       fontFamily: 'var(--font-body), Georgia, serif',
-                      fontSize: '0.875rem',
-                      letterSpacing: '-0.025em',
+                      fontSize: '0.8125rem',
+                      letterSpacing: '-0.01em',
                       color: 'rgba(255, 255, 255, 0.72)',
                       textDecoration: 'none',
                       lineHeight: 1.5,
@@ -103,11 +103,11 @@ export default function Footer() {
               style={{
                 fontFamily: 'var(--font-heading)',
                 fontWeight: 600,
-                fontSize: '0.875rem',
+                fontSize: '0.8125rem',
                 textTransform: 'uppercase',
-                letterSpacing: '-0.025em',
+                letterSpacing: '0.02em',
                 color: '#ffffff',
-                marginBottom: '14px',
+                marginBottom: '18px',
               }}
             >
               SUPPORT
@@ -119,7 +119,7 @@ export default function Footer() {
                 margin: 0,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '8px',
+                gap: '10px',
               }}
             >
               {SUPPORT_LINKS.map((link) => (
@@ -128,8 +128,8 @@ export default function Footer() {
                     href={link.href}
                     style={{
                       fontFamily: 'var(--font-body), Georgia, serif',
-                      fontSize: '0.875rem',
-                      letterSpacing: '-0.025em',
+                      fontSize: '0.8125rem',
+                      letterSpacing: '-0.01em',
                       color: 'rgba(255, 255, 255, 0.72)',
                       textDecoration: 'none',
                       lineHeight: 1.5,
@@ -151,11 +151,11 @@ export default function Footer() {
               style={{
                 fontFamily: 'var(--font-heading)',
                 fontWeight: 600,
-                fontSize: '0.875rem',
+                fontSize: '0.8125rem',
                 textTransform: 'uppercase',
-                letterSpacing: '-0.025em',
+                letterSpacing: '0.02em',
                 color: '#ffffff',
-                marginBottom: '14px',
+                marginBottom: '18px',
               }}
             >
               SOCIALS
@@ -255,16 +255,16 @@ export default function Footer() {
           <Link
             href="/"
             aria-label="VAHN Home"
-            style={{ display: 'inline-block', marginBottom: '16px', textDecoration: 'none' }}
+            style={{ display: 'inline-block', marginBottom: '14px', textDecoration: 'none' }}
           >
             <Image
               src="/assets/logos/VAHN-Primary-colour-transparent.png"
               alt="VAHN"
-              width={140}
-              height={34}
+              width={110}
+              height={26}
               priority
               style={{
-                height: '30px',
+                height: '23px',
                 width: 'auto',
                 display: 'block',
                 objectFit: 'contain',
@@ -315,7 +315,7 @@ export default function Footer() {
                 height: '46px',
                 padding: '0 16px',
                 background: 'transparent',
-                border: '1px solid #3b379e',
+                border: '1px solid #4232d9',
                 borderRadius: '2px',
                 color: '#ffffff',
                 fontFamily: 'var(--font-body), Georgia, serif',
@@ -332,8 +332,8 @@ export default function Footer() {
               style={{
                 width: '46px',
                 height: '46px',
-                background: '#4f46e5',
-                border: '1px solid #4f46e5',
+                background: '#4232d9',
+                border: '1px solid #4232d9',
                 borderRadius: '2px',
                 color: '#ffffff',
                 display: 'flex',
@@ -343,8 +343,8 @@ export default function Footer() {
                 flexShrink: 0,
                 transition: 'background-color 0.2s ease',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#4338ca')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#4f46e5')}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#3425b8')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#4232d9')}
             >
               <svg
                 width="18"

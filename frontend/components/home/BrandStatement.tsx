@@ -1,5 +1,5 @@
 export default function BrandStatement() {
-  const BRAND_BLUE = '#3a3699';
+  const BRAND_BLUE = '#4232d9';
 
   return (
     <section

@@ -1999,7 +1999,7 @@ input, textarea, select {
 
 .marquee-track {
   display: inline-flex;
-  animation: marquee 20s linear infinite;
+  animation: marquee 50s linear infinite;
 }
 
 .marquee-item {

@@ -38,7 +38,7 @@ export default function MarqueeStrip() {
               textTransform: 'none',
               letterSpacing: '-0.025em',
               padding: '0 clamp(16px, 2.5vw, 32px)',
-              color: '#3b379e',
+              color: '#4232d9',
               whiteSpace: 'nowrap',
             }}
           >
