@@ -60,14 +60,14 @@ export default function PickYourSide() {
       <div className="pick-your-side-grid">
         {/* Left Panel */}
         <div
+          className="pick-your-side-panel"
           style={{
             position: 'relative',
             background: '#1a1f64',
-            aspectRatio: '6 / 5',
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'center',
-            paddingBottom: '32px',
+            paddingBottom: 'clamp(28px, 4vh, 48px)',
             overflow: 'hidden',
           }}
         >
@@ -76,6 +76,7 @@ export default function PickYourSide() {
             src="/assets/pick-your-side-01.png"
             alt="Pick Your Side — Athlete 01"
             fill
+            priority
             sizes="(max-width: 768px) 100vw, 50vw"
             style={{
               objectFit: 'cover',
@@ -127,14 +128,14 @@ export default function PickYourSide() {
 
         {/* Right Panel */}
         <div
+          className="pick-your-side-panel"
           style={{
             position: 'relative',
             background: '#1a1a66',
-            aspectRatio: '6 / 5',
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'center',
-            paddingBottom: '32px',
+            paddingBottom: 'clamp(28px, 4vh, 48px)',
             overflow: 'hidden',
           }}
         >

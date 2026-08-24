@@ -69,7 +69,8 @@ export default function Header() {
         top: 0,
         left: 0,
         right: 0,
-        zIndex: 'var(--z-header)',
+        zIndex: 100,
+        width: '100%',
       }}
     >
       {/* Dynamic Announcement & Notification Banner */}
@@ -81,8 +82,8 @@ export default function Header() {
           width: '100%',
           backgroundColor: isTransparent ? 'transparent' : '#0d0d0f',
           borderBottom: isTransparent
-            ? '1px solid rgba(255, 255, 255, 0.08)'
-            : '1px solid rgba(255, 255, 255, 0.08)',
+            ? '1px solid rgba(255, 255, 255, 0.22)'
+            : '1px solid rgba(255, 255, 255, 0.15)',
           boxShadow: scrolled ? '0 4px 20px rgba(0, 0, 0, 0.5)' : 'none',
           transition: 'background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
         }}
@@ -172,16 +173,21 @@ export default function Header() {
             }}
           >
             <Image
-              src="/assets/logos/VAHN-Primary-colour-transparent.png"
+              src={
+                scrolled
+                  ? '/assets/logos/VAHN-Primary-colour-transparent.png'
+                  : '/assets/logos/VAHN-Primary-white-transparent.png'
+              }
               alt="VAHN"
-              width={124}
-              height={30}
+              width={105}
+              height={24}
               priority
               style={{
-                height: '26px',
+                height: '21px',
                 width: 'auto',
                 display: 'block',
                 objectFit: 'contain',
+                transition: 'opacity 0.2s ease',
               }}
             />
           </Link>

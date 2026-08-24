@@ -11,13 +11,14 @@ export default function HeroSection() {
         width: '100%',
         height: '100vh',
         minHeight: '640px',
-        marginTop: '-60px',
-        paddingTop: '60px',
+        marginTop: '-64px',
+        paddingTop: '64px',
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'center',
         paddingBottom: '80px',
+        backgroundColor: '#0d0d0f',
       }}
     >
       {/* Real Top Banner Hero Image */}

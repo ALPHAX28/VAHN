@@ -128,7 +128,7 @@ body {
   line-height: 1.6;
   color: var(--color-text);
   background: var(--color-bg);
-  overflow-x: hidden;
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -248,12 +248,32 @@ input, textarea, select {
   grid-template-columns: 1fr 1fr;
   gap: 1px;
   background: #ffffff;
+  height: 110vh;
+  height: 110dvh;
+  max-height: 2110px;
+  width: 100%;
+}
+
+.pick-your-side-panel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
 }
 
 @media (max-width: 768px) {
   .pick-your-side-grid {
     grid-template-columns: 1fr !important;
+    height: auto !important;
+    max-height: none !important;
     gap: 1px;
+  }
+  .pick-your-side-panel {
+    height: 80vh !important;
+    min-height: 480px;
   }
 }
 
