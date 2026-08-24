@@ -825,100 +825,102 @@ export default function FreshOutLocker({ products }: Props) {
             </p>
           </div>
 
-          {/* Mouse Navigation Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={() => handleScroll('left')}
-              disabled={!canScrollLeft}
-              aria-label="Scroll products left"
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                border: '1px solid rgba(0, 0, 0, 0.15)',
-                background: canScrollLeft ? '#ffffff' : '#f5f5f7',
-                color: canScrollLeft ? '#000000' : '#c4c4c8',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: canScrollLeft ? 'pointer' : 'default',
-                transition: 'all 0.2s ease',
-                boxShadow: canScrollLeft ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-              }}
-              onMouseEnter={(e) => {
-                if (canScrollLeft) {
-                  e.currentTarget.style.borderColor = '#4232d9';
-                  e.currentTarget.style.color = '#4232d9';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (canScrollLeft) {
-                  e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.15)';
-                  e.currentTarget.style.color = '#000000';
-                }
-              }}
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          {/* Mouse Navigation Controls: Only display if more than 3 items exist */}
+          {displayItems.length > 3 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => handleScroll('left')}
+                disabled={!canScrollLeft}
+                aria-label="Scroll products left"
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  border: '1px solid rgba(0, 0, 0, 0.15)',
+                  background: canScrollLeft ? '#ffffff' : '#f5f5f7',
+                  color: canScrollLeft ? '#000000' : '#c4c4c8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: canScrollLeft ? 'pointer' : 'default',
+                  transition: 'all 0.2s ease',
+                  boxShadow: canScrollLeft ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (canScrollLeft) {
+                    e.currentTarget.style.borderColor = '#4232d9';
+                    e.currentTarget.style.color = '#4232d9';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (canScrollLeft) {
+                    e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.15)';
+                    e.currentTarget.style.color = '#000000';
+                  }
+                }}
               >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleScroll('right')}
-              disabled={!canScrollRight}
-              aria-label="Scroll products right"
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                border: '1px solid rgba(0, 0, 0, 0.15)',
-                background: canScrollRight ? '#ffffff' : '#f5f5f7',
-                color: canScrollRight ? '#000000' : '#c4c4c8',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: canScrollRight ? 'pointer' : 'default',
-                transition: 'all 0.2s ease',
-                boxShadow: canScrollRight ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-              }}
-              onMouseEnter={(e) => {
-                if (canScrollRight) {
-                  e.currentTarget.style.borderColor = '#4232d9';
-                  e.currentTarget.style.color = '#4232d9';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (canScrollRight) {
-                  e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.15)';
-                  e.currentTarget.style.color = '#000000';
-                }
-              }}
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <button
+                type="button"
+                onClick={() => handleScroll('right')}
+                disabled={!canScrollRight}
+                aria-label="Scroll products right"
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  border: '1px solid rgba(0, 0, 0, 0.15)',
+                  background: canScrollRight ? '#ffffff' : '#f5f5f7',
+                  color: canScrollRight ? '#000000' : '#c4c4c8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: canScrollRight ? 'pointer' : 'default',
+                  transition: 'all 0.2s ease',
+                  boxShadow: canScrollRight ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (canScrollRight) {
+                    e.currentTarget.style.borderColor = '#4232d9';
+                    e.currentTarget.style.color = '#4232d9';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (canScrollRight) {
+                    e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.15)';
+                    e.currentTarget.style.color = '#000000';
+                  }
+                }}
               >
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
-          </div>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Horizontal scrollable track */}
