@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export default function PickYourSide() {
-  const BRAND_BLUE = '#3a3699';
+  const BRAND_BLUE = '#4232d9';
 
   return (
     <section style={{ background: '#fff' }}>
@@ -14,7 +14,7 @@ export default function PickYourSide() {
           background: '#111111',
           padding: 'clamp(36px, 6vw, 52px) clamp(16px, 4vw, 24px) clamp(32px, 5vw, 48px)',
           textAlign: 'center',
-          borderBottom: '3px solid #ffffff',
+          borderBottom: '1px solid #ffffff',
         }}
       >
         {/* Official VAHN Symbol 'V' Logo in Blue from drive_logos */}
@@ -62,16 +62,16 @@ export default function PickYourSide() {
         <div
           style={{
             position: 'relative',
-            background: BRAND_BLUE,
-            aspectRatio: '1 / 1',
+            background: '#1a1f64',
+            aspectRatio: '6 / 5',
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'center',
-            paddingBottom: '36px',
+            paddingBottom: '32px',
             overflow: 'hidden',
           }}
         >
-          {/* Real Athlete Image Card 01 */}
+          {/* Real Athlete Image Card 01 — Full seamless edge-to-edge cover */}
           <Image
             src="/assets/pick-your-side-01.png"
             alt="Pick Your Side — Athlete 01"
@@ -88,7 +88,7 @@ export default function PickYourSide() {
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 40%)',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 35%)',
               zIndex: 1,
             }}
             aria-hidden="true"
@@ -101,25 +101,24 @@ export default function PickYourSide() {
               position: 'relative',
               zIndex: 2,
               background: BRAND_BLUE,
-              color: '#fff',
-              border: '2px solid rgba(255,255,255,0.7)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '2px',
               padding: '12px 40px',
               fontFamily: 'var(--font-heading)',
-              fontWeight: 900,
+              fontWeight: 600,
               fontSize: '0.8125rem',
               textTransform: 'uppercase',
-              letterSpacing: '-0.025em',
+              letterSpacing: '-0.01em',
               textDecoration: 'none',
               display: 'inline-block',
-              transition: 'all 0.2s ease',
+              transition: 'background-color 0.2s ease, transform 0.2s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#2a267a';
-              e.currentTarget.style.borderColor = '#ffffff';
+              e.currentTarget.style.backgroundColor = '#3425b8';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = BRAND_BLUE;
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)';
             }}
           >
             Buy Now
@@ -130,16 +129,16 @@ export default function PickYourSide() {
         <div
           style={{
             position: 'relative',
-            background: '#5b58c4',
-            aspectRatio: '1 / 1',
+            background: '#1a1a66',
+            aspectRatio: '6 / 5',
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'center',
-            paddingBottom: '36px',
+            paddingBottom: '32px',
             overflow: 'hidden',
           }}
         >
-          {/* Real Athlete Image Card 02 */}
+          {/* Real Athlete Image Card 02 — Full seamless edge-to-edge cover */}
           <Image
             src="/assets/pick-your-side-02.png"
             alt="Pick Your Side — Athlete 02"
@@ -156,7 +155,7 @@ export default function PickYourSide() {
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 40%)',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 35%)',
               zIndex: 1,
             }}
             aria-hidden="true"
@@ -169,25 +168,24 @@ export default function PickYourSide() {
               position: 'relative',
               zIndex: 2,
               background: BRAND_BLUE,
-              color: '#fff',
-              border: '2px solid rgba(255,255,255,0.7)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '2px',
               padding: '12px 40px',
               fontFamily: 'var(--font-heading)',
-              fontWeight: 900,
+              fontWeight: 600,
               fontSize: '0.8125rem',
               textTransform: 'uppercase',
-              letterSpacing: '-0.025em',
+              letterSpacing: '-0.01em',
               textDecoration: 'none',
               display: 'inline-block',
-              transition: 'all 0.2s ease',
+              transition: 'background-color 0.2s ease, transform 0.2s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#2a267a';
-              e.currentTarget.style.borderColor = '#ffffff';
+              e.currentTarget.style.backgroundColor = '#3425b8';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = BRAND_BLUE;
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)';
             }}
           >
             Buy Now

@@ -39,12 +39,12 @@ export default function HeroSection() {
         />
       </div>
 
-      {/* Subtle gradient overlay from bottom for text legibility */}
+      {/* Subtle bottom gradient for hero text legibility */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 40%, transparent 70%)',
+          background: 'linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.2) 40%, transparent 70%)',
           zIndex: 1,
         }}
         aria-hidden="true"
@@ -63,12 +63,12 @@ export default function HeroSection() {
           style={{
             fontFamily: 'var(--font-heading)',
             fontWeight: 900,
-            fontSize: 'clamp(2.5rem, 7vw, 6rem)',
+            fontSize: 'clamp(1.75rem, 4.2vw, 3.25rem)',
             textTransform: 'uppercase',
             letterSpacing: '-0.025em',
             color: '#ffffff',
-            lineHeight: 1,
-            marginBottom: '12px',
+            lineHeight: 1.05,
+            marginBottom: '8px',
           }}
         >
           THIS IS VAHN
@@ -81,7 +81,7 @@ export default function HeroSection() {
             fontSize: '1.0625rem',
             color: '#ffffff',
             textDecoration: 'none',
-            letterSpacing: '-0.025em',
+            letterSpacing: '0.01em',
             opacity: 0.9,
             display: 'inline-block',
           }}

@@ -81,21 +81,21 @@ export default function Header() {
           width: '100%',
           backgroundColor: isTransparent ? 'transparent' : '#0d0d0f',
           borderBottom: isTransparent
-            ? '1px solid rgba(255, 255, 255, 0.25)'
-            : '1px solid rgba(255, 255, 255, 0.12)',
+            ? '1px solid rgba(255, 255, 255, 0.08)'
+            : '1px solid rgba(255, 255, 255, 0.08)',
           boxShadow: scrolled ? '0 4px 20px rgba(0, 0, 0, 0.5)' : 'none',
           transition: 'background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
         }}
       >
         <div
           style={{
-            maxWidth: '1440px',
+            maxWidth: '100%',
             margin: '0 auto',
             height: '60px',
             display: 'grid',
             gridTemplateColumns: '1fr auto 1fr',
             alignItems: 'center',
-            padding: '0 clamp(12px, 3vw, 48px)',
+            padding: '0 clamp(16px, 3.5vw, 48px)',
           }}
         >
           {/* Left: Desktop Nav Links (Desktop) OR Hamburger (Mobile) */}
@@ -110,16 +110,17 @@ export default function Header() {
                   key={link.href}
                   href={link.href}
                   style={{
-                    fontFamily: 'var(--font-ui)',
-                    fontSize: '0.8125rem',
-                    fontWeight: 500,
-                    letterSpacing: '-0.025em',
-                    color: 'rgba(255, 255, 255, 0.9)',
+                    fontFamily: 'var(--font-body)',
+                    fontStyle: 'italic',
+                    fontSize: '0.9375rem',
+                    fontWeight: 400,
+                    letterSpacing: '0.01em',
+                    color: 'rgba(255, 255, 255, 0.92)',
                     textDecoration: 'none',
-                    transition: 'color 0.2s ease',
+                    transition: 'color 0.2s ease, opacity 0.2s ease',
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.92)')}
                 >
                   {link.label}
                 </Link>

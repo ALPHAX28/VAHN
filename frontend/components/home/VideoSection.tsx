@@ -12,8 +12,8 @@ export default function VideoSection() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        borderTop: '3px solid #ffffff',
-        borderBottom: '3px solid #ffffff',
+        borderTop: '1px solid #ffffff',
+        borderBottom: '1px solid #ffffff',
       }}
     >
       <video

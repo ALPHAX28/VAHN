@@ -89,8 +89,8 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
           letterSpacing: '-0.025em',
           textTransform: 'uppercase',
           color: 'rgba(255, 255, 255, 0.9)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          backgroundColor: '#000000',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+          backgroundColor: '#0d0d0f',
           fontFamily: 'var(--font-heading)',
         }}
         role="banner"
@@ -101,7 +101,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
   }
 
   const currentBanner = visibleBanners[currentIndex % visibleBanners.length];
-  const bg = currentBanner?.bg_color || '#000000';
+  const bg = currentBanner?.bg_color || '#0d0d0f';
   const textColor = currentBanner?.text_color || '#ffffff';
 
   return (
@@ -110,7 +110,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
         position: 'relative',
         backgroundColor: bg,
         color: textColor,
-        borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
         fontFamily: 'var(--font-heading)',
         fontSize: '0.75rem',
         fontWeight: 600,
@@ -118,7 +118,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
         textTransform: 'uppercase',
         transition: 'background-color 0.45s ease, color 0.45s ease',
         overflow: 'hidden',
-        height: '38px',
+        height: '36px',
         width: '100%',
         display: 'flex',
         alignItems: 'center',

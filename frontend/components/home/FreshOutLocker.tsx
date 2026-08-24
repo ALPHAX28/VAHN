@@ -224,7 +224,7 @@ function LockerCard({
   const isFewLeft = item?.isFewLeft ?? false;
   const targetHref = item?.targetHref || '/products';
 
-  const BRAND_COLOR = '#3a3699';
+  const BRAND_COLOR = '#4232d9';
 
   // Extract distinct sizes from variants for this colorway
   const sizeVariants = useMemo(() => {
@@ -243,7 +243,7 @@ function LockerCard({
         isFew,
       };
     });
-  }, [item?.variants]);
+  }, [item]);
 
   // Handle Quick Add to Cart
   const handleAddToCart = (v: ProductVariant) => {
@@ -329,7 +329,7 @@ function LockerCard({
           justifyContent: 'center',
         }}
       >
-        {/* Left Arrow Button — Pure Blue Arrow, no white circle background */}
+        {/* Left Arrow Button — Pure VAHN Blue Arrow, regular weight */}
         {hasMultipleImages && (
           <button
             type="button"
@@ -355,7 +355,7 @@ function LockerCard({
               transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#262272';
+              e.currentTarget.style.color = '#3425b8';
               e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
             }}
             onMouseLeave={(e) => {
@@ -369,7 +369,7 @@ function LockerCard({
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2.5"
+              strokeWidth="1.75"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
@@ -420,7 +420,7 @@ function LockerCard({
           )}
         </Link>
 
-        {/* Right Arrow Button — Pure Blue Arrow, no white circle background */}
+        {/* Right Arrow Button — Pure VAHN Blue Arrow, regular weight */}
         {hasMultipleImages && (
           <button
             type="button"
@@ -446,7 +446,7 @@ function LockerCard({
               transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#262272';
+              e.currentTarget.style.color = '#3425b8';
               e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
             }}
             onMouseLeave={(e) => {
@@ -460,7 +460,7 @@ function LockerCard({
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2.5"
+              strokeWidth="1.75"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
@@ -525,7 +525,7 @@ function LockerCard({
                 style={{
                   fontFamily: 'var(--font-heading)',
                   fontSize: '0.6875rem',
-                  fontWeight: 800,
+                  fontWeight: 600,
                   textTransform: 'uppercase',
                   letterSpacing: '-0.025em',
                   color: '#000000',
@@ -547,7 +547,7 @@ function LockerCard({
                   alignItems: 'center',
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
@@ -571,17 +571,17 @@ function LockerCard({
                     minWidth: '40px',
                     height: '36px',
                     padding: '0 6px',
-                    background: addedVariantId === variant.id ? '#3b379e' : isAvailable ? '#ffffff' : '#f5f5f7',
+                    background: addedVariantId === variant.id ? BRAND_COLOR : isAvailable ? '#ffffff' : '#f5f5f7',
                     color: addedVariantId === variant.id ? '#ffffff' : isAvailable ? '#000000' : '#b0b0b5',
                     border: addedVariantId === variant.id
-                      ? '1.5px solid #3b379e'
+                      ? `1.5px solid ${BRAND_COLOR}`
                       : isAvailable
                       ? '1.5px solid #000000'
                       : '1px solid rgba(0,0,0,0.12)',
                     borderRadius: '2px',
                     fontFamily: 'var(--font-heading)',
                     fontSize: '0.75rem',
-                    fontWeight: 800,
+                    fontWeight: 600,
                     letterSpacing: '-0.025em',
                     cursor: isAvailable ? 'pointer' : 'not-allowed',
                     display: 'flex',
@@ -594,8 +594,8 @@ function LockerCard({
                   }}
                   onMouseEnter={(e) => {
                     if (isAvailable && addedVariantId !== variant.id) {
-                      e.currentTarget.style.backgroundColor = '#3b379e';
-                      e.currentTarget.style.borderColor = '#3b379e';
+                      e.currentTarget.style.backgroundColor = BRAND_COLOR;
+                      e.currentTarget.style.borderColor = BRAND_COLOR;
                       e.currentTarget.style.color = '#ffffff';
                     }
                   }}
@@ -608,7 +608,7 @@ function LockerCard({
                   }}
                 >
                   {addedVariantId === variant.id ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   ) : (
@@ -631,31 +631,31 @@ function LockerCard({
           gap: '12px',
         }}
       >
-        {/* Left Side: Tag, Title, Price, Stock Info */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+        {/* Left Side: Tag, Title, Price, Stock Info — All Regular (Non-Bold) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {/* Tag */}
           <span
             style={{
               fontFamily: 'var(--font-heading)',
               fontSize: '0.6875rem',
-              fontWeight: 600,
+              fontWeight: 400,
               textTransform: 'uppercase',
-              letterSpacing: '-0.025em',
+              letterSpacing: '-0.01em',
               color: '#8e8e93',
             }}
           >
             {tag}
           </span>
 
-          {/* Title */}
+          {/* Title — Regular Weight */}
           <Link
             href={targetHref}
             style={{
               fontFamily: 'var(--font-heading)',
               fontSize: '0.8125rem',
-              fontWeight: 900,
+              fontWeight: 400,
               textTransform: 'uppercase',
-              letterSpacing: '-0.025em',
+              letterSpacing: '-0.01em',
               color: '#000000',
               textDecoration: 'none',
               lineHeight: 1.3,
@@ -664,13 +664,13 @@ function LockerCard({
             {title}
           </Link>
 
-          {/* Price */}
+          {/* Price — Regular Weight in VAHN Blue */}
           <span
             style={{
               fontFamily: 'var(--font-heading)',
               fontSize: '0.875rem',
-              fontWeight: 900,
-              letterSpacing: '-0.025em',
+              fontWeight: 400,
+              letterSpacing: '-0.01em',
               color: BRAND_COLOR,
               marginTop: '2px',
             }}
@@ -684,9 +684,9 @@ function LockerCard({
               style={{
                 fontFamily: 'var(--font-heading)',
                 fontSize: '0.625rem',
-                fontWeight: 600,
+                fontWeight: 400,
                 textTransform: 'uppercase',
-                letterSpacing: '-0.025em',
+                letterSpacing: '-0.01em',
                 color: '#a0a0b2',
                 marginTop: '1px',
               }}
@@ -696,7 +696,7 @@ function LockerCard({
           )}
         </div>
 
-        {/* Right Side: Quick Add Button */}
+        {/* Right Side: Quick Add Plus Button — Regular Weight in VAHN Blue */}
         <button
           type="button"
           onClick={() => {
@@ -704,9 +704,9 @@ function LockerCard({
           }}
           aria-label={showQuickAdd ? 'Close size picker' : `Select size for ${title}`}
           style={{
-            background: showQuickAdd ? '#3b379e' : 'none',
+            background: showQuickAdd ? BRAND_COLOR : 'none',
             border: 'none',
-            color: showQuickAdd ? '#ffffff' : isHovered ? '#262272' : BRAND_COLOR,
+            color: showQuickAdd ? '#ffffff' : isHovered ? '#3425b8' : BRAND_COLOR,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -714,16 +714,16 @@ function LockerCard({
             borderRadius: showQuickAdd ? '50%' : '0',
             cursor: 'pointer',
             transition: 'transform 0.25s ease, color 0.2s ease, background-color 0.2s ease',
-            transform: showQuickAdd ? 'rotate(45deg)' : isHovered ? 'scale(1.25)' : 'scale(1)',
+            transform: showQuickAdd ? 'rotate(45deg)' : isHovered ? 'scale(1.2)' : 'scale(1)',
           }}
         >
           <svg
-            width="24"
-            height="24"
+            width="22"
+            height="22"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2.5"
+            strokeWidth="1.75"
             strokeLinecap="round"
           >
             <line x1="12" y1="4" x2="12" y2="20" />
@@ -785,29 +785,45 @@ export default function FreshOutLocker({ products }: Props) {
       }}
     >
       <div style={{ maxWidth: '100%' }}>
-        {/* Header Row: Title on Left, Carousel Navigation Arrows on Right for Desktop Mouse users */}
+        {/* Header Row: Title & Subtitle on Left, Carousel Navigation Arrows on Right for Desktop Mouse users */}
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-end',
             justifyContent: 'space-between',
             marginBottom: '28px',
             paddingRight: 'clamp(20px, 6vw, 80px)',
           }}
         >
-          <h2
-            style={{
-              fontFamily: 'var(--font-heading)',
-              fontWeight: 900,
-              fontSize: 'clamp(1.25rem, 2.5vw, 1.875rem)',
-              textTransform: 'uppercase',
-              letterSpacing: '-0.025em',
-              color: '#000000',
-              margin: 0,
-            }}
-          >
-            FRESH OUT OF THE LOCKER
-          </h2>
+          <div>
+            <h2
+              style={{
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 900,
+                fontSize: 'clamp(1.25rem, 2.5vw, 1.875rem)',
+                textTransform: 'uppercase',
+                letterSpacing: '-0.025em',
+                color: '#000000',
+                margin: 0,
+                marginBottom: '6px',
+              }}
+            >
+              SHOP THE DROP
+            </h2>
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontStyle: 'italic',
+                fontSize: '0.9375rem',
+                color: '#444444',
+                margin: 0,
+                letterSpacing: '-0.01em',
+                lineHeight: 1.4,
+              }}
+            >
+              Our first drop is here  limited pieces, made to move with you.
+            </p>
+          </div>
 
           {/* Mouse Navigation Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -832,8 +848,8 @@ export default function FreshOutLocker({ products }: Props) {
               }}
               onMouseEnter={(e) => {
                 if (canScrollLeft) {
-                  e.currentTarget.style.borderColor = '#3b379e';
-                  e.currentTarget.style.color = '#3b379e';
+                  e.currentTarget.style.borderColor = '#4232d9';
+                  e.currentTarget.style.color = '#4232d9';
                 }
               }}
               onMouseLeave={(e) => {
@@ -878,8 +894,8 @@ export default function FreshOutLocker({ products }: Props) {
               }}
               onMouseEnter={(e) => {
                 if (canScrollRight) {
-                  e.currentTarget.style.borderColor = '#3b379e';
-                  e.currentTarget.style.color = '#3b379e';
+                  e.currentTarget.style.borderColor = '#4232d9';
+                  e.currentTarget.style.color = '#4232d9';
                 }
               }}
               onMouseLeave={(e) => {

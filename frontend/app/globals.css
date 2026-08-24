@@ -246,14 +246,14 @@ input, textarea, select {
 .pick-your-side-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 3px;
+  gap: 1px;
   background: #ffffff;
 }
 
 @media (max-width: 768px) {
   .pick-your-side-grid {
     grid-template-columns: 1fr !important;
-    gap: 3px;
+    gap: 1px;
   }
 }
 

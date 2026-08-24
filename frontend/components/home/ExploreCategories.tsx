@@ -1,6 +1,16 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 
-const CATEGORIES = [
+interface CategoryData {
+  label: string;
+  href: string | null;
+  active: boolean;
+  subLabel: string;
+}
+
+const CATEGORIES: CategoryData[] = [
   {
     label: 'TOPS',
     href: '/products',
@@ -20,6 +30,73 @@ const CATEGORIES = [
     subLabel: 'Coming Soon',
   },
 ];
+
+function CategoryCard({ cat }: { cat: CategoryData }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const isHighlighted = cat.active && isHovered;
+
+  const cardContent = (
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        border: isHighlighted ? '1px solid #111111' : '1px solid #ebebeb',
+        background: isHighlighted ? '#111111' : '#f9f9f9',
+        padding: 'clamp(32px, 4vw, 42px) clamp(24px, 4vw, 36px)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        borderRadius: '2px',
+        transition: 'background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease',
+        boxShadow: isHighlighted ? '0 8px 24px rgba(0, 0, 0, 0.12)' : 'none',
+        cursor: cat.active ? 'pointer' : 'default',
+      }}
+    >
+      <h3
+        style={{
+          fontFamily: 'var(--font-heading)',
+          fontWeight: 400,
+          fontSize: 'clamp(1rem, 2vw, 1.25rem)',
+          textTransform: 'uppercase',
+          letterSpacing: '-0.01em',
+          color: isHighlighted ? '#ffffff' : cat.active ? '#000000' : '#888888',
+          margin: 0,
+          transition: 'color 0.25s ease',
+        }}
+      >
+        {cat.label}
+      </h3>
+      <span
+        style={{
+          fontFamily: cat.active ? 'var(--font-body)' : 'var(--font-heading)',
+          fontStyle: cat.active ? 'italic' : 'normal',
+          fontSize: cat.active ? '0.9375rem' : '0.6875rem',
+          fontWeight: 400,
+          letterSpacing: '-0.01em',
+          color: isHighlighted ? '#ffffff' : cat.active ? '#666666' : '#aaaaaa',
+          textTransform: cat.active ? 'none' : 'uppercase',
+          transition: 'color 0.25s ease',
+        }}
+      >
+        {cat.subLabel}
+      </span>
+    </div>
+  );
+
+  if (cat.active && cat.href) {
+    return (
+      <Link
+        href={cat.href}
+        style={{ textDecoration: 'none', display: 'block' }}
+        aria-label={`Explore ${cat.label}`}
+      >
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return <div>{cardContent}</div>;
+}
 
 export default function ExploreCategories() {
   return (
@@ -44,64 +121,10 @@ export default function ExploreCategories() {
           EXPLORE CATEGORIES
         </h2>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-          {CATEGORIES.map((cat, i) => {
-            const isLast = i === CATEGORIES.length - 1;
-            const content = (
-              <div
-                style={{
-                  border: '1px solid #ebebeb',
-                  borderBottom: isLast ? '1px solid #ebebeb' : 'none',
-                  background: cat.active ? '#111111' : '#f9f9f9',
-                  padding: '24px 28px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                  transition: 'background-color 0.2s ease',
-                  cursor: cat.active ? 'pointer' : 'default',
-                }}
-              >
-                <h3
-                  style={{
-                    fontFamily: 'var(--font-heading)',
-                    fontWeight: 900,
-                    fontSize: 'clamp(1rem, 2vw, 1.375rem)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '-0.025em',
-                    color: cat.active ? '#ffffff' : '#666666',
-                    margin: 0,
-                  }}
-                >
-                  {cat.label}
-                </h3>
-                <span
-                  style={{
-                    fontFamily: 'var(--font-heading)',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    letterSpacing: '-0.025em',
-                    color: cat.active ? '#4f46e5' : '#aaaaaa',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {cat.subLabel} {cat.active ? '→' : ''}
-                </span>
-              </div>
-            );
-
-            return cat.active && cat.href ? (
-              <Link
-                key={cat.label}
-                href={cat.href}
-                style={{ textDecoration: 'none', display: 'block' }}
-                aria-label={`Explore ${cat.label}`}
-              >
-                {content}
-              </Link>
-            ) : (
-              <div key={cat.label}>{content}</div>
-            );
-          })}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {CATEGORIES.map((cat) => (
+            <CategoryCard key={cat.label} cat={cat} />
+          ))}
         </div>
       </div>
     </section>
