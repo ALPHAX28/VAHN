@@ -80,7 +80,7 @@ export default function Header() {
       <header
         style={{
           width: '100%',
-          backgroundColor: isTransparent ? 'transparent' : '#0d0d0f',
+          backgroundColor: isTransparent ? 'transparent' : '#111111',
           borderBottom: isTransparent
             ? '1px solid rgba(255, 255, 255, 0.22)'
             : '1px solid rgba(255, 255, 255, 0.15)',
@@ -112,10 +112,10 @@ export default function Header() {
                   href={link.href}
                   style={{
                     fontFamily: 'var(--font-body)',
-                    fontStyle: 'italic',
-                    fontSize: '0.9375rem',
+                    fontStyle: 'normal',
+                    fontSize: '0.875rem',
                     fontWeight: 400,
-                    letterSpacing: '0.01em',
+                    letterSpacing: '-0.01em',
                     color: 'rgba(255, 255, 255, 0.92)',
                     textDecoration: 'none',
                     transition: 'color 0.2s ease, opacity 0.2s ease',
@@ -209,29 +209,28 @@ export default function Header() {
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                color: 'rgba(255, 255, 255, 0.9)',
                 padding: '6px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transition: 'color 0.2s ease',
+                transition: 'opacity 0.2s ease, transform 0.2s ease',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)')}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '0.9';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
             >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
+              <Image
+                src="/icons/search.png"
+                alt="Search"
+                width={20}
+                height={20}
+                style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block' }}
+              />
             </button>
 
             {/* 2. User Account Icon (Desktop) */}
@@ -249,29 +248,28 @@ export default function Header() {
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: 'rgba(255, 255, 255, 0.9)',
                   padding: '6px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transition: 'color 0.2s ease',
+                  transition: 'opacity 0.2s ease, transform 0.2s ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)')}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '0.9';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
               >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
+                <Image
+                  src="/icons/user.png"
+                  alt="Account"
+                  width={20}
+                  height={20}
+                  style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block' }}
+                />
               </button>
 
               {/* Dropdown Menu when logged in */}
@@ -353,31 +351,29 @@ export default function Header() {
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                color: 'rgba(255, 255, 255, 0.9)',
                 padding: '6px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 position: 'relative',
-                transition: 'color 0.2s ease',
+                transition: 'opacity 0.2s ease, transform 0.2s ease',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)')}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '0.9';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
             >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-                <path d="M3 6h18" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
+              <Image
+                src="/icons/cart.png"
+                alt="Cart"
+                width={20}
+                height={20}
+                style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block' }}
+              />
               {totalQuantity > 0 && (
                 <span
                   style={{

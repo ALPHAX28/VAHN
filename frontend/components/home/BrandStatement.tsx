@@ -22,20 +22,21 @@ export default function BrandStatement() {
             marginBottom: '28px',
           }}
         >
-          VAHN for Performance, Style &amp; Innovation
+          BUILT FOR THE WAY YOU PLAY.
         </h2>
 
         <p
           style={{
             fontFamily: 'var(--font-body)',
-            fontSize: '0.9375rem',
+            fontSize: '1rem',
             lineHeight: 1.75,
             letterSpacing: '-0.025em',
-            color: 'rgba(255,255,255,0.88)',
-            marginBottom: '20px',
+            color: 'rgba(255,255,255,0.92)',
+            marginBottom: '16px',
+            fontWeight: 500,
           }}
         >
-          Sport keeps us fit. Keeps you mindful. Brings us together. Through sport, we have the power to change lives—through stories of inspiring athletes, innovative technology, and by helping you get up and move.
+          Not just performance. Not just fashion.
         </p>
 
         <p
@@ -44,10 +45,10 @@ export default function BrandStatement() {
             fontSize: '0.9375rem',
             lineHeight: 1.75,
             letterSpacing: '-0.025em',
-            color: 'rgba(255,255,255,0.88)',
+            color: 'rgba(255,255,255,0.85)',
           }}
         >
-          Find the right gear and focus on the game. Whether you&rsquo;re a runner, a basketball player, a footballer, or someone who just loves to stay active, VAHN is here to help you train harder, recover, and go further with products that keep up with your movement and support your goals.
+          VAHN sits somewhere in between — made for movement, built with intent, and designed to stay with you long after the game is over.
         </p>
       </div>
     </section>

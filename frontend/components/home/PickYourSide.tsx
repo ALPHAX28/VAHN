@@ -32,27 +32,29 @@ export default function PickYourSide() {
           style={{
             fontFamily: 'var(--font-heading)',
             fontWeight: 900,
-            fontSize: 'clamp(1.5rem, 4vw, 2.75rem)',
+            fontSize: 'clamp(1.25rem, 2.8vw, 2rem)',
             textTransform: 'uppercase',
-            letterSpacing: '-0.025em',
+            letterSpacing: '-0.02em',
             color: '#ffffff',
-            marginBottom: '14px',
+            lineHeight: 1.1,
+            marginBottom: '10px',
           }}
         >
-          Pick Your Side
+          PICK YOUR SIDE.
         </h2>
         <p
           style={{
             fontFamily: 'var(--font-body)',
-            fontSize: 'clamp(0.875rem, 2vw, 0.9375rem)',
-            color: '#aaaaaa',
-            maxWidth: '520px',
+            fontStyle: 'normal',
+            fontSize: '0.875rem',
+            color: 'rgba(255, 255, 255, 0.85)',
+            maxWidth: '560px',
             margin: '0 auto',
-            lineHeight: 1.6,
-            letterSpacing: '-0.025em',
+            lineHeight: 1.5,
+            letterSpacing: '-0.01em',
           }}
         >
-          Sport keeps us fit. Keeps you mindful. Brings us together. Through sport, we have the power to change lives—through stories of inspiring athletes, innovative technology, and by helping you get up and move.
+          Two jerseys. Two expressions. One mindset. Wear the one that feels like you.
         </p>
       </div>
 

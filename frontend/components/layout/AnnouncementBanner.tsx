@@ -90,7 +90,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
           textTransform: 'uppercase',
           color: 'rgba(255, 255, 255, 0.9)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          backgroundColor: '#0d0d0f',
+          backgroundColor: '#111111',
           fontFamily: 'var(--font-heading)',
         }}
         role="banner"
@@ -101,7 +101,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
   }
 
   const currentBanner = visibleBanners[currentIndex % visibleBanners.length];
-  const bg = currentBanner?.bg_color || '#0d0d0f';
+  const bg = currentBanner?.bg_color || '#111111';
   const textColor = currentBanner?.text_color || '#ffffff';
 
   return (

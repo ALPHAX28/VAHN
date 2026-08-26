@@ -808,7 +808,7 @@ export default function FreshOutLocker({ products }: Props) {
                 marginBottom: '6px',
               }}
             >
-              SHOP THE DROP
+              THE DROP IS HERE.
             </h2>
             <p
               style={{
@@ -821,7 +821,7 @@ export default function FreshOutLocker({ products }: Props) {
                 lineHeight: 1.4,
               }}
             >
-              Our first drop is here  limited pieces, made to move with you.
+              Made to move. Built to last. Designed for those who don&apos;t switch off when the game does.
             </p>
           </div>
 

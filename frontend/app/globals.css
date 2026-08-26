@@ -248,9 +248,10 @@ input, textarea, select {
   grid-template-columns: 1fr 1fr;
   gap: 1px;
   background: #ffffff;
-  height: 110vh;
-  height: 110dvh;
-  max-height: 2110px;
+  height: 92vh;
+  height: 92dvh;
+  min-height: 600px;
+  max-height: 1100px;
   width: 100%;
 }
 
@@ -272,8 +273,8 @@ input, textarea, select {
     gap: 1px;
   }
   .pick-your-side-panel {
-    height: 80vh !important;
-    min-height: 480px;
+    height: 72vh !important;
+    min-height: 440px;
   }
 }
 

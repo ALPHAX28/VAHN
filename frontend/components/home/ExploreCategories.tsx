@@ -69,8 +69,8 @@ function CategoryCard({ cat }: { cat: CategoryData }) {
       <span
         style={{
           fontFamily: cat.active ? 'var(--font-body)' : 'var(--font-heading)',
-          fontStyle: cat.active ? 'italic' : 'normal',
-          fontSize: cat.active ? '0.9375rem' : '0.6875rem',
+          fontStyle: 'normal',
+          fontSize: cat.active ? '0.875rem' : '0.6875rem',
           fontWeight: 400,
           letterSpacing: '-0.01em',
           color: isHighlighted ? '#ffffff' : cat.active ? '#666666' : '#aaaaaa',

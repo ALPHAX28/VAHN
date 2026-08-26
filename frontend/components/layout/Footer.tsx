@@ -160,90 +160,67 @@ export default function Footer() {
             >
               SOCIALS
             </h5>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               {/* Instagram */}
               <a
-                href="https://www.instagram.com"
+                href="https://www.instagram.com/vahnforall/"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Instagram"
                 style={{
-                  color: 'rgba(255, 255, 255, 0.75)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transition: 'color 0.2s ease, transform 0.2s ease',
+                  opacity: 0.85,
+                  transition: 'opacity 0.2s ease, transform 0.2s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.opacity = '1';
                   e.currentTarget.style.transform = 'translateY(-2px)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'rgba(255, 255, 255, 0.75)';
+                  e.currentTarget.style.opacity = '0.85';
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                  <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-                </svg>
-              </a>
-
-              {/* Facebook */}
-              <a
-                href="https://facebook.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Facebook"
-                style={{
-                  color: 'rgba(255, 255, 255, 0.75)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'color 0.2s ease, transform 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = '#ffffff';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'rgba(255, 255, 255, 0.75)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-                </svg>
+                <Image
+                  src="/icons/instagram-01.png"
+                  alt="Instagram"
+                  width={20}
+                  height={20}
+                  style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block' }}
+                />
               </a>
 
               {/* LinkedIn */}
               <a
-                href="https://linkedin.com"
+                href="https://www.linkedin.com/company/vahnsports/"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="LinkedIn"
                 style={{
-                  color: 'rgba(255, 255, 255, 0.75)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transition: 'color 0.2s ease, transform 0.2s ease',
+                  opacity: 0.85,
+                  transition: 'opacity 0.2s ease, transform 0.2s ease',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.color = '#ffffff';
+                  e.currentTarget.style.opacity = '1';
                   e.currentTarget.style.transform = 'translateY(-2px)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.color = 'rgba(255, 255, 255, 0.75)';
+                  e.currentTarget.style.opacity = '0.85';
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
-                  <rect width="4" height="12" x="2" y="9" />
-                  <circle cx="4" cy="4" r="2" />
-                </svg>
+                <Image
+                  src="/icons/linkedin.png"
+                  alt="LinkedIn"
+                  width={20}
+                  height={20}
+                  style={{ width: '20px', height: '20px', objectFit: 'contain', display: 'block' }}
+                />
               </a>
             </div>
           </div>
@@ -284,7 +261,7 @@ export default function Footer() {
               marginBottom: '14px',
             }}
           >
-            JOIN TEAM VAHN TO GET EARLY ACCESS
+            DON&apos;T HEAR ABOUT THE NEXT DROP. BE FIRST IN.
           </p>
 
           {/* Email Subscription Form */}

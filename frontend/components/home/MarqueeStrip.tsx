@@ -18,7 +18,7 @@ export default function MarqueeStrip() {
     <div
       className="marquee"
       style={{
-        background: '#0d0d0f',
+        background: '#111111',
         padding: '10px 0',
         overflow: 'hidden',
         borderTop: '1px solid rgba(255, 255, 255, 0.08)',

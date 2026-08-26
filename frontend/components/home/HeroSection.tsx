@@ -18,7 +18,7 @@ export default function HeroSection() {
         alignItems: 'flex-end',
         justifyContent: 'center',
         paddingBottom: '80px',
-        backgroundColor: '#0d0d0f',
+        backgroundColor: '#111111',
       }}
     >
       {/* Real Top Banner Hero Image */}
@@ -75,7 +75,7 @@ export default function HeroSection() {
             marginBottom: '6px',
           }}
         >
-          THIS IS VAHN
+          PLAY ON.
         </h1>
 
         <p
@@ -91,7 +91,7 @@ export default function HeroSection() {
             opacity: 0.95,
           }}
         >
-          Everyday sportswear, made for the way you actually play
+          Built for the way you play.
         </p>
 
         <Link
