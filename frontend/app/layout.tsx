@@ -16,7 +16,14 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_GB',
   },
-  icons: { icon: '/assets/favicon.png' },
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/assets/logos/VAHN-Symbol-colour-transparent.png', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export default function RootLayout({
