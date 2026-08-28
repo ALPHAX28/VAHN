@@ -5,8 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { Product, ProductVariant } from '@/lib/api/types';
 import { useCart } from '@/context/CartContext';
-import MarqueeStrip from '@/components/home/MarqueeStrip';
-import Footer from '@/components/layout/Footer';
+
 
 interface Props {
   initialProducts: Product[];
@@ -235,7 +234,7 @@ function FaqItem({
         <span
           style={{
             fontFamily: 'var(--font-heading)',
-            fontSize: '0.9375rem',
+            fontSize: '1.0625rem',
             fontWeight: 400,
             letterSpacing: '0.04em',
             textTransform: 'uppercase',
@@ -547,7 +546,7 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
             transform: showQuickAdd ? 'rotate(45deg)' : isHovered ? 'scale(1.2)' : 'scale(1)',
           }}
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <line x1="12" y1="4" x2="12" y2="20" />
             <line x1="4" y1="12" x2="20" y2="12" />
           </svg>
@@ -783,11 +782,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
         ))}
       </div>
 
-      {/* ── Marquee (same as landing page) ── */}
-      <MarqueeStrip />
 
-      {/* ── Footer (same as landing page) ── */}
-      <Footer />
     </div>
   );
 }
