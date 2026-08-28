@@ -80,9 +80,11 @@ export default function PickYourSide() {
             fill
             priority
             sizes="(max-width: 768px) 100vw, 50vw"
+            className="pick-your-side-img"
             style={{
               objectFit: 'cover',
               objectPosition: 'top center',
+              transition: 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)',
             }}
           />
 
@@ -147,9 +149,11 @@ export default function PickYourSide() {
             alt="Pick Your Side — Athlete 02"
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
+            className="pick-your-side-img"
             style={{
               objectFit: 'cover',
               objectPosition: 'top center',
+              transition: 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)',
             }}
           />
 
