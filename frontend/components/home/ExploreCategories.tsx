@@ -68,13 +68,13 @@ function CategoryCard({ cat }: { cat: CategoryData }) {
       </h3>
       <span
         style={{
-          fontFamily: cat.active ? 'var(--font-body)' : 'var(--font-heading)',
+          fontFamily: 'var(--font-body)',
           fontStyle: 'normal',
-          fontSize: cat.active ? '0.875rem' : '0.6875rem',
+          fontSize: '0.875rem',
           fontWeight: 400,
           letterSpacing: '-0.01em',
-          color: isHighlighted ? '#ffffff' : cat.active ? '#666666' : '#aaaaaa',
-          textTransform: cat.active ? 'none' : 'uppercase',
+          color: isHighlighted ? '#ffffff' : cat.active ? '#666666' : '#888888',
+          textTransform: 'none',
           transition: 'color 0.25s ease',
         }}
       >

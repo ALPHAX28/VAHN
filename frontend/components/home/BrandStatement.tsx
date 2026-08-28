@@ -14,9 +14,9 @@ export default function BrandStatement() {
           style={{
             fontFamily: 'var(--font-heading)',
             fontWeight: 900,
-            fontSize: 'clamp(1.625rem, 4vw, 3rem)',
+            fontSize: 'clamp(1.25rem, 2.8vw, 2rem)',
             textTransform: 'uppercase',
-            letterSpacing: '-0.025em',
+            letterSpacing: '-0.02em',
             color: '#ffffff',
             lineHeight: 1.1,
             marginBottom: '28px',
@@ -48,7 +48,7 @@ export default function BrandStatement() {
             color: 'rgba(255,255,255,0.85)',
           }}
         >
-          VAHN sits somewhere in between — made for movement, built with intent, and designed to stay with you long after the game is over.
+          VAHN sits somewhere in between — made for movement, built with intent, and designed<br />to stay with you long after the game is over.
         </p>
       </div>
     </section>
