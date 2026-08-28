@@ -608,7 +608,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
     <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh' }}>
 
       {/* ── Page Title ── */}
-      <div style={{ padding: '48px clamp(40px, 7vw, 120px) 0' }}>
+      <div style={{ padding: '48px clamp(48px, 8vw, 140px) 0' }}>
         <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.75rem, 3vw, 2.25rem)', fontWeight: 900, letterSpacing: '-0.01em', textTransform: 'uppercase', color: '#000000', margin: '0 0 6px', lineHeight: 1.1 }}>
           ALL PRODUCTS
         </h1>
@@ -617,10 +617,9 @@ export default function ShopProductsClient({ initialProducts }: Props) {
         </p>
       </div>
 
-      {/* ── Sort + Filters ── */}
-      <div style={{ padding: '16px clamp(40px, 7vw, 120px) 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {/* Row 1: Sort dropdown */}
-        <div ref={sortRef} style={{ position: 'relative', alignSelf: 'flex-start' }}>
+      {/* ── Sort Bar ── */}
+      <div style={{ padding: '20px clamp(48px, 8vw, 140px) 0' }}>
+        <div ref={sortRef} style={{ position: 'relative', display: 'inline-block' }}>
           <button
             onClick={() => setSortOpen((p) => !p)}
             style={{
@@ -658,71 +657,6 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                 </button>
               ))}
             </div>
-          )}
-        </div>
-
-        {/* Row 2: Category + Fit pills + Clear */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Category pills */}
-          {categories.length > 0 && (
-            <>
-              <button
-                onClick={() => setSelectedCategory('ALL')}
-                style={{
-                  padding: '7px 14px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
-                  textTransform: 'uppercase', fontFamily: 'var(--font-heading)',
-                  border: '1px solid', borderColor: selectedCategory === 'ALL' ? '#000000' : '#d0d0d0',
-                  background: selectedCategory === 'ALL' ? '#000000' : '#ffffff',
-                  color: selectedCategory === 'ALL' ? '#ffffff' : '#666666',
-                  cursor: 'pointer',
-                }}
-              >
-                All
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(selectedCategory === cat ? 'ALL' : cat)}
-                  style={{
-                    padding: '7px 14px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
-                    textTransform: 'uppercase', fontFamily: 'var(--font-heading)',
-                    border: '1px solid', borderColor: selectedCategory === cat ? '#000000' : '#d0d0d0',
-                    background: selectedCategory === cat ? '#000000' : '#ffffff',
-                    color: selectedCategory === cat ? '#ffffff' : '#666666',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {cat}
-                </button>
-              ))}
-            </>
-          )}
-
-          {/* Fit pills */}
-          {fits.map((fit) => (
-            <button
-              key={fit}
-              onClick={() => setSelectedFit(selectedFit === fit ? 'ALL' : fit)}
-              style={{
-                padding: '7px 14px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
-                textTransform: 'uppercase', fontFamily: 'var(--font-heading)',
-                border: '1px solid', borderColor: selectedFit === fit ? BRAND_COLOR : '#d0d0d0',
-                background: selectedFit === fit ? BRAND_COLOR : '#ffffff',
-                color: selectedFit === fit ? '#ffffff' : '#666666',
-                cursor: 'pointer',
-              }}
-            >
-              {fit}
-            </button>
-          ))}
-
-          {hasActiveFilters && (
-            <button
-              onClick={() => { setSelectedCategory('ALL'); setSelectedFit('ALL'); }}
-              style={{ fontFamily: 'var(--font-heading)', fontSize: '0.6875rem', fontWeight: 600, color: '#888', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', letterSpacing: '0.02em' }}
-            >
-              Clear
-            </button>
           )}
         </div>
       </div>
