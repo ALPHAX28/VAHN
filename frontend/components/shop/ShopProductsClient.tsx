@@ -3,8 +3,10 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import type { Product, ColourGroup, Image as ShopifyImage, Money } from '@/lib/api/types';
-import ProductCard from '@/components/collection/ProductCard';
+import type { Product, ProductVariant } from '@/lib/api/types';
+import { useCart } from '@/context/CartContext';
+import MarqueeStrip from '@/components/home/MarqueeStrip';
+import Footer from '@/components/layout/Footer';
 
 interface Props {
   initialProducts: Product[];
@@ -13,22 +15,20 @@ interface Props {
 interface ExpandedCardItem {
   id: string;
   product: Product;
-  colourGroup?: ColourGroup;
-  colourName?: string;
-  primaryImage: ShopifyImage | null;
-  secondaryImage: ShopifyImage | null;
-  price: number;
-  compareAtPrice: Money | null;
-  discountPercent: number;
-  isOutOfStock: boolean;
+  colourName: string;
+  images: { url: string; altText?: string }[];
+  price: string;
+  isFewLeft: boolean;
+  tag: string;
+  title: string;
+  targetHref: string;
+  variants: ProductVariant[];
   productType: string;
   fit: string;
   activity: string;
-  kitType: string;
-  targetHref: string;
 }
 
-// ── FAQ Data ──
+// ── FAQ Data (from mockup) ──
 const FAQ_ITEMS = [
   {
     q: 'WHAT DOES VAHN MAKE?',
@@ -66,7 +66,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-// ── Sort Options (matching mockup dropdown) ──
+// ── Sort Options (matching mockup) ──
 const SORT_OPTIONS = [
   { value: 'featured', label: 'FEATURED' },
   { value: 'most-relevant', label: 'MOST RELEVANT' },
@@ -79,13 +79,141 @@ const SORT_OPTIONS = [
   { value: 'date-old', label: 'DATE, OLD TO NEW' },
 ];
 
+const BRAND_COLOR = '#4232d9';
+
+// ── Expand products → per-colourway items (same logic as FreshOutLocker) ──
+function getExpandedItems(products: Product[]): ExpandedCardItem[] {
+  const items: ExpandedCardItem[] = [];
+
+  products.forEach((product) => {
+    const allVariants = (product.variants?.edges ?? []).map((e) => e.node);
+    const tag =
+      product.tags?.find((t) => !t.startsWith('_') && t.length < 15) ||
+      product.vendor ||
+      'BESTSELLER';
+
+    function calcFewLeft(pool: ProductVariant[]) {
+      return pool.some(
+        (v) =>
+          v.availableForSale &&
+          typeof v.quantityAvailable === 'number' &&
+          v.quantityAvailable > 0 &&
+          v.quantityAvailable <= 5
+      );
+    }
+
+    function calcPrice(pool: ProductVariant[]) {
+      const lowestVar = pool.reduce<ProductVariant | null>((acc, v) => {
+        if (!acc) return v;
+        return parseFloat(v.price.amount) < parseFloat(acc.price.amount) ? v : acc;
+      }, null);
+      return lowestVar
+        ? parseInt(lowestVar.price.amount, 10).toLocaleString('en-IN')
+        : parseInt(product.priceRange?.minVariantPrice?.amount || '0', 10).toLocaleString('en-IN');
+    }
+
+    if (product.colourGroups && product.colourGroups.length > 0) {
+      product.colourGroups.forEach((cg) => {
+        const colourName = cg.colourValue.trim();
+        const colourVariants = allVariants.filter((v) =>
+          v.selectedOptions?.some(
+            (opt) =>
+              (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') &&
+              opt.value.trim().toLowerCase() === colourName.toLowerCase()
+          )
+        );
+        const cgImages = (cg.images || []).map((img) => ({
+          url: img.url,
+          altText: img.altText || `${product.title} - ${colourName}`,
+        }));
+        if (cgImages.length === 0) {
+          const variantImg = colourVariants.find((v) => v.image?.url)?.image?.url;
+          if (variantImg) cgImages.push({ url: variantImg, altText: `${product.title} - ${colourName}` });
+          else if (product.featuredImage?.url) cgImages.push({ url: product.featuredImage.url, altText: product.title });
+        }
+        const pool = colourVariants.length > 0 ? colourVariants : allVariants;
+        items.push({
+          id: `${product.id}-${colourName.toLowerCase().replace(/\s+/g, '-')}`,
+          product, colourName, images: cgImages,
+          price: calcPrice(pool), isFewLeft: calcFewLeft(pool),
+          tag, title: product.title,
+          targetHref: `/products/${product.handle}?colour=${encodeURIComponent(colourName)}`,
+          variants: pool,
+          productType: (product.productType || '').trim(),
+          fit: (product.fit || '').trim(),
+          activity: (product.activity || '').trim(),
+        });
+      });
+    } else {
+      const variantColourSet = new Set<string>();
+      allVariants.forEach((v) =>
+        v.selectedOptions?.forEach((opt) => {
+          if ((opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value.trim())
+            variantColourSet.add(opt.value.trim());
+        })
+      );
+      const uniqueColours = Array.from(variantColourSet);
+
+      if (uniqueColours.length > 1) {
+        uniqueColours.forEach((col) => {
+          const colourVariants = allVariants.filter((v) =>
+            v.selectedOptions?.some(
+              (opt) =>
+                (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') &&
+                opt.value.trim().toLowerCase() === col.toLowerCase()
+            )
+          );
+          const colImages: { url: string; altText?: string }[] = [];
+          colourVariants.forEach((v) => {
+            if (v.image?.url && !colImages.some((img) => img.url === v.image?.url))
+              colImages.push({ url: v.image.url, altText: `${product.title} - ${col}` });
+          });
+          if (colImages.length === 0 && product.featuredImage?.url)
+            colImages.push({ url: product.featuredImage.url, altText: product.title });
+          const pool = colourVariants.length > 0 ? colourVariants : allVariants;
+          items.push({
+            id: `${product.id}-${col.toLowerCase().replace(/\s+/g, '-')}`,
+            product, colourName: col, images: colImages,
+            price: calcPrice(pool), isFewLeft: calcFewLeft(pool),
+            tag, title: product.title,
+            targetHref: `/products/${product.handle}?colour=${encodeURIComponent(col)}`,
+            variants: pool,
+            productType: (product.productType || '').trim(),
+            fit: (product.fit || '').trim(),
+            activity: (product.activity || '').trim(),
+          });
+        });
+      } else {
+        const prodImages = (product.images?.edges || []).map((e) => ({
+          url: e.node.url,
+          altText: e.node.altText || product.title,
+        }));
+        if (prodImages.length === 0 && product.featuredImage?.url)
+          prodImages.push({ url: product.featuredImage.url, altText: product.title });
+        items.push({
+          id: product.id,
+          product, colourName: '', images: prodImages,
+          price: calcPrice(allVariants), isFewLeft: calcFewLeft(allVariants),
+          tag, title: product.title,
+          targetHref: `/products/${product.handle}`,
+          variants: allVariants,
+          productType: (product.productType || '').trim(),
+          fit: (product.fit || '').trim(),
+          activity: (product.activity || '').trim(),
+        });
+      }
+    }
+  });
+  return items;
+}
+
 // ── FAQ Accordion Item ──
-function FaqItem({ q, a, link, isOpen, onToggle }: {
-  q: string;
-  a: string;
+function FaqItem({
+  q, a, link, isOpen, onToggle,
+}: {
+  q: string; a: string;
   link?: { label: string; href: string };
-  isOpen: boolean;
-  onToggle: () => void;
+  isOpen: boolean; onToggle: () => void;
 }) {
   return (
     <div style={{ borderBottom: '1px solid #e5e5e5' }}>
@@ -96,34 +224,33 @@ function FaqItem({ q, a, link, isOpen, onToggle }: {
           alignItems: 'center',
           justifyContent: 'space-between',
           width: '100%',
-          padding: '22px 0',
+          padding: '20px 0',
           background: 'none',
           border: 'none',
           cursor: 'pointer',
           textAlign: 'left',
+          gap: '16px',
         }}
       >
         <span
           style={{
             fontFamily: 'var(--font-heading)',
-            fontSize: '0.8125rem',
-            fontWeight: 700,
-            letterSpacing: '0.05em',
+            fontSize: '0.9375rem',
+            fontWeight: 400,
+            letterSpacing: '0.04em',
             textTransform: 'uppercase',
             color: '#000000',
           }}
         >
           {q}
         </span>
-        {/* X / + icon */}
         <span
           style={{
-            color: '#3a3699',
-            fontSize: '1.125rem',
+            color: BRAND_COLOR,
+            fontSize: '1.25rem',
             lineHeight: 1,
             flexShrink: 0,
-            marginLeft: '16px',
-            fontWeight: 400,
+            fontWeight: 300,
           }}
         >
           {isOpen ? '×' : '+'}
@@ -131,23 +258,20 @@ function FaqItem({ q, a, link, isOpen, onToggle }: {
       </button>
 
       {isOpen && (
-        <div style={{ paddingBottom: '22px' }}>
+        <div style={{ paddingBottom: '20px' }}>
           <p
             style={{
               fontFamily: 'var(--font-body)',
               fontSize: '0.875rem',
-              color: '#444444',
-              lineHeight: 1.7,
+              color: '#555555',
+              lineHeight: 1.75,
               margin: 0,
               whiteSpace: 'pre-line',
             }}
           >
             {a}
             {link && (
-              <Link
-                href={link.href}
-                style={{ color: '#3a3699', textDecoration: 'none' }}
-              >
+              <Link href={link.href} style={{ color: BRAND_COLOR, textDecoration: 'none' }}>
                 {link.label}
               </Link>
             )}
@@ -158,244 +282,357 @@ function FaqItem({ q, a, link, isOpen, onToggle }: {
   );
 }
 
+// ── Product Card — identical to FreshOutLocker LockerCard, adapted for grid ──
+function ShopCard({ item }: { item: ExpandedCardItem }) {
+  const { addItem } = useCart();
+  const [imgIdx, setImgIdx] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const images = item.images || [];
+  const hasMultipleImages = images.length > 1;
+  const currentImg = images[imgIdx] ?? null;
+  const activeImageUrl = currentImg?.url || null;
+
+  const sizeVariants = useMemo(() => {
+    return item.variants.map((v) => {
+      const sizeOpt = v.selectedOptions?.find((o) => o.name.toLowerCase() === 'size');
+      const sizeLabel = sizeOpt ? sizeOpt.value.trim() : v.title !== 'Default Title' ? v.title : 'ONE SIZE';
+      const isAvailable = v.availableForSale && (v.quantityAvailable === undefined || v.quantityAvailable > 0);
+      const isFew = isAvailable && typeof v.quantityAvailable === 'number' && v.quantityAvailable <= 5;
+      return { variant: v, sizeLabel, isAvailable, isFew };
+    });
+  }, [item]);
+
+  const handleAddToCart = (v: ProductVariant) => {
+    setAddedVariantId(v.id);
+    addItem(v.id, 1, {
+      productTitle: item.title,
+      productHandle: item.product.handle,
+      variantTitle: v.title,
+      price: v.price,
+      image: currentImg ? { url: currentImg.url, altText: currentImg.altText || item.title, width: 800, height: 800 } : null,
+      selectedOptions: v.selectedOptions,
+      quantityAvailable: v.quantityAvailable,
+    }, true);
+    setTimeout(() => { setAddedVariantId(null); setShowQuickAdd(false); }, 600);
+  };
+
+  useEffect(() => {
+    if (!showQuickAdd) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) setShowQuickAdd(false);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [showQuickAdd]);
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    if (images.length > 1) setImgIdx((i) => (i - 1 + images.length) % images.length);
+  };
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    if (images.length > 1) setImgIdx((i) => (i + 1) % images.length);
+  };
+
+  return (
+    <div
+      ref={cardRef}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ display: 'flex', flexDirection: 'column', position: 'relative', userSelect: 'none' }}
+    >
+      {/* Image Frame — 4:5 portrait ratio matching FreshOutLocker */}
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          aspectRatio: '4 / 5',
+          background: '#f5f5f7',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Left Arrow — only on hover, same as FreshOutLocker */}
+        <button
+          type="button"
+          onClick={handlePrev}
+          aria-label="Previous view"
+          style={{
+            position: 'absolute',
+            left: '8px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 15,
+            background: 'transparent',
+            border: 'none',
+            padding: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: hasMultipleImages ? 'pointer' : 'default',
+            color: BRAND_COLOR,
+            opacity: isHovered ? 1 : 0,
+            transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#3425b8';
+            e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = BRAND_COLOR;
+            e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+          }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+
+        {/* Product Image Link */}
+        <Link
+          href={item.targetHref}
+          style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+        >
+          {activeImageUrl ? (
+            <Image
+              src={activeImageUrl}
+              alt={currentImg?.altText || item.title}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 420px"
+              style={{
+                objectFit: 'cover',
+                objectPosition: 'center',
+                transition: 'transform 0.4s ease',
+                transform: isHovered ? 'scale(1.02)' : 'scale(1)',
+              }}
+            />
+          ) : (
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '0.8125rem', fontFamily: 'var(--font-heading)' }}>
+              No image
+            </div>
+          )}
+        </Link>
+
+        {/* Right Arrow — only on hover */}
+        <button
+          type="button"
+          onClick={handleNext}
+          aria-label="Next view"
+          style={{
+            position: 'absolute',
+            right: '8px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 15,
+            background: 'transparent',
+            border: 'none',
+            padding: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: hasMultipleImages ? 'pointer' : 'default',
+            color: BRAND_COLOR,
+            opacity: isHovered ? 1 : 0,
+            transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#3425b8';
+            e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = BRAND_COLOR;
+            e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+          }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+
+        {/* Pagination Dots */}
+        {hasMultipleImages && (
+          <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: '5px', zIndex: 10, pointerEvents: 'none' }}>
+            {images.map((_, dotIdx) => (
+              <span key={dotIdx} style={{ width: dotIdx === imgIdx ? '16px' : '5px', height: '5px', borderRadius: '3px', background: dotIdx === imgIdx ? BRAND_COLOR : 'rgba(255,255,255,0.7)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'all 0.25s ease' }} />
+            ))}
+          </div>
+        )}
+
+        {/* Quick Size Picker Overlay */}
+        {showQuickAdd && (
+          <div
+            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(0,0,0,0.08)', padding: '14px 12px 12px', zIndex: 20, display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 -4px 20px rgba(0,0,0,0.12)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '-0.025em', color: '#000000' }}>SELECT SIZE</span>
+              <button type="button" onClick={() => setShowQuickAdd(false)} style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', color: '#888', display: 'flex', alignItems: 'center' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {sizeVariants.map(({ variant, sizeLabel, isAvailable }) => (
+                <button
+                  key={variant.id}
+                  type="button"
+                  disabled={!isAvailable || addedVariantId === variant.id}
+                  onClick={() => { if (isAvailable) handleAddToCart(variant); }}
+                  style={{
+                    flex: sizeVariants.length === 1 ? '1 0 100%' : '1 0 calc(25% - 6px)',
+                    minWidth: '40px', height: '36px', padding: '0 6px',
+                    background: addedVariantId === variant.id ? BRAND_COLOR : isAvailable ? '#ffffff' : '#f5f5f7',
+                    color: addedVariantId === variant.id ? '#ffffff' : isAvailable ? '#000000' : '#b0b0b5',
+                    border: addedVariantId === variant.id ? `1.5px solid ${BRAND_COLOR}` : isAvailable ? '1.5px solid #000000' : '1px solid rgba(0,0,0,0.12)',
+                    borderRadius: '2px',
+                    fontFamily: 'var(--font-heading)', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '-0.025em',
+                    cursor: isAvailable ? 'pointer' : 'not-allowed',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    textDecoration: isAvailable ? 'none' : 'line-through',
+                    opacity: isAvailable ? 1 : 0.6,
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => { if (isAvailable && addedVariantId !== variant.id) { e.currentTarget.style.backgroundColor = BRAND_COLOR; e.currentTarget.style.borderColor = BRAND_COLOR; e.currentTarget.style.color = '#ffffff'; } }}
+                  onMouseLeave={(e) => { if (isAvailable && addedVariantId !== variant.id) { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.borderColor = '#000000'; e.currentTarget.style.color = '#000000'; } }}
+                >
+                  {addedVariantId === variant.id ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                  ) : sizeLabel}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Product Meta Row */}
+      <div style={{ paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {/* Tag / Colour */}
+          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.6875rem', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#8e8e93' }}>
+            {item.colourName || item.tag}
+          </span>
+          {/* Title */}
+          <Link href={item.targetHref} style={{ fontFamily: 'var(--font-heading)', fontSize: '0.8125rem', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#000000', textDecoration: 'none', lineHeight: 1.3 }}>
+            {item.title}
+          </Link>
+          {/* Price */}
+          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.875rem', fontWeight: 400, letterSpacing: '-0.01em', color: BRAND_COLOR, marginTop: '2px' }}>
+            ₹ {item.price}
+          </span>
+          {/* Only Few Left — dynamic, only when ≤5 in stock */}
+          {item.isFewLeft && (
+            <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.625rem', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#a0a0b2', marginTop: '1px' }}>
+              ONLY FEW LEFT
+            </span>
+          )}
+        </div>
+
+        {/* Quick Add Plus */}
+        <button
+          type="button"
+          onClick={() => setShowQuickAdd((prev) => !prev)}
+          aria-label={showQuickAdd ? 'Close size picker' : `Select size for ${item.title}`}
+          style={{
+            background: showQuickAdd ? BRAND_COLOR : 'none',
+            border: 'none',
+            color: showQuickAdd ? '#ffffff' : isHovered ? '#3425b8' : BRAND_COLOR,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '4px',
+            borderRadius: showQuickAdd ? '50%' : '0',
+            cursor: 'pointer',
+            transition: 'transform 0.25s ease, color 0.2s ease, background-color 0.2s ease',
+            transform: showQuickAdd ? 'rotate(45deg)' : isHovered ? 'scale(1.2)' : 'scale(1)',
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+            <line x1="12" y1="4" x2="12" y2="20" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Client Component ──
 export default function ShopProductsClient({ initialProducts }: Props) {
-  const [sortBy, setSortBy] = useState<string>('featured');
+  const [sortBy, setSortBy] = useState('featured');
   const [sortOpen, setSortOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [selectedFit, setSelectedFit] = useState<string>('ALL');
-  const [selectedActivity, setSelectedActivity] = useState<string>('ALL');
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [selectedFit, setSelectedFit] = useState('ALL');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const sortRef = useRef<HTMLDivElement>(null);
 
   // Close sort dropdown on outside click
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
-        setSortOpen(false);
-      }
-    }
+    const handleClick = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+    };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // ── 1. Expand products into distinct colourway cards ──
-  const expandedItems: ExpandedCardItem[] = useMemo(() => {
-    const items: ExpandedCardItem[] = [];
+  const allItems = useMemo(() => getExpandedItems(initialProducts), [initialProducts]);
 
-    initialProducts.forEach((product) => {
-      const allVariants = (product.variants?.edges ?? []).map((e) => e.node);
+  // Derived filter options
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    allItems.forEach((i) => { if (i.productType) set.add(i.productType); });
+    return Array.from(set).sort();
+  }, [allItems]);
 
-      if (product.colourGroups && product.colourGroups.length > 0) {
-        product.colourGroups.forEach((cg) => {
-          const colourName = cg.colourValue.trim();
-          const colourVariants = allVariants.filter((v) =>
-            v.selectedOptions.some(
-              (opt) =>
-                (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') &&
-                opt.value.trim().toLowerCase() === colourName.toLowerCase()
-            )
-          );
+  const fits = useMemo(() => {
+    const set = new Set<string>();
+    allItems.forEach((i) => { if (i.fit) set.add(i.fit.toUpperCase()); });
+    return Array.from(set).sort();
+  }, [allItems]);
 
-          let primaryImg: ShopifyImage | null = null;
-          if (cg.images && cg.images.length > 0 && cg.images[0].url) {
-            primaryImg = { url: cg.images[0].url, altText: cg.images[0].altText || `${product.title} - ${colourName}`, width: 800, height: 800 };
-          } else {
-            const variantWithImage = colourVariants.find((v) => v.image && v.image.url);
-            primaryImg = variantWithImage?.image ?? product.featuredImage ?? product.images?.edges?.[0]?.node ?? null;
-          }
-
-          let secondaryImg: ShopifyImage | null = null;
-          if (cg.images && cg.images.length > 1 && cg.images[1].url) {
-            secondaryImg = { url: cg.images[1].url, altText: cg.images[1].altText || `${product.title} - ${colourName}`, width: 800, height: 800 };
-          }
-
-          let priceNum = parseFloat(product.priceRange?.minVariantPrice?.amount || '0');
-          let bestComparePrice: Money | null = null;
-          let maxDiscountPct = 0;
-          let isOutOfStock = false;
-
-          const pool = colourVariants.length > 0 ? colourVariants : allVariants;
-          if (pool.length > 0) {
-            let lowestVar = pool[0];
-            for (const v of pool) {
-              const p = parseFloat(v.price?.amount || '0');
-              if (lowestVar && p < parseFloat(lowestVar.price?.amount || '0')) lowestVar = v;
-              const c = v.compareAtPrice ? parseFloat(v.compareAtPrice.amount) : null;
-              if (c && c > p) {
-                const pct = Math.round(((c - p) / c) * 100);
-                if (pct > maxDiscountPct) { maxDiscountPct = pct; bestComparePrice = v.compareAtPrice; }
-              }
-            }
-            priceNum = parseFloat(lowestVar?.price?.amount || '0');
-            isOutOfStock = pool.every((v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0));
-          }
-
-          items.push({
-            id: `${product.id}-${colourName.toLowerCase().replace(/\s+/g, '-')}`,
-            product, colourGroup: cg as ColourGroup, colourName,
-            primaryImage: primaryImg, secondaryImage: secondaryImg,
-            price: priceNum, compareAtPrice: bestComparePrice, discountPercent: maxDiscountPct, isOutOfStock,
-            productType: (product.productType || '').trim(),
-            fit: (product.fit || '').trim(),
-            activity: (product.activity || '').trim(),
-            kitType: (product.kitType || '').trim(),
-            targetHref: `/products/${product.handle}?colour=${encodeURIComponent(colourName)}`,
-          });
-        });
-      } else {
-        const variantColourSet = new Set<string>();
-        allVariants.forEach((v) => {
-          v.selectedOptions.forEach((opt) => {
-            if ((opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value.trim()) {
-              variantColourSet.add(opt.value.trim());
-            }
-          });
-        });
-        const uniqueColours = Array.from(variantColourSet);
-
-        if (uniqueColours.length > 1) {
-          uniqueColours.forEach((col) => {
-            const colourVariants = allVariants.filter((v) =>
-              v.selectedOptions.some((opt) =>
-                (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') &&
-                opt.value.trim().toLowerCase() === col.toLowerCase()
-              )
-            );
-            const variantWithImg = colourVariants.find((v) => v.image && v.image.url);
-            const primaryImg = variantWithImg?.image ?? product.featuredImage ?? product.images?.edges?.[0]?.node ?? null;
-
-            let priceNum = parseFloat(product.priceRange?.minVariantPrice?.amount || '0');
-            let bestComparePrice: Money | null = null;
-            let maxDiscountPct = 0;
-
-            if (colourVariants.length > 0) {
-              let lowestVar = colourVariants[0];
-              for (const v of colourVariants) {
-                const p = parseFloat(v.price?.amount || '0');
-                if (lowestVar && p < parseFloat(lowestVar.price?.amount || '0')) lowestVar = v;
-                const c = v.compareAtPrice ? parseFloat(v.compareAtPrice.amount) : null;
-                if (c && c > p) {
-                  const pct = Math.round(((c - p) / c) * 100);
-                  if (pct > maxDiscountPct) { maxDiscountPct = pct; bestComparePrice = v.compareAtPrice; }
-                }
-              }
-              priceNum = parseFloat(lowestVar?.price?.amount || '0');
-            }
-
-            const isOutOfStock = colourVariants.length > 0 && colourVariants.every((v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0));
-
-            items.push({
-              id: `${product.id}-${col.toLowerCase().replace(/\s+/g, '-')}`,
-              product, colourName: col, primaryImage: primaryImg, secondaryImage: null,
-              price: priceNum, compareAtPrice: bestComparePrice, discountPercent: maxDiscountPct, isOutOfStock,
-              productType: (product.productType || '').trim(),
-              fit: (product.fit || '').trim(),
-              activity: (product.activity || '').trim(),
-              kitType: (product.kitType || '').trim(),
-              targetHref: `/products/${product.handle}?colour=${encodeURIComponent(col)}`,
-            });
-          });
-        } else {
-          const priceNum = parseFloat(product.priceRange?.minVariantPrice?.amount || '0');
-          const isOutOfStock = !product.availableForSale || (allVariants.length > 0 && allVariants.every((v) => !v.availableForSale || (v.quantityAvailable !== undefined && v.quantityAvailable <= 0)));
-
-          items.push({
-            id: product.id, product, colourName: uniqueColours[0] || undefined,
-            primaryImage: product.featuredImage ?? product.images?.edges?.[0]?.node ?? null,
-            secondaryImage: product.images?.edges?.[1]?.node ?? null,
-            price: priceNum, compareAtPrice: product.compareAtPriceRange?.minVariantPrice ?? null,
-            discountPercent: 0, isOutOfStock,
-            productType: (product.productType || '').trim(),
-            fit: (product.fit || '').trim(),
-            activity: (product.activity || '').trim(),
-            kitType: (product.kitType || '').trim(),
-            targetHref: `/products/${product.handle}`,
-          });
-        }
-      }
-    });
-
-    return items;
-  }, [initialProducts]);
-
-  // ── 2. Apply Sorting ──
+  // Apply filters + sort
   const filteredItems = useMemo(() => {
-    let result = [...expandedItems];
+    let result = [...allItems];
     if (selectedCategory !== 'ALL') result = result.filter((i) => i.productType.toLowerCase() === selectedCategory.toLowerCase());
     if (selectedFit !== 'ALL') result = result.filter((i) => i.fit.toUpperCase() === selectedFit.toUpperCase());
-    if (selectedActivity !== 'ALL') result = result.filter((i) => i.activity.toUpperCase() === selectedActivity.toUpperCase());
-
-    if (sortBy === 'price-asc') result.sort((a, b) => a.price - b.price);
-    else if (sortBy === 'price-desc') result.sort((a, b) => b.price - a.price);
-    else if (sortBy === 'name-asc') result.sort((a, b) => a.product.title.localeCompare(b.product.title));
-    else if (sortBy === 'name-desc') result.sort((a, b) => b.product.title.localeCompare(a.product.title));
-
+    if (sortBy === 'price-asc') result.sort((a, b) => parseInt(a.price.replace(/,/g, ''), 10) - parseInt(b.price.replace(/,/g, ''), 10));
+    else if (sortBy === 'price-desc') result.sort((a, b) => parseInt(b.price.replace(/,/g, ''), 10) - parseInt(a.price.replace(/,/g, ''), 10));
+    else if (sortBy === 'name-asc') result.sort((a, b) => a.title.localeCompare(b.title));
+    else if (sortBy === 'name-desc') result.sort((a, b) => b.title.localeCompare(a.title));
     return result;
-  }, [expandedItems, selectedCategory, selectedFit, selectedActivity, sortBy]);
+  }, [allItems, selectedCategory, selectedFit, sortBy]);
 
   const selectedSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? 'FEATURED';
+  const hasActiveFilters = selectedCategory !== 'ALL' || selectedFit !== 'ALL';
 
   return (
     <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh' }}>
 
-      {/* ── Page Title Area ── */}
+      {/* ── Page Title ── */}
       <div style={{ padding: '60px clamp(24px, 5vw, 80px) 0' }}>
-        <h1
-          style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: 'clamp(1.75rem, 3vw, 2.25rem)',
-            fontWeight: 900,
-            letterSpacing: '-0.01em',
-            textTransform: 'uppercase',
-            color: '#000000',
-            margin: '0 0 6px',
-            lineHeight: 1.1,
-          }}
-        >
+        <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.75rem, 3vw, 2.25rem)', fontWeight: 900, letterSpacing: '-0.01em', textTransform: 'uppercase', color: '#000000', margin: '0 0 6px', lineHeight: 1.1 }}>
           ALL PRODUCTS
         </h1>
-        <p
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.9375rem',
-            color: '#444444',
-            margin: 0,
-            lineHeight: 1.5,
-          }}
-        >
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.9375rem', color: '#444444', margin: 0, lineHeight: 1.5 }}>
           Our first drop is here &nbsp;limited pieces, made to move with you.
         </p>
       </div>
 
-      {/* ── Sort + Filter Bar ── */}
-      <div
-        style={{
-          padding: '20px clamp(24px, 5vw, 80px) 0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-        }}
-      >
-        {/* Sort Dropdown */}
+      {/* ── Sort Dropdown only (no blue filter button) ── */}
+      <div style={{ padding: '20px clamp(24px, 5vw, 80px) 0', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        {/* Sort */}
         <div ref={sortRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setSortOpen((p) => !p)}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
+              display: 'flex', alignItems: 'center', gap: '10px',
               padding: '10px 14px',
               border: '1px solid #c0c0c0',
               background: '#ffffff',
               cursor: 'pointer',
-              fontFamily: 'var(--font-heading)',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              letterSpacing: '0.03em',
-              color: '#000000',
-              minWidth: '160px',
-              justifyContent: 'space-between',
+              fontFamily: 'var(--font-heading)', fontSize: '0.75rem', fontWeight: 600,
+              letterSpacing: '0.03em', color: '#000000',
+              minWidth: '180px', justifyContent: 'space-between',
             }}
           >
             <span>{selectedSortLabel}</span>
@@ -403,38 +640,19 @@ export default function ShopProductsClient({ initialProducts }: Props) {
               <path d="M1 1L5 5L9 1" stroke="#000000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-
           {sortOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                zIndex: 50,
-                background: '#ffffff',
-                border: '1px solid #c0c0c0',
-                borderTop: 'none',
-                minWidth: '200px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-              }}
-            >
+            <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, background: '#ffffff', border: '1px solid #c0c0c0', borderTop: 'none', minWidth: '210px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
               {SORT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => { setSortBy(opt.value); setSortOpen(false); }}
                   style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '10px 14px',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontFamily: 'var(--font-heading)',
-                    fontSize: '0.75rem',
+                    display: 'block', width: '100%', padding: '10px 14px',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: 'var(--font-heading)', fontSize: '0.75rem',
                     fontWeight: sortBy === opt.value ? 700 : 400,
-                    color: sortBy === opt.value ? '#3a3699' : '#222222',
-                    textAlign: 'left',
-                    letterSpacing: '0.02em',
+                    color: sortBy === opt.value ? BRAND_COLOR : '#222222',
+                    textAlign: 'left', letterSpacing: '0.02em',
                   }}
                 >
                   {opt.label}
@@ -444,382 +662,132 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           )}
         </div>
 
-        {/* Filters Button */}
-        <button
-          onClick={() => setFiltersOpen((p) => !p)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '10px 18px',
-            background: '#3a3699',
-            border: 'none',
-            cursor: 'pointer',
-            fontFamily: 'var(--font-heading)',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            letterSpacing: '0.05em',
-            color: '#ffffff',
-            textTransform: 'uppercase',
-          }}
-        >
-          FILTERS
-          <span style={{ fontSize: '1rem', lineHeight: 1 }}>+</span>
-        </button>
-      </div>
-
-      {/* ── Filter Drawer (when open) ── */}
-      {filtersOpen && (
-        <div
-          style={{
-            padding: '16px clamp(24px, 5vw, 80px)',
-            background: '#f9f9f9',
-            borderBottom: '1px solid #e5e5e5',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '8px',
-            alignItems: 'center',
-          }}
-        >
-          <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666', marginRight: '4px' }}>Category:</span>
-          {['ALL', ...Array.from(new Set(expandedItems.map((i) => i.productType).filter(Boolean)))].map((cat) => (
+        {/* Category Filter Pills */}
+        {categories.length > 0 && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
+              onClick={() => setSelectedCategory('ALL')}
               style={{
-                padding: '5px 12px',
-                fontSize: '0.6875rem',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.03em',
-                border: '1px solid',
-                borderColor: selectedCategory === cat ? '#3a3699' : '#d0d0d0',
-                background: selectedCategory === cat ? '#3a3699' : '#ffffff',
-                color: selectedCategory === cat ? '#ffffff' : '#444',
+                padding: '8px 16px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
+                textTransform: 'uppercase', fontFamily: 'var(--font-heading)',
+                border: '1px solid', borderColor: selectedCategory === 'ALL' ? '#000000' : '#d0d0d0',
+                background: selectedCategory === 'ALL' ? '#000000' : '#ffffff',
+                color: selectedCategory === 'ALL' ? '#ffffff' : '#666666',
                 cursor: 'pointer',
               }}
             >
-              {cat === 'ALL' ? 'All' : cat}
+              All
             </button>
-          ))}
-        </div>
-      )}
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(selectedCategory === cat ? 'ALL' : cat)}
+                style={{
+                  padding: '8px 16px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
+                  textTransform: 'uppercase', fontFamily: 'var(--font-heading)',
+                  border: '1px solid', borderColor: selectedCategory === cat ? '#000000' : '#d0d0d0',
+                  background: selectedCategory === cat ? '#000000' : '#ffffff',
+                  color: selectedCategory === cat ? '#ffffff' : '#666666',
+                  cursor: 'pointer',
+                }}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Fit Filter Pills */}
+        {fits.length > 0 && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {fits.map((fit) => (
+              <button
+                key={fit}
+                onClick={() => setSelectedFit(selectedFit === fit ? 'ALL' : fit)}
+                style={{
+                  padding: '8px 16px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
+                  textTransform: 'uppercase', fontFamily: 'var(--font-heading)',
+                  border: '1px solid', borderColor: selectedFit === fit ? BRAND_COLOR : '#d0d0d0',
+                  background: selectedFit === fit ? BRAND_COLOR : '#ffffff',
+                  color: selectedFit === fit ? '#ffffff' : '#666666',
+                  cursor: 'pointer',
+                }}
+              >
+                {fit}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Clear Filters */}
+        {hasActiveFilters && (
+          <button
+            onClick={() => { setSelectedCategory('ALL'); setSelectedFit('ALL'); }}
+            style={{ fontFamily: 'var(--font-heading)', fontSize: '0.6875rem', fontWeight: 600, color: '#888', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', letterSpacing: '0.02em' }}
+          >
+            Clear
+          </button>
+        )}
+      </div>
 
       {/* ── Product Grid ── */}
-      <main style={{ padding: '32px clamp(24px, 5vw, 80px) 64px' }}>
+      <main style={{ padding: '32px clamp(24px, 5vw, 80px) 80px' }}>
         {filteredItems.length === 0 ? (
           <div style={{ padding: '80px 20px', textAlign: 'center', border: '1px solid #e5e5e5' }}>
-            <p style={{ fontSize: '1.125rem', fontWeight: 700, margin: '0 0 6px' }}>No products found</p>
-            <p style={{ fontSize: '0.875rem', color: '#666', margin: 0 }}>Check back soon for new drops.</p>
+            <p style={{ fontSize: '1.125rem', fontWeight: 700, margin: '0 0 6px', fontFamily: 'var(--font-heading)' }}>No products found</p>
+            <p style={{ fontSize: '0.875rem', color: '#666', margin: 0, fontFamily: 'var(--font-body)' }}>Check back soon for new drops.</p>
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '40px 24px',
-            }}
-          >
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '48px 24px' }}>
             {filteredItems.map((item) => (
-              <MockupProductCard key={item.id} item={item} />
+              <ShopCard key={item.id} item={item} />
             ))}
           </div>
         )}
       </main>
 
       {/* ── FAQ Section ── */}
-      <section style={{ padding: '80px clamp(24px, 10vw, 200px)' }}>
-        <h2
-          style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: 'clamp(1.25rem, 2vw, 1.5rem)',
-            fontWeight: 900,
-            textTransform: 'uppercase',
-            textAlign: 'center',
-            letterSpacing: '0.02em',
-            margin: '0 0 48px',
-            lineHeight: 1.2,
-          }}
-        >
-          FREQUENTLY ASKED<br />QUESTIONS
-        </h2>
-
-        <div style={{ borderTop: '1px solid #e5e5e5' }}>
-          {FAQ_ITEMS.map((item, idx) => (
-            <FaqItem
-              key={idx}
-              q={item.q}
-              a={item.a}
-              link={item.link}
-              isOpen={openFaqIndex === idx}
-              onToggle={() => setOpenFaqIndex(openFaqIndex === idx ? null : idx)}
-            />
-          ))}
+      <section style={{ padding: '80px clamp(24px, 5vw, 80px)', background: '#ffffff' }}>
+        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.125rem, 1.8vw, 1.375rem)', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', letterSpacing: '0.02em', margin: '0 0 48px', lineHeight: 1.25 }}>
+            FREQUENTLY ASKED<br />QUESTIONS
+          </h2>
+          <div style={{ borderTop: '1px solid #e5e5e5' }}>
+            {FAQ_ITEMS.map((item, idx) => (
+              <FaqItem
+                key={idx}
+                q={item.q}
+                a={item.a}
+                link={item.link}
+                isOpen={openFaqIndex === idx}
+                onToggle={() => setOpenFaqIndex(openFaqIndex === idx ? null : idx)}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
       {/* ── Trust Badges ── */}
-      <div
-        style={{
-          background: '#3a3699',
-          padding: '28px clamp(24px, 5vw, 80px)',
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
-        }}
-      >
+      <div style={{ background: '#3a3699', padding: '28px clamp(24px, 5vw, 80px)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
         {[
           { icon: '/icons/pan-india-delivery.png', label: 'PAN-INDIA DELIVERY' },
           { icon: '/icons/secure-payments.png', label: '100% SECURE PAYMENTS' },
           { icon: '/icons/made-for-the-game.png', label: 'MADE FOR THE GAME' },
         ].map((badge, i) => (
-          <div
-            key={i}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.35)' : 'none',
-              padding: '0 20px',
-            }}
-          >
+          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.35)' : 'none', padding: '0 20px' }}>
             <Image src={badge.icon} alt={badge.label} width={28} height={28} style={{ filter: 'brightness(0) invert(1)', objectFit: 'contain' }} />
-            <span
-              style={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: '#ffffff',
-              }}
-            >
+            <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#ffffff' }}>
               {badge.label}
             </span>
           </div>
         ))}
       </div>
 
-      {/* ── Play On Marquee ── */}
-      <div
-        style={{
-          background: '#111111',
-          overflow: 'hidden',
-          borderTop: '1px solid #222222',
-          borderBottom: '1px solid #222222',
-          padding: '14px 0',
-        }}
-      >
-        <style>{`
-          @keyframes marquee-shop {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-          }
-        `}</style>
-        <div
-          style={{
-            display: 'flex',
-            whiteSpace: 'nowrap',
-            animation: 'marquee-shop 18s linear infinite',
-          }}
-        >
-          {Array.from({ length: 20 }).map((_, i) => (
-            <span
-              key={i}
-              style={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: '0.875rem',
-                fontWeight: 700,
-                letterSpacing: '0.05em',
-                color: '#3a3699',
-                paddingRight: '48px',
-              }}
-            >
-              Play On.
-            </span>
-          ))}
-        </div>
-      </div>
+      {/* ── Marquee (same as landing page) ── */}
+      <MarqueeStrip />
+
+      {/* ── Footer (same as landing page) ── */}
+      <Footer />
     </div>
-  );
-}
-
-// ── Mockup-style Product Card ──
-function MockupProductCard({ item }: { item: ExpandedCardItem }) {
-  const { product, colourName, primaryImage, price, isOutOfStock } = item;
-
-  // Format price as ₹ X,XXX
-  const formattedPrice = new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(price);
-
-  // Determine "few left" — show when low stock but not out of stock
-  const showFewLeft = !isOutOfStock;
-
-  // Collection tag — from product type or colourName
-  const collectionTag = (colourName || product.productType || '').toUpperCase() || 'VEGA 2026';
-
-  const targetHref = item.targetHref;
-
-  return (
-    <Link href={targetHref} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-      {/* Image container */}
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          aspectRatio: '1 / 1',
-          background: '#e8e8e8',
-          overflow: 'hidden',
-        }}
-      >
-        {primaryImage?.url ? (
-          <Image
-            src={primaryImage.url}
-            alt={primaryImage.altText ?? product.title}
-            fill
-            sizes="(max-width: 768px) 100vw, 33vw"
-            style={{ objectFit: 'cover', objectPosition: 'center' }}
-          />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
-            No image
-          </div>
-        )}
-
-        {/* Left arrow */}
-        <button
-          onClick={(e) => e.preventDefault()}
-          style={{
-            position: 'absolute',
-            left: '10px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            background: 'rgba(255,255,255,0.85)',
-            border: 'none',
-            borderRadius: '50%',
-            width: '32px',
-            height: '32px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            fontSize: '14px',
-            color: '#000',
-          }}
-        >
-          ‹
-        </button>
-        {/* Right arrow */}
-        <button
-          onClick={(e) => e.preventDefault()}
-          style={{
-            position: 'absolute',
-            right: '10px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            background: 'rgba(255,255,255,0.85)',
-            border: 'none',
-            borderRadius: '50%',
-            width: '32px',
-            height: '32px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            fontSize: '14px',
-            color: '#000',
-          }}
-        >
-          ›
-        </button>
-      </div>
-
-      {/* Product Info */}
-      <div style={{ marginTop: '14px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Collection/colour label */}
-          <p
-            style={{
-              fontFamily: 'var(--font-heading)',
-              fontSize: '0.625rem',
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: '#888888',
-              margin: '0 0 4px',
-            }}
-          >
-            {collectionTag}
-          </p>
-
-          {/* Product title */}
-          <p
-            style={{
-              fontFamily: 'var(--font-heading)',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              letterSpacing: '0.03em',
-              textTransform: 'uppercase',
-              color: '#000000',
-              margin: '0 0 6px',
-              lineHeight: 1.3,
-            }}
-          >
-            {product.title}
-          </p>
-
-          {/* Price */}
-          <p
-            style={{
-              fontFamily: 'var(--font-heading)',
-              fontSize: '0.875rem',
-              fontWeight: 700,
-              color: '#3a3699',
-              margin: '0 0 4px',
-            }}
-          >
-            {formattedPrice}
-          </p>
-
-          {/* Stock label */}
-          {showFewLeft && (
-            <p
-              style={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: '0.625rem',
-                fontWeight: 600,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                color: '#999999',
-                margin: 0,
-              }}
-            >
-              {isOutOfStock ? 'OUT OF STOCK' : 'ONLY FEW LEFT'}
-            </p>
-          )}
-        </div>
-
-        {/* Plus button */}
-        <div
-          style={{
-            width: '28px',
-            height: '28px',
-            border: '1px solid #3a3699',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            marginLeft: '10px',
-            marginTop: '16px',
-          }}
-        >
-          <span style={{ color: '#3a3699', fontSize: '1.125rem', lineHeight: 1, fontWeight: 300 }}>+</span>
-        </div>
-      </div>
-    </Link>
   );
 }
