@@ -748,7 +748,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       {/* ── FAQ Section ── */}
       <section style={{ padding: '80px clamp(24px, 5vw, 80px)', background: '#ffffff' }}>
         <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.125rem, 1.8vw, 1.375rem)', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', letterSpacing: '0.02em', margin: '0 0 48px', lineHeight: 1.25 }}>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', letterSpacing: '0.02em', margin: '0 0 48px', lineHeight: 1.25 }}>
             FREQUENTLY ASKED<br />QUESTIONS
           </h2>
           <div style={{ borderTop: '1px solid #e5e5e5' }}>
