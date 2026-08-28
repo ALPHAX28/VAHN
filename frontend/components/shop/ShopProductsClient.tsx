@@ -246,13 +246,18 @@ function FaqItem({
         <span
           style={{
             color: BRAND_COLOR,
-            fontSize: '1.25rem',
-            lineHeight: 1,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             flexShrink: 0,
-            fontWeight: 300,
+            transition: 'transform 0.25s ease, color 0.2s ease',
+            transform: isOpen ? 'rotate(45deg)' : 'rotate(0deg)',
           }}
         >
-          {isOpen ? '×' : '+'}
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <line x1="12" y1="4" x2="12" y2="20" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+          </svg>
         </span>
       </button>
 
