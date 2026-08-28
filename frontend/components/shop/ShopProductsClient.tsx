@@ -355,7 +355,7 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
           overflow: 'hidden',
         }}
       >
-        {/* Left Arrow */}
+        {/* Left Arrow — transparent background, brand blue chevron */}
         <button
           type="button"
           onClick={handlePrev}
@@ -363,24 +363,18 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
           className="shop-card-arrow"
           style={{
             position: 'absolute',
-            left: '6px',
+            left: '4px',
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 15,
-            background: 'rgba(255,255,255,0.85)',
-            backdropFilter: 'blur(4px)',
-            borderRadius: '50%',
-            width: '28px',
-            height: '28px',
+            background: 'transparent',
             border: 'none',
-            padding: 0,
+            padding: '6px',
             display: hasMultipleImages ? 'flex' : 'none',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: hasMultipleImages ? 'pointer' : 'default',
             color: BRAND_COLOR,
-            opacity: isHovered ? 1 : 0,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
             transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
           }}
           onMouseEnter={(e) => {
@@ -392,7 +386,7 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
             e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
           }}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
@@ -422,7 +416,7 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
           )}
         </Link>
 
-        {/* Right Arrow */}
+        {/* Right Arrow — transparent background, brand blue chevron */}
         <button
           type="button"
           onClick={handleNext}
@@ -430,24 +424,18 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
           className="shop-card-arrow"
           style={{
             position: 'absolute',
-            right: '6px',
+            right: '4px',
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 15,
-            background: 'rgba(255,255,255,0.85)',
-            backdropFilter: 'blur(4px)',
-            borderRadius: '50%',
-            width: '28px',
-            height: '28px',
+            background: 'transparent',
             border: 'none',
-            padding: 0,
+            padding: '6px',
             display: hasMultipleImages ? 'flex' : 'none',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: hasMultipleImages ? 'pointer' : 'default',
             color: BRAND_COLOR,
-            opacity: isHovered ? 1 : 0,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
             transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
           }}
           onMouseEnter={(e) => {
@@ -459,7 +447,7 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
             e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
           }}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </button>
@@ -661,6 +649,14 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           width: 26px;
           height: 26px;
         }
+        .shop-card-arrow {
+          opacity: 0;
+        }
+        @media (hover: hover) {
+          .shop-card:hover .shop-card-arrow {
+            opacity: 1 !important;
+          }
+        }
 
         @media (max-width: 900px) {
           .shop-grid {
@@ -687,6 +683,9 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           .shop-grid {
             grid-template-columns: repeat(2, 1fr);
             gap: 24px 12px;
+          }
+          .shop-card-arrow {
+            opacity: 1 !important;
           }
           .shop-plus-btn svg {
             width: 22px;
