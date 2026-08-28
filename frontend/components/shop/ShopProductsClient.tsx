@@ -635,15 +635,29 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           background: #4232d9;
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
-          padding-top: 28px;
-          padding-bottom: 28px;
+          padding-top: 24px;
+          padding-bottom: 24px;
         }
         .trust-badge-item {
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 12px;
-          padding: 0 20px;
+          padding: 0 16px;
+        }
+        .trust-badge-icon-wrap {
+          position: relative;
+          width: 32px;
+          height: 32px;
+          flex-shrink: 0;
+        }
+        .trust-badge-text {
+          font-family: var(--font-heading);
+          font-size: 0.75rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #ffffff;
         }
         .shop-plus-btn svg {
           width: 26px;
@@ -692,19 +706,24 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             height: 22px;
           }
           .trust-badges-bar {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr 1fr !important;
+            padding: 16px 8px !important;
             gap: 0;
-            padding-top: 0;
-            padding-bottom: 0;
           }
           .trust-badge-item {
-            border-left: none !important;
-            border-top: 1px solid rgba(255,255,255,0.2);
-            padding: 16px 0 !important;
-            justify-content: flex-start;
+            flex-direction: column !important;
+            gap: 6px !important;
+            padding: 0 4px !important;
+            text-align: center !important;
           }
-          .trust-badge-item:first-child {
-            border-top: none;
+          .trust-badge-icon-wrap {
+            width: 22px !important;
+            height: 22px !important;
+          }
+          .trust-badge-text {
+            font-size: 0.5625rem !important;
+            letter-spacing: 0.02em !important;
+            line-height: 1.2 !important;
           }
         }
       `}</style>
@@ -800,7 +819,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
         </div>
       </section>
 
-      {/* ── Trust Badges ── */}
+      {/* ── Trust Badges (Always in a single 3-column row) ── */}
       <div className="trust-badges-bar shop-container-pad">
         {[
           { icon: '/icons/pan-india-delivery.png', label: 'PAN-INDIA DELIVERY' },
@@ -810,13 +829,13 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           <div
             key={i}
             className="trust-badge-item"
-            style={{ borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.35)' : 'none' }}
+            style={{ borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.3)' : 'none' }}
           >
-            <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
-              <Image src={badge.icon} alt={badge.label} fill sizes="36px" style={{ filter: 'brightness(0) invert(1)', objectFit: 'contain' }} />
+            <div className="trust-badge-icon-wrap">
+              <Image src={badge.icon} alt={badge.label} fill sizes="32px" style={{ filter: 'brightness(0) invert(1)', objectFit: 'contain' }} />
             </div>
 
-            <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#ffffff' }}>
+            <span className="trust-badge-text">
               {badge.label}
             </span>
           </div>
