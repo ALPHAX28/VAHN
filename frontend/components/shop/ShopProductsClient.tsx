@@ -608,7 +608,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
     <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh' }}>
 
       {/* ── Page Title ── */}
-      <div style={{ padding: '48px clamp(16px, 4vw, 80px) 0' }}>
+      <div style={{ padding: '48px clamp(40px, 7vw, 120px) 0' }}>
         <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.75rem, 3vw, 2.25rem)', fontWeight: 900, letterSpacing: '-0.01em', textTransform: 'uppercase', color: '#000000', margin: '0 0 6px', lineHeight: 1.1 }}>
           ALL PRODUCTS
         </h1>
@@ -618,7 +618,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       </div>
 
       {/* ── Sort + Filters ── */}
-      <div style={{ padding: '16px clamp(16px, 4vw, 80px) 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ padding: '16px clamp(40px, 7vw, 120px) 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {/* Row 1: Sort dropdown */}
         <div ref={sortRef} style={{ position: 'relative', alignSelf: 'flex-start' }}>
           <button
@@ -738,7 +738,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           background: #3a3699;
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
-          padding: 28px clamp(24px, 5vw, 80px);
+          padding: 28px clamp(40px, 7vw, 120px);
         }
         .trust-badge-item {
           display: flex;
@@ -776,7 +776,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       `}</style>
 
       {/* ── Product Grid ── */}
-      <main style={{ padding: '24px clamp(16px, 4vw, 80px) 80px' }}>
+      <main style={{ padding: '24px clamp(40px, 7vw, 120px) 80px' }}>
         {filteredItems.length === 0 ? (
           <div style={{ padding: '80px 20px', textAlign: 'center', border: '1px solid #e5e5e5' }}>
             <p style={{ fontSize: '1.125rem', fontWeight: 700, margin: '0 0 6px', fontFamily: 'var(--font-heading)' }}>No products found</p>
@@ -792,7 +792,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       </main>
 
       {/* ── FAQ Section ── */}
-      <section style={{ padding: 'clamp(48px, 8vw, 80px) clamp(20px, 5vw, 80px)', background: '#ffffff' }}>
+      <section style={{ padding: 'clamp(48px, 8vw, 80px) clamp(40px, 7vw, 120px)', background: '#ffffff' }}>
         <div style={{ maxWidth: '640px', margin: '0 auto' }}>
           <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', letterSpacing: '0.02em', margin: '0 0 40px', lineHeight: 1.25 }}>
             FREQUENTLY ASKED<br />QUESTIONS
