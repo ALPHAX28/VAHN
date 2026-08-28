@@ -608,19 +608,19 @@ export default function ShopProductsClient({ initialProducts }: Props) {
     <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh' }}>
 
       {/* ── Page Title ── */}
-      <div style={{ padding: '60px clamp(24px, 5vw, 80px) 0' }}>
+      <div style={{ padding: '48px clamp(16px, 4vw, 80px) 0' }}>
         <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.75rem, 3vw, 2.25rem)', fontWeight: 900, letterSpacing: '-0.01em', textTransform: 'uppercase', color: '#000000', margin: '0 0 6px', lineHeight: 1.1 }}>
           ALL PRODUCTS
         </h1>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.9375rem', color: '#444444', margin: 0, lineHeight: 1.5 }}>
-          Our first drop is here &nbsp;limited pieces, made to move with you.
+          Our first drop is here — limited pieces, made to move with you.
         </p>
       </div>
 
-      {/* ── Sort Dropdown only (no blue filter button) ── */}
-      <div style={{ padding: '20px clamp(24px, 5vw, 80px) 0', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-        {/* Sort */}
-        <div ref={sortRef} style={{ position: 'relative' }}>
+      {/* ── Sort + Filters ── */}
+      <div style={{ padding: '16px clamp(16px, 4vw, 80px) 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {/* Row 1: Sort dropdown */}
+        <div ref={sortRef} style={{ position: 'relative', alignSelf: 'flex-start' }}>
           <button
             onClick={() => setSortOpen((p) => !p)}
             style={{
@@ -661,83 +661,129 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           )}
         </div>
 
-        {/* Category Filter Pills */}
-        {categories.length > 0 && (
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Row 2: Category + Fit pills + Clear */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Category pills */}
+          {categories.length > 0 && (
+            <>
+              <button
+                onClick={() => setSelectedCategory('ALL')}
+                style={{
+                  padding: '7px 14px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
+                  textTransform: 'uppercase', fontFamily: 'var(--font-heading)',
+                  border: '1px solid', borderColor: selectedCategory === 'ALL' ? '#000000' : '#d0d0d0',
+                  background: selectedCategory === 'ALL' ? '#000000' : '#ffffff',
+                  color: selectedCategory === 'ALL' ? '#ffffff' : '#666666',
+                  cursor: 'pointer',
+                }}
+              >
+                All
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(selectedCategory === cat ? 'ALL' : cat)}
+                  style={{
+                    padding: '7px 14px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
+                    textTransform: 'uppercase', fontFamily: 'var(--font-heading)',
+                    border: '1px solid', borderColor: selectedCategory === cat ? '#000000' : '#d0d0d0',
+                    background: selectedCategory === cat ? '#000000' : '#ffffff',
+                    color: selectedCategory === cat ? '#ffffff' : '#666666',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Fit pills */}
+          {fits.map((fit) => (
             <button
-              onClick={() => setSelectedCategory('ALL')}
+              key={fit}
+              onClick={() => setSelectedFit(selectedFit === fit ? 'ALL' : fit)}
               style={{
-                padding: '8px 16px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
+                padding: '7px 14px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
                 textTransform: 'uppercase', fontFamily: 'var(--font-heading)',
-                border: '1px solid', borderColor: selectedCategory === 'ALL' ? '#000000' : '#d0d0d0',
-                background: selectedCategory === 'ALL' ? '#000000' : '#ffffff',
-                color: selectedCategory === 'ALL' ? '#ffffff' : '#666666',
+                border: '1px solid', borderColor: selectedFit === fit ? BRAND_COLOR : '#d0d0d0',
+                background: selectedFit === fit ? BRAND_COLOR : '#ffffff',
+                color: selectedFit === fit ? '#ffffff' : '#666666',
                 cursor: 'pointer',
               }}
             >
-              All
+              {fit}
             </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(selectedCategory === cat ? 'ALL' : cat)}
-                style={{
-                  padding: '8px 16px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
-                  textTransform: 'uppercase', fontFamily: 'var(--font-heading)',
-                  border: '1px solid', borderColor: selectedCategory === cat ? '#000000' : '#d0d0d0',
-                  background: selectedCategory === cat ? '#000000' : '#ffffff',
-                  color: selectedCategory === cat ? '#ffffff' : '#666666',
-                  cursor: 'pointer',
-                }}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        )}
+          ))}
 
-        {/* Fit Filter Pills */}
-        {fits.length > 0 && (
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {fits.map((fit) => (
-              <button
-                key={fit}
-                onClick={() => setSelectedFit(selectedFit === fit ? 'ALL' : fit)}
-                style={{
-                  padding: '8px 16px', fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.04em',
-                  textTransform: 'uppercase', fontFamily: 'var(--font-heading)',
-                  border: '1px solid', borderColor: selectedFit === fit ? BRAND_COLOR : '#d0d0d0',
-                  background: selectedFit === fit ? BRAND_COLOR : '#ffffff',
-                  color: selectedFit === fit ? '#ffffff' : '#666666',
-                  cursor: 'pointer',
-                }}
-              >
-                {fit}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Clear Filters */}
-        {hasActiveFilters && (
-          <button
-            onClick={() => { setSelectedCategory('ALL'); setSelectedFit('ALL'); }}
-            style={{ fontFamily: 'var(--font-heading)', fontSize: '0.6875rem', fontWeight: 600, color: '#888', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', letterSpacing: '0.02em' }}
-          >
-            Clear
-          </button>
-        )}
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setSelectedCategory('ALL'); setSelectedFit('ALL'); }}
+              style={{ fontFamily: 'var(--font-heading)', fontSize: '0.6875rem', fontWeight: 600, color: '#888', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', letterSpacing: '0.02em' }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* ── Responsive styles ── */}
+      <style>{`
+        .shop-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 48px 24px;
+        }
+        .trust-badges-bar {
+          background: #3a3699;
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          padding: 28px clamp(24px, 5vw, 80px);
+        }
+        .trust-badge-item {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 0 20px;
+        }
+        @media (max-width: 900px) {
+          .shop-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 36px 16px;
+          }
+        }
+        @media (max-width: 540px) {
+          .shop-grid {
+            grid-template-columns: 1fr;
+            gap: 28px 12px;
+          }
+          .trust-badges-bar {
+            grid-template-columns: 1fr;
+            gap: 0;
+            padding: 0 20px;
+          }
+          .trust-badge-item {
+            border-left: none !important;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            padding: 16px 0 !important;
+            justify-content: flex-start;
+          }
+          .trust-badge-item:first-child {
+            border-top: none;
+          }
+        }
+      `}</style>
+
       {/* ── Product Grid ── */}
-      <main style={{ padding: '32px clamp(24px, 5vw, 80px) 80px' }}>
+      <main style={{ padding: '24px clamp(16px, 4vw, 80px) 80px' }}>
         {filteredItems.length === 0 ? (
           <div style={{ padding: '80px 20px', textAlign: 'center', border: '1px solid #e5e5e5' }}>
             <p style={{ fontSize: '1.125rem', fontWeight: 700, margin: '0 0 6px', fontFamily: 'var(--font-heading)' }}>No products found</p>
             <p style={{ fontSize: '0.875rem', color: '#666', margin: 0, fontFamily: 'var(--font-body)' }}>Check back soon for new drops.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '48px 24px' }}>
+          <div className="shop-grid">
             {filteredItems.map((item) => (
               <ShopCard key={item.id} item={item} />
             ))}
@@ -746,9 +792,9 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       </main>
 
       {/* ── FAQ Section ── */}
-      <section style={{ padding: '80px clamp(24px, 5vw, 80px)', background: '#ffffff' }}>
+      <section style={{ padding: 'clamp(48px, 8vw, 80px) clamp(20px, 5vw, 80px)', background: '#ffffff' }}>
         <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', letterSpacing: '0.02em', margin: '0 0 48px', lineHeight: 1.25 }}>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', letterSpacing: '0.02em', margin: '0 0 40px', lineHeight: 1.25 }}>
             FREQUENTLY ASKED<br />QUESTIONS
           </h2>
           <div style={{ borderTop: '1px solid #e5e5e5' }}>
@@ -767,21 +813,24 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       </section>
 
       {/* ── Trust Badges ── */}
-      <div style={{ background: '#3a3699', padding: '28px clamp(24px, 5vw, 80px)', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
+      <div className="trust-badges-bar">
         {[
           { icon: '/icons/pan-india-delivery.png', label: 'PAN-INDIA DELIVERY' },
           { icon: '/icons/secure-payments.png', label: '100% SECURE PAYMENTS' },
           { icon: '/icons/made-for-the-game.png', label: 'MADE FOR THE GAME' },
         ].map((badge, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.35)' : 'none', padding: '0 20px' }}>
-            <Image src={badge.icon} alt={badge.label} width={28} height={28} style={{ filter: 'brightness(0) invert(1)', objectFit: 'contain' }} />
+          <div
+            key={i}
+            className="trust-badge-item"
+            style={{ borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.35)' : 'none' }}
+          >
+            <Image src={badge.icon} alt={badge.label} width={26} height={26} style={{ filter: 'brightness(0) invert(1)', objectFit: 'contain', flexShrink: 0 }} />
             <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#ffffff' }}>
               {badge.label}
             </span>
           </div>
         ))}
       </div>
-
 
     </div>
   );
