@@ -81,7 +81,7 @@ export default function HeroSection() {
         <p
           style={{
             fontFamily: 'var(--font-body)',
-            fontStyle: 'italic',
+            fontStyle: 'normal',
             fontSize: 'clamp(0.8125rem, 1.2vw, 0.9375rem)',
             color: '#ffffff',
             letterSpacing: '-0.01em',
@@ -101,7 +101,7 @@ export default function HeroSection() {
             background: '#4232d9',
             color: '#ffffff',
             fontFamily: 'var(--font-body)',
-            fontStyle: 'italic',
+            fontStyle: 'normal',
             fontSize: '0.875rem',
             padding: '7px 22px',
             borderRadius: '2px',

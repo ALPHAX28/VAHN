@@ -813,7 +813,7 @@ export default function FreshOutLocker({ products }: Props) {
             <p
               style={{
                 fontFamily: 'var(--font-body)',
-                fontStyle: 'italic',
+                fontStyle: 'normal',
                 fontSize: '0.9375rem',
                 color: '#444444',
                 margin: 0,
