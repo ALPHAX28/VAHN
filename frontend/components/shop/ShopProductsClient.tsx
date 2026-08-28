@@ -669,10 +669,10 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           gap: 48px 24px;
         }
         .trust-badges-bar {
-          background: #3a3699;
+          background: #4232d9;
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
-          padding: 28px clamp(40px, 7vw, 120px);
+          padding: 28px clamp(48px, 8vw, 140px);
         }
         .trust-badge-item {
           display: flex;
@@ -710,7 +710,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       `}</style>
 
       {/* ── Product Grid ── */}
-      <main style={{ padding: '24px clamp(40px, 7vw, 120px) 80px' }}>
+      <main style={{ padding: '24px clamp(48px, 8vw, 140px) 80px' }}>
         {filteredItems.length === 0 ? (
           <div style={{ padding: '80px 20px', textAlign: 'center', border: '1px solid #e5e5e5' }}>
             <p style={{ fontSize: '1.125rem', fontWeight: 700, margin: '0 0 6px', fontFamily: 'var(--font-heading)' }}>No products found</p>
@@ -726,7 +726,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       </main>
 
       {/* ── FAQ Section ── */}
-      <section style={{ padding: 'clamp(48px, 8vw, 80px) clamp(40px, 7vw, 120px)', background: '#ffffff' }}>
+      <section style={{ padding: 'clamp(48px, 8vw, 80px) clamp(48px, 8vw, 140px)', background: '#ffffff' }}>
         <div style={{ maxWidth: '640px', margin: '0 auto' }}>
           <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', letterSpacing: '0.02em', margin: '0 0 40px', lineHeight: 1.25 }}>
             FREQUENTLY ASKED<br />QUESTIONS
