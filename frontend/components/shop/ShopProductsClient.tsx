@@ -758,7 +758,10 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             className="trust-badge-item"
             style={{ borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.35)' : 'none' }}
           >
-            <Image src={badge.icon} alt={badge.label} width={26} height={26} style={{ filter: 'brightness(0) invert(1)', objectFit: 'contain', flexShrink: 0 }} />
+            <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
+              <Image src={badge.icon} alt={badge.label} fill sizes="36px" style={{ filter: 'brightness(0) invert(1)', objectFit: 'contain' }} />
+            </div>
+
             <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#ffffff' }}>
               {badge.label}
             </span>
