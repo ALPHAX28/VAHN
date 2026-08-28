@@ -12,7 +12,7 @@ export default function GlobalLoading() {
           right: 0,
           height: '3px',
           zIndex: 99999,
-          background: 'rgba(58, 54, 153, 0.15)',
+          background: 'rgba(66, 50, 217, 0.15)',
           overflow: 'hidden',
           pointerEvents: 'none',
         }}
@@ -22,7 +22,7 @@ export default function GlobalLoading() {
           style={{
             height: '100%',
             width: '100%',
-            background: 'linear-gradient(90deg, #3a3699 0%, #6366f1 50%, #3a3699 100%)',
+            background: 'linear-gradient(90deg, #4232d9 0%, #7c71f5 50%, #4232d9 100%)',
             animation: 'vahn-top-progress 1.2s infinite cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         />
