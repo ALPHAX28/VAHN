@@ -340,6 +340,7 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
   return (
     <div
       ref={cardRef}
+      className="shop-card"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{ display: 'flex', flexDirection: 'column', position: 'relative', userSelect: 'none' }}
@@ -354,26 +355,32 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
           overflow: 'hidden',
         }}
       >
-        {/* Left Arrow — only on hover, same as FreshOutLocker */}
+        {/* Left Arrow */}
         <button
           type="button"
           onClick={handlePrev}
           aria-label="Previous view"
+          className="shop-card-arrow"
           style={{
             position: 'absolute',
-            left: '8px',
+            left: '6px',
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 15,
-            background: 'transparent',
+            background: 'rgba(255,255,255,0.85)',
+            backdropFilter: 'blur(4px)',
+            borderRadius: '50%',
+            width: '28px',
+            height: '28px',
             border: 'none',
-            padding: '6px',
-            display: 'flex',
+            padding: 0,
+            display: hasMultipleImages ? 'flex' : 'none',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: hasMultipleImages ? 'pointer' : 'default',
             color: BRAND_COLOR,
             opacity: isHovered ? 1 : 0,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
             transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
           }}
           onMouseEnter={(e) => {
@@ -415,26 +422,32 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
           )}
         </Link>
 
-        {/* Right Arrow — only on hover */}
+        {/* Right Arrow */}
         <button
           type="button"
           onClick={handleNext}
           aria-label="Next view"
+          className="shop-card-arrow"
           style={{
             position: 'absolute',
-            right: '8px',
+            right: '6px',
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 15,
-            background: 'transparent',
+            background: 'rgba(255,255,255,0.85)',
+            backdropFilter: 'blur(4px)',
+            borderRadius: '50%',
+            width: '28px',
+            height: '28px',
             border: 'none',
-            padding: '6px',
-            display: 'flex',
+            padding: 0,
+            display: hasMultipleImages ? 'flex' : 'none',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: hasMultipleImages ? 'pointer' : 'default',
             color: BRAND_COLOR,
             opacity: isHovered ? 1 : 0,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
             transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
           }}
           onMouseEnter={(e) => {
@@ -532,6 +545,7 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
         {/* Quick Add Plus */}
         <button
           type="button"
+          className="shop-plus-btn"
           onClick={() => setShowQuickAdd((prev) => !prev)}
           aria-label={showQuickAdd ? 'Close size picker' : `Select size for ${item.title}`}
           style={{
@@ -542,6 +556,7 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
             padding: '4px',
             borderRadius: showQuickAdd ? '50%' : '0',
             cursor: 'pointer',
+            flexShrink: 0,
             transition: 'transform 0.25s ease, color 0.2s ease, background-color 0.2s ease',
             transform: showQuickAdd ? 'rotate(45deg)' : isHovered ? 'scale(1.2)' : 'scale(1)',
           }}
@@ -607,9 +622,97 @@ export default function ShopProductsClient({ initialProducts }: Props) {
   return (
     <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh' }}>
 
+      {/* ── Responsive styles ── */}
+      <style>{`
+        .shop-container-pad {
+          padding-left: clamp(48px, 8vw, 140px);
+          padding-right: clamp(48px, 8vw, 140px);
+        }
+        .shop-title-section {
+          padding-top: 48px;
+        }
+        .shop-sort-section {
+          padding-top: 20px;
+        }
+        .shop-main-section {
+          padding-top: 24px;
+          padding-bottom: 80px;
+        }
+        .shop-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 48px 24px;
+        }
+        .trust-badges-bar {
+          background: #4232d9;
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          padding-top: 28px;
+          padding-bottom: 28px;
+        }
+        .trust-badge-item {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 0 20px;
+        }
+        .shop-plus-btn svg {
+          width: 26px;
+          height: 26px;
+        }
+
+        @media (max-width: 900px) {
+          .shop-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 36px 16px;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .shop-container-pad {
+            padding-left: 16px;
+            padding-right: 16px;
+          }
+          .shop-title-section {
+            padding-top: 32px;
+          }
+          .shop-sort-section {
+            padding-top: 14px;
+          }
+          .shop-main-section {
+            padding-top: 18px;
+            padding-bottom: 56px;
+          }
+          .shop-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px 12px;
+          }
+          .shop-plus-btn svg {
+            width: 22px;
+            height: 22px;
+          }
+          .trust-badges-bar {
+            grid-template-columns: 1fr;
+            gap: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+          }
+          .trust-badge-item {
+            border-left: none !important;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            padding: 16px 0 !important;
+            justify-content: flex-start;
+          }
+          .trust-badge-item:first-child {
+            border-top: none;
+          }
+        }
+      `}</style>
+
       {/* ── Page Title ── */}
-      <div style={{ padding: '48px clamp(48px, 8vw, 140px) 0' }}>
-        <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.75rem, 3vw, 2.25rem)', fontWeight: 900, letterSpacing: '-0.01em', textTransform: 'uppercase', color: '#000000', margin: '0 0 6px', lineHeight: 1.1 }}>
+      <div className="shop-container-pad shop-title-section">
+        <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.625rem, 3vw, 2.25rem)', fontWeight: 900, letterSpacing: '-0.01em', textTransform: 'uppercase', color: '#000000', margin: '0 0 6px', lineHeight: 1.1 }}>
           ALL PRODUCTS
         </h1>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.9375rem', color: '#444444', margin: 0, lineHeight: 1.5 }}>
@@ -618,7 +721,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       </div>
 
       {/* ── Sort Bar ── */}
-      <div style={{ padding: '20px clamp(48px, 8vw, 140px) 0' }}>
+      <div className="shop-container-pad shop-sort-section">
         <div ref={sortRef} style={{ position: 'relative', display: 'inline-block' }}>
           <button
             onClick={() => setSortOpen((p) => !p)}
@@ -661,56 +764,8 @@ export default function ShopProductsClient({ initialProducts }: Props) {
         </div>
       </div>
 
-      {/* ── Responsive styles ── */}
-      <style>{`
-        .shop-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 48px 24px;
-        }
-        .trust-badges-bar {
-          background: #4232d9;
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          padding: 28px clamp(48px, 8vw, 140px);
-        }
-        .trust-badge-item {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          padding: 0 20px;
-        }
-        @media (max-width: 900px) {
-          .shop-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 36px 16px;
-          }
-        }
-        @media (max-width: 540px) {
-          .shop-grid {
-            grid-template-columns: 1fr;
-            gap: 28px 12px;
-          }
-          .trust-badges-bar {
-            grid-template-columns: 1fr;
-            gap: 0;
-            padding: 0 20px;
-          }
-          .trust-badge-item {
-            border-left: none !important;
-            border-top: 1px solid rgba(255,255,255,0.2);
-            padding: 16px 0 !important;
-            justify-content: flex-start;
-          }
-          .trust-badge-item:first-child {
-            border-top: none;
-          }
-        }
-      `}</style>
-
       {/* ── Product Grid ── */}
-      <main style={{ padding: '24px clamp(48px, 8vw, 140px) 80px' }}>
+      <main className="shop-container-pad shop-main-section">
         {filteredItems.length === 0 ? (
           <div style={{ padding: '80px 20px', textAlign: 'center', border: '1px solid #e5e5e5' }}>
             <p style={{ fontSize: '1.125rem', fontWeight: 700, margin: '0 0 6px', fontFamily: 'var(--font-heading)' }}>No products found</p>
@@ -726,7 +781,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       </main>
 
       {/* ── FAQ Section ── */}
-      <section style={{ padding: 'clamp(48px, 8vw, 80px) clamp(48px, 8vw, 140px)', background: '#ffffff' }}>
+      <section className="shop-container-pad" style={{ paddingBottom: 'clamp(48px, 8vw, 80px)', background: '#ffffff' }}>
         <div style={{ maxWidth: '640px', margin: '0 auto' }}>
           <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', letterSpacing: '0.02em', margin: '0 0 40px', lineHeight: 1.25 }}>
             FREQUENTLY ASKED<br />QUESTIONS
@@ -747,7 +802,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       </section>
 
       {/* ── Trust Badges ── */}
-      <div className="trust-badges-bar">
+      <div className="trust-badges-bar shop-container-pad">
         {[
           { icon: '/icons/pan-india-delivery.png', label: 'PAN-INDIA DELIVERY' },
           { icon: '/icons/secure-payments.png', label: '100% SECURE PAYMENTS' },
