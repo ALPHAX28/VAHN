@@ -174,9 +174,9 @@ export default function Header() {
           >
             <Image
               src={
-                scrolled
-                  ? '/assets/logos/VAHN-Primary-colour-transparent.png'
-                  : '/assets/logos/VAHN-Primary-white-transparent.png'
+                isTransparent
+                  ? '/assets/logos/VAHN-Primary-white-transparent.png'
+                  : '/assets/logos/VAHN-Primary-colour-transparent.png'
               }
               alt="VAHN"
               width={105}
@@ -380,7 +380,7 @@ export default function Header() {
                     position: 'absolute',
                     top: '0px',
                     right: '0px',
-                    background: '#3a3699',
+                    background: '#4232d9',
                     color: '#ffffff',
                     fontSize: '0.5625rem',
                     fontWeight: 700,
