@@ -246,16 +246,15 @@ input, textarea, select {
 .hero-banner-section {
   position: relative;
   width: 100%;
-  height: 100vh;
-  height: 100dvh;
-  min-height: 640px;
-  margin-top: -64px;
-  padding-top: 64px;
+  height: 85vh;
+  height: 85dvh;
+  min-height: 560px;
+  max-height: 920px;
   overflow: hidden;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 80px;
+  padding-bottom: 60px;
   background-color: #111111;
 }
 
@@ -328,13 +327,13 @@ input, textarea, select {
 
 @media (max-width: 768px) {
   .hero-banner-section {
-    height: 60vh !important;
-    height: 60dvh !important;
-    min-height: 380px !important;
-    max-height: 520px !important;
+    height: 58vh !important;
+    height: 58dvh !important;
+    min-height: 360px !important;
+    max-height: 500px !important;
     padding-bottom: 24px !important;
-    margin-top: -56px !important;
-    padding-top: 56px !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
   .hero-banner-img {
     object-position: center 20% !important;
@@ -346,11 +345,13 @@ input, textarea, select {
 
 @media (max-width: 480px) {
   .hero-banner-section {
-    height: 55vh !important;
-    height: 55dvh !important;
-    min-height: 340px !important;
-    max-height: 460px !important;
+    height: 52vh !important;
+    height: 52dvh !important;
+    min-height: 320px !important;
+    max-height: 440px !important;
     padding-bottom: 20px !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
   }
 }
 
