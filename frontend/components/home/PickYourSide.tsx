@@ -73,10 +73,10 @@ export default function PickYourSide() {
             overflow: 'hidden',
           }}
         >
-          {/* Real Athlete Image Card 01 — Full seamless edge-to-edge cover */}
+          {/* Real Athlete Image Card 01 — White Jersey */}
           <Image
             src="/assets/pick-your-side-01.png"
-            alt="Pick Your Side — Athlete 01"
+            alt="Pick Your Side — White"
             fill
             priority
             sizes="(max-width: 768px) 100vw, 50vw"
@@ -143,10 +143,10 @@ export default function PickYourSide() {
             overflow: 'hidden',
           }}
         >
-          {/* Real Athlete Image Card 02 — Full seamless edge-to-edge cover */}
+          {/* Real Athlete Image Card 02 — Black Jersey */}
           <Image
             src="/assets/pick-your-side-02.png"
-            alt="Pick Your Side — Athlete 02"
+            alt="Pick Your Side — Black"
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
             className="pick-your-side-img"
