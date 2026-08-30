@@ -2016,7 +2016,7 @@ input, textarea, select {
   transition: color var(--transition-fast);
 }
 
-.mobile-nav-link:hover { color: var(--color-maroon); }
+.mobile-nav-link:hover { color: #4232d9; }
 
 /* ---- Marquee ---- */
 
@@ -4478,8 +4478,8 @@ input, textarea, select {
 }
 
 .mobile-nav-auth-btn:hover {
-  background: var(--color-maroon);
-  border-color: var(--color-maroon);
+  background: #4232d9;
+  border-color: #4232d9;
 }
 
 .mobile-account-info {

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 
 interface NavLink { href: string; label: string; }
@@ -25,7 +26,16 @@ export default function MobileNav({ links, onClose, isClosing = false }: Props) 
 
       <div className={`mobile-nav-panel ${isClosing ? 'closing' : ''}`}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '1.05rem', letterSpacing: '-0.025em' }}>VAHN</span>
+          <Link href="/" onClick={onClose} style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <Image
+              src="/assets/logos/VAHN-Primary-black-transparent.png"
+              alt="VAHN"
+              width={80}
+              height={22}
+              style={{ objectFit: 'contain', height: 'auto' }}
+              priority
+            />
+          </Link>
           <button
             onClick={onClose}
             aria-label="Close menu"
