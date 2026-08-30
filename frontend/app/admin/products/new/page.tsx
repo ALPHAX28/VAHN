@@ -14,7 +14,7 @@ const STANDARD_SIZES = ["S", "M", "L", "XL", "2XL", "3XL"];
 interface ColourGroupForm {
   colour_value: string;
   images: UploadedImage[];
-  sizes: Record<string, { inventory_quantity: number; price_amount: number; compare_at_price_amount: string }>;
+  sizes: Record<string, { inventory_quantity: number | string; price_amount: number | string; compare_at_price_amount: string }>;
 }
 
 export default function NewProductPage() {
@@ -219,8 +219,8 @@ export default function NewProductPage() {
       if (sizes[size]) {
         delete sizes[size];
       } else {
-        // SCRUM-21: Start with clean 0 / empty values instead of pre-filled defaults
-        sizes[size] = { inventory_quantity: 0, price_amount: 0, compare_at_price_amount: "" };
+        // Start with clean empty values so no leading 0 is locked
+        sizes[size] = { inventory_quantity: "", price_amount: "", compare_at_price_amount: "" };
       }
       return { ...g, sizes };
     }));
@@ -245,8 +245,8 @@ export default function NewProductPage() {
         ...g,
         sizes: {
           ...g.sizes,
-          // SCRUM-21: Start with clean 0 / empty values instead of pre-filled defaults
-          [size]: { inventory_quantity: 0, price_amount: 0, compare_at_price_amount: "" },
+          // Start with clean empty values so no leading 0 is locked
+          [size]: { inventory_quantity: "", price_amount: "", compare_at_price_amount: "" },
         },
       };
     }));
@@ -256,28 +256,40 @@ export default function NewProductPage() {
   function updateSizeMatrix(groupIndex: number, size: string, field: "inventory_quantity" | "price_amount" | "compare_at_price_amount" | "discount_percent", val: string | number) {
     setColourGroups(groups => groups.map((g, idx) => {
       if (idx !== groupIndex) return g;
-      const currentMeta = g.sizes[size] || { inventory_quantity: 0, price_amount: 0, compare_at_price_amount: "" };
+      const currentMeta = g.sizes[size] || { inventory_quantity: "", price_amount: "", compare_at_price_amount: "" };
+      let updatedQty = currentMeta.inventory_quantity;
       let updatedPrice = currentMeta.price_amount;
       let updatedCompare = currentMeta.compare_at_price_amount;
 
       if (field === "inventory_quantity") {
-        // SCRUM-21: Prevent negative stock quantity
-        const qtyVal = Math.max(0, Number(val) || 0);
-        return { ...g, sizes: { ...g.sizes, [size]: { ...currentMeta, inventory_quantity: qtyVal } } };
+        if (val === "" || val === null || val === undefined) {
+          updatedQty = "";
+        } else {
+          const cleanStr = String(val).replace(/^0+(?=\d)/, ""); // Strips unwanted leading zeros e.g. "022" -> "22"
+          const parsed = parseInt(cleanStr, 10);
+          updatedQty = isNaN(parsed) ? "" : Math.max(0, parsed);
+        }
       } else if (field === "price_amount") {
-        // SCRUM-21: Prevent negative price
-        updatedPrice = Math.max(0, Number(val) || 0);
+        if (val === "" || val === null || val === undefined) {
+          updatedPrice = "";
+        } else {
+          const cleanStr = String(val).replace(/^0+(?=\d)/, "");
+          const parsed = parseInt(cleanStr, 10);
+          updatedPrice = isNaN(parsed) ? "" : Math.max(0, parsed);
+        }
       } else if (field === "compare_at_price_amount") {
         if (val === "" || val === null || val === undefined) {
           updatedCompare = "";
         } else {
-          // SCRUM-21: Prevent negative compare price
-          updatedCompare = String(Math.max(0, Number(val) || 0));
+          const cleanStr = String(val).replace(/^0+(?=\d)/, "");
+          const parsed = parseInt(cleanStr, 10);
+          updatedCompare = isNaN(parsed) ? "" : String(Math.max(0, parsed));
         }
       } else if (field === "discount_percent") {
         const discPct = Math.round(Math.max(0, Number(val) || 0));
-        if (discPct > 0 && updatedPrice > 0) {
-          updatedCompare = String(Math.round(updatedPrice / (1 - discPct / 100)));
+        const numPrice = Number(updatedPrice) || 0;
+        if (discPct > 0 && numPrice > 0) {
+          updatedCompare = String(Math.round(numPrice / (1 - discPct / 100)));
         } else if (discPct === 0) {
           updatedCompare = "";
         }
@@ -288,7 +300,7 @@ export default function NewProductPage() {
         sizes: {
           ...g.sizes,
           [size]: {
-            inventory_quantity: currentMeta.inventory_quantity,
+            inventory_quantity: updatedQty,
             price_amount: updatedPrice,
             compare_at_price_amount: updatedCompare,
           },
@@ -976,7 +988,7 @@ export default function NewProductPage() {
                         </thead>
                         <tbody>
                           {Object.entries(group.sizes).map(([sizeKey, meta]) => {
-                            const price = meta.price_amount;
+                            const price = Number(meta.price_amount) || 0;
                             const compare = meta.compare_at_price_amount ? Number(meta.compare_at_price_amount) : 0;
                             const discountPct = compare > price && compare > 0 ? Math.round(((compare - price) / compare) * 100) : 0;
 
@@ -989,7 +1001,8 @@ export default function NewProductPage() {
                                     min="0"
                                     className="admin-form-input"
                                     style={{ width: 90 }}
-                                    value={meta.inventory_quantity}
+                                    placeholder="0"
+                                    value={meta.inventory_quantity !== undefined && meta.inventory_quantity !== null ? meta.inventory_quantity : ""}
                                     onFocus={e => e.target.select()}
                                     onChange={e => updateSizeMatrix(groupIdx, sizeKey, "inventory_quantity", e.target.value)}
                                   />
@@ -1000,7 +1013,8 @@ export default function NewProductPage() {
                                     min="0"
                                     className="admin-form-input"
                                     style={{ width: 110 }}
-                                    value={meta.price_amount || ""}
+                                    placeholder="e.g. 2499"
+                                    value={meta.price_amount !== undefined && meta.price_amount !== null ? meta.price_amount : ""}
                                     onFocus={e => e.target.select()}
                                     onChange={e => updateSizeMatrix(groupIdx, sizeKey, "price_amount", e.target.value)}
                                   />
@@ -1012,7 +1026,7 @@ export default function NewProductPage() {
                                     className="admin-form-input"
                                     style={{ width: 110 }}
                                     placeholder="e.g. 2999"
-                                    value={meta.compare_at_price_amount}
+                                    value={meta.compare_at_price_amount ?? ""}
                                     onFocus={e => e.target.select()}
                                     onChange={e => updateSizeMatrix(groupIdx, sizeKey, "compare_at_price_amount", e.target.value)}
                                   />

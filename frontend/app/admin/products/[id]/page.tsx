@@ -86,7 +86,7 @@ export default function AdminProductDetailPage() {
   }, [error]);
 
   // Variant state
-  const [newVariant, setNewVariant] = useState({ title: "", colour: "", size: "", price_amount: 0, compare_at_price_amount: "", inventory_quantity: 0, available_for_sale: true, image_url: "" });
+  const [newVariant, setNewVariant] = useState<{ title: string; colour: string; size: string; price_amount: number | string; compare_at_price_amount: string; inventory_quantity: number | string; available_for_sale: boolean; image_url: string }>({ title: "", colour: "", size: "", price_amount: "", compare_at_price_amount: "", inventory_quantity: "", available_for_sale: true, image_url: "" });
   const [editingVariant, setEditingVariant] = useState<string | null>(null);
   const [variantEdits, setVariantEdits] = useState<Record<string, Partial<AdminVariant>>>({});
   const [addingVariant, setAddingVariant] = useState(false);
@@ -231,9 +231,9 @@ export default function AdminProductDetailPage() {
     return Boolean(
       newVariant.colour.trim() !== "" ||
       newVariant.size !== "" ||
-      newVariant.price_amount > 0 ||
+      Number(newVariant.price_amount) > 0 ||
       newVariant.compare_at_price_amount !== "" ||
-      newVariant.inventory_quantity > 0 ||
+      Number(newVariant.inventory_quantity) > 0 ||
       editingVariant !== null
     );
   }, [newVariant, editingVariant]);
@@ -447,7 +447,7 @@ export default function AdminProductDetailPage() {
         if (editingVariant) {
           // Save inline edit of an existing variant
           await handleSaveVariant(editingVariant);
-        } else if (newVariant.colour.trim() || newVariant.size.trim() || newVariant.price_amount > 0 || newVariant.compare_at_price_amount !== "") {
+        } else if (newVariant.colour.trim() || newVariant.size.trim() || Number(newVariant.price_amount) > 0 || newVariant.compare_at_price_amount !== "") {
           // User has ANY variant form input → call handleAddVariant which will validate and either
           // save the variant OR display a specific validation error. Either way, stop here so the
           // user sees the error rather than a silent no-op.
@@ -495,7 +495,7 @@ export default function AdminProductDetailPage() {
     if (activeTab === "Variants") {
       if (editingVariant) {
         await handleSaveVariant(editingVariant);
-      } else if (newVariant.colour.trim() && newVariant.size.trim() && newVariant.price_amount > 0) {
+      } else if (newVariant.colour.trim() && newVariant.size.trim() && Number(newVariant.price_amount) > 0) {
         await handleAddVariant();
       } else {
         const variantIds = Object.keys(variantEdits);
@@ -537,12 +537,13 @@ export default function AdminProductDetailPage() {
       setError("Please select a Size for the variant.");
       return;
     }
-    if (!newVariant.price_amount || newVariant.price_amount <= 0) {
+    const priceNum = Number(newVariant.price_amount) || 0;
+    if (!priceNum || priceNum <= 0) {
       setError("Selling price must be greater than ₹0.");
       return;
     }
     const compareNum = newVariant.compare_at_price_amount ? Number(newVariant.compare_at_price_amount) : null;
-    if (compareNum !== null && compareNum < newVariant.price_amount) {
+    if (compareNum !== null && compareNum < priceNum) {
       setError("Selling price cannot be greater than Original Price (MRP).");
       return;
     }
@@ -570,14 +571,14 @@ export default function AdminProductDetailPage() {
     try {
       await addVariant(adminToken, productId, {
         title: newVariant.title || [newVariant.colour, newVariant.size].filter(Boolean).join(" / ") || "Default",
-        price_amount: Number(newVariant.price_amount),
+        price_amount: Number(newVariant.price_amount) || 0,
         compare_at_price_amount: compareNum,
-        inventory_quantity: Number(newVariant.inventory_quantity),
+        inventory_quantity: Number(newVariant.inventory_quantity) || 0,
         available_for_sale: newVariant.available_for_sale,
         image_url: newVariant.image_url || null,
         selected_options: selectedOptions,
       });
-      setNewVariant({ title: "", colour: "", size: "", price_amount: 0, compare_at_price_amount: "", inventory_quantity: 0, available_for_sale: true, image_url: "" });
+      setNewVariant({ title: "", colour: "", size: "", price_amount: "", compare_at_price_amount: "", inventory_quantity: "", available_for_sale: true, image_url: "" });
       await loadProduct();
       setSuccess("Variant added!");
       setTimeout(() => setSuccess(""), 3000);
@@ -631,6 +632,7 @@ export default function AdminProductDetailPage() {
 
     const finalPatch: Partial<AdminVariant> = {
       ...patch,
+      inventory_quantity: patch.inventory_quantity !== undefined ? (Number(patch.inventory_quantity) || 0) : targetVariant.inventory_quantity,
       title: newTitle,
       selected_options: updatedOptions,
     };
@@ -1197,18 +1199,25 @@ export default function AdminProductDetailPage() {
                 <label className="admin-form-label">Selling Price (₹) *</label>
                 <input
                   type="number"
+                  min="0"
                   className="admin-form-input"
-                  style={newVariant.compare_at_price_amount && newVariant.price_amount > Number(newVariant.compare_at_price_amount) ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
+                  style={newVariant.compare_at_price_amount && Number(newVariant.price_amount) > Number(newVariant.compare_at_price_amount) ? { borderColor: "#d32f2f", backgroundColor: "rgba(211,47,47,0.04)" } : {}}
                   placeholder="e.g. 1500"
-                  value={newVariant.price_amount || ""}
+                  value={newVariant.price_amount ?? ""}
                   onFocus={e => e.target.select()}
                   onChange={e => {
-                    const price = e.target.value ? Number(e.target.value) : 0;
-                    setNewVariant(v => ({ ...v, price_amount: price }));
+                    const val = e.target.value;
+                    if (val === "" || val === null || val === undefined) {
+                      setNewVariant(v => ({ ...v, price_amount: "" }));
+                    } else {
+                      const cleanStr = String(val).replace(/^0+(?=\d)/, "");
+                      const parsed = parseInt(cleanStr, 10);
+                      setNewVariant(v => ({ ...v, price_amount: isNaN(parsed) ? "" : Math.max(0, parsed) }));
+                    }
                   }}
                 />
                 <span style={{ fontSize: "0.72rem", color: "var(--admin-text-secondary)", marginTop: 4, display: "block" }}>Price customer pays at checkout</span>
-                {Boolean(newVariant.compare_at_price_amount && newVariant.price_amount > Number(newVariant.compare_at_price_amount)) && (
+                {Boolean(newVariant.compare_at_price_amount && Number(newVariant.price_amount) > Number(newVariant.compare_at_price_amount)) && (
                   <span style={{ fontSize: "0.72rem", color: "#d32f2f", fontWeight: 700, marginTop: 4, display: "block" }}>
                     ⚠️ Selling price cannot be greater than Original Price (₹{newVariant.compare_at_price_amount})
                   </span>
@@ -1218,13 +1227,15 @@ export default function AdminProductDetailPage() {
                 <label className="admin-form-label">Original Price (MRP ₹)</label>
                 <input
                   type="number"
+                  min="0"
                   className="admin-form-input"
                   placeholder="e.g. 2500"
                   value={newVariant.compare_at_price_amount}
                   onFocus={e => e.target.select()}
                   onChange={e => {
-                    const compareStr = e.target.value;
-                    setNewVariant(v => ({ ...v, compare_at_price_amount: compareStr }));
+                    const val = e.target.value;
+                    const cleanStr = String(val).replace(/^0+(?=\d)/, "");
+                    setNewVariant(v => ({ ...v, compare_at_price_amount: cleanStr }));
                   }}
                 />
                 <span style={{ fontSize: "0.72rem", color: "var(--admin-text-secondary)", marginTop: 4, display: "block" }}>Original MRP before discount</span>
@@ -1239,8 +1250,8 @@ export default function AdminProductDetailPage() {
                     min="1"
                     max="99"
                     value={
-                      newVariant.compare_at_price_amount && Number(newVariant.compare_at_price_amount) > newVariant.price_amount && newVariant.price_amount > 0
-                        ? Math.min(99, Math.max(1, Math.round(((Number(newVariant.compare_at_price_amount) - newVariant.price_amount) / Number(newVariant.compare_at_price_amount)) * 100))) || ""
+                      newVariant.compare_at_price_amount && Number(newVariant.compare_at_price_amount) > Number(newVariant.price_amount) && Number(newVariant.price_amount) > 0
+                        ? Math.min(99, Math.max(1, Math.round(((Number(newVariant.compare_at_price_amount) - Number(newVariant.price_amount)) / Number(newVariant.compare_at_price_amount)) * 100))) || ""
                         : ""
                     }
                     onFocus={e => e.target.select()}
@@ -1256,14 +1267,15 @@ export default function AdminProductDetailPage() {
                         return;
                       }
                       const discPct = Math.round(rawPct);
+                      const numPrice = Number(newVariant.price_amount) || 0;
 
                       const compareVal = newVariant.compare_at_price_amount ? Number(newVariant.compare_at_price_amount) : 0;
                       if (compareVal > 0) {
                         const calcSelling = Math.round(compareVal * (1 - discPct / 100));
                         setNewVariant(v => ({ ...v, price_amount: calcSelling }));
-                      } else if (newVariant.price_amount > 0) {
-                        const calcCompare = Math.round(newVariant.price_amount / (1 - discPct / 100));
-                        const safeValue = (isFinite(calcCompare) && calcCompare >= newVariant.price_amount) ? String(calcCompare) : "";
+                      } else if (numPrice > 0) {
+                        const calcCompare = Math.round(numPrice / (1 - discPct / 100));
+                        const safeValue = (isFinite(calcCompare) && calcCompare >= numPrice) ? String(calcCompare) : "";
                         setNewVariant(v => ({ ...v, compare_at_price_amount: safeValue }));
                       }
                     }}
@@ -1276,10 +1288,21 @@ export default function AdminProductDetailPage() {
                 <label className="admin-form-label">Stock</label>
                 <input
                   type="number"
+                  min="0"
                   className="admin-form-input"
-                  value={newVariant.inventory_quantity}
+                  placeholder="0"
+                  value={newVariant.inventory_quantity ?? ""}
                   onFocus={e => e.target.select()}
-                  onChange={e => setNewVariant(v => ({ ...v, inventory_quantity: Number(e.target.value) }))}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === "" || val === null || val === undefined) {
+                      setNewVariant(v => ({ ...v, inventory_quantity: "" }));
+                    } else {
+                      const cleanStr = String(val).replace(/^0+(?=\d)/, "");
+                      const parsed = parseInt(cleanStr, 10);
+                      setNewVariant(v => ({ ...v, inventory_quantity: isNaN(parsed) ? "" : Math.max(0, parsed) }));
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -1488,11 +1511,22 @@ export default function AdminProductDetailPage() {
                         {editingVariant === v.id ? (
                           <input
                             type="number"
+                            min="0"
                             className="admin-form-input"
                             style={{ width: 80 }}
-                            value={variantEdits[v.id]?.inventory_quantity ?? v.inventory_quantity}
+                            placeholder="0"
+                            value={variantEdits[v.id]?.inventory_quantity !== undefined && variantEdits[v.id]?.inventory_quantity !== null ? variantEdits[v.id]?.inventory_quantity : v.inventory_quantity}
                             onFocus={e => e.target.select()}
-                            onChange={e => setVariantEdits(ed => ({ ...ed, [v.id]: { ...ed[v.id], inventory_quantity: Number(e.target.value) } }))}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === "" || val === null || val === undefined) {
+                                setVariantEdits(ed => ({ ...ed, [v.id]: { ...ed[v.id], inventory_quantity: "" as any } }));
+                              } else {
+                                const cleanStr = String(val).replace(/^0+(?=\d)/, "");
+                                const parsed = parseInt(cleanStr, 10);
+                                setVariantEdits(ed => ({ ...ed, [v.id]: { ...ed[v.id], inventory_quantity: isNaN(parsed) ? 0 : Math.max(0, parsed) } }));
+                              }
+                            }}
                           />
                         ) : (
                           v.inventory_quantity
