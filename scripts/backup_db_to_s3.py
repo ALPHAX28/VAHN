@@ -199,33 +199,33 @@ def rotate_s3_backups(s3_client, keep: int = 3):
         paginator = s3_client.get_paginator("list_objects_v2")
         pages = paginator.paginate(Bucket=AWS_BUCKET_NAME, Prefix="database-backups/")
 
-        all_keys = []
+        all_items = []
         for page in pages:
             for obj in page.get("Contents", []):
                 key = obj["Key"]
                 # Only consider actual backup files, not the folder prefix itself
                 if key.endswith(".sql.gz"):
-                    all_keys.append(key)
+                    all_items.append((obj["LastModified"], key))
 
-        if len(all_keys) <= keep:
-            print(f"✔ S3 backup rotation: {len(all_keys)} backup(s) found — nothing to prune (keeping {keep})")
+        if len(all_items) <= keep:
+            print(f"✔ S3 backup rotation: {len(all_items)} backup(s) found — nothing to prune (keeping {keep})")
             return
 
-        # Sort alphabetically on key (timestamp is in filename → lexicographic = chronological)
-        all_keys.sort()
+        # Sort chronologically by LastModified (oldest first, newest last)
+        all_items.sort(key=lambda x: x[0])
 
-        to_delete = all_keys[: len(all_keys) - keep]
-        objects = [{"Key": k} for k in to_delete]
+        to_delete_items = all_items[: len(all_items) - keep]
+        objects = [{"Key": k} for _, k in to_delete_items]
 
         s3_client.delete_objects(
             Bucket=AWS_BUCKET_NAME,
             Delete={"Objects": objects, "Quiet": True},
         )
 
-        for k in to_delete:
+        for _, k in to_delete_items:
             print(f"🗑  Rotated old S3 backup: {k.split('/')[-1]}")
 
-        print(f"✔ S3 rotation complete: kept latest {keep}, deleted {len(to_delete)} old backup(s)")
+        print(f"✔ S3 rotation complete: kept latest {keep}, deleted {len(to_delete_items)} old backup(s)")
     except Exception as exc:
         # Rotation failure is non-fatal — backup already uploaded successfully
         print(f"⚠ S3 rotation failed (non-fatal): {exc}")
