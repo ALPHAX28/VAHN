@@ -188,7 +188,50 @@ print('SUCCESS_DOCKER_S3')
     )
 
 
-# ─── 4. Main Runner ──────────────────────────────────────────────────────────
+# ─── 4. S3 Backup Rotation — Keep Latest N ───────────────────────────────────
+def rotate_s3_backups(s3_client, keep: int = 3):
+    """
+    Lists all backups under database-backups/ in S3 and deletes all but the
+    most-recent `keep` files.  Sorting is done on the filename timestamp so the
+    newest files are always preserved regardless of S3 LastModified metadata.
+    """
+    try:
+        paginator = s3_client.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=AWS_BUCKET_NAME, Prefix="database-backups/")
+
+        all_keys = []
+        for page in pages:
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                # Only consider actual backup files, not the folder prefix itself
+                if key.endswith(".sql.gz"):
+                    all_keys.append(key)
+
+        if len(all_keys) <= keep:
+            print(f"✔ S3 backup rotation: {len(all_keys)} backup(s) found — nothing to prune (keeping {keep})")
+            return
+
+        # Sort alphabetically on key (timestamp is in filename → lexicographic = chronological)
+        all_keys.sort()
+
+        to_delete = all_keys[: len(all_keys) - keep]
+        objects = [{"Key": k} for k in to_delete]
+
+        s3_client.delete_objects(
+            Bucket=AWS_BUCKET_NAME,
+            Delete={"Objects": objects, "Quiet": True},
+        )
+
+        for k in to_delete:
+            print(f"🗑  Rotated old S3 backup: {k.split('/')[-1]}")
+
+        print(f"✔ S3 rotation complete: kept latest {keep}, deleted {len(to_delete)} old backup(s)")
+    except Exception as exc:
+        # Rotation failure is non-fatal — backup already uploaded successfully
+        print(f"⚠ S3 rotation failed (non-fatal): {exc}")
+
+
+# ─── 5. Main Runner ──────────────────────────────────────────────────────────
 def run_backup():
     now_str = datetime.datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"vahn_db_{now_str}.sql.gz"
@@ -207,19 +250,41 @@ def run_backup():
     # 2. Write local copy
     with open(local_path, "wb") as f:
         f.write(compressed_bytes)
-    
+
     file_size_kb = round(len(compressed_bytes) / 1024, 2)
     print(f"✔ Compressed SQL backup written locally: {local_path} ({file_size_kb} KB)")
 
     # 3. Upload to AWS S3
     if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
-        upload_bytes_to_s3(compressed_bytes, s3_key)
+        try:
+            import boto3
+        except ImportError:
+            subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "boto3"], check=True)
+            import boto3
+
+        s3_client = boto3.client(
+            "s3",
+            region_name=AWS_REGION,
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        )
+
+        s3_client.put_object(
+            Bucket=AWS_BUCKET_NAME,
+            Key=s3_key,
+            Body=compressed_bytes,
+            ContentType="application/gzip",
+            Metadata={"created_at": datetime.datetime.utcnow().isoformat()},
+        )
         print(f"✔ Successfully uploaded backup to AWS S3: s3://{AWS_BUCKET_NAME}/{s3_key}")
         print(f"✔ Location visible in AWS Console under: s3://{AWS_BUCKET_NAME}/database-backups/")
+
+        # 4. Rotate S3 — keep only the latest 3 backups
+        rotate_s3_backups(s3_client, keep=3)
     else:
         print("⚠ AWS S3 credentials not configured; local compressed backup saved.")
 
-    # 4. Clean up local backups older than 7 days
+    # 5. Clean up local backups older than 7 days
     try:
         cutoff = datetime.datetime.now() - datetime.timedelta(days=7)
         for old_file in LOCAL_BACKUP_DIR.glob("vahn_db_*.sql.gz"):
@@ -234,7 +299,7 @@ def run_backup():
         "filename": filename,
         "s3_key": s3_key,
         "size_kb": file_size_kb,
-        "timestamp": now_str
+        "timestamp": now_str,
     }
 
 

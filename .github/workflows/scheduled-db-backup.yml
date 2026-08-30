@@ -46,6 +46,7 @@ jobs:
               <ul style="line-height: 1.6;">
                 <li><strong>Environment:</strong> Production</li>
                 <li><strong>Schedule:</strong> Every 6 Hours</li>
-                <li><strong>Storage:</strong> Amazon S3 (Encrypted & Compressed)</li>
+                <li><strong>Storage:</strong> Amazon S3 (Encrypted &amp; Compressed)</li>
+                <li><strong>Retention:</strong> Latest 3 backups only — older ones are auto-deleted</li>
               </ul>
             </div>
