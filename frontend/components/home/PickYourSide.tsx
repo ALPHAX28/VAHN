@@ -75,10 +75,9 @@ export default function PickYourSide() {
         >
           {/* Real Athlete Image Card 01 — White Jersey */}
           <Image
-            src="/assets/pick-your-side-01.png"
+            src="/assets/pick-your-side-01.webp"
             alt="Pick Your Side — White"
             fill
-            priority
             sizes="(max-width: 768px) 100vw, 50vw"
             className="pick-your-side-img"
             style={{
@@ -145,7 +144,7 @@ export default function PickYourSide() {
         >
           {/* Real Athlete Image Card 02 — Black Jersey */}
           <Image
-            src="/assets/pick-your-side-02.png"
+            src="/assets/pick-your-side-02.webp"
             alt="Pick Your Side — Black"
             fill
             sizes="(max-width: 768px) 100vw, 50vw"

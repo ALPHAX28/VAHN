@@ -30,10 +30,11 @@ export default function HeroSection() {
         }}
       >
         <Image
-          src="/assets/top-banner.png"
+          src="/assets/top-banner.webp"
           alt="THIS IS VAHN"
           fill
           priority
+          quality={90}
           sizes="100vw"
           style={{
             objectFit: 'cover',
