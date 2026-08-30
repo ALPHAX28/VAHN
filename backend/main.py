@@ -2378,6 +2378,29 @@ async def admin_upload_media_direct(
         content = await file.read()
         mime = file.content_type or "application/octet-stream"
         safe_filename = file.filename or "media_asset"
+
+        # Auto-compress raster images to high-res WebP
+        if mime.startswith("image/") and "svg" not in mime and "gif" not in mime:
+            try:
+                import io
+                from PIL import Image
+                img = Image.open(io.BytesIO(content))
+                max_dim = 2560
+                w, h = img.size
+                if w > max_dim or h > max_dim:
+                    ratio = min(max_dim / w, max_dim / h)
+                    img = img.resize((int(w * ratio), int(h * ratio)), Image.Resampling.LANCZOS)
+                out_buf = io.BytesIO()
+                img.save(out_buf, "WEBP", quality=88, method=6)
+                compressed_bytes = out_buf.getvalue()
+                if len(compressed_bytes) < len(content):
+                    content = compressed_bytes
+                    mime = "image/webp"
+                    base_name = os.path.splitext(safe_filename)[0]
+                    safe_filename = f"{base_name}.webp"
+            except Exception as opt_err:
+                print(f"[MEDIA OPTIMIZATION FALLBACK] {opt_err}")
+
         key = storage.generate_key(safe_filename, folder=folder)
         public_url = storage.upload_file_bytes(content, key, mime)
 
