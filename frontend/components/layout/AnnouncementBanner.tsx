@@ -89,7 +89,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
           letterSpacing: '-0.025em',
           textTransform: 'uppercase',
           color: 'rgba(255, 255, 255, 0.9)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
           backgroundColor: '#111111',
           fontFamily: 'var(--font-heading)',
         }}
@@ -110,7 +110,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
         position: 'relative',
         backgroundColor: bg,
         color: textColor,
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
         fontFamily: 'var(--font-heading)',
         fontSize: '0.75rem',
         fontWeight: 600,

@@ -14,7 +14,7 @@ export default function PickYourSide() {
           background: '#111111',
           padding: 'clamp(36px, 6vw, 52px) clamp(16px, 4vw, 24px) clamp(32px, 5vw, 48px)',
           textAlign: 'center',
-          borderBottom: '1px solid #ffffff',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
         }}
       >
         {/* Official VAHN Symbol 'V' Logo in Blue from drive_logos */}
@@ -64,13 +64,7 @@ export default function PickYourSide() {
         <div
           className="pick-your-side-panel"
           style={{
-            position: 'relative',
             background: '#1a1f64',
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            paddingBottom: 'clamp(28px, 4vh, 48px)',
-            overflow: 'hidden',
           }}
         >
           {/* Real Athlete Image Card 01 — White Jersey */}
@@ -80,11 +74,6 @@ export default function PickYourSide() {
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
             className="pick-your-side-img"
-            style={{
-              objectFit: 'cover',
-              objectPosition: 'top center',
-              transition: 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)',
-            }}
           />
 
           {/* Gradient overlay for CTA contrast */}
@@ -92,7 +81,7 @@ export default function PickYourSide() {
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 35%)',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 35%)',
               zIndex: 1,
             }}
             aria-hidden="true"
@@ -133,13 +122,7 @@ export default function PickYourSide() {
         <div
           className="pick-your-side-panel"
           style={{
-            position: 'relative',
             background: '#1a1a66',
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            paddingBottom: 'clamp(28px, 4vh, 48px)',
-            overflow: 'hidden',
           }}
         >
           {/* Real Athlete Image Card 02 — Black Jersey */}
@@ -149,11 +132,6 @@ export default function PickYourSide() {
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
             className="pick-your-side-img"
-            style={{
-              objectFit: 'cover',
-              objectPosition: 'top center',
-              transition: 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)',
-            }}
           />
 
           {/* Gradient overlay for CTA contrast */}
