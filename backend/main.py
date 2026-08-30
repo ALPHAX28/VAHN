@@ -256,8 +256,18 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
 # ---- ENDPOINTS ----
 
 @app.get("/api/health")
-def health_check():
-    return {"status": "ok", "service": "VAHN Backend API", "timestamp": datetime.utcnow().isoformat()}
+def health_check(db: Session = Depends(get_db)):
+    try:
+        db.execute(sqlalchemy.text("SELECT 1"))
+        db_status = "connected"
+    except Exception:
+        db_status = "error"
+    return {
+        "status": "ok",
+        "service": "VAHN Backend API",
+        "timestamp": datetime.utcnow().isoformat(),
+        "database": db_status
+    }
 
 @app.get("/")
 def read_root():

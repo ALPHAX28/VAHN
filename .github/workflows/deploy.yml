@@ -190,6 +190,9 @@ jobs:
               echo "${{ secrets.PROD_ENV_FILE }}" > backend/.env
             fi
 
+            # Optimize Linux VM swappiness for 24/7 hot memory retention
+            sudo sysctl -w vm.swappiness=10 || true
+
             # Deploy production compose stack
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
             sleep 6
@@ -280,6 +283,9 @@ jobs:
             else
               cp backend/.env.dev.example backend/.env.dev
             fi
+
+            # Optimize Linux VM swappiness for 24/7 hot memory retention
+            sudo sysctl -w vm.swappiness=10 || true
 
             # Deploy dev compose stack
             docker compose -f docker-compose.dev.yml up -d --build --remove-orphans

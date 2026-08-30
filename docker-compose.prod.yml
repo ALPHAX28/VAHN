@@ -71,6 +71,25 @@ services:
     networks:
       - vahn-network
 
+  keepalive:
+    image: alpine:3.19
+    container_name: vahn-keepalive-prod
+    restart: always
+    depends_on:
+      - frontend
+      - backend
+    entrypoint: >
+      sh -c "
+        apk add --no-cache curl > /dev/null 2>&1;
+        echo 'VAHN 24/7 Hot Warmup Service Active';
+        while true; do
+          sleep 180;
+          curl -s -o /dev/null http://frontend:3000/api/keep-alive || true;
+        done
+      "
+    networks:
+      - vahn-network
+
 volumes:
   postgres_prod_data:
     name: vahn_db_prod_data
