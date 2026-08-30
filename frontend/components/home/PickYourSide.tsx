@@ -14,7 +14,7 @@ export default function PickYourSide() {
           background: '#111111',
           padding: 'clamp(36px, 6vw, 52px) clamp(16px, 4vw, 24px) clamp(32px, 5vw, 48px)',
           textAlign: 'center',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
+          borderBottom: '1px solid #ffffff',
         }}
       >
         {/* Official VAHN Symbol 'V' Logo in Blue from drive_logos */}

@@ -246,15 +246,14 @@ input, textarea, select {
 .hero-banner-section {
   position: relative;
   width: 100%;
-  height: 85vh;
-  height: 85dvh;
-  min-height: 560px;
-  max-height: 920px;
+  height: calc(100vh - 96px);
+  height: calc(100dvh - 96px);
+  min-height: calc(100vh - 96px);
   overflow: hidden;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 60px;
+  padding-bottom: clamp(40px, 6vh, 80px);
   background-color: #111111;
 }
 
@@ -360,7 +359,7 @@ input, textarea, select {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1px;
-  background: rgba(255, 255, 255, 0.15);
+  background: #ffffff;
   height: 92vh;
   height: 92dvh;
   min-height: 600px;
@@ -397,7 +396,7 @@ input, textarea, select {
     height: auto !important;
     max-height: none !important;
     gap: 1px !important;
-    background: rgba(255, 255, 255, 0.15) !important;
+    background: #ffffff !important;
   }
   .pick-your-side-panel {
     height: auto !important;
