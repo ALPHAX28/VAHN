@@ -256,17 +256,26 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
 # ---- ENDPOINTS ----
 
 @app.get("/api/health")
-def health_check(db: Session = Depends(get_db)):
-    try:
-        db.execute(sqlalchemy.text("SELECT 1"))
-        db_status = "connected"
-    except Exception:
-        db_status = "error"
+def health_check():
     return {
         "status": "ok",
         "service": "VAHN Backend API",
-        "timestamp": datetime.utcnow().isoformat(),
-        "database": db_status
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@app.get("/api/keep-alive")
+def keep_alive_warmup(db: Session = Depends(get_db)):
+    try:
+        db.execute(sqlalchemy.text("SELECT 1"))
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    return {
+        "status": "ok",
+        "service": "VAHN Backend API",
+        "warmed": True,
+        "database": db_status,
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 @app.get("/")

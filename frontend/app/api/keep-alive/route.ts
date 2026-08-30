@@ -10,13 +10,13 @@ export async function GET() {
       : 'http://backend:8000/api');
 
   const base = backendUrl.replace(/\/+$/, '');
-  const healthUrl = `${base}/health`;
+  const keepAliveUrl = `${base}/keep-alive`;
   const productsUrl = `${base}/products`;
 
   try {
-    // Parallel warmup: ping health (DB connection) and products (query & model caching)
-    const [healthRes, productsRes] = await Promise.allSettled([
-      fetch(healthUrl, {
+    // Parallel warmup: ping backend keep-alive (DB SELECT 1) and products (query & model caching)
+    const [keepAliveRes, productsRes] = await Promise.allSettled([
+      fetch(keepAliveUrl, {
         method: 'GET',
         headers: { 'Cache-Control': 'no-cache' },
         next: { revalidate: 0 },
@@ -28,14 +28,14 @@ export async function GET() {
       }),
     ]);
 
-    const isHealthOk = healthRes.status === 'fulfilled' && healthRes.value.ok;
+    const isKeepAliveOk = keepAliveRes.status === 'fulfilled' && keepAliveRes.value.ok;
     const isProductsOk = productsRes.status === 'fulfilled' && productsRes.value.ok;
 
     return NextResponse.json({
       status: 'ok',
       warmed: true,
       timestamp: new Date().toISOString(),
-      health_status: isHealthOk ? 200 : 500,
+      backend_keepalive: isKeepAliveOk ? 200 : 500,
       products_warmed: isProductsOk,
     });
   } catch (error: unknown) {
