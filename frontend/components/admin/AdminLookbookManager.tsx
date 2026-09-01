@@ -9,7 +9,7 @@ export interface LookbookItem {
   imageUrl: string;
   file?: File;
   title: string;
-  description: string;
+  description?: string;
 }
 
 /**
@@ -83,7 +83,7 @@ export default function AdminLookbookManager({
     setImageUrl(item.imageUrl);
     setSelectedFile(item.file || null);
     setTitle(item.title);
-    setDescription(item.description);
+    setDescription(item.description || "");
     setFormError("");
     setModalOpen(true);
   }
@@ -114,10 +114,6 @@ export default function AdminLookbookManager({
     }
     if (!trimmedTitle) {
       setFormError("Please provide a title (e.g. 'The Weekend Daily').");
-      return;
-    }
-    if (!trimmedDesc) {
-      setFormError("Please provide a description / styling notes (e.g. 'Wide-leg denim, cotton tee, tote bag').");
       return;
     }
 
@@ -655,17 +651,16 @@ export default function AdminLookbookManager({
               {/* Description */}
               <div className="admin-form-group" style={{ marginBottom: "20px" }}>
                 <label className="admin-form-label" style={{ fontWeight: 600 }}>
-                  Styling Description *
+                  Styling Description <span style={{ fontWeight: 400, color: "#667085", fontSize: "0.85em" }}>(Optional)</span>
                 </label>
                 <textarea
                   className="admin-form-input"
                   rows={3}
-                  placeholder="e.g. Wide-leg denim, cotton tee, tote bag"
+                  placeholder="e.g. Wide-leg denim, cotton tee, tote bag (optional)"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   maxLength={300}
                   style={{ resize: "vertical", minHeight: "70px" }}
-                  required
                 />
                 <div style={{ fontSize: "0.72rem", color: "#98a2b3", textAlign: "right", marginTop: "2px" }}>
                   {description.length}/300

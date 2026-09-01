@@ -86,7 +86,7 @@ export interface LookbookItem {
   id: string;
   imageUrl: string;
   title: string;
-  description: string;
+  description?: string;
 }
 
 export interface Review {

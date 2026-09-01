@@ -54,7 +54,7 @@ export interface AdminProductDetail extends AdminProductSummary {
   options: Array<{ id: string; name: string; values: string[] }>;
   featured_image_alt: string | null;
   images: Array<{ url: string; altText?: string }>;
-  lookbook: Array<{ id: string; imageUrl: string; title: string; description: string }>;
+  lookbook: Array<{ id: string; imageUrl: string; title: string; description?: string }>;
   variants: AdminVariant[];
   colour_groups: ColourGroup[];
   size_guide_type_ids?: number[];

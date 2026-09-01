@@ -24,7 +24,7 @@ class LookbookSchema(BaseModel):
     id: str
     imageUrl: str
     title: str
-    description: str
+    description: Optional[str] = ""
 
 class ReviewSchema(BaseModel):
     id: str
@@ -655,7 +655,7 @@ class LookbookItemInput(BaseModel):
     id: str
     imageUrl: str
     title: str
-    description: str
+    description: Optional[str] = ""
 
 class ProductOptionInput(BaseModel):
     id: str
