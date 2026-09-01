@@ -612,6 +612,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                                     letterSpacing: '-0.025em',
                                     padding: 0,
                                     position: 'relative',
+                                    overflow: 'hidden',
                                     opacity: isOutOfStock ? 0.45 : 1,
                                   }
                                 : {}
@@ -639,14 +640,30 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                               </span>
                             )}
 
-                            {/* Out-of-stock diagonal line for size buttons */}
+                            {/* Out-of-stock diagonal strike across size box */}
                             {isOutOfStock && !isColour && (
-                              <span className="size-oos-overlay" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                  <line x1="18" y1="6" x2="6" y2="18" />
-                                  <line x1="6" y1="6" x2="18" y2="18" />
-                                </svg>
-                              </span>
+                              <svg
+                                aria-hidden="true"
+                                style={{
+                                  position: 'absolute',
+                                  inset: 0,
+                                  width: '100%',
+                                  height: '100%',
+                                  pointerEvents: 'none',
+                                }}
+                                viewBox="0 0 100 100"
+                                preserveAspectRatio="none"
+                              >
+                                <line
+                                  x1="0"
+                                  y1="100"
+                                  x2="100"
+                                  y2="0"
+                                  stroke="currentColor"
+                                  strokeWidth="1.2"
+                                  vectorEffect="non-scaling-stroke"
+                                />
+                              </svg>
                             )}
                           </button>
                         </div>

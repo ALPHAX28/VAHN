@@ -1813,23 +1813,9 @@ input, textarea, select {
 }
 
 .variant-option.out-of-stock {
-  opacity: 0.45;
   cursor: not-allowed;
   position: relative;
   text-decoration: none;
-}
-
-/* X overlay for out-of-stock sizes */
-.size-oos-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.35);
-  border-radius: inherit;
-  color: #555;
-  pointer-events: none;
 }
 
 /* Wrapper to keep size pill + optional label in column */
@@ -6703,30 +6689,28 @@ input, textarea, select {
   margin-left: 6px;
 }
 
-/* ---- Blurred & Crossed Out Out-of-Stock Size Buttons ---- */
+/* ---- Disabled / Out-of-Stock Size & Variant Buttons ---- */
 .variant-option.out-of-stock,
-.variant-option.unavailable {
-  opacity: 0.35 !important;
-  filter: grayscale(100%) blur(0.5px) !important;
-  background: #f5f5f7 !important;
-  color: #888888 !important;
-  border-color: #e0e0e0 !important;
+.variant-option.unavailable,
+.variant-option[disabled] {
+  opacity: 0.55 !important;
+  filter: none !important;
+  background: #f1f2f4 !important;
+  color: #9ca3af !important;
+  border: 1px solid #e5e7eb !important;
   cursor: not-allowed !important;
+  pointer-events: auto !important;
   position: relative;
   overflow: hidden;
 }
 
-.variant-option.out-of-stock::after,
-.variant-option.unavailable::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: -10%;
-  width: 120%;
-  height: 1.5px;
-  background: #d32f2f;
-  transform: rotate(-35deg);
-  pointer-events: none;
+.variant-option.out-of-stock:hover,
+.variant-option.unavailable:hover,
+.variant-option[disabled]:hover {
+  cursor: not-allowed !important;
+  background: #f1f2f4 !important;
+  color: #9ca3af !important;
+  border-color: #e5e7eb !important;
 }
 
 /* ============================================================
