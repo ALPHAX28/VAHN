@@ -148,7 +148,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                 ? 'rgba(255,255,255,0.18)'
                 : 'rgba(255,255,255,0.07)',
               border: 'none',
-              borderRadius: '2px',
+              borderRadius: '0px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -193,7 +193,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                 ? 'rgba(255,255,255,0.18)'
                 : 'rgba(255,255,255,0.07)',
               border: 'none',
-              borderRadius: '2px',
+              borderRadius: '0px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -258,7 +258,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                   maxHeight: '520px',
                   overflow: 'hidden',
                   background: '#111',
-                  borderRadius: '2px',
+                  borderRadius: '0px',
                 }}
               >
                 {/* Product image — wrapped for zoom-on-hover */}
