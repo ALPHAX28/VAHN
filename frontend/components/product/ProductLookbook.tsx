@@ -61,25 +61,45 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
         paddingBottom: '52px',
       }}
     >
-      {/* ── Scrollbar hide for Webkit + image zoom on hover ── */}
+      {/* ── Scrollbar hide for Webkit + responsive header ── */}
       <style>{`
         .vahn-lookbook-track::-webkit-scrollbar { display: none; }
-        .vahn-lookbook-img { position: absolute; inset: 0; transition: transform 0.55s ease; }
-        .vahn-lookbook-card:hover .vahn-lookbook-img { transform: scale(1.05); }
+        .vahn-lookbook-img { position: absolute; inset: 0; }
+        .vahn-lookbook-header {
+          text-align: center;
+          padding: 36px 16px 28px;
+        }
+        .vahn-lookbook-subtext {
+          margin: 0 auto;
+          font-family: 'Lora', Georgia, serif;
+          font-style: normal;
+          font-weight: 400;
+          font-size: 12px;
+          color: #FFFFFF;
+          line-height: 1.5;
+          max-width: 92%;
+          letter-spacing: 0.035em;
+          white-space: normal;
+        }
+        @media (min-width: 768px) {
+          .vahn-lookbook-header {
+            padding: 52px 24px 40px;
+          }
+          .vahn-lookbook-subtext {
+            font-size: clamp(11px, 0.85vw, 13px);
+            white-space: nowrap;
+            max-width: 850px;
+          }
+        }
       `}</style>
 
       {/* ── Header Block ── */}
-      <div
-        style={{
-          textAlign: 'center',
-          padding: '52px 24px 40px',
-        }}
-      >
+      <div className="vahn-lookbook-header">
         {/* Eyebrow label */}
         <p
           style={{
             margin: '0 0 14px',
-            fontFamily: "'HankenGrotesk', 'Inter', sans-serif",
+            fontFamily: "'Hanken Grotesk', 'Inter', sans-serif",
             fontWeight: 400,
             fontSize: '11px',
             letterSpacing: '-0.025em',
@@ -94,10 +114,10 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
         {/* Main Title */}
         <h2
           style={{
-            margin: '0 0 18px',
-            fontFamily: "'HankenGrotesk', 'Inter', sans-serif",
-            fontWeight: 900,
-            fontSize: 'clamp(1.25rem, 2.8vw, 2rem)',
+            margin: '0 0 12px',
+            fontFamily: "'Hanken Grotesk', 'Inter', sans-serif",
+            fontWeight: 700,
+            fontSize: 'clamp(1.15rem, 2.8vw, 2rem)',
             letterSpacing: '-0.025em',
             textTransform: 'uppercase',
             color: '#FFFFFF',
@@ -107,21 +127,8 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
           Every Choice, Deliberate.
         </h2>
 
-        {/* Subtitle — Lora, white, single line */}
-        <p
-          style={{
-            margin: '0 auto',
-            fontFamily: "'Lora', Georgia, serif",
-            fontStyle: 'normal',
-            fontWeight: 400,
-            fontSize: 'clamp(11px, 0.85vw, 13px)',
-            color: '#FFFFFF',
-            lineHeight: 1.5,
-            maxWidth: '700px',
-            letterSpacing: '-0.025em',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        {/* Subtitle — Lora, white, responsive wrap on mobile / single line on desktop */}
+        <p className="vahn-lookbook-subtext">
           Where the fabric breathes, how the crest sits, why the piece fits the way it does.
         </p>
       </div>
@@ -272,18 +279,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                   />
                 </div>
 
-                {/* Bottom gradient for readability */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.15) 45%, transparent 70%)',
-                    pointerEvents: 'none',
-                    zIndex: 1,
-                  }}
-                />
-
-                {/* Caption — bottom-centered like PDF */}
+                {/* Caption — bottom-centered */}
                 <div
                   style={{
                     position: 'absolute',
@@ -297,13 +293,13 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                 >
                   <p
                     style={{
-                      margin: item.description ? '0 0 5px' : '0',
-                      fontFamily: "'Lora', Georgia, serif",
+                      margin: item.description ? '0 0 6px' : '0',
+                      fontFamily: "'Hanken Grotesk', 'Inter', sans-serif",
                       fontWeight: 400,
-                      fontSize: 'clamp(13px, 1.2vw, 17px)',
+                      fontSize: 'clamp(17px, 1.65vw, 23px)',
                       color: '#FFFFFF',
-                      lineHeight: 1.35,
-                      letterSpacing: '0.005em',
+                      lineHeight: 1.25,
+                      letterSpacing: '-0.02em',
                     }}
                   >
                     {item.title}
@@ -312,13 +308,13 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                     <p
                       style={{
                         margin: 0,
-                        fontFamily: "'HankenGrotesk', 'Inter', sans-serif",
+                        fontFamily: "'Lora', Georgia, serif",
                         fontWeight: 400,
-                        fontSize: 'clamp(10px, 0.85vw, 12px)',
-                        color: 'rgba(255,255,255,0.60)',
-                        lineHeight: 1.5,
-                        letterSpacing: '0.02em',
-                        textTransform: 'uppercase',
+                        fontStyle: 'normal',
+                        fontSize: 'clamp(12px, 0.95vw, 14px)',
+                        color: 'rgba(255,255,255,0.75)',
+                        lineHeight: 1.45,
+                        letterSpacing: '0.01em',
                       }}
                     >
                       {item.description}
