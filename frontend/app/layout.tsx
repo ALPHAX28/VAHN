@@ -5,6 +5,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import StoreLayoutShell from '@/components/layout/StoreLayoutShell';
 
 import ClientWarmup from '@/components/layout/ClientWarmup';
+import ScrollToTop from '@/components/layout/ScrollToTop';
 
 export const metadata: Metadata = {
   title: { default: 'VAHN — Bespoke Teamwear', template: '%s | VAHN' },
@@ -35,6 +36,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <ClientWarmup />
+        <ScrollToTop />
         <AuthProvider>
           <CartProvider>
             <StoreLayoutShell>{children}</StoreLayoutShell>
