@@ -1,10 +1,112 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import type { Product } from '@/lib/api/types';
 
-export default function PickYourSide() {
+interface PickYourSideProps {
+  products?: Product[];
+}
+
+export default function PickYourSide({ products = [] }: PickYourSideProps) {
   const BRAND_BLUE = '#4232d9';
+
+  // 1. Identify the exact featured product:
+  // - Priority 1: Product explicitly tagged with 'pick-your-side'
+  // - Priority 2: Product whose handle or title contains 'jersey'
+  // - Priority 3: First available product as a safe fallback
+  const featuredProduct = useMemo(() => {
+    if (!products || products.length === 0) return null;
+    return (
+      products.find((p) =>
+        p.tags?.some((t) => t.toLowerCase().trim() === 'pick-your-side')
+      ) ||
+      products.find((p) =>
+        p.handle.toLowerCase().includes('jersey') || p.title.toLowerCase().includes('jersey')
+      ) ||
+      products[0]
+    );
+  }, [products]);
+
+  // 2. Resolve the exact colours for Left (White) and Right (Black) cards from THAT product's colour groups
+  const { leftColour, rightColour } = useMemo(() => {
+    if (!featuredProduct) return { leftColour: '', rightColour: '' };
+
+    // Support optional tag-based custom colour overrides: e.g. "pick-your-side:White:Black"
+    const customTag = featuredProduct.tags?.find((t) =>
+      t.toLowerCase().startsWith('pick-your-side:')
+    );
+    if (customTag) {
+      const parts = customTag.split(':');
+      if (parts.length >= 3) {
+        return { leftColour: parts[1].trim(), rightColour: parts[2].trim() };
+      }
+    }
+
+    // Collect all unique colour values from the product's colour groups
+    const colourList: string[] = [];
+    if (featuredProduct.colourGroups && featuredProduct.colourGroups.length > 0) {
+      featuredProduct.colourGroups.forEach((cg) => {
+        const val = cg.colourValue?.trim();
+        if (val && !colourList.includes(val)) colourList.push(val);
+      });
+    }
+
+    // Fallback to variant selected options if colourGroups is empty
+    if (colourList.length === 0 && featuredProduct.variants?.edges) {
+      featuredProduct.variants.edges.forEach((e) => {
+        const opt = e.node.selectedOptions?.find(
+          (o) => o.name.toLowerCase() === 'colour' || o.name.toLowerCase() === 'color'
+        );
+        if (opt?.value?.trim() && !colourList.includes(opt.value.trim())) {
+          colourList.push(opt.value.trim());
+        }
+      });
+    }
+
+    // Left Panel (Athlete in White / Light / Grey jersey):
+    // Match 'white', 'light', 'cream', 'home', 'grey', 'gray' or default to 1st colour
+    const whiteMatch = colourList.find((c) => {
+      const lower = c.toLowerCase();
+      return (
+        lower.includes('white') ||
+        lower.includes('light') ||
+        lower.includes('cream') ||
+        lower.includes('home') ||
+        lower.includes('grey') ||
+        lower.includes('gray')
+      );
+    });
+    const left = whiteMatch || colourList[0] || 'White';
+
+    // Right Panel (Athlete in Black jersey):
+    // Must pick a different colour from Left if multiple colours exist.
+    // Match 'black', 'dark', 'navy', 'blue', 'away' or default to next available colour
+    const remainingColours = colourList.filter((c) => c.toLowerCase() !== left.toLowerCase());
+    const blackMatch = remainingColours.find((c) => {
+      const lower = c.toLowerCase();
+      return (
+        lower.includes('black') ||
+        lower.includes('dark') ||
+        lower.includes('navy') ||
+        lower.includes('blue') ||
+        lower.includes('away')
+      );
+    });
+    const right = blackMatch || remainingColours[0] || colourList[1] || 'Black';
+
+    return { leftColour: left, rightColour: right };
+  }, [featuredProduct]);
+
+  // Construct dynamic product URLs with ?colour query param
+  const leftHref = featuredProduct
+    ? `/products/${featuredProduct.handle}${leftColour ? `?colour=${encodeURIComponent(leftColour)}` : ''}`
+    : '/products';
+
+  const rightHref = featuredProduct
+    ? `/products/${featuredProduct.handle}${rightColour ? `?colour=${encodeURIComponent(rightColour)}` : ''}`
+    : '/products';
 
   return (
     <section style={{ background: '#fff' }}>
@@ -89,7 +191,7 @@ export default function PickYourSide() {
 
           {/* BUY NOW button */}
           <Link
-            href="/products"
+            href={leftHref}
             style={{
               position: 'relative',
               zIndex: 2,
@@ -147,7 +249,7 @@ export default function PickYourSide() {
 
           {/* BUY NOW button */}
           <Link
-            href="/products"
+            href={rightHref}
             style={{
               position: 'relative',
               zIndex: 2,

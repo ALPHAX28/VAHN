@@ -33,7 +33,7 @@ export default async function HomePage() {
       <FreshOutLocker products={products} />
 
       {/* 3. Pick Your Side — dark strip + two blue athlete panels */}
-      <PickYourSide />
+      <PickYourSide products={products} />
 
       {/* 4. Video Section — full-width video/placeholder */}
       <VideoSection />
