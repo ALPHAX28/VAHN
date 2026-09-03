@@ -308,7 +308,7 @@ input, textarea, select {
 .hero-banner-btn {
   display: inline-block;
   background: #4232d9;
-  color: #ffffff;
+  color: #ffffff !important;
   font-family: var(--font-body);
   font-style: normal;
   font-size: 0.875rem;
@@ -319,8 +319,11 @@ input, textarea, select {
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
-.hero-banner-btn:hover {
+.hero-banner-btn:hover,
+.hero-banner-btn:focus,
+.hero-banner-btn:active {
   background-color: #3425b8;
+  color: #ffffff !important;
 }
 
 @media (max-width: 768px) {
