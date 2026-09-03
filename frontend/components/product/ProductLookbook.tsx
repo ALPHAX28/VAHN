@@ -279,47 +279,74 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                   />
                 </div>
 
-                {/* Caption — bottom-centered */}
+                {/* Caption — fixed-height layout so titles and descriptions always align across 1, 2, and 3-line content */}
                 <div
                   style={{
                     position: 'absolute',
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    padding: '18px 20px 22px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    padding: '36px 20px 22px',
                     textAlign: 'center',
                     zIndex: 2,
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.52) 65%, transparent 100%)',
+                    pointerEvents: 'none',
                   }}
                 >
                   <p
                     style={{
-                      margin: item.description ? '0 0 6px' : '0',
+                      margin: '0 0 6px',
                       fontFamily: "'Hanken Grotesk', 'Inter', sans-serif",
                       fontWeight: 400,
-                      fontSize: 'clamp(17px, 1.65vw, 23px)',
+                      fontSize: 'clamp(15px, 1.45vw, 21px)',
                       color: '#FFFFFF',
                       lineHeight: 1.25,
                       letterSpacing: '-0.02em',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
                     }}
                   >
                     {item.title}
                   </p>
-                  {item.description && (
+
+                  {/* Fixed 3-line slot: regardless of whether description has 1, 2, or 3 lines, the container height is identical so all titles and text align */}
+                  <div
+                    style={{
+                      width: '100%',
+                      fontSize: 'clamp(11px, 0.88vw, 13px)',
+                      lineHeight: 1.5,
+                      height: 'calc(1.5em * 3)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-start',
+                      alignItems: 'center',
+                    }}
+                  >
                     <p
                       style={{
                         margin: 0,
                         fontFamily: "'Lora', Georgia, serif",
                         fontWeight: 400,
                         fontStyle: 'normal',
-                        fontSize: 'clamp(12px, 0.95vw, 14px)',
-                        color: 'rgba(255,255,255,0.75)',
-                        lineHeight: 1.45,
+                        fontSize: 'inherit',
+                        lineHeight: 1.5,
+                        color: item.description ? 'rgba(255,255,255,0.75)' : 'transparent',
                         letterSpacing: '0.01em',
+                        overflow: 'hidden',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        textAlign: 'center',
                       }}
                     >
-                      {item.description}
+                      {item.description || '\u00a0'}
                     </p>
-                  )}
+                  </div>
                 </div>
               </div>
             );
