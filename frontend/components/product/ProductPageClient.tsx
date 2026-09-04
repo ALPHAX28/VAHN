@@ -103,15 +103,17 @@ function ProductPageClientInner({ product, defaultImages }: Props) {
     [product.colourGroups, defaultImages]
   );
 
-  // Dynamically resolve Lookbook cards matching the selected colour, falling back to product lookbook
+  // Dynamically resolve Lookbook cards matching the selected colour:
+  // If product has colour groups, strictly use that colour's cards (never leak to other colours).
+  // Only products with NO colour groups use product.lookbook.
   const currentLookbook = useMemo(() => {
-    if (selectedColour && product.colourGroups?.length) {
-      const group = product.colourGroups.find(
-        (cg) => cg.colourValue.trim().toLowerCase() === selectedColour.trim().toLowerCase()
-      );
-      if (group?.lookbook && group.lookbook.length > 0) {
-        return group.lookbook;
-      }
+    if (product.colourGroups && product.colourGroups.length > 0) {
+      const group = selectedColour
+        ? product.colourGroups.find(
+            (cg) => cg.colourValue.trim().toLowerCase() === selectedColour.trim().toLowerCase()
+          )
+        : product.colourGroups[0];
+      return group?.lookbook || [];
     }
     return product.lookbook || [];
   }, [selectedColour, product.colourGroups, product.lookbook]);
@@ -147,10 +149,9 @@ export default function ProductPageClient(props: Props) {
           height: 800,
         }))
       : props.defaultImages;
-  const fallbackLookbook =
-    fallbackColourGroup?.lookbook && fallbackColourGroup.lookbook.length > 0
-      ? fallbackColourGroup.lookbook
-      : props.product.lookbook || [];
+  const fallbackLookbook = fallbackColourGroup
+    ? fallbackColourGroup.lookbook || []
+    : props.product.lookbook || [];
 
   return (
     <Suspense

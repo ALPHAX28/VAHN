@@ -178,21 +178,30 @@ export default function AdminProductDetailPage() {
       });
 
       setEditSizeFitInput(extractBullets(p.description_html || ""));
+      const hasAnyGroupLookbook = (p.colour_groups || []).some(g => g.lookbook && g.lookbook.length > 0);
+      const legacyLookbook = p.lookbook || [];
+
       setLocalGroups(
-        (p.colour_groups || []).map(g => ({
-          ...g,
-          images: (g.images || []).map((img, i) => ({
-            url: img.url,
-            key: img.url,
-            name: `${g.colour_value} ${i + 1}`,
-          })),
-          lookbook: (g.lookbook || []).map(lb => ({
-            id: String(lb.id),
-            imageUrl: lb.imageUrl,
-            title: lb.title,
-            description: lb.description || "",
-          }))
-        }))
+        (p.colour_groups || []).map((g, idx) => {
+          let groupLookbook = g.lookbook || [];
+          if (!hasAnyGroupLookbook && idx === 0 && legacyLookbook.length > 0) {
+            groupLookbook = legacyLookbook;
+          }
+          return {
+            ...g,
+            images: (g.images || []).map((img, i) => ({
+              url: img.url,
+              key: img.url,
+              name: `${g.colour_value} ${i + 1}`,
+            })),
+            lookbook: groupLookbook.map(lb => ({
+              id: String(lb.id),
+              imageUrl: lb.imageUrl,
+              title: lb.title,
+              description: lb.description || "",
+            }))
+          };
+        })
       );
       setDeletedGroupIds(new Set());
       setLocalGallery((p.images || []).map((img, i) => ({ url: img.url, key: img.url, name: `Image ${i + 1}` })));
