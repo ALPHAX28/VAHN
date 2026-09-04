@@ -19,12 +19,12 @@ function DiagramSVG() {
     <svg viewBox="0 0 200 240" width="100%" height="100%" style={{ maxWidth: 180 }}>
       <path d="M 60 40 L 40 48 L 20 80 L 45 92 L 55 75 L 55 210 L 145 210 L 145 75 L 155 92 L 180 80 L 160 48 L 140 40 C 130 52 110 52 100 52 C 90 52 70 52 60 40 Z" fill="none" stroke="#000" strokeWidth="2.5" strokeLinejoin="round" />
       <path d="M 60 40 C 70 52 90 52 100 52 C 110 52 130 52 140 40" fill="none" stroke="#000" strokeWidth="1.5" />
-      <line x1="55" y1="120" x2="145" y2="120" stroke="#a42325" strokeWidth="2" strokeDasharray="4,4" />
-      <text x="100" y="112" textAnchor="middle" fill="#a42325" fontSize="9" fontWeight="bold">A: CHEST</text>
-      <line x1="100" y1="52" x2="100" y2="210" stroke="#a42325" strokeWidth="2" strokeDasharray="4,4" />
-      <text x="94" y="140" textAnchor="end" fill="#a42325" fontSize="9" fontWeight="bold" transform="rotate(-90 94 140)">B: LENGTH</text>
-      <line x1="140" y1="40" x2="180" y2="80" stroke="#a42325" strokeWidth="2" strokeDasharray="4,4" />
-      <text x="148" y="53" fill="#a42325" fontSize="8" fontWeight="bold">C: SLEEVE</text>
+      <line x1="55" y1="120" x2="145" y2="120" stroke="#4232d9" strokeWidth="2" strokeDasharray="4,4" />
+      <text x="100" y="112" textAnchor="middle" fill="#4232d9" fontSize="9" fontWeight="bold">A: CHEST</text>
+      <line x1="100" y1="52" x2="100" y2="210" stroke="#4232d9" strokeWidth="2" strokeDasharray="4,4" />
+      <text x="94" y="140" textAnchor="end" fill="#4232d9" fontSize="9" fontWeight="bold" transform="rotate(-90 94 140)">B: LENGTH</text>
+      <line x1="140" y1="40" x2="180" y2="80" stroke="#4232d9" strokeWidth="2" strokeDasharray="4,4" />
+      <text x="148" y="53" fill="#4232d9" fontSize="8" fontWeight="bold">C: SLEEVE</text>
     </svg>
   );
 }

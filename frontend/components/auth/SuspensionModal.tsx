@@ -141,6 +141,8 @@ export default function SuspensionModal({ isOpen, message, onClose, noticeType }
               fontWeight: 900, cursor: "pointer", textTransform: "uppercase",
               letterSpacing: '-0.025em', transition: "background 0.15s"
             }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#4232d9")}
+            onMouseLeave={e => (e.currentTarget.style.background = "#000000")}
           >
             Understood — Return to Shop &rarr;
           </button>

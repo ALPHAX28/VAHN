@@ -43,7 +43,7 @@ export default function CollectionFilters({ filters }: Props) {
                     type="checkbox"
                     checked={isChecked}
                     onChange={(e) => handleFilterChange(`filter.${filter.id}`, value.input, e.target.checked)}
-                    style={{ accentColor: 'var(--color-maroon)' }}
+                    style={{ accentColor: '#4232d9' }}
                   />
                   <span>{value.label}</span>
                   <span style={{ color: 'var(--color-grey-dark)', fontSize: '0.75rem' }}>({value.count})</span>

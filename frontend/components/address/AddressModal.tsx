@@ -770,6 +770,8 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
                     cursor: loading ? "not-allowed" : "pointer",
                     textTransform: "uppercase", letterSpacing: '-0.025em', transition: "background 0.2s"
                   }}
+                  onMouseEnter={e => { if (!loading) e.currentTarget.style.background = "#4232d9"; }}
+                  onMouseLeave={e => { if (!loading) e.currentTarget.style.background = "#000"; }}
                 >
                   {loading ? "Saving..." : initialAddress ? "Update Address →" : "Save Address →"}
                 </button>

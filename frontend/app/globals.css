@@ -43,8 +43,10 @@
   /* Brand Colors */
   --color-maroon: #a42325;
   --color-maroon-dark: #780406;
-  --color-navy: #3a3699;
-  --color-navy-light: #4a46b0;
+  --color-navy: #4232d9;
+  --color-navy-light: #5345e8;
+  --color-brand-blue: #4232d9;
+  --color-brand-blue-hover: #3425b8;
   --color-black: #000000;
   --color-white: #ffffff;
   --color-grey-light: #f1f1f1;
@@ -960,7 +962,7 @@ input, textarea, select {
   position: absolute;
   top: 2px;
   right: 2px;
-  background: var(--color-maroon);
+  background: #4232d9;
   color: var(--color-white);
   font-size: 0.625rem;
   font-weight: 700;
@@ -1304,7 +1306,7 @@ input, textarea, select {
   transition: color var(--transition-fast);
 }
 
-.footer-menu a:hover { color: var(--color-maroon); }
+.footer-menu a:hover { color: #4232d9; }
 
 .footer-newsletter h5 {
   font-family: var(--font-ui);
@@ -1345,7 +1347,7 @@ input, textarea, select {
   transition: color var(--transition-fast);
 }
 
-.footer-newsletter-form button:hover { color: var(--color-maroon); }
+.footer-newsletter-form button:hover { color: #4232d9; }
 
 .footer-bar {
   background: linear-gradient(180deg, #0c0d12 0%, #06070a 100%);
@@ -1377,7 +1379,7 @@ input, textarea, select {
 }
 
 .footer-bar .footer-motto {
-  color: var(--color-maroon) !important;
+  color: #4232d9 !important;
   font-weight: 700 !important;
 }
 
@@ -1473,7 +1475,7 @@ input, textarea, select {
   transition: color var(--transition-fast);
 }
 
-.search-result-item:hover { color: var(--color-maroon); }
+.search-result-item:hover { color: #4232d9; }
 
 .search-result-img {
   width: 48px;
@@ -1953,7 +1955,7 @@ input, textarea, select {
   transition: color var(--transition-fast);
 }
 
-.faq-question:hover { color: var(--color-maroon); }
+.faq-question:hover { color: #4232d9; }
 
 .faq-question svg { flex-shrink: 0; transition: transform var(--transition-mid); }
 .faq-item.open .faq-question svg { transform: rotate(45deg); }
@@ -2013,7 +2015,7 @@ input, textarea, select {
   width: 24px;
   height: 24px;
   border: 2px solid var(--color-border);
-  border-top-color: var(--color-maroon);
+  border-top-color: #4232d9;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -2133,7 +2135,7 @@ input, textarea, select {
 .marquee {
   overflow: hidden;
   white-space: nowrap;
-  background: var(--color-maroon);
+  background: #111111;
   color: var(--color-white);
   padding: 12px 0;
 }
@@ -2746,7 +2748,8 @@ input, textarea, select {
 }
 
 .review-form-submit-btn:hover {
-  background-color: var(--color-maroon) !important;
+  background-color: #4232d9 !important;
+  border-color: #4232d9 !important;
 }
 
 .review-form-cancel-btn {
@@ -3288,7 +3291,7 @@ input, textarea, select {
 }
 
 .footer-socials-row a:hover {
-  color: var(--color-maroon);
+  color: #4232d9;
 }
 
 /* Closing animation assignments */
@@ -3936,7 +3939,7 @@ input, textarea, select {
 
 .user-dropdown-item:hover {
   background: var(--color-grey-light);
-  color: var(--color-maroon);
+  color: #4232d9;
 }
 
 .user-dropdown-item.logout-btn:hover {
@@ -4125,8 +4128,8 @@ input, textarea, select {
 }
 
 .auth-submit-btn:hover:not(:disabled) {
-  background: var(--color-maroon);
-  border-color: var(--color-maroon);
+  background: #4232d9;
+  border-color: #4232d9;
 }
 
 .auth-submit-btn:disabled {
@@ -4213,7 +4216,7 @@ input, textarea, select {
 }
 
 .auth-resend-btn:hover {
-  color: var(--color-maroon);
+  color: #4232d9;
 }
 
 /* ── New phone-OTP auth modal styles ───────────────────── */

@@ -994,15 +994,15 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                           fill="none" stroke="var(--color-black)" strokeWidth="2.5" strokeLinejoin="round"
                         />
                         <path d="M 60 40 C 70 52 90 52 100 52 C 110 52 130 52 140 40" fill="none" stroke="var(--color-black)" strokeWidth="1.5" />
-                        <line x1="55" y1="120" x2="145" y2="120" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
-                        <path d="M 55 120 L 60 116 M 55 120 L 60 124 M 145 120 L 140 116 M 145 120 L 140 124" stroke="var(--color-maroon)" strokeWidth="1.5" />
-                        <text x="100" y="112" textAnchor="middle" fill="var(--color-maroon)" fontSize="10" fontWeight="bold">A: CHEST</text>
-                        <line x1="100" y1="52" x2="100" y2="210" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
-                        <path d="M 100 52 L 96 57 M 100 52 L 104 57 M 100 210 L 96 205 M 100 210 L 104 205" stroke="var(--color-maroon)" strokeWidth="1.5" />
-                        <text x="94" y="140" textAnchor="end" fill="var(--color-maroon)" fontSize="10" fontWeight="bold" transform="rotate(-90 94 140)">B: LENGTH</text>
-                        <line x1="140" y1="40" x2="180" y2="80" stroke="var(--color-maroon)" strokeWidth="2" strokeDasharray="4,4" />
-                        <path d="M 140 40 L 146 42 M 140 40 L 141 46 M 180 80 L 174 78 M 180 80 L 179 74" stroke="var(--color-maroon)" strokeWidth="1.5" />
-                        <text x="150" y="55" fill="var(--color-maroon)" fontSize="9" fontWeight="bold">C: SLEEVE</text>
+                        <line x1="55" y1="120" x2="145" y2="120" stroke="#4232d9" strokeWidth="2" strokeDasharray="4,4" />
+                        <path d="M 55 120 L 60 116 M 55 120 L 60 124 M 145 120 L 140 116 M 145 120 L 140 124" stroke="#4232d9" strokeWidth="1.5" />
+                        <text x="100" y="112" textAnchor="middle" fill="#4232d9" fontSize="10" fontWeight="bold">A: CHEST</text>
+                        <line x1="100" y1="52" x2="100" y2="210" stroke="#4232d9" strokeWidth="2" strokeDasharray="4,4" />
+                        <path d="M 100 52 L 96 57 M 100 52 L 104 57 M 100 210 L 96 205 M 100 210 L 104 205" stroke="#4232d9" strokeWidth="1.5" />
+                        <text x="94" y="140" textAnchor="end" fill="#4232d9" fontSize="10" fontWeight="bold" transform="rotate(-90 94 140)">B: LENGTH</text>
+                        <line x1="140" y1="40" x2="180" y2="80" stroke="#4232d9" strokeWidth="2" strokeDasharray="4,4" />
+                        <path d="M 140 40 L 146 42 M 140 40 L 141 46 M 180 80 L 174 78 M 180 80 L 179 74" stroke="#4232d9" strokeWidth="1.5" />
+                        <text x="150" y="55" fill="#4232d9" fontSize="9" fontWeight="bold">C: SLEEVE</text>
                       </svg>
                     )}
                   </div>
