@@ -30,6 +30,20 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/collections',
+        destination: '/products',
+        permanent: false,
+      },
+      {
+        source: '/collections/:path*',
+        destination: '/products',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

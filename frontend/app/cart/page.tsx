@@ -16,8 +16,8 @@ export default function CartPage() {
           <p style={{ color: 'var(--color-grey-dark)', fontFamily: 'var(--font-body)', marginTop: '12px', marginBottom: '32px' }}>
             Your cart is empty.
           </p>
-          <Link href="/collections/vahn-beginning" className="btn btn-primary">
-            Shop the Collection
+          <Link href="/products" className="btn btn-primary">
+            Explore Products
           </Link>
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function CartPage() {
               Proceed to Checkout →
             </a>
 
-            <Link href="/collections/vahn-beginning" className="btn btn-secondary btn-full" style={{ marginTop: '12px' }}>
+            <Link href="/products" className="btn btn-secondary btn-full" style={{ marginTop: '12px' }}>
               Continue Shopping
             </Link>
           </div>

@@ -86,8 +86,8 @@ export default async function SearchPage({ searchParams }: Props) {
               <p style={{ fontSize: '1.25rem', fontFamily: 'var(--font-body)', fontStyle: 'italic', marginBottom: '16px' }}>
                 No products found matching your search.
               </p>
-              <Link href="/collections/vahn-beginning" className="btn btn-navy">
-                Explore The Collection
+              <Link href="/products" className="btn btn-navy">
+                Explore Products
               </Link>
             </div>
           )}

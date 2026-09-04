@@ -72,11 +72,11 @@ export default function HeroVideo() {
           this is where it starts
         </h1>
         <Link
-          href="/collections"
+          href="/products"
           className="btn btn-hero-cta"
           style={{ letterSpacing: '-0.025em' }}
         >
-          Shop Collection
+          Explore Products
         </Link>
       </div>
     </section>

@@ -6,10 +6,10 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: 'Shop All Products — VAHN',
-  description: 'Explore the complete VAHN collection. Performance teamwear & lifestyle apparel engineered with precision.',
+  description: 'Explore all VAHN products. Performance teamwear & lifestyle apparel engineered with precision.',
   openGraph: {
     title: 'Shop All Products — VAHN',
-    description: 'Explore the complete VAHN collection. Performance teamwear & lifestyle apparel engineered with precision.',
+    description: 'Explore all VAHN products. Performance teamwear & lifestyle apparel engineered with precision.',
   },
 };
 

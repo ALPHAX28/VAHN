@@ -149,12 +149,18 @@ export default function CheckoutPage() {
         <p style={{ color: "#555", fontSize: "0.9rem", margin: "0 0 24px", lineHeight: 1.6 }}>
           Add products to your cart before checking out.
         </p>
-        <Link href="/collections/vahn-beginning" style={{
-          display: "inline-block", background: "#000", color: "#fff",
-          padding: "14px 32px", fontWeight: 900, textDecoration: "none",
-          textTransform: "uppercase", letterSpacing: '-0.025em', fontSize: "0.85rem"
-        }}>
-          Explore Collection →
+        <Link
+          href="/products"
+          style={{
+            display: "inline-block", background: "#000", color: "#fff",
+            padding: "14px 32px", fontWeight: 900, textDecoration: "none",
+            textTransform: "uppercase", letterSpacing: '-0.025em', fontSize: "0.85rem",
+            transition: "background 0.2s"
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = "#4232d9")}
+          onMouseLeave={e => (e.currentTarget.style.background = "#000000")}
+        >
+          Explore Products →
         </Link>
       </div>
     );

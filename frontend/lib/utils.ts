@@ -38,10 +38,14 @@ export function ensureEndsWith(str: string, suffix: string) {
 export function shopifyUrlToPath(url: string): string {
   if (!url) return '/';
   const shopifyPrefix = 'shopify://';
+  let path = url;
   if (url.startsWith(shopifyPrefix)) {
-    return '/' + url.replace(shopifyPrefix, '');
+    path = '/' + url.replace(shopifyPrefix, '');
   }
-  return url;
+  if (path.startsWith('/collections')) {
+    return '/products';
+  }
+  return path;
 }
 
 export function truncate(str: string, length: number) {

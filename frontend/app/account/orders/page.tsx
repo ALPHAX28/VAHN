@@ -95,10 +95,10 @@ export default function OrdersPage() {
           </svg>
           <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', marginTop: '16px', textTransform: 'uppercase' }}>No orders found</h3>
           <p style={{ color: 'var(--color-grey-dark)', marginTop: '8px', fontSize: '0.875rem' }}>
-            You haven't placed any orders yet. Explore our latest collections.
+            You haven't placed any orders yet. Explore our latest products.
           </p>
-          <Link href="/collections/vahn-beginning" className="btn btn-primary" style={{ marginTop: '24px', display: 'inline-block' }}>
-            Shop Collections
+          <Link href="/products" className="btn btn-primary" style={{ marginTop: '24px', display: 'inline-block' }}>
+            Explore Products
           </Link>
         </div>
       ) : (
