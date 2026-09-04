@@ -7,7 +7,10 @@ import { UnsavedChangesProvider } from "@/context/UnsavedChangesContext";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopbar from "@/components/admin/AdminTopbar";
 
-const AUTH_PATHS = ["/admin/login", "/admin/register", "/admin/verify-otp"];
+const AUTH_PATHS = [
+  "/admin/login", "/admin/register", "/admin/verify-otp",
+  "/login", "/register", "/verify-otp"
+];
 
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const { isAdminAuthenticated, isAdminLoading } = useAdminAuth();

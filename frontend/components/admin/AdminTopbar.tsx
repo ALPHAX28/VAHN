@@ -9,21 +9,34 @@ import Image from "next/image";
 
 const BREADCRUMB_MAP: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
+  "/dashboard": "Dashboard",
   "/admin/products": "Products",
+  "/products": "Products",
   "/admin/products/new": "New Product",
+  "/products/new": "New Product",
   "/admin/collections": "Collections",
+  "/collections": "Collections",
   "/admin/orders": "Orders",
+  "/orders": "Orders",
   "/admin/users": "Customers",
+  "/users": "Customers",
   "/admin/reviews": "Reviews",
+  "/reviews": "Reviews",
+  "/admin/announcements": "Banners & Alerts",
+  "/announcements": "Banners & Alerts",
+  "/admin/size-guide": "Size Guide",
+  "/size-guide": "Size Guide",
 };
 
 function getBreadcrumbs(pathname: string): { label: string; href: string }[] {
-  const crumbs: { label: string; href: string }[] = [{ label: "Admin", href: "/admin/dashboard" }];
+  const isDirectSubpath = !pathname.startsWith('/admin');
+  const baseHref = isDirectSubpath ? "/dashboard" : "/admin/dashboard";
+  const crumbs: { label: string; href: string }[] = [{ label: "Admin", href: baseHref }];
   const parts = pathname.split("/").filter(Boolean);
   let current = "";
   for (const part of parts) {
     current += `/${part}`;
-    if (current === "/admin" || current === "/admin/dashboard") continue;
+    if (current === "/admin" || current === "/admin/dashboard" || current === "/dashboard") continue;
     const label = BREADCRUMB_MAP[current] || (part.match(/^\d+$/) ? `#${part}` : part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, " "));
     crumbs.push({ label, href: current });
   }

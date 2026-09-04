@@ -6,7 +6,7 @@
     email abhinandan.mitra@vahnsports.com
 }
 
-# 1. Production Domain (https://vahnsports.com)
+# 1. Production Storefront (https://vahnsports.com)
 vahnsports.com, www.vahnsports.com {
     encode gzip zstd
 
@@ -23,13 +23,36 @@ vahnsports.com, www.vahnsports.com {
         reverse_proxy backend:8000
     }
 
-    # Frontend Storefront & Admin (Next.js Prod)
+    # Frontend Storefront (Next.js Prod)
     handle {
         reverse_proxy frontend:3000
     }
 }
 
-# 2. Development Domain (https://dev.vahnsports.com)
+# 2. Production Admin Subdomain (https://admin.vahnsports.com)
+admin.vahnsports.com {
+    encode gzip zstd
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # API Endpoints (FastAPI Prod)
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    # Frontend Admin (Next.js Prod)
+    handle {
+        reverse_proxy frontend:3000
+    }
+}
+
+# 3. Development Storefront (https://dev.vahnsports.com)
 dev.vahnsports.com {
     encode gzip zstd
 
@@ -46,13 +69,36 @@ dev.vahnsports.com {
         reverse_proxy vahn-backend-dev:8000
     }
 
-    # Frontend Storefront & Admin (Next.js Dev)
+    # Frontend Storefront (Next.js Dev)
     handle {
         reverse_proxy vahn-frontend-dev:3000
     }
 }
 
-# 3. Direct IP Access (HTTP)
+# 4. Development Admin Subdomain (https://dev-admin.vahnsports.com)
+dev-admin.vahnsports.com {
+    encode gzip zstd
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # API Endpoints (FastAPI Dev)
+    handle /api/* {
+        reverse_proxy vahn-backend-dev:8000
+    }
+
+    # Frontend Admin (Next.js Dev)
+    handle {
+        reverse_proxy vahn-frontend-dev:3000
+    }
+}
+
+# 5. Direct IP Access (HTTP)
 http://65.2.203.191 {
     encode gzip zstd
 
