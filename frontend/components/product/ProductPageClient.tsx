@@ -24,10 +24,10 @@ function ProductPageClientInner({ product, defaultImages }: Props) {
       return (
         product.colourGroups.find(
           (cg) => cg.colourValue.trim().toLowerCase() === queryColour.trim().toLowerCase()
-        ) || null
+        ) || product.colourGroups[0]
       );
     }
-    return null;
+    return product.colourGroups[0];
   }, [product.colourGroups, queryColour]);
 
   const [selectedColour, setSelectedColour] = useState<string>(
@@ -137,16 +137,34 @@ function ProductPageClientInner({ product, defaultImages }: Props) {
 }
 
 export default function ProductPageClient(props: Props) {
+  const fallbackColourGroup = props.product.colourGroups?.[0];
+  const fallbackImages =
+    fallbackColourGroup && fallbackColourGroup.images && fallbackColourGroup.images.length > 0
+      ? fallbackColourGroup.images.map((img) => ({
+          url: img.url,
+          altText: img.altText || fallbackColourGroup.colourValue,
+          width: 800,
+          height: 800,
+        }))
+      : props.defaultImages;
+  const fallbackLookbook =
+    fallbackColourGroup?.lookbook && fallbackColourGroup.lookbook.length > 0
+      ? fallbackColourGroup.lookbook
+      : props.product.lookbook || [];
+
   return (
     <Suspense
       fallback={
         <>
           <div className="product-page">
-            <ProductMediaGallery images={props.defaultImages} productTitle={props.product.title} />
-            <ProductInfo product={props.product} />
+            <ProductMediaGallery images={fallbackImages} productTitle={props.product.title} />
+            <ProductInfo
+              product={props.product}
+              initialColour={fallbackColourGroup?.colourValue}
+            />
           </div>
           <ProductHighlights product={props.product} />
-          <ProductLookbook lookbook={props.product.lookbook || []} />
+          <ProductLookbook lookbook={fallbackLookbook} />
         </>
       }
     >
