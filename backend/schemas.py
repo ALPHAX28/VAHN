@@ -98,6 +98,7 @@ class StorefrontColourGroupSchema(BaseModel):
     colourValue: str
     displayOrder: Optional[int] = 0
     images: List[StorefrontColourGroupImageSchema] = []
+    lookbook: List[LookbookSchema] = []
 
 class ProductSchema(BaseModel):
     id: str
@@ -637,11 +638,13 @@ class VariantUpdateRequest(BaseModel):
 class ColourGroupCreateRequest(BaseModel):
     colour_value: str
     images: List[dict] = []  # [{url, altText}]
+    lookbook: List[dict] = []  # [{id, imageUrl, title, description}]
     display_order: int = 0
 
 class ColourGroupUpdateRequest(BaseModel):
     colour_value: Optional[str] = None
     images: Optional[List[dict]] = None
+    lookbook: Optional[List[dict]] = None
     display_order: Optional[int] = None
 
 class ColourGroupSchema(BaseModel):
@@ -649,6 +652,7 @@ class ColourGroupSchema(BaseModel):
     product_id: int
     colour_value: str
     images: List[dict]
+    lookbook: List[dict] = []
     display_order: int
 
 class LookbookItemInput(BaseModel):

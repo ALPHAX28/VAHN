@@ -204,12 +204,30 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
                     altText=getattr(img, "alt_text", "") or cg.colour_value
                 ))
 
+        parsed_lookbook = []
+        for item in (cg.lookbook or []):
+            if isinstance(item, dict):
+                parsed_lookbook.append(schemas.LookbookSchema(
+                    id=str(item.get("id", "")),
+                    imageUrl=item.get("imageUrl") or item.get("image_url") or "",
+                    title=item.get("title") or "",
+                    description=item.get("description") or ""
+                ))
+            elif hasattr(item, "imageUrl"):
+                parsed_lookbook.append(schemas.LookbookSchema(
+                    id=str(getattr(item, "id", "")),
+                    imageUrl=getattr(item, "imageUrl", "") or getattr(item, "image_url", ""),
+                    title=getattr(item, "title", ""),
+                    description=getattr(item, "description", "") or ""
+                ))
+
         colour_group_schemas.append(
             schemas.StorefrontColourGroupSchema(
                 id=cg.id,
                 colourValue=cg.colour_value,
                 displayOrder=cg.display_order,
-                images=parsed_imgs
+                images=parsed_imgs,
+                lookbook=parsed_lookbook
             )
         )
 
@@ -1545,6 +1563,10 @@ def admin_delete_product(
                         s3_images_to_delete.append(g_img["url"])
                     elif isinstance(g_img, str):
                         s3_images_to_delete.append(g_img)
+            if group.lookbook and isinstance(group.lookbook, list):
+                for lb_item in group.lookbook:
+                    if isinstance(lb_item, dict) and (lb_item.get("imageUrl") or lb_item.get("image_url")):
+                        s3_images_to_delete.append(lb_item.get("imageUrl") or lb_item.get("image_url"))
         for variant in (product.variants or []):
             if variant.image_url:
                 s3_images_to_delete.append(variant.image_url)
@@ -1605,6 +1627,7 @@ def _admin_product_detail(product: models.Product) -> schemas.AdminProductDetail
                 product_id=cg.product_id,
                 colour_value=cg.colour_value,
                 images=cg.images or [],
+                lookbook=cg.lookbook or [],
                 display_order=cg.display_order
             ) for cg in (product.colour_groups or [])
         ],
@@ -1717,7 +1740,7 @@ def admin_list_colour_groups(
     db: Session = Depends(get_db)
 ):
     groups = db.query(models.ProductColourGroup).filter_by(product_id=product_id).order_by(models.ProductColourGroup.display_order).all()
-    return [schemas.ColourGroupSchema(id=g.id, product_id=g.product_id, colour_value=g.colour_value, images=g.images or [], display_order=g.display_order) for g in groups]
+    return [schemas.ColourGroupSchema(id=g.id, product_id=g.product_id, colour_value=g.colour_value, images=g.images or [], lookbook=g.lookbook or [], display_order=g.display_order) for g in groups]
 
 @app.post("/api/admin/products/{product_id}/colour-groups", response_model=schemas.ColourGroupSchema)
 def admin_create_colour_group(
@@ -1733,12 +1756,13 @@ def admin_create_colour_group(
         product_id=product_id,
         colour_value=payload.colour_value,
         images=payload.images,
+        lookbook=payload.lookbook or [],
         display_order=payload.display_order
     )
     db.add(group)
     db.commit()
     db.refresh(group)
-    return schemas.ColourGroupSchema(id=group.id, product_id=group.product_id, colour_value=group.colour_value, images=group.images or [], display_order=group.display_order)
+    return schemas.ColourGroupSchema(id=group.id, product_id=group.product_id, colour_value=group.colour_value, images=group.images or [], lookbook=group.lookbook or [], display_order=group.display_order)
 
 @app.put("/api/admin/products/{product_id}/colour-groups/{group_id}", response_model=schemas.ColourGroupSchema)
 def admin_update_colour_group(
@@ -1755,7 +1779,7 @@ def admin_update_colour_group(
         setattr(group, k, v)
     db.commit()
     db.refresh(group)
-    return schemas.ColourGroupSchema(id=group.id, product_id=group.product_id, colour_value=group.colour_value, images=group.images or [], display_order=group.display_order)
+    return schemas.ColourGroupSchema(id=group.id, product_id=group.product_id, colour_value=group.colour_value, images=group.images or [], lookbook=group.lookbook or [], display_order=group.display_order)
 
 @app.delete("/api/admin/products/{product_id}/colour-groups/{group_id}")
 def admin_delete_colour_group(
@@ -1778,6 +1802,10 @@ def admin_delete_colour_group(
                 images_to_delete.append(img["url"])
             elif isinstance(img, str):
                 images_to_delete.append(img)
+    if group.lookbook and isinstance(group.lookbook, list):
+        for item in group.lookbook:
+            if isinstance(item, dict) and (item.get("imageUrl") or item.get("image_url")):
+                images_to_delete.append(item.get("imageUrl") or item.get("image_url"))
 
     # Cascade-delete all variants associated with this colour
     if colour_val:

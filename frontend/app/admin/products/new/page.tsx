@@ -14,6 +14,7 @@ const STANDARD_SIZES = ["S", "M", "L", "XL", "2XL", "3XL"];
 interface ColourGroupForm {
   colour_value: string;
   images: UploadedImage[];
+  lookbook?: LookbookItem[];
   sizes: Record<string, { inventory_quantity: number | string; price_amount: number | string; compare_at_price_amount: string }>;
 }
 
@@ -25,6 +26,7 @@ export default function NewProductPage() {
   const [allSizeGuides, setAllSizeGuides] = useState<SizeGuideType[]>([]);
   const [selectedSizeGuideIds, setSelectedSizeGuideIds] = useState<number[]>([]);
   const [lookbookItems, setLookbookItems] = useState<LookbookItem[]>([]);
+  const [selectedColourIndex, setSelectedColourIndex] = useState<number>(0);
 
 
   const [form, setForm] = useState({
@@ -367,9 +369,11 @@ export default function NewProductPage() {
       const uploadedColourGroups: ColourGroupForm[] = [];
       for (const group of colourGroups) {
         const uploadedGroupImages = await uploadPendingImages(group.images, "products", adminToken);
+        const uploadedGroupLookbook = await uploadPendingLookbookImages(group.lookbook || []);
         uploadedColourGroups.push({
           ...group,
           images: uploadedGroupImages,
+          lookbook: uploadedGroupLookbook,
         });
       }
 
@@ -454,6 +458,7 @@ export default function NewProductPage() {
         await createColourGroup(adminToken, product.id, {
           colour_value: g.colour_value.trim(),
           images: g.images.map(img => ({ url: img.url, altText: `${g.colour_value} photo` })),
+          lookbook: g.lookbook || [],
           display_order: i,
         });
       }
@@ -1071,12 +1076,75 @@ export default function NewProductPage() {
           </div>
 
           {/* LOOKBOOK SECTION ("HOW HE WEARS IT") */}
-          <div className="admin-card">
-            <AdminLookbookManager
-              items={lookbookItems}
-              onChange={setLookbookItems}
-            />
-          </div>
+          {(() => {
+            const effectiveIndex = selectedColourIndex < colourGroups.length ? selectedColourIndex : 0;
+            const activeNewGroup = colourGroups[effectiveIndex];
+            const activeNewGroupLookbook: LookbookItem[] = activeNewGroup ? (activeNewGroup.lookbook || []) : lookbookItems;
+
+            function handleNewGroupLookbookChange(items: LookbookItem[]) {
+              if (activeNewGroup) {
+                setColourGroups(prev =>
+                  prev.map((g, idx) => (idx === effectiveIndex ? { ...g, lookbook: items } : g))
+                );
+              } else {
+                setLookbookItems(items);
+              }
+            }
+
+            return (
+              <div className="admin-card">
+                {colourGroups.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", borderBottom: "1px solid var(--admin-card-border)", paddingBottom: 16, marginBottom: 16 }}>
+                    <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--admin-text-secondary)" }}>
+                      Select Colour:
+                    </span>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {colourGroups.map((g, idx) => {
+                        const isSelected = effectiveIndex === idx;
+                        const count = (g.lookbook || []).length;
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setSelectedColourIndex(idx)}
+                            className={`admin-btn ${isSelected ? "admin-btn--primary" : "admin-btn--secondary"}`}
+                            style={{
+                              padding: "6px 14px",
+                              fontSize: "0.8125rem",
+                              fontWeight: 600,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6
+                            }}
+                          >
+                            <span>{g.colour_value || `Colour ${idx + 1}`}</span>
+                            <span
+                              style={{
+                                background: isSelected ? "rgba(255, 255, 255, 0.25)" : "var(--admin-tag-bg, #eee)",
+                                color: isSelected ? "#fff" : "inherit",
+                                borderRadius: 10,
+                                padding: "1px 6px",
+                                fontSize: "0.75rem",
+                                fontWeight: 700
+                              }}
+                            >
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <AdminLookbookManager
+                  colourName={activeNewGroup?.colour_value}
+                  items={activeNewGroupLookbook}
+                  onChange={handleNewGroupLookbookChange}
+                />
+              </div>
+            );
+          })()}
         </div>
 
         {/* Sidebar actions */}

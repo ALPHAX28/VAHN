@@ -45,6 +45,7 @@ export interface ColourGroup {
   product_id: number;
   colour_value: string;
   images: Array<{ url: string; altText?: string }>;
+  lookbook?: Array<{ id: string; imageUrl: string; title: string; description?: string }>;
   display_order: number;
 }
 

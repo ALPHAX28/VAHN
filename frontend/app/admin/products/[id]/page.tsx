@@ -102,6 +102,7 @@ export default function AdminProductDetailPage() {
     product_id?: number;
     colour_value: string;
     images: UploadedImage[];
+    lookbook?: LookbookItem[];
     display_order?: number;
   }
 
@@ -110,6 +111,27 @@ export default function AdminProductDetailPage() {
   const [deletedGroupIds, setDeletedGroupIds] = useState<Set<number>>(new Set());
   const [localGallery, setLocalGallery] = useState<UploadedImage[]>([]);
   const [localLookbook, setLocalLookbook] = useState<LookbookItem[]>([]);
+  const [selectedLookbookGroupId, setSelectedLookbookGroupId] = useState<number | null>(null);
+
+  const effectiveSelectedGroupId = localGroups.some(g => g.id === selectedLookbookGroupId)
+    ? selectedLookbookGroupId
+    : (localGroups[0]?.id ?? null);
+
+  const currentActiveGroup = localGroups.find(g => g.id === effectiveSelectedGroupId);
+
+  const currentActiveLookbookItems: LookbookItem[] = currentActiveGroup
+    ? (currentActiveGroup.lookbook || [])
+    : localLookbook;
+
+  function handleActiveLookbookChange(items: LookbookItem[]) {
+    if (currentActiveGroup) {
+      setLocalGroups(prev =>
+        prev.map(g => (g.id === currentActiveGroup.id ? { ...g, lookbook: items } : g))
+      );
+    } else {
+      setLocalLookbook(items);
+    }
+  }
 
   // Reviews
   const [reviews, setReviews] = useState<AdminReview[]>([]);
@@ -163,6 +185,12 @@ export default function AdminProductDetailPage() {
             url: img.url,
             key: img.url,
             name: `${g.colour_value} ${i + 1}`,
+          })),
+          lookbook: (g.lookbook || []).map(lb => ({
+            id: String(lb.id),
+            imageUrl: lb.imageUrl,
+            title: lb.title,
+            description: lb.description || "",
           }))
         }))
       );
@@ -264,10 +292,21 @@ export default function AdminProductDetailPage() {
 
   const isLookbookDirty = useMemo(() => {
     if (!product) return false;
-    const origStr = JSON.stringify((product.lookbook || []).map(item => ({ title: item.title, imageUrl: item.imageUrl, description: item.description })));
-    const localStr = JSON.stringify((localLookbook || []).map(item => ({ title: item.title, imageUrl: item.imageUrl, description: item.description })));
-    return origStr !== localStr;
-  }, [product, localLookbook]);
+    const origStr = JSON.stringify((product.lookbook || []).map(item => ({ title: item.title, imageUrl: item.imageUrl, description: item.description || "" })));
+    const localStr = JSON.stringify((localLookbook || []).map(item => ({ title: item.title, imageUrl: item.imageUrl, description: item.description || "" })));
+    if (origStr !== localStr) return true;
+    if (localLookbook.some(item => Boolean(item.file))) return true;
+
+    for (const g of localGroups) {
+      const origG = (product.colour_groups || []).find(og => og.id === g.id);
+      const origGStr = JSON.stringify(((origG?.lookbook as LookbookItem[]) || []).map(item => ({ title: item.title, imageUrl: item.imageUrl, description: item.description || "" })));
+      const localGStr = JSON.stringify(((g.lookbook as LookbookItem[]) || []).map(item => ({ title: item.title, imageUrl: item.imageUrl, description: item.description || "" })));
+      if (origGStr !== localGStr) return true;
+      if (((g.lookbook as LookbookItem[]) || []).some(item => Boolean(item.file))) return true;
+    }
+
+    return false;
+  }, [product, localLookbook, localGroups]);
 
   const isReviewsDirty = useMemo(() => {
     return Boolean(newReview.author.trim() !== "" || newReview.content.trim() !== "");
@@ -373,7 +412,7 @@ export default function AdminProductDetailPage() {
         try { await deleteColourGroup(adminToken, productId, gid); } catch (e) { console.error(e); }
       }
 
-      // Persist updated colour group images/names (uploading any pending images)
+      // Persist updated colour group images/names/lookbooks (uploading any pending images)
       for (const g of localGroups) {
         const origGroup = product.colour_groups.find(og => og.id === g.id);
         const uploadedGroupImages = await uploadPendingImages(
@@ -383,8 +422,19 @@ export default function AdminProductDetailPage() {
         );
         const formattedImages = uploadedGroupImages.map(img => ({ url: img.url, altText: `${g.colour_value} photo` }));
 
-        if (!origGroup || JSON.stringify(origGroup.images) !== JSON.stringify(formattedImages) || origGroup.colour_value !== g.colour_value) {
-          await updateColourGroup(adminToken, productId, g.id, { colour_value: g.colour_value, images: formattedImages });
+        // Upload any pending lookbook image files for this colour group
+        const uploadedGroupLookbook = await uploadPendingLookbookImages(g.lookbook || []);
+
+        const origLbStr = JSON.stringify(origGroup?.lookbook || []);
+        const currLbStr = JSON.stringify(uploadedGroupLookbook);
+
+        if (!origGroup || JSON.stringify(origGroup.images) !== JSON.stringify(formattedImages) || origGroup.colour_value !== g.colour_value || origLbStr !== currLbStr) {
+          await updateColourGroup(adminToken, productId, g.id, {
+            colour_value: g.colour_value,
+            images: formattedImages,
+            lookbook: uploadedGroupLookbook,
+            display_order: g.display_order
+          });
         }
       }
 
@@ -398,6 +448,7 @@ export default function AdminProductDetailPage() {
         await createColourGroup(adminToken, productId, {
           colour_value: newGroup.colour_value.trim(),
           images: uploadedNewGroupImages.map(img => ({ url: img.url, altText: `${newGroup.colour_value} photo` })),
+          lookbook: [],
           display_order: newGroup.display_order
         });
         setNewGroup({ colour_value: "", display_order: 0 });
@@ -423,6 +474,17 @@ export default function AdminProductDetailPage() {
       const uploadedLookbook = await uploadPendingLookbookImages(localLookbook);
       await updateAdminProduct(adminToken, productId, { lookbook: uploadedLookbook });
       setLocalLookbook(uploadedLookbook);
+
+      for (const g of localGroups) {
+        const uploadedGroupLookbook = await uploadPendingLookbookImages(g.lookbook || []);
+        await updateColourGroup(adminToken, productId, g.id, {
+          colour_value: g.colour_value,
+          images: (g.images || []).map(img => ({ url: img.url, altText: `${g.colour_value} photo` })),
+          lookbook: uploadedGroupLookbook,
+          display_order: g.display_order
+        });
+      }
+
       await loadProduct();
       setSuccess("Lookbook cards saved successfully!");
       setTimeout(() => setSuccess(""), 3000);
@@ -431,7 +493,7 @@ export default function AdminProductDetailPage() {
     } finally {
       setSaving(false);
     }
-  }, [adminToken, product, productId, localLookbook]);
+  }, [adminToken, product, productId, localLookbook, localGroups]);
 
   // Sync with global UnsavedChangesContext
   useEffect(() => {
@@ -1635,9 +1697,54 @@ export default function AdminProductDetailPage() {
       {/* Lookbook Tab */}
       {activeTab === "Lookbook" && (
         <div className="admin-card" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {localGroups.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", borderBottom: "1px solid var(--admin-card-border)", paddingBottom: 16 }}>
+              <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--admin-text-secondary)" }}>
+                Select Colour:
+              </span>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {localGroups.map(g => {
+                  const isSelected = effectiveSelectedGroupId === g.id;
+                  const count = (g.lookbook || []).length;
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setSelectedLookbookGroupId(g.id)}
+                      className={`admin-btn ${isSelected ? "admin-btn--primary" : "admin-btn--secondary"}`}
+                      style={{
+                        padding: "6px 14px",
+                        fontSize: "0.8125rem",
+                        fontWeight: 600,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6
+                      }}
+                    >
+                      <span>{g.colour_value}</span>
+                      <span
+                        style={{
+                          background: isSelected ? "rgba(255, 255, 255, 0.25)" : "var(--admin-tag-bg, #eee)",
+                          color: isSelected ? "#fff" : "inherit",
+                          borderRadius: 10,
+                          padding: "1px 6px",
+                          fontSize: "0.75rem",
+                          fontWeight: 700
+                        }}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <AdminLookbookManager
-            items={localLookbook}
-            onChange={setLocalLookbook}
+            colourName={currentActiveGroup ? currentActiveGroup.colour_value : undefined}
+            items={currentActiveLookbookItems}
+            onChange={handleActiveLookbookChange}
           />
         </div>
       )}

@@ -47,11 +47,13 @@ export async function uploadPendingLookbookImages(items: LookbookItem[]): Promis
 interface AdminLookbookManagerProps {
   items: LookbookItem[];
   onChange: (items: LookbookItem[]) => void;
+  colourName?: string;
 }
 
 export default function AdminLookbookManager({
   items,
   onChange,
+  colourName,
 }: AdminLookbookManagerProps) {
   // Modal / Form state for Add/Edit
   const [modalOpen, setModalOpen] = useState(false);
@@ -158,21 +160,21 @@ export default function AdminLookbookManager({
   // Move up locally (NO auto-save)
   function handleMoveUp(index: number) {
     if (index <= 0) return;
-    const next = [...items];
-    const temp = next[index - 1];
-    next[index - 1] = next[index];
-    next[index] = temp;
-    onChange(next);
+    const nextItems = [...items];
+    const temp = nextItems[index - 1];
+    nextItems[index - 1] = nextItems[index];
+    nextItems[index] = temp;
+    onChange(nextItems);
   }
 
   // Move down locally (NO auto-save)
   function handleMoveDown(index: number) {
     if (index >= items.length - 1) return;
-    const next = [...items];
-    const temp = next[index + 1];
-    next[index + 1] = next[index];
-    next[index] = temp;
-    onChange(next);
+    const nextItems = [...items];
+    const temp = nextItems[index + 1];
+    nextItems[index + 1] = nextItems[index];
+    nextItems[index] = temp;
+    onChange(nextItems);
   }
 
   return (
@@ -190,10 +192,10 @@ export default function AdminLookbookManager({
       >
         <div>
           <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: 0, color: "var(--color-black)" }}>
-            Lookbook Cards (&ldquo;How He Wears It&rdquo;)
+            Lookbook Cards {colourName ? `(${colourName})` : "(\u201cHow He Wears It\u201d)"}
           </h3>
           <p style={{ fontSize: "0.8125rem", color: "#666", margin: "4px 0 0" }}>
-            Add styled outfit inspiration cards for this product. Selected photos preview locally and will only upload when you click &ldquo;Save Changes&rdquo;.
+            Add styled outfit inspiration cards{colourName ? ` specifically for ${colourName}.` : " for this product."} Selected photos preview locally and will only upload when you click &ldquo;Save Changes&rdquo;.
           </p>
         </div>
 

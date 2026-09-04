@@ -4,8 +4,6 @@ import Image from 'next/image';
 import { getProduct } from '@/lib/api';
 import ProductPageClient from '@/components/product/ProductPageClient';
 import ProductReviews from '@/components/product/ProductReviews';
-import ProductHighlights from '@/components/product/ProductHighlights';
-import ProductLookbook from '@/components/product/ProductLookbook';
 
 interface Props {
   params: Promise<{ handle: string }>;
@@ -39,16 +37,8 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <>
-      <div className="product-page">
-        {/* SCRUM-33: ProductPageClient lifts gallery state so colour selection updates ALL gallery images */}
-        <ProductPageClient product={product} defaultImages={images} />
-      </div>
-
-      {/* Fit, Kit Type & Activity Highlights Bar */}
-      <ProductHighlights product={product} />
-
-      {/* Lookbook / "How He Wears It" Section */}
-      <ProductLookbook lookbook={product.lookbook || []} />
+      {/* SCRUM-33: ProductPageClient manages colour-synced gallery, pricing, highlights, and dynamic per-colour lookbook */}
+      <ProductPageClient product={product} defaultImages={images} />
 
       {/* Customer Reviews Section */}
       <ProductReviews initialReviews={product.reviews || []} productHandle={product.handle} />

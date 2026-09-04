@@ -40,6 +40,7 @@ export interface ColourGroup {
   colourValue: string;
   displayOrder?: number;
   images: ColourGroupImage[];
+  lookbook?: LookbookItem[];
 }
 
 export interface Product {

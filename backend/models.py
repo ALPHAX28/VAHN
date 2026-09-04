@@ -89,6 +89,7 @@ class ProductColourGroup(Base):
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
     colour_value = Column(String, nullable=False)  # e.g. "Maroon"
     images = Column(JSON, default=list)            # [{url, altText}]
+    lookbook = Column(JSON, default=list, nullable=True)  # [{id, imageUrl, title, description}]
     display_order = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

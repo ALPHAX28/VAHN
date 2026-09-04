@@ -39,6 +39,13 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
     };
   }, [checkScrollability, lookbook]);
 
+  // Reset scroll position to beginning whenever lookbook items change (e.g. colour switched)
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+    }
+  }, [lookbook]);
+
   const handleScroll = (direction: 'left' | 'right') => {
     const el = scrollContainerRef.current;
     if (!el) return;
