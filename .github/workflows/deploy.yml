@@ -284,8 +284,9 @@ jobs:
               cp backend/.env.dev.example backend/.env.dev
             fi
 
-            # Optimize Linux VM swappiness for 24/7 hot memory retention
+            # Optimize Linux VM swappiness & enable IP forwarding for VPN
             sudo sysctl -w vm.swappiness=10 || true
+            sudo sysctl -w net.ipv4.ip_forward=1 || true
 
             # Deploy dev compose stack (including backend-dev, frontend-dev, db-dev & vpn)
             docker compose -f docker-compose.dev.yml up -d --build --remove-orphans
