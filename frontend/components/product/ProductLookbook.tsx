@@ -49,7 +49,10 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
   const handleScroll = (direction: 'left' | 'right') => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    const scrollAmount = el.clientWidth * 0.8;
+    const firstCard = el.querySelector<HTMLElement>('.vahn-lookbook-card');
+    const cardWidth = firstCard ? firstCard.offsetWidth : el.clientWidth / 2.75;
+    const gap = 10;
+    const scrollAmount = cardWidth + gap;
     el.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
   };
 
@@ -70,7 +73,15 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
     >
       {/* ── Scrollbar hide for Webkit + responsive header & mobile carousel ── */}
       <style>{`
+        .vahn-lookbook-track {
+          scroll-snap-type: none !important;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-x: contain;
+        }
         .vahn-lookbook-track::-webkit-scrollbar { display: none; }
+        .vahn-lookbook-card {
+          scroll-snap-align: none !important;
+        }
         .vahn-lookbook-img { position: absolute; inset: 0; }
         .vahn-lookbook-header {
           text-align: center;
@@ -259,15 +270,14 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
           </button>
         )}
 
-        {/* ── Scrollable image track — zero gap, edge to edge ── */}
+        {/* ── Scrollable image track ── */}
         <div
           ref={scrollContainerRef}
           className="vahn-lookbook-track"
           style={{
             display: 'flex',
             overflowX: 'auto',
-            scrollSnapType: 'x mandatory',
-            scrollBehavior: 'smooth',
+            scrollSnapType: 'none',
             WebkitOverflowScrolling: 'touch',
             gap: '10px',
             scrollbarWidth: 'none',
@@ -275,15 +285,13 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
           }}
         >
           {lookbook.map((item) => {
-            // ≤3 items: fill viewport equally. >3: 33.33% wide, scrollable.
+            // If length >= 3: exactly 2.75 cards visible so the 3rd card is always 75% visible and 25% hidden
             const cardWidth =
-              lookbook.length <= 3
-                ? `${100 / lookbook.length}%`
-                : '33.333%';
-            const cardMinWidth =
-              lookbook.length <= 3
-                ? `${100 / lookbook.length}%`
-                : 'min(280px, 50vw)';
+              lookbook.length >= 3
+                ? 'calc((100% - 20px) / 2.75)'
+                : lookbook.length === 2
+                ? 'calc((100% - 10px) / 2)'
+                : '100%';
 
             return (
               <div
@@ -291,8 +299,10 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                 className="vahn-lookbook-card"
                 style={{
                   flex: `0 0 ${cardWidth}`,
-                  minWidth: cardMinWidth,
-                  scrollSnapAlign: 'start',
+                  width: cardWidth,
+                  minWidth: cardWidth,
+                  maxWidth: cardWidth,
+                  scrollSnapAlign: 'none',
                   position: 'relative',
                   aspectRatio: '3 / 4',
                   maxHeight: '640px',
