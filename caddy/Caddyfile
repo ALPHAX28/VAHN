@@ -111,7 +111,27 @@ dev-admin.vahnsports.com, admin-dev.vahnsports.com {
 	}
 }
 
-# 5. Direct IP Access (HTTP)
+# 5. Direct VPN IP Admin Access (https://10.8.0.1)
+https://10.8.0.1 {
+	tls internal
+	encode gzip zstd
+
+	# Only allow internal VPN clients
+	@not_vpn not remote_ip 10.0.0.0/8 127.0.0.1
+	handle @not_vpn {
+		respond "Access Denied: VAHN Internal VPN Required." 403
+	}
+
+	handle /api/* {
+		reverse_proxy vahn-backend-dev:8000
+	}
+
+	handle {
+		reverse_proxy vahn-frontend-dev:3000
+	}
+}
+
+# 6. Direct IP Access (HTTP)
 http://65.2.203.191 {
 	encode gzip zstd
 

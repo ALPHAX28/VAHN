@@ -29,6 +29,9 @@ export function middleware(req: NextRequest) {
   const isAdminSubdomain =
     hostname === 'admin.vahnsports.com' ||
     hostname === 'dev-admin.vahnsports.com' ||
+    hostname === 'admin-dev.vahnsports.com' ||
+    hostname === '10.8.0.1' ||
+    hostname.startsWith('10.8.') ||
     hostname.startsWith('admin.') ||
     hostname.startsWith('dev-admin.');
 

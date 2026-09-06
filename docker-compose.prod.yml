@@ -94,22 +94,19 @@ services:
     image: ghcr.io/wg-easy/wg-easy:latest
     container_name: vahn-vpn
     restart: always
+    network_mode: host
     environment:
       - WG_HOST=65.2.203.191
       - PASSWORD_HASH=$$2a$$12$$b18U7NWiiEq1.48InXu34.mqaSVg2IA3KnsnnU/Cht4CnN1io83Ay
       - WG_PORT=51820
+      - PORT=51821
       - WG_DEFAULT_ADDRESS=10.8.0.x
       - WG_DEFAULT_DNS=1.1.1.1, 8.8.8.8
       - WG_ALLOWED_IPS=10.8.0.0/24, 65.2.203.191/32
     volumes:
       - vahn_wireguard_data:/etc/wireguard
-    ports:
-      - "51820:51820/udp"
-      - "51821:51821/tcp"
     cap_add:
       - NET_ADMIN
-    networks:
-      - vahn-network
 
 volumes:
   postgres_prod_data:
