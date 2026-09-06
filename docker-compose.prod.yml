@@ -96,7 +96,7 @@ services:
     restart: always
     environment:
       - WG_HOST=65.2.203.191
-      - PASSWORD=${VPN_PASSWORD:-vahn_admin_vpn_2026}
+      - PASSWORD_HASH=$$2a$$12$$b18U7NWiiEq1.48InXu34.mqaSVg2IA3KnsnnU/Cht4CnN1io83Ay
       - WG_PORT=51820
       - WG_DEFAULT_ADDRESS=10.8.0.x
       - WG_DEFAULT_DNS=1.1.1.1, 8.8.8.8
