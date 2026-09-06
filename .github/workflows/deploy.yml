@@ -299,8 +299,9 @@ jobs:
             sleep 6
             docker exec vahn-backend-dev python -m alembic upgrade head
 
-            # Reload Caddy to ensure fresh config without restarting container (preserving container IP)
-            docker exec vahn-caddy-prod caddy reload --config /etc/caddy/Caddyfile || true
+            # Restart Caddy to ensure updated Caddyfile configuration is loaded cleanly
+            docker restart vahn-caddy-prod || true
+            sleep 3
 
             # Fetch dynamic Caddy IP on vahn_prod_network for direct, zero-DNS routing
             CADDY_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' vahn-caddy-prod 2>/dev/null || echo "vahn-caddy-prod")
