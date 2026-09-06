@@ -307,7 +307,7 @@ jobs:
             sleep 3
             docker logs --tail 20 vahn-vpn || true
 
-            docker exec vahn-caddy-prod caddy reload --config /etc/caddy/Caddyfile || docker restart vahn-caddy-prod || true
+            docker restart vahn-caddy-prod
 
       - name: Send Email — Dev Deployment Succeeded
         if: success()
