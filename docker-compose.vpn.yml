@@ -13,6 +13,7 @@ services:
       - WG_DEFAULT_ADDRESS=10.8.0.x
       - WG_DEFAULT_DNS=10.8.0.1, 1.1.1.1
       - WG_ALLOWED_IPS=10.8.0.0/24
+      - WG_MTU=1280
     volumes:
       - vahn_wireguard_data:/etc/wireguard
     ports:
@@ -40,10 +41,12 @@ services:
     container_name: vahn-vpn-proxy
     restart: always
     network_mode: "service:vpn"
+    environment:
+      - CADDY_IP=${CADDY_IP:-vahn-caddy-prod}
     entrypoint: ["/bin/sh", "-c"]
     command: >
-      "socat -d -d TCP4-LISTEN:80,fork,reuseaddr TCP4:vahn-caddy-prod:80 &
-       exec socat -d -d TCP4-LISTEN:443,fork,reuseaddr TCP4:vahn-caddy-prod:443"
+      socat -d -d TCP4-LISTEN:80,fork,reuseaddr,mss=1200 TCP4:${CADDY_IP:-vahn-caddy-prod}:80,mss=1200 &
+      exec socat -d -d TCP4-LISTEN:443,fork,reuseaddr,mss=1200 TCP4:${CADDY_IP:-vahn-caddy-prod}:443,mss=1200
     depends_on:
       - vpn
 
