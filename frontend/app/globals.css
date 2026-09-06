@@ -2345,7 +2345,7 @@ input, textarea, select {
 }
 
 .review-stars {
-  color: #1056d1;
+  color: #4232d9;
   font-size: 1.375rem;
   letter-spacing: -0.025em;
   line-height: 1;
@@ -2660,7 +2660,7 @@ input, textarea, select {
   padding: 10px 24px !important;
   font-size: 0.8125rem !important;
   border-radius: 0 !important;
-  background-color: #1056d1 !important;
+  background-color: #4232d9 !important;
   color: #fff !important;
   border: none !important;
   text-transform: uppercase !important;
@@ -7137,3 +7137,119 @@ input, textarea, select {
     padding: 0 !important;
   }
 }
+
+/* ---- Trust Badges Bar (SCRUM-69) ---- */
+.trust-badges-bar {
+  background: #4232d9;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 24px clamp(16px, 4vw, 48px);
+  width: 100%;
+}
+
+.trust-badge-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.trust-badge-icon-wrap {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.trust-badge-text {
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+@media (max-width: 768px) {
+  .trust-badges-bar {
+    grid-template-columns: 1fr 1fr 1fr !important;
+    padding: 16px 8px !important;
+    gap: 0;
+  }
+  .trust-badge-item {
+    flex-direction: column !important;
+    gap: 6px !important;
+    padding: 0 4px !important;
+    text-align: center !important;
+  }
+  .trust-badge-icon-wrap {
+    width: 22px !important;
+    height: 22px !important;
+  }
+  .trust-badge-text {
+    font-size: 0.5625rem !important;
+    letter-spacing: 0.02em !important;
+    line-height: 1.2 !important;
+  }
+}
+
+/* ---- Static & Policy Pages (SCRUM-67) ---- */
+.vahn-page-content {
+  font-family: var(--font-body), Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: #222222;
+}
+
+.vahn-page-content h2 {
+  font-family: var(--font-heading);
+  font-size: clamp(1.25rem, 2vw, 1.625rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  margin: 36px 0 16px;
+  color: var(--color-black);
+}
+
+.vahn-page-content h3 {
+  font-family: var(--font-heading);
+  font-size: clamp(1.05rem, 1.5vw, 1.25rem);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin: 28px 0 12px;
+  color: var(--color-black);
+}
+
+.vahn-page-content p {
+  margin-bottom: 18px;
+}
+
+.vahn-page-content ul,
+.vahn-page-content ol {
+  margin: 16px 0 24px 20px;
+  padding-left: 12px;
+}
+
+.vahn-page-content li {
+  margin-bottom: 8px;
+  line-height: 1.65;
+}
+
+.vahn-page-content a {
+  color: #4232d9;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.vahn-page-content a:hover {
+  color: #2516a8;
+}
+
+.vahn-page-meta {
+  font-size: 0.875rem;
+  color: var(--color-grey-dark);
+  margin-bottom: 24px;
+}
+
+

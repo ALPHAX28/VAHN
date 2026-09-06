@@ -4,15 +4,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
 
-const ABOUT_LINKS = [
+const QUICK_LINKS = [
   { label: 'Our Story', href: '/pages/about' },
-  { label: 'Our Policies', href: '/pages/shipping' },
+  { label: 'Privacy Policy', href: '/pages/privacy-policy' },
+  { label: 'Terms and Conditions', href: '/pages/terms-and-conditions' },
 ];
 
 const SUPPORT_LINKS = [
   { label: 'Order Tracking', href: '/account/orders' },
   { label: 'Shipping & Returns', href: '/pages/shipping' },
-  { label: 'FAQ', href: '/pages/faqs-page' },
   { label: 'Contact Us', href: '/pages/contact' },
 ];
 
@@ -40,7 +40,7 @@ export default function Footer() {
           gap: 'clamp(32px, 5vw, 80px)',
         }}
       >
-        {/* Left Group: ABOUT, SUPPORT, SOCIALS */}
+        {/* Left Group: QUICK LINKS, SUPPORT, SOCIALS */}
         <div
           style={{
             display: 'flex',
@@ -49,7 +49,7 @@ export default function Footer() {
             alignItems: 'flex-start',
           }}
         >
-          {/* Column 1: ABOUT */}
+          {/* Column 1: QUICK LINKS */}
           <div style={{ minWidth: '100px' }}>
             <h5
               style={{
@@ -62,7 +62,7 @@ export default function Footer() {
                 marginBottom: '18px',
               }}
             >
-              ABOUT
+              QUICK LINKS
             </h5>
             <ul
               style={{
@@ -74,7 +74,7 @@ export default function Footer() {
                 gap: '10px',
               }}
             >
-              {ABOUT_LINKS.map((link) => (
+              {QUICK_LINKS.map((link) => (
                 <li key={link.label}>
                   <Link
                     href={link.href}

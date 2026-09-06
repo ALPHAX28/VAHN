@@ -147,13 +147,19 @@ export async function getArticle(
 
 // ---- Pages ----
 
+import { STATIC_PAGES } from '@/lib/data/pages';
+
 export async function getPage(handle: string): Promise<ShopifyPage | null> {
+  const normalized = handle.toLowerCase().trim();
+  if (STATIC_PAGES[normalized]) {
+    return STATIC_PAGES[normalized];
+  }
   return {
-    id: 'mock-page',
-    title: handle.charAt(0).toUpperCase() + handle.slice(1),
+    id: `page-${handle}`,
+    title: handle.charAt(0).toUpperCase() + handle.slice(1).replace(/-/g, ' '),
     handle,
-    body: '<p>This is a standalone placeholder page for VAHN.</p>',
-    bodySummary: 'Standalone placeholder page.',
+    body: '<p>This is a standalone page for VAHN.</p>',
+    bodySummary: 'Standalone page.',
     seo: { title: handle, description: 'Standalone page.' }
   };
 }

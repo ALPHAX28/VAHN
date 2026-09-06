@@ -68,7 +68,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
         paddingBottom: '52px',
       }}
     >
-      {/* ── Scrollbar hide for Webkit + responsive header ── */}
+      {/* ── Scrollbar hide for Webkit + responsive header & mobile carousel ── */}
       <style>{`
         .vahn-lookbook-track::-webkit-scrollbar { display: none; }
         .vahn-lookbook-img { position: absolute; inset: 0; }
@@ -96,6 +96,30 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
             font-size: clamp(11px, 0.85vw, 13px);
             white-space: nowrap;
             max-width: 850px;
+          }
+        }
+        @media (max-width: 767px) {
+          .vahn-lookbook-strip {
+            padding: 0 16px !important;
+          }
+          .vahn-lookbook-track {
+            gap: 12px !important;
+          }
+          .vahn-lookbook-card {
+            flex: 0 0 82vw !important;
+            min-width: 82vw !important;
+            max-width: 85vw !important;
+            aspect-ratio: 3 / 4 !important;
+            max-height: 560px !important;
+          }
+          .vahn-lookbook-desc {
+            display: none !important;
+          }
+          .vahn-lookbook-caption {
+            padding: 24px 16px 18px !important;
+          }
+          .vahn-lookbook-nav {
+            display: none !important;
           }
         }
       `}</style>
@@ -141,7 +165,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
       </div>
 
       {/* ── Image Strip ── */}
-      <div style={{ position: 'relative', padding: '0 24px' }}>
+      <div className="vahn-lookbook-strip" style={{ position: 'relative', padding: '0 24px' }}>
 
         {/* Left Arrow — overlaid on the image strip */}
         {showNavButtons && (
@@ -150,6 +174,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
             onClick={() => handleScroll('left')}
             disabled={!canScrollLeft}
             aria-label="Previous"
+            className="vahn-lookbook-nav"
             style={{
               position: 'absolute',
               left: '32px',
@@ -195,6 +220,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
             onClick={() => handleScroll('right')}
             disabled={!canScrollRight}
             aria-label="Next"
+            className="vahn-lookbook-nav"
             style={{
               position: 'absolute',
               right: '32px',
@@ -268,10 +294,10 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                   minWidth: cardMinWidth,
                   scrollSnapAlign: 'start',
                   position: 'relative',
-                  aspectRatio: '4 / 5',
-                  maxHeight: '580px',
+                  aspectRatio: '3 / 4',
+                  maxHeight: '640px',
                   overflow: 'hidden',
-                  background: '#111',
+                  background: '#1D1D1D',
                   borderRadius: '0px',
                 }}
               >
@@ -281,13 +307,14 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                     src={item.imageUrl}
                     alt={item.title}
                     fill
-                    sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                    sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 85vw"
                     style={{ objectFit: 'cover' }}
                   />
                 </div>
 
-                {/* Caption — fixed-height layout so titles and descriptions always align across 1, 2, and 3-line content */}
+                {/* Caption — fixed-height layout on desktop, compact on mobile */}
                 <div
+                  className="vahn-lookbook-caption"
                   style={{
                     position: 'absolute',
                     bottom: 0,
@@ -299,7 +326,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                     padding: '36px 20px 22px',
                     textAlign: 'center',
                     zIndex: 2,
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.52) 65%, transparent 100%)',
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.52) 65%, transparent 100%)',
                     pointerEvents: 'none',
                   }}
                 >
@@ -321,8 +348,9 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                     {item.title}
                   </p>
 
-                  {/* Fixed 3-line slot: regardless of whether description has 1, 2, or 3 lines, the container height is identical so all titles and text align */}
+                  {/* Fixed 3-line slot on desktop; hidden on mobile via .vahn-lookbook-desc */}
                   <div
+                    className="vahn-lookbook-desc"
                     style={{
                       width: '100%',
                       fontSize: 'clamp(11px, 0.88vw, 13px)',

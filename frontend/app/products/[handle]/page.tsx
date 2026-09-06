@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { getProduct } from '@/lib/api';
 import ProductPageClient from '@/components/product/ProductPageClient';
 import ProductReviews from '@/components/product/ProductReviews';
+import TrustBadgesBar from '@/components/ui/TrustBadgesBar';
 
 interface Props {
   params: Promise<{ handle: string }>;
@@ -42,7 +43,11 @@ export default async function ProductPage({ params }: Props) {
 
       {/* Customer Reviews Section */}
       <ProductReviews initialReviews={product.reviews || []} productHandle={product.handle} />
+
+      {/* SCRUM-69: Trust Badges Bar above Footer */}
+      <TrustBadgesBar />
     </>
   );
 }
+
 

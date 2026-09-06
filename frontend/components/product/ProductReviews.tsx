@@ -115,9 +115,9 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
                     <svg
                       key={star}
                       viewBox="0 0 24 24"
-                      width="26"
-                      height="26"
-                      fill={star <= Math.round(parseFloat(averageScore)) ? '#1056d1' : '#e0e0e0'}
+                      width="20"
+                      height="20"
+                      fill={star <= Math.round(parseFloat(averageScore)) ? '#4232d9' : '#e0e0e0'}
                       style={{ display: 'inline-block' }}
                     >
                       <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
@@ -240,9 +240,9 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
                   >
                     <svg
                       viewBox="0 0 24 24"
-                      width="30"
-                      height="30"
-                      fill={star <= rating ? '#1056d1' : '#e0e0e0'}
+                      width="26"
+                      height="26"
+                      fill={star <= rating ? '#4232d9' : '#e0e0e0'}
                       style={{ display: 'inline-block' }}
                     >
                       <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
@@ -306,9 +306,9 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
                         <svg
                           key={star}
                           viewBox="0 0 24 24"
-                          width="30"
-                          height="30"
-                          fill={star <= Math.round(review.rating) ? '#1056d1' : '#e0e0e0'}
+                          width="16"
+                          height="16"
+                          fill={star <= Math.round(review.rating) ? '#4232d9' : '#e0e0e0'}
                           style={{ display: 'inline-block' }}
                         >
                           <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />

@@ -88,9 +88,9 @@ export default async function PageRoute({ params }: Props) {
 
       {/* Generic page */}
       {!isFAQ && !isContact && !isCatalogue && (
-        <div style={{ maxWidth: '800px', margin: '0 auto', padding: 'var(--space-2xl) var(--space-xl)' }}>
+        <div style={{ maxWidth: '840px', margin: '0 auto', padding: 'var(--space-2xl) var(--space-xl)' }}>
           <div
-            className="product-description"
+            className="vahn-page-wrapper"
             style={{ border: 'none', paddingTop: 0 }}
             dangerouslySetInnerHTML={{ __html: page.body }}
           />

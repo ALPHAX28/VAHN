@@ -129,6 +129,10 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
+    // SCRUM-71: In mobile version, product description accordion starts in collapsed state
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsDescOpen(false);
+    }
   }, []);
 
   // Lock background scroll when Size Guide or Restock Modal is open
@@ -430,7 +434,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
               viewBox="0 0 24 24"
               width="20"
               height="20"
-              fill={star <= Math.round(parseFloat(avgRating)) ? '#1056d1' : '#e0e0e0'}
+              fill={star <= Math.round(parseFloat(avgRating)) ? '#4232d9' : '#e0e0e0'}
               style={{ display: 'inline-block' }}
             >
               <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />

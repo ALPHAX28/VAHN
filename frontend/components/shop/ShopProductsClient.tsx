@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { Product, ProductVariant } from '@/lib/api/types';
 import { useCart } from '@/context/CartContext';
+import TrustBadgesBar from '@/components/ui/TrustBadgesBar';
 
 
 interface Props {
@@ -825,27 +826,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       </section>
 
       {/* ── Trust Badges (Always in a single 3-column row) ── */}
-      <div className="trust-badges-bar shop-container-pad">
-        {[
-          { icon: '/icons/pan-india-delivery.png', label: 'PAN-INDIA DELIVERY' },
-          { icon: '/icons/secure-payments.png', label: '100% SECURE PAYMENTS' },
-          { icon: '/icons/made-for-the-game.png', label: 'MADE FOR THE GAME' },
-        ].map((badge, i) => (
-          <div
-            key={i}
-            className="trust-badge-item"
-            style={{ borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.3)' : 'none' }}
-          >
-            <div className="trust-badge-icon-wrap">
-              <Image src={badge.icon} alt={badge.label} fill sizes="32px" style={{ filter: 'brightness(0) invert(1)', objectFit: 'contain' }} />
-            </div>
-
-            <span className="trust-badge-text">
-              {badge.label}
-            </span>
-          </div>
-        ))}
-      </div>
+      <TrustBadgesBar className="shop-container-pad" />
 
     </div>
   );

@@ -39,8 +39,27 @@ export default function ContactForm() {
     <form className="contact-form" onSubmit={handleSubmit}>
       <div>
         <h2 style={{ marginBottom: '8px' }}>Get In Touch</h2>
-        <p style={{ color: 'var(--color-grey-dark)', fontFamily: 'var(--font-body)' }}>
+        <p style={{ color: 'var(--color-grey-dark)', fontFamily: 'var(--font-body)', marginBottom: '24px' }}>
           Whether you&apos;re interested in bespoke teamwear, a collaboration, or just have a question — we&apos;d love to hear from you.
+        </p>
+      </div>
+
+      <div style={{
+        background: 'var(--color-grey-light)',
+        padding: '20px 24px',
+        marginBottom: '28px',
+        borderLeft: '3px solid #4232d9',
+      }}>
+        <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '0.9375rem', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 8px' }}>
+          We Read Every Message
+        </h3>
+        <p style={{ margin: '0 0 6px', fontSize: '0.875rem', lineHeight: 1.6 }}>
+          <strong>Email:</strong> <a href="mailto:support@vahnsports.com" style={{ color: '#4232d9', textDecoration: 'underline' }}>support@vahnsports.com</a><br/>
+          <strong>Phone:</strong> +91 8013340567<br/>
+          <strong>Support Hours:</strong> Monday to Saturday, 10:00 AM – 6:00 PM IST
+        </p>
+        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-grey-dark)' }}>
+          For order-related queries, please include your order number. We aim to respond to all emails within 24 hours on business days.
         </p>
       </div>
 
