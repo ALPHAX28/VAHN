@@ -43,10 +43,12 @@ services:
     network_mode: "service:vpn"
     environment:
       - CADDY_IP=${CADDY_IP:-vahn-caddy-prod}
-    entrypoint: ["/bin/sh", "-c"]
-    command: >
-      socat -d -d TCP4-LISTEN:80,fork,reuseaddr,mss=1200 TCP4:${CADDY_IP:-vahn-caddy-prod}:80,mss=1200 &
-      exec socat -d -d TCP4-LISTEN:443,fork,reuseaddr,mss=1200 TCP4:${CADDY_IP:-vahn-caddy-prod}:443,mss=1200
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        socat -d -d TCP4-LISTEN:80,fork,reuseaddr,mss=1200 TCP4:${CADDY_IP:-vahn-caddy-prod}:80,mss=1200 &
+        exec socat -d -d TCP4-LISTEN:443,fork,reuseaddr,mss=1200 TCP4:${CADDY_IP:-vahn-caddy-prod}:443,mss=1200
     depends_on:
       - vpn
 
