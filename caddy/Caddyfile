@@ -33,10 +33,10 @@ admin.vahnsports.com {
 	encode gzip zstd
 
 	# ── VAHN IN-HOUSE VPN ACCESS CONTROL ──
-	# Only allow connections originating from WireGuard VPN (10.8.0.0/24) or local server
-	@not_vpn not remote_ip 10.8.0.0/24 127.0.0.1 65.2.203.191
+	# Only allow connections originating from WireGuard VPN (10.0.0.0/8) or internal Docker/host network (172.16.0.0/12)
+	@not_vpn not remote_ip 10.0.0.0/8 172.16.0.0/12 127.0.0.1 65.2.203.191
 	handle @not_vpn {
-		respond "Access Denied: VAHN Internal VPN Required. Please connect to VAHN WireGuard VPN." 403
+		respond "Access Denied: VAHN Internal VPN Required (Your IP: {client_ip}). Please connect to VAHN WireGuard VPN." 403
 	}
 
 	header {
@@ -86,10 +86,10 @@ dev-admin.vahnsports.com, admin-dev.vahnsports.com {
 	encode gzip zstd
 
 	# ── VAHN IN-HOUSE VPN ACCESS CONTROL ──
-	# Only allow connections originating from WireGuard VPN (10.8.0.0/24) or local server
-	@not_vpn not remote_ip 10.8.0.0/24 127.0.0.1 65.2.203.191
+	# Only allow connections originating from WireGuard VPN (10.0.0.0/8) or internal Docker/host network (172.16.0.0/12)
+	@not_vpn not remote_ip 10.0.0.0/8 172.16.0.0/12 127.0.0.1 65.2.203.191
 	handle @not_vpn {
-		respond "Access Denied: VAHN Internal VPN Required. Please connect to VAHN WireGuard VPN." 403
+		respond "Access Denied: VAHN Internal VPN Required (Your IP: {client_ip}). Please connect to VAHN WireGuard VPN." 403
 	}
 
 	header {
