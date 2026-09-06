@@ -1,8 +1,8 @@
 .:53 {
     hosts {
-        172.26.15.56 dev-admin.vahnsports.com
-        172.26.15.56 admin.vahnsports.com
-        172.26.15.56 admin-dev.vahnsports.com
+        10.8.0.1 dev-admin.vahnsports.com
+        10.8.0.1 admin.vahnsports.com
+        10.8.0.1 admin-dev.vahnsports.com
         fallthrough
     }
     forward . 1.1.1.1 8.8.8.8
