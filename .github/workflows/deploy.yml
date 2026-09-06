@@ -288,6 +288,12 @@ jobs:
             sudo sysctl -w vm.swappiness=10 || true
             sudo sysctl -w net.ipv4.ip_forward=1 || true
 
+            # Allow VPN ports through host OS firewall (UFW & iptables)
+            sudo ufw allow 51820/udp || true
+            sudo ufw allow 51821/tcp || true
+            sudo iptables -I INPUT -p udp --dport 51820 -j ACCEPT || true
+            sudo iptables -I INPUT -p tcp --dport 51821 -j ACCEPT || true
+
             # Deploy dev compose stack
             docker compose -f docker-compose.dev.yml up -d --build --remove-orphans
             sleep 6
@@ -296,7 +302,10 @@ jobs:
             # Ensure shared VPN gateway is cleanly running under prod stack
             touch backend/.env || true
             docker rm -f vahn-vpn || true
-            docker compose -f docker-compose.prod.yml up -d vpn || true
+            docker compose -f docker-compose.prod.yml pull vpn || true
+            docker compose -f docker-compose.prod.yml up -d vpn
+            sleep 3
+            docker logs --tail 20 vahn-vpn || true
 
             docker exec -i vahn-caddy-prod caddy reload --adapter caddyfile < caddy/Caddyfile || docker restart vahn-caddy-prod || true
 
