@@ -7315,4 +7315,21 @@ input, textarea, select {
   margin-bottom: 24px;
 }
 
+@media (max-width: 860px) {
+  .vahn-policy-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .vahn-policy-grid aside {
+    order: 2;
+    position: static !important;
+  }
+  .vahn-contact-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .vahn-contact-grid aside {
+    order: 2;
+  }
+}
+
+
 
