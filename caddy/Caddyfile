@@ -36,7 +36,7 @@ admin.vahnsports.com {
 	# Only allow connections originating from WireGuard VPN (10.0.0.0/8) or internal Docker/host network (172.16.0.0/12)
 	@not_vpn not remote_ip 10.0.0.0/8 172.16.0.0/12 127.0.0.1 65.2.203.191
 	handle @not_vpn {
-		respond "Access Denied: VAHN Internal VPN Required (Your IP: {client_ip}). Please connect to VAHN WireGuard VPN." 403
+		respond "Access Denied" 403
 	}
 
 	header {
@@ -89,7 +89,7 @@ dev-admin.vahnsports.com, admin-dev.vahnsports.com {
 	# Only allow connections originating from WireGuard VPN (10.0.0.0/8) or internal Docker/host network (172.16.0.0/12)
 	@not_vpn not remote_ip 10.0.0.0/8 172.16.0.0/12 127.0.0.1 65.2.203.191
 	handle @not_vpn {
-		respond "Access Denied: VAHN Internal VPN Required (Your IP: {client_ip}). Please connect to VAHN WireGuard VPN." 403
+		respond "Access Denied" 403
 	}
 
 	header {
@@ -119,7 +119,7 @@ https://10.8.0.1 {
 	# Only allow internal VPN clients
 	@not_vpn not remote_ip 10.0.0.0/8 127.0.0.1
 	handle @not_vpn {
-		respond "Access Denied: VAHN Internal VPN Required." 403
+		respond "Access Denied" 403
 	}
 
 	handle /api/* {
