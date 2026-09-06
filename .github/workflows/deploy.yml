@@ -300,6 +300,7 @@ jobs:
             docker exec vahn-backend-dev python -m alembic upgrade head
 
             # Ensure shared VPN gateway is running cleanly under dedicated stack
+            docker rm -f vahn-vpn || true
             docker compose -f docker-compose.vpn.yml pull || true
             docker compose -f docker-compose.vpn.yml up -d --remove-orphans
             sleep 4

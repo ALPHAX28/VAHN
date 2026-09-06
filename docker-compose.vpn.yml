@@ -25,6 +25,7 @@ services:
 
 volumes:
   vahn_wireguard_data:
+    external: true
     name: vahn_wireguard_data
 
 networks:
