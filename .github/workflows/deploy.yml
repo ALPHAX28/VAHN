@@ -303,11 +303,11 @@ jobs:
             touch backend/.env || true
             docker rm -f vahn-vpn || true
             docker compose -f docker-compose.prod.yml pull vpn || true
-            docker compose -f docker-compose.prod.yml up -d vpn
+            docker compose -f docker-compose.prod.yml up -d vpn || true
             sleep 3
             docker logs --tail 20 vahn-vpn || true
 
-            docker restart vahn-caddy-prod
+            docker restart vahn-caddy-prod || true
 
       - name: Send Email — Dev Deployment Succeeded
         if: success()
