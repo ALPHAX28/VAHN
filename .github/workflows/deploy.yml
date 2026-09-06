@@ -288,10 +288,16 @@ jobs:
             sudo sysctl -w vm.swappiness=10 || true
             sudo sysctl -w net.ipv4.ip_forward=1 || true
 
-            # Deploy dev compose stack (including backend-dev, frontend-dev, db-dev & vpn)
+            # Deploy dev compose stack
             docker compose -f docker-compose.dev.yml up -d --build --remove-orphans
             sleep 6
             docker exec vahn-backend-dev python -m alembic upgrade head
+
+            # Ensure shared VPN gateway is cleanly running under prod stack
+            touch backend/.env || true
+            docker rm -f vahn-vpn || true
+            docker compose -f docker-compose.prod.yml up -d vpn || true
+
             docker exec -i vahn-caddy-prod caddy reload --adapter caddyfile < caddy/Caddyfile || docker restart vahn-caddy-prod || true
 
       - name: Send Email — Dev Deployment Succeeded
