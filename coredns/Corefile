@@ -1,0 +1,13 @@
+.:53 {
+    hosts {
+        172.26.15.56 dev-admin.vahnsports.com
+        172.26.15.56 admin.vahnsports.com
+        172.26.15.56 admin-dev.vahnsports.com
+        fallthrough
+    }
+    forward . 1.1.1.1 8.8.8.8
+    cache 30
+    reload
+    log
+    errors
+}

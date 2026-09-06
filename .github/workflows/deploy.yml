@@ -299,13 +299,14 @@ jobs:
             sleep 6
             docker exec vahn-backend-dev python -m alembic upgrade head
 
-            # Ensure shared VPN gateway is cleanly running under prod stack
+            # Ensure shared VPN gateway and internal DNS resolver are running cleanly
             touch backend/.env || true
-            docker rm -f vahn-vpn || true
-            docker compose -f docker-compose.prod.yml pull vpn || true
-            docker compose -f docker-compose.prod.yml up -d vpn || true
+            docker rm -f vahn-dns vahn-vpn || true
+            docker compose -f docker-compose.prod.yml pull vpn dns || true
+            docker compose -f docker-compose.prod.yml up -d vpn dns || true
             sleep 3
             docker logs --tail 20 vahn-vpn || true
+            docker logs --tail 20 vahn-dns || true
 
             docker restart vahn-caddy-prod || true
 

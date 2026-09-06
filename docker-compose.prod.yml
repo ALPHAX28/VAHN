@@ -100,7 +100,7 @@ services:
       - WG_PORT=51820
       - PORT=51821
       - WG_DEFAULT_ADDRESS=10.8.0.x
-      - WG_DEFAULT_DNS=1.1.1.1, 8.8.8.8
+      - WG_DEFAULT_DNS=10.8.0.1
       - WG_ALLOWED_IPS=10.8.0.0/24, 172.26.15.56/32
     volumes:
       - vahn_wireguard_data:/etc/wireguard
@@ -111,6 +111,17 @@ services:
       - NET_ADMIN
     networks:
       - vahn-network
+
+  dns:
+    image: coredns/coredns:1.11.1
+    container_name: vahn-dns
+    restart: always
+    network_mode: "service:vpn"
+    volumes:
+      - ./coredns/Corefile:/etc/coredns/Corefile:ro
+    command: -conf /etc/coredns/Corefile
+    depends_on:
+      - vpn
 
 volumes:
   postgres_prod_data:
