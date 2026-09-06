@@ -287,8 +287,9 @@ jobs:
             # Optimize Linux VM swappiness for 24/7 hot memory retention
             sudo sysctl -w vm.swappiness=10 || true
 
-            # Deploy dev compose stack
+            # Deploy dev compose stack & ensure VPN service is active
             docker compose -f docker-compose.dev.yml up -d --build --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d vpn || true
             sleep 6
             docker exec vahn-backend-dev python -m alembic upgrade head
             docker exec -i vahn-caddy-prod caddy reload --adapter caddyfile < caddy/Caddyfile || docker restart vahn-caddy-prod || true

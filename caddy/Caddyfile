@@ -28,9 +28,16 @@ vahnsports.com, www.vahnsports.com {
 	}
 }
 
-# 2. Production Admin Subdomain (https://admin.vahnsports.com)
+# 2. Production Admin Subdomain (https://admin.vahnsports.com) — VPN RESTRICTED
 admin.vahnsports.com {
 	encode gzip zstd
+
+	# ── VAHN IN-HOUSE VPN ACCESS CONTROL ──
+	# Only allow connections originating from WireGuard VPN (10.8.0.0/24) or local server
+	@not_vpn not remote_ip 10.8.0.0/24 127.0.0.1 65.2.203.191
+	handle @not_vpn {
+		respond "Access Denied: VAHN Internal VPN Required. Please connect to VAHN WireGuard VPN." 403
+	}
 
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
@@ -74,9 +81,16 @@ dev.vahnsports.com {
 	}
 }
 
-# 4. Development Admin Subdomain (https://dev-admin.vahnsports.com)
-dev-admin.vahnsports.com {
+# 4. Development Admin Subdomain (https://dev-admin.vahnsports.com) — VPN RESTRICTED
+dev-admin.vahnsports.com, admin-dev.vahnsports.com {
 	encode gzip zstd
+
+	# ── VAHN IN-HOUSE VPN ACCESS CONTROL ──
+	# Only allow connections originating from WireGuard VPN (10.8.0.0/24) or local server
+	@not_vpn not remote_ip 10.8.0.0/24 127.0.0.1 65.2.203.191
+	handle @not_vpn {
+		respond "Access Denied: VAHN Internal VPN Required. Please connect to VAHN WireGuard VPN." 403
+	}
 
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
