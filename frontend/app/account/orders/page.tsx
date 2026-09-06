@@ -119,7 +119,7 @@ export default function OrdersPage() {
                     {formatMoney(order.totalPrice)}
                   </strong>
                   <Link href={`/account/orders/${order.id}`} className="btn btn-secondary order-view-btn" style={{ fontSize: "0.78rem" }} onClick={e => e.stopPropagation()}>
-                    View Order Details →
+                    <span>View Order Details →</span>
                   </Link>
                 </div>
               </div>
