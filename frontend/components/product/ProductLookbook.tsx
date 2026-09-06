@@ -61,7 +61,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
   return (
     <section
       style={{
-        background: '#1D1D1D',
+        background: '#111111',
         width: '100%',
         position: 'relative',
         overflow: 'hidden',
@@ -297,7 +297,7 @@ export default function ProductLookbook({ lookbook }: ProductLookbookProps) {
                   aspectRatio: '3 / 4',
                   maxHeight: '640px',
                   overflow: 'hidden',
-                  background: '#1D1D1D',
+                  background: '#111111',
                   borderRadius: '0px',
                 }}
               >
