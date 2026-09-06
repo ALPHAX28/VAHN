@@ -301,6 +301,9 @@ jobs:
 
             # Ensure shared VPN gateway is running cleanly under dedicated stack
             docker rm -f vahn-vpn || true
+            sudo ip link delete dev wg0 || true
+            sudo fuser -k 51820/udp || true
+            sudo killall wireguard-go || true
             docker compose -f docker-compose.vpn.yml pull || true
             docker compose -f docker-compose.vpn.yml up -d --remove-orphans
             sleep 4
