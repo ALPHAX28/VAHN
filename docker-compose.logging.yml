@@ -13,7 +13,10 @@ services:
     ports:
       - "3100:3100"
     networks:
-      - vahn-network
+      vahn-network:
+        aliases:
+          - loki
+          - vahn-loki
 
   promtail:
     image: grafana/promtail:3.0.0
@@ -29,7 +32,10 @@ services:
     depends_on:
       - loki
     networks:
-      - vahn-network
+      vahn-network:
+        aliases:
+          - promtail
+          - vahn-promtail
 
   grafana:
     image: grafana/grafana-oss:11.1.0
@@ -51,7 +57,10 @@ services:
     depends_on:
       - loki
     networks:
-      - vahn-network
+      vahn-network:
+        aliases:
+          - grafana
+          - vahn-grafana
 
 volumes:
   loki_data:

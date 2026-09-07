@@ -203,7 +203,7 @@ jobs:
             docker exec vahn-caddy-prod caddy reload --config /etc/caddy/Caddyfile || true
 
             # Ensure centralized logging & monitoring stack is running
-            docker compose -f docker-compose.logging.yml up -d --remove-orphans || true
+            docker compose -f docker-compose.logging.yml up -d --force-recreate --remove-orphans || true
             echo "=== VAHN Prod Deployment Completed: $(date) ==="
 
       - name: Send Email — Prod Deployment Succeeded
@@ -341,12 +341,14 @@ jobs:
             docker exec vahn-vpn iptables -t mangle -I OUTPUT -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 || true
 
             # Ensure centralized logging & monitoring stack is running
-            docker compose -f docker-compose.logging.yml up -d --remove-orphans || true
+            docker compose -f docker-compose.logging.yml up -d --force-recreate --remove-orphans || true
 
             docker ps -a --filter name=vahn-
             docker logs --tail 20 vahn-vpn || true
             docker logs --tail 20 vahn-dns || true
             docker logs --tail 20 vahn-vpn-proxy || true
+            docker logs --tail 20 vahn-loki || true
+            docker logs --tail 20 vahn-promtail || true
             echo "=== VAHN Dev Deployment Completed: $(date) ==="
 
       - name: Send Email — Dev Deployment Succeeded
