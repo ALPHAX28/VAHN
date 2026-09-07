@@ -7,7 +7,10 @@
     "dev:docker": "node run_dev.js",
     "clean:next": "node -e \"require('fs').rmSync('./frontend/.next',{recursive:true,force:true});console.log('Cleaned .next')\"",
     "prod:start": "node run_prod.js",
-    "prod:docker": "docker-compose -p prod-vahn -f docker-compose.prod.yml up --build"
+    "prod:docker": "docker-compose -p prod-vahn -f docker-compose.prod.yml up --build",
+    "logs:start": "docker compose -f docker-compose.logging.yml up -d",
+    "logs:stop": "docker compose -f docker-compose.logging.yml down",
+    "logs:status": "docker compose -f docker-compose.logging.yml ps"
   },
   "keywords": [
     "nextjs",

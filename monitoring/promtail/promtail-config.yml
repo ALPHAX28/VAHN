@@ -1,0 +1,88 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # 1. Scrape all running Docker containers via Docker Daemon API
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Strip leading slash from container name
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+
+      # Categorize by Environment (dev, prod, vpn, monitoring)
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*-dev.*'
+        target_label: 'env'
+        replacement: 'dev'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*-prod.*'
+        target_label: 'env'
+        replacement: 'prod'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*vpn.*|.*dns.*'
+        target_label: 'env'
+        replacement: 'vpn'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*loki.*|.*promtail.*|.*grafana.*'
+        target_label: 'env'
+        replacement: 'monitoring'
+
+      # Categorize by Service type
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*backend.*'
+        target_label: 'service'
+        replacement: 'backend'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*frontend.*'
+        target_label: 'service'
+        replacement: 'frontend'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*caddy.*'
+        target_label: 'service'
+        replacement: 'caddy'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*postgres.*|.*db.*'
+        target_label: 'service'
+        replacement: 'database'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*vpn-proxy.*|.*proxy.*'
+        target_label: 'service'
+        replacement: 'proxy'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*vpn.*'
+        target_label: 'service'
+        replacement: 'vpn'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*dns.*'
+        target_label: 'service'
+        replacement: 'dns'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '.*keepalive.*'
+        target_label: 'service'
+        replacement: 'keepalive'
+
+      # Capture stdout / stderr stream tag
+      - source_labels: ['__meta_docker_container_log_stream']
+        target_label: 'stream'
+
+  # 2. Scrape Deployment & CI/CD Logs
+  - job_name: deployment
+    static_configs:
+      - targets: ['localhost']
+        labels:
+          job: 'deployment'
+          env: 'cicd'
+          service: 'github-actions-deploy'
+          __path__: /var/log/vahn/*.log

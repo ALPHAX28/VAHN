@@ -111,7 +111,31 @@ dev-admin.vahnsports.com, admin-dev.vahnsports.com {
 	}
 }
 
-# 5. Direct VPN IP Admin Access (https://10.8.0.1)
+# 5. Monitoring & Centralized Logs Subdomain (https://logs.vahnsports.com) — VPN RESTRICTED
+logs.vahnsports.com, dev-logs.vahnsports.com {
+	encode gzip zstd
+
+	# ── VAHN IN-HOUSE VPN ACCESS CONTROL ──
+	# Only allow connections originating from WireGuard VPN (10.0.0.0/8) or internal Docker/host network (172.16.0.0/12)
+	@not_vpn not remote_ip 10.0.0.0/8 172.16.0.0/12 127.0.0.1 65.2.203.191
+	handle @not_vpn {
+		respond "Access Denied" 403
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	handle {
+		reverse_proxy vahn-grafana:3000
+	}
+}
+
+# 6. Direct VPN IP Admin Access (https://10.8.0.1)
 https://10.8.0.1 {
 	tls internal
 	encode gzip zstd

@@ -1,0 +1,65 @@
+name: vahn-monitoring
+
+services:
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: vahn-loki
+    restart: always
+    user: "0:0"
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - vahn-network
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: vahn-promtail
+    restart: always
+    user: "0:0"
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./logs:/var/log/vahn:ro
+    depends_on:
+      - loki
+    networks:
+      - vahn-network
+
+  grafana:
+    image: grafana/grafana-oss:11.1.0
+    container_name: vahn-grafana
+    restart: always
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-vahn_admin_2026!}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SERVER_SERVE_FROM_SUB_PATH=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/vahn-containers.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - loki
+    networks:
+      - vahn-network
+
+volumes:
+  loki_data:
+    name: vahn_loki_data
+  grafana_data:
+    name: vahn_grafana_data
+
+networks:
+  vahn-network:
+    external: true
+    name: vahn_prod_network
