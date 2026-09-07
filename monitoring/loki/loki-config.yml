@@ -15,7 +15,7 @@ common:
       rules_directory: /loki/rules
   replication_factor: 1
   ring:
-    instance_addr: 0.0.0.0
+    instance_addr: 127.0.0.1
     kvstore:
       store: inmemory
 
@@ -31,10 +31,6 @@ schema_config:
 
 limits_config:
   retention_period: 336h
-  enforce_metric_name: false
-  reject_old_samples: true
-  reject_old_samples_max_age: 168h
-  max_cache_freshness_per_query: 10m
 
 compactor:
   working_directory: /loki/compactor
