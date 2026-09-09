@@ -3,24 +3,192 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import TrustBadgesBar from '@/components/ui/TrustBadgesBar';
+import PolicyTabs from '@/components/ui/PolicyTabs';
+
+interface FormState {
+  firstName: string;
+  lastName: string;
+  email: string;
+  countryCode: string;
+  phone: string;
+  orderNumber: string;
+  subject: string;
+  message: string;
+}
+
+type ValidatedField = 'firstName' | 'lastName' | 'email' | 'phone' | 'orderNumber' | 'subject' | 'message';
+
+type FormErrors = Partial<Record<ValidatedField, string>>;
+
+const initialFormData: FormState = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  countryCode: '+91',
+  phone: '',
+  orderNumber: '',
+  subject: '',
+  message: '',
+};
+
+const COUNTRY_CODES = [
+  { code: '+91', label: '🇮🇳 +91 (IN)' },
+  { code: '+1', label: '🇺🇸 +1 (US/CA)' },
+  { code: '+44', label: '🇬🇧 +44 (UK)' },
+  { code: '+971', label: '🇦🇪 +971 (AE)' },
+  { code: '+61', label: '🇦🇺 +61 (AU)' },
+  { code: '+65', label: '🇸🇬 +65 (SG)' },
+  { code: '+49', label: '🇩🇪 +49 (DE)' },
+  { code: '+33', label: '🇫🇷 +33 (FR)' },
+  { code: '+81', label: '🇯🇵 +81 (JP)' },
+  { code: '+966', label: '🇸🇦 +966 (SA)' },
+  { code: '+974', label: '🇶🇦 +974 (QA)' },
+  { code: '+965', label: '🇰🇼 +965 (KW)' },
+  { code: '+64', label: '🇳🇿 +64 (NZ)' },
+  { code: '+880', label: '🇧🇩 +880 (BD)' },
+  { code: '+977', label: '🇳🇵 +977 (NP)' },
+  { code: '+94', label: '🇱🇰 +94 (LK)' },
+  { code: '+86', label: '🇨🇳 +86 (CN)' },
+  { code: '+39', label: '🇮🇹 +39 (IT)' },
+  { code: '+34', label: '🇪🇸 +34 (ES)' },
+  { code: '+31', label: '🇳🇱 +31 (NL)' },
+];
+
+const containsEmoji = (str: string): boolean => {
+  return /[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F]/u.test(str);
+};
+
+const containsLink = (str: string): boolean => {
+  if (!str) return false;
+  return /(https?:\/\/|ftp:\/\/|www\.[^\s]+|[a-zA-Z0-9-]+\.(com|org|net|io|co|in|ai|app|dev|biz|info|me|xyz|online|store|shop|site|page)\b)/i.test(str);
+};
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    orderNumber: '',
-    subject: '',
-    message: '',
-  });
+  const [formData, setFormData] = useState<FormState>(initialFormData);
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  const validateField = (name: keyof FormState, value: string): string | undefined => {
+    const trimmed = value.trim();
+
+    switch (name) {
+      case 'firstName':
+      case 'lastName': {
+        const label = name === 'firstName' ? 'First name' : 'Last name';
+        if (!trimmed) return `${label} is required.`;
+        if (containsLink(trimmed)) return 'Links and URLs are not permitted.';
+        if (containsEmoji(trimmed)) return 'Emojis are not permitted.';
+        if (!/^[\p{L}\s'-]+$/u.test(trimmed)) {
+          return `${label} can only contain letters, spaces, hyphens, and apostrophes (no numbers or special characters).`;
+        }
+        if (trimmed.length < 2) return `${label} must be at least 2 characters.`;
+        return undefined;
+      }
+
+      case 'email': {
+        if (!trimmed) return 'Email address is required.';
+        if (/(https?:\/\/|ftp:\/\/|www\.)/i.test(trimmed)) {
+          return 'Please enter a valid email address, not a website link.';
+        }
+        if (containsEmoji(trimmed)) return 'Emojis are not permitted in email address.';
+        if (trimmed.includes('..')) return 'Email contains invalid consecutive dots.';
+        if (/\.(com|org|net|in|co|io|edu|gov)\.\1$/i.test(trimmed)) {
+          return 'Invalid domain suffix in email address.';
+        }
+        const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,10})+$/;
+        if (!emailRegex.test(trimmed)) {
+          return 'Please enter a valid email address (e.g. name@example.com).';
+        }
+        return undefined;
+      }
+
+      case 'phone': {
+        if (!trimmed) return undefined; // Phone is optional
+        if (containsLink(trimmed)) return 'Links and URLs are not permitted in phone number.';
+        if (containsEmoji(trimmed)) return 'Emojis are not permitted in phone number.';
+        const digitsOnly = trimmed.replace(/\D/g, '');
+        if (digitsOnly.length < 7 || digitsOnly.length > 15) {
+          return 'Please enter a valid phone number (7 to 15 digits).';
+        }
+        return undefined;
+      }
+
+      case 'orderNumber': {
+        if (!trimmed) return undefined; // Optional
+        if (containsLink(trimmed)) return 'Links and URLs are not permitted in order number.';
+        if (containsEmoji(trimmed)) return 'Emojis are not permitted in order number.';
+        if (!/^[a-zA-Z0-9#\s-]+$/.test(trimmed)) {
+          return 'Order number can only contain letters, numbers, hyphens, and #.';
+        }
+        return undefined;
+      }
+
+      case 'subject': {
+        if (!trimmed) return 'Please select a topic.';
+        return undefined;
+      }
+
+      case 'message': {
+        if (!trimmed) return 'Message is required.';
+        if (containsLink(trimmed)) {
+          return 'Links and website URLs are not allowed in your message. Please remove any website links.';
+        }
+        if (trimmed.length < 10) return 'Message must be at least 10 characters long.';
+        return undefined;
+      }
+
+      default:
+        return undefined;
+    }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Strictly strip any alphabets, emojis, and special characters other than digits, spaces, hyphens
+    const filtered = e.target.value.replace(/[^\d\s-]/g, '');
+    setFormData((prev) => ({ ...prev, phone: filtered }));
+    if (errors.phone) {
+      const err = validateField('phone', filtered);
+      setErrors((prev) => ({ ...prev, phone: err }));
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name as ValidatedField]) {
+      const err = validateField(name as keyof FormState, value);
+      setErrors((prev) => ({ ...prev, [name]: err }));
+    }
+  };
+
+  const handleBlur = (field: ValidatedField) => {
+    const err = validateField(field, formData[field]);
+    setErrors((prev) => ({ ...prev, [field]: err }));
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Validate all fields
+    const newErrors: FormErrors = {};
+    const fieldsToValidate: ValidatedField[] = ['firstName', 'lastName', 'email', 'phone', 'orderNumber', 'subject', 'message'];
+    for (const field of fieldsToValidate) {
+      const err = validateField(field, formData[field]);
+      if (err) newErrors[field] = err;
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
     setLoading(true);
     await new Promise((r) => setTimeout(r, 900));
+
+    // SCRUM-74: Reset all form fields data to blank
+    setFormData(initialFormData);
+    setErrors({});
     setSubmitted(true);
     setLoading(false);
   };
@@ -81,6 +249,9 @@ export default function ContactPage() {
           </p>
         </div>
       </section>
+
+      {/* ── Subnav Tabs Bar (SCRUM-75) ── */}
+      <PolicyTabs activeHandle="contact" />
 
       {/* ── 2-Column Main Content ── */}
       <div
@@ -279,7 +450,11 @@ export default function ContactPage() {
               </p>
               <button
                 type="button"
-                onClick={() => setSubmitted(false)}
+                onClick={() => {
+                  setFormData(initialFormData);
+                  setErrors({});
+                  setSubmitted(false);
+                }}
                 className="btn btn-secondary"
                 style={{ fontSize: '0.78rem', textTransform: 'uppercase', padding: '10px 24px' }}
               >
@@ -287,7 +462,7 @@ export default function ContactPage() {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
               <div style={{ marginBottom: '28px' }}>
                 <h2
                   style={{
@@ -307,6 +482,23 @@ export default function ContactPage() {
                 </p>
               </div>
 
+              {Object.keys(errors).length > 0 && (
+                <div
+                  style={{
+                    background: '#fef2f2',
+                    border: '1px solid #fee2e2',
+                    borderLeft: '4px solid #d93025',
+                    padding: '12px 16px',
+                    marginBottom: '20px',
+                    fontSize: '0.8125rem',
+                    color: '#991b1b',
+                  }}
+                >
+                  Please review and correct the highlighted fields below.
+                </div>
+              )}
+
+              {/* First Name & Last Name */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
                   <label className="form-label" htmlFor="firstName">First Name *</label>
@@ -316,9 +508,19 @@ export default function ContactPage() {
                     type="text"
                     className="input"
                     required
+                    style={{
+                      borderColor: errors.firstName ? '#d93025' : undefined,
+                      boxShadow: errors.firstName ? '0 0 0 1px #d93025' : undefined,
+                    }}
                     value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    onChange={handleInputChange}
+                    onBlur={() => handleBlur('firstName')}
                   />
+                  {errors.firstName && (
+                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                      {errors.firstName}
+                    </span>
+                  )}
                 </div>
                 <div className="form-group">
                   <label className="form-label" htmlFor="lastName">Last Name *</label>
@@ -328,12 +530,23 @@ export default function ContactPage() {
                     type="text"
                     className="input"
                     required
+                    style={{
+                      borderColor: errors.lastName ? '#d93025' : undefined,
+                      boxShadow: errors.lastName ? '0 0 0 1px #d93025' : undefined,
+                    }}
                     value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    onChange={handleInputChange}
+                    onBlur={() => handleBlur('lastName')}
                   />
+                  {errors.lastName && (
+                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                      {errors.lastName}
+                    </span>
+                  )}
                 </div>
               </div>
 
+              {/* Email & Phone with Country Code */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
                   <label className="form-label" htmlFor="email">Email Address *</label>
@@ -343,24 +556,72 @@ export default function ContactPage() {
                     type="email"
                     className="input"
                     required
+                    style={{
+                      borderColor: errors.email ? '#d93025' : undefined,
+                      boxShadow: errors.email ? '0 0 0 1px #d93025' : undefined,
+                    }}
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={handleInputChange}
+                    onBlur={() => handleBlur('email')}
                   />
+                  {errors.email && (
+                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                      {errors.email}
+                    </span>
+                  )}
                 </div>
+
                 <div className="form-group">
-                  <label className="form-label" htmlFor="phone">Phone Number</label>
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    className="input"
-                    placeholder="+91"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  />
+                  <label className="form-label" htmlFor="phone">Phone Number (Optional)</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <select
+                      id="countryCode"
+                      name="countryCode"
+                      className="input"
+                      style={{
+                        width: '135px',
+                        flexShrink: 0,
+                        padding: '0 8px',
+                        fontSize: '0.8125rem',
+                        background: '#ffffff',
+                        cursor: 'pointer',
+                      }}
+                      value={formData.countryCode}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, countryCode: e.target.value }))}
+                      aria-label="Country Code"
+                    >
+                      {COUNTRY_CODES.map((item) => (
+                        <option key={item.code} value={item.code}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      inputMode="numeric"
+                      className="input"
+                      placeholder="98765 43210"
+                      style={{
+                        flex: 1,
+                        borderColor: errors.phone ? '#d93025' : undefined,
+                        boxShadow: errors.phone ? '0 0 0 1px #d93025' : undefined,
+                      }}
+                      value={formData.phone}
+                      onChange={handlePhoneChange}
+                      onBlur={() => handleBlur('phone')}
+                    />
+                  </div>
+                  {errors.phone && (
+                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                      {errors.phone}
+                    </span>
+                  )}
                 </div>
               </div>
 
+              {/* Order Number & Subject */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
                   <label className="form-label" htmlFor="orderNumber">Order Number (If Applicable)</label>
@@ -370,9 +631,19 @@ export default function ContactPage() {
                     type="text"
                     className="input"
                     placeholder="e.g. ORD-123456"
+                    style={{
+                      borderColor: errors.orderNumber ? '#d93025' : undefined,
+                      boxShadow: errors.orderNumber ? '0 0 0 1px #d93025' : undefined,
+                    }}
                     value={formData.orderNumber}
-                    onChange={(e) => setFormData({ ...formData, orderNumber: e.target.value })}
+                    onChange={handleInputChange}
+                    onBlur={() => handleBlur('orderNumber')}
                   />
+                  {errors.orderNumber && (
+                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                      {errors.orderNumber}
+                    </span>
+                  )}
                 </div>
                 <div className="form-group">
                   <label className="form-label" htmlFor="subject">Subject *</label>
@@ -381,8 +652,13 @@ export default function ContactPage() {
                     name="subject"
                     className="input"
                     required
+                    style={{
+                      borderColor: errors.subject ? '#d93025' : undefined,
+                      boxShadow: errors.subject ? '0 0 0 1px #d93025' : undefined,
+                    }}
                     value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                    onChange={handleInputChange}
+                    onBlur={() => handleBlur('subject')}
                   >
                     <option value="">Select a topic</option>
                     <option value="order">Order Tracking / Status</option>
@@ -391,9 +667,15 @@ export default function ContactPage() {
                     <option value="product">Product &amp; Sizing Question</option>
                     <option value="other">General Feedback / Other</option>
                   </select>
+                  {errors.subject && (
+                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                      {errors.subject}
+                    </span>
+                  )}
                 </div>
               </div>
 
+              {/* Message */}
               <div className="form-group" style={{ marginBottom: '24px' }}>
                 <label className="form-label" htmlFor="message">Message *</label>
                 <textarea
@@ -402,11 +684,21 @@ export default function ContactPage() {
                   className="input"
                   rows={5}
                   required
-                  placeholder="How can we help?"
-                  style={{ resize: 'vertical' }}
+                  placeholder="How can we help? (Please do not include website links)"
+                  style={{
+                    resize: 'vertical',
+                    borderColor: errors.message ? '#d93025' : undefined,
+                    boxShadow: errors.message ? '0 0 0 1px #d93025' : undefined,
+                  }}
                   value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  onChange={handleInputChange}
+                  onBlur={() => handleBlur('message')}
                 />
+                {errors.message && (
+                  <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                    {errors.message}
+                  </span>
+                )}
               </div>
 
               <button
@@ -421,6 +713,8 @@ export default function ContactPage() {
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.7 : 1,
                 }}
               >
                 {loading ? 'Sending Message...' : 'Send Message →'}

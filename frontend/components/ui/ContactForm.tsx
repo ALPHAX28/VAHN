@@ -2,15 +2,96 @@
 
 import { useState } from 'react';
 
+const COUNTRY_CODES = [
+  { code: '+91', label: '🇮🇳 +91 (IN)' },
+  { code: '+1', label: '🇺🇸 +1 (US/CA)' },
+  { code: '+44', label: '🇬🇧 +44 (UK)' },
+  { code: '+971', label: '🇦🇪 +971 (AE)' },
+  { code: '+61', label: '🇦🇺 +61 (AU)' },
+  { code: '+65', label: '🇸🇬 +65 (SG)' },
+  { code: '+49', label: '🇩🇪 +49 (DE)' },
+  { code: '+33', label: '🇫🇷 +33 (FR)' },
+  { code: '+81', label: '🇯🇵 +81 (JP)' },
+  { code: '+966', label: '🇸🇦 +966 (SA)' },
+  { code: '+974', label: '🇶🇦 +974 (QA)' },
+  { code: '+965', label: '🇰🇼 +965 (KW)' },
+  { code: '+64', label: '🇳🇿 +64 (NZ)' },
+  { code: '+880', label: '🇧🇩 +880 (BD)' },
+  { code: '+977', label: '🇳🇵 +977 (NP)' },
+  { code: '+94', label: '🇱🇰 +94 (LK)' },
+  { code: '+86', label: '🇨🇳 +86 (CN)' },
+  { code: '+39', label: '🇮🇹 +39 (IT)' },
+  { code: '+34', label: '🇪🇸 +34 (ES)' },
+  { code: '+31', label: '🇳🇱 +31 (NL)' },
+];
+
+interface FormState {
+  firstName: string;
+  lastName: string;
+  email: string;
+  countryCode: string;
+  phone: string;
+  subject: string;
+  message: string;
+}
+
+const initialFormState: FormState = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  countryCode: '+91',
+  phone: '',
+  subject: '',
+  message: '',
+};
+
 export default function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState<FormState>(initialFormState);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const containsEmoji = (str: string) => /[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F]/u.test(str);
+  const containsLink = (str: string) => /(https?:\/\/|ftp:\/\/|www\.[^\s]+|[a-zA-Z0-9-]+\.(com|org|net|io|co|in|ai|app|dev|biz|info|me|xyz|online|store|shop|site)\b)/i.test(str);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const errs: Record<string, string> = {};
+    if (!formData.firstName.trim() || !/^[\p{L}\s'-]+$/u.test(formData.firstName.trim()) || containsEmoji(formData.firstName) || containsLink(formData.firstName)) {
+      errs.firstName = 'Valid first name is required (letters only, no emojis or links).';
+    }
+    if (!formData.lastName.trim() || !/^[\p{L}\s'-]+$/u.test(formData.lastName.trim()) || containsEmoji(formData.lastName) || containsLink(formData.lastName)) {
+      errs.lastName = 'Valid last name is required (letters only, no emojis or links).';
+    }
+    const emailTrimmed = formData.email.trim();
+    if (!emailTrimmed || containsLink(emailTrimmed) || containsEmoji(emailTrimmed) || emailTrimmed.includes('..') || /\.(com|org|net|in|co)\.\1$/i.test(emailTrimmed) || !/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,10})+$/.test(emailTrimmed)) {
+      errs.email = 'Please enter a valid email address.';
+    }
+    if (formData.phone) {
+      const digits = formData.phone.replace(/\D/g, '');
+      if (digits.length < 7 || digits.length > 15 || containsLink(formData.phone) || containsEmoji(formData.phone)) {
+        errs.phone = 'Valid phone number is required (7 to 15 digits).';
+      }
+    }
+    if (!formData.subject) {
+      errs.subject = 'Please select a topic.';
+    }
+    if (!formData.message.trim() || formData.message.trim().length < 10) {
+      errs.message = 'Message must be at least 10 characters.';
+    } else if (containsLink(formData.message)) {
+      errs.message = 'Links/URLs are not allowed in messages.';
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+
     setLoading(true);
-    // Simulate API call - in production, connect to your email service
     await new Promise((r) => setTimeout(r, 1000));
+    setFormData(initialFormState);
+    setErrors({});
     setSubmitted(true);
     setLoading(false);
   };
@@ -31,12 +112,24 @@ export default function ContactForm() {
         <p style={{ color: 'var(--color-grey-dark)', marginTop: '12px', fontFamily: 'var(--font-body)' }}>
           Thank you for reaching out. Our team will get back to you within 24 hours.
         </p>
+        <button
+          type="button"
+          onClick={() => {
+            setFormData(initialFormState);
+            setErrors({});
+            setSubmitted(false);
+          }}
+          className="btn btn-secondary"
+          style={{ marginTop: '20px' }}
+        >
+          Send Another Message
+        </button>
       </div>
     );
   }
 
   return (
-    <form className="contact-form" onSubmit={handleSubmit}>
+    <form className="contact-form" onSubmit={handleSubmit} noValidate>
       <div>
         <h2 style={{ marginBottom: '8px' }}>Get In Touch</h2>
         <p style={{ color: 'var(--color-grey-dark)', fontFamily: 'var(--font-body)', marginBottom: '24px' }}>
@@ -66,33 +159,92 @@ export default function ContactForm() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <div className="form-group">
           <label className="form-label" htmlFor="firstName">First Name *</label>
-          <input id="firstName" name="firstName" type="text" className="input" required />
+          <input
+            id="firstName"
+            name="firstName"
+            type="text"
+            className="input"
+            required
+            value={formData.firstName}
+            onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+          />
+          {errors.firstName && <span style={{ color: '#d93025', fontSize: '0.75rem' }}>{errors.firstName}</span>}
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="lastName">Last Name *</label>
-          <input id="lastName" name="lastName" type="text" className="input" required />
+          <input
+            id="lastName"
+            name="lastName"
+            type="text"
+            className="input"
+            required
+            value={formData.lastName}
+            onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+          />
+          {errors.lastName && <span style={{ color: '#d93025', fontSize: '0.75rem' }}>{errors.lastName}</span>}
         </div>
       </div>
 
       <div className="form-group">
         <label className="form-label" htmlFor="email">Email *</label>
-        <input id="email" name="email" type="email" className="input" required />
+        <input
+          id="email"
+          name="email"
+          type="email"
+          className="input"
+          required
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+        />
+        {errors.email && <span style={{ color: '#d93025', fontSize: '0.75rem' }}>{errors.email}</span>}
       </div>
 
       <div className="form-group">
-        <label className="form-label" htmlFor="phone">Phone</label>
-        <input id="phone" name="phone" type="tel" className="input" />
+        <label className="form-label" htmlFor="phone">Phone (Optional)</label>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <select
+            id="countryCode"
+            name="countryCode"
+            className="input"
+            style={{ width: '130px', flexShrink: 0 }}
+            value={formData.countryCode}
+            onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
+          >
+            {COUNTRY_CODES.map((c) => (
+              <option key={c.code} value={c.code}>{c.label}</option>
+            ))}
+          </select>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            className="input"
+            placeholder="98765 43210"
+            style={{ flex: 1 }}
+            value={formData.phone}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/[^\d\s-]/g, '') })}
+          />
+        </div>
+        {errors.phone && <span style={{ color: '#d93025', fontSize: '0.75rem' }}>{errors.phone}</span>}
       </div>
 
       <div className="form-group">
         <label className="form-label" htmlFor="subject">Subject *</label>
-        <select id="subject" name="subject" className="input" required>
+        <select
+          id="subject"
+          name="subject"
+          className="input"
+          required
+          value={formData.subject}
+          onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+        >
           <option value="">Select a topic</option>
           <option value="bespoke">Bespoke Teamwear Enquiry</option>
           <option value="order">Order Support</option>
           <option value="wholesale">Wholesale</option>
           <option value="other">Other</option>
         </select>
+        {errors.subject && <span style={{ color: '#d93025', fontSize: '0.75rem' }}>{errors.subject}</span>}
       </div>
 
       <div className="form-group">
@@ -104,7 +256,10 @@ export default function ContactForm() {
           rows={6}
           required
           style={{ resize: 'vertical' }}
+          value={formData.message}
+          onChange={(e) => setFormData({ ...formData, message: e.target.value })}
         />
+        {errors.message && <span style={{ color: '#d93025', fontSize: '0.75rem' }}>{errors.message}</span>}
       </div>
 
       <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
