@@ -1048,3 +1048,77 @@ class NotificationBannerReorderItem(BaseModel):
     id: int
     display_order: int
 
+
+# ============================================================
+# Contact Message Schemas
+# ============================================================
+
+class ContactMessageCreate(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    country_code: str = "+91"
+    phone: Optional[str] = None
+    order_number: Optional[str] = None
+    subject: str
+    message: str
+
+    @field_validator('email')
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
+
+    @field_validator('first_name', 'last_name')
+    @classmethod
+    def check_name(cls, v: str) -> str:
+        trimmed = (v or "").strip()
+        if not trimmed:
+            raise ValueError("Name cannot be empty.")
+        if any(char in trimmed.lower() for char in ['http://', 'https://', 'www.', '.com', '.in', '.org']):
+            raise ValueError("Links/URLs are not permitted in names.")
+        return trimmed
+
+    @field_validator('message')
+    @classmethod
+    def check_message(cls, v: str) -> str:
+        trimmed = (v or "").strip()
+        if len(trimmed) < 10:
+            raise ValueError("Message must be at least 10 characters long.")
+        if any(scheme in trimmed.lower() for scheme in ['http://', 'https://', 'www.']):
+            raise ValueError("Links/URLs are not permitted in messages.")
+        return trimmed
+
+
+class ContactMessageUpdate(BaseModel):
+    status: Optional[str] = None  # NEW | IN_PROGRESS | RESOLVED | ARCHIVED
+    admin_notes: Optional[str] = None
+
+
+class ContactMessageOut(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    email: str
+    country_code: str
+    phone: Optional[str] = None
+    order_number: Optional[str] = None
+    subject: str
+    message: str
+    status: str
+    admin_notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ContactMessageListResponse(BaseModel):
+    items: List[ContactMessageOut]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+    counts: dict
+
+

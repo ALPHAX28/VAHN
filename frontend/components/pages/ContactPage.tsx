@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import TrustBadgesBar from '@/components/ui/TrustBadgesBar';
 import PolicyTabs from '@/components/ui/PolicyTabs';
+import { getApiBaseUrl } from '@/lib/api/client';
 
 interface FormState {
   firstName: string;
@@ -66,6 +67,7 @@ const containsLink = (str: string): boolean => {
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormState>(initialFormData);
   const [errors, setErrors] = useState<FormErrors>({});
 
@@ -184,13 +186,42 @@ export default function ContactPage() {
     }
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
+    setSubmitError(null);
 
-    // SCRUM-74: Reset all form fields data to blank
-    setFormData(initialFormData);
-    setErrors({});
-    setSubmitted(true);
-    setLoading(false);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+          country_code: formData.countryCode,
+          phone: formData.phone || null,
+          order_number: formData.orderNumber || null,
+          subject: formData.subject,
+          message: formData.message,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Unable to submit your message right now. Please try again.');
+      }
+
+      // SCRUM-74: Reset all form fields data to blank
+      setFormData(initialFormData);
+      setErrors({});
+      setSubmitError(null);
+      setSubmitted(true);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Unable to send your message right now. Please check your connection or email us directly.';
+      setSubmitError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -453,6 +484,7 @@ export default function ContactPage() {
                 onClick={() => {
                   setFormData(initialFormData);
                   setErrors({});
+                  setSubmitError(null);
                   setSubmitted(false);
                 }}
                 className="btn btn-secondary"
@@ -481,6 +513,24 @@ export default function ContactPage() {
                   Fill in the details below and our team will get back to you promptly.
                 </p>
               </div>
+
+              {submitError && (
+                <div
+                  role="alert"
+                  style={{
+                    background: '#fef2f2',
+                    border: '1px solid #fee2e2',
+                    borderLeft: '4px solid #d93025',
+                    padding: '14px 18px',
+                    marginBottom: '20px',
+                    fontSize: '0.875rem',
+                    color: '#991b1b',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <strong>Submission Error:</strong> {submitError}
+                </div>
+              )}
 
               {Object.keys(errors).length > 0 && (
                 <div

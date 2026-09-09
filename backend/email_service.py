@@ -2,6 +2,7 @@ import os
 import smtplib
 from email.message import EmailMessage
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -29,7 +30,7 @@ def _get_ses_client():
         return None
 
 
-def _send_email(to_email: str, subject: str, html_content: str, text_content: Optional[str] = None) -> bool:
+def _send_email(to_email: str, subject: str, html_content: str, text_content: Optional[str] = None, reply_to: Optional[str] = None) -> bool:
     """
     Central Email Dispatcher for VAHN using Amazon SES.
     1. Uses Amazon SES SMTP (smtplib) with configured IAM SES credentials for instant, verified delivery.
@@ -55,6 +56,8 @@ def _send_email(to_email: str, subject: str, html_content: str, text_content: Op
             msg["Subject"] = subject
             msg["From"] = source_address
             msg["To"] = to_email
+            if reply_to:
+                msg["Reply-To"] = reply_to
             msg.set_content(plain_text)
             msg.add_alternative(html_content, subtype="html")
 
@@ -75,17 +78,20 @@ def _send_email(to_email: str, subject: str, html_content: str, text_content: Op
     ses_client = _get_ses_client()
     if ses_client is not None:
         try:
-            response = ses_client.send_email(
-                Source=source_address,
-                Destination={"ToAddresses": [to_email]},
-                Message={
+            send_kwargs = {
+                "Source": source_address,
+                "Destination": {"ToAddresses": [to_email]},
+                "Message": {
                     "Subject": {"Data": subject, "Charset": "UTF-8"},
                     "Body": {
                         "Html": {"Data": html_content, "Charset": "UTF-8"},
                         "Text": {"Data": plain_text, "Charset": "UTF-8"},
                     },
                 },
-            )
+            }
+            if reply_to:
+                send_kwargs["ReplyToAddresses"] = [reply_to]
+            response = ses_client.send_email(**send_kwargs)
             message_id = response.get("MessageId", "N/A")
             print(f"[EMAIL SERVICE] Email successfully sent to {to_email} via Amazon SES API (MessageId: {message_id})")
             return True
@@ -450,3 +456,133 @@ def send_account_deleted_email(to_email: str, name: str = "") -> bool:
         html_content=html_content,
         text_content=f"Dear {customer_name}, your VAHN account has been removed."
     )
+
+
+def send_contact_inquiry_notification(inquiry_data: dict) -> bool:
+    """
+    Sends customer inquiry notification to the VAHN Support team (support@vahnsports.com).
+    Sets Reply-To header to the customer's email so support can reply directly.
+    """
+    support_email = os.getenv("SUPPORT_EMAIL", os.getenv("EMAILS_FROM_EMAIL", "support@vahnsports.com")).strip()
+    first_name = inquiry_data.get("first_name", "")
+    last_name = inquiry_data.get("last_name", "")
+    customer_name = f"{first_name} {last_name}".strip() or "Customer"
+    customer_email = inquiry_data.get("email", "")
+    country_code = inquiry_data.get("country_code", "+91")
+    phone = inquiry_data.get("phone", "")
+    full_phone = f"{country_code} {phone}".strip() if phone else "Not provided"
+    order_number = inquiry_data.get("order_number", "") or "N/A"
+    subject_topic = inquiry_data.get("subject", "General Inquiry")
+    message_body = inquiry_data.get("message", "")
+    created_at = datetime.utcnow().strftime("%d %b %Y, %I:%M %p UTC")
+
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><title>New Customer Inquiry</title></head>
+    <body style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background-color:#f7f7f7; margin:0; padding:40px 20px;">
+      <div style="max-width:600px; margin:0 auto; background:#ffffff; padding:40px; border:1px solid #e2e2e2;">
+        <div style="text-align:center; margin-bottom:24px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height:28px; width:auto; border:0;" />
+        </div>
+        <div style="text-align:center; margin-bottom:24px;">
+          <span style="background:#4232d9; color:#fff; font-size:11px; font-weight:800; padding:5px 14px; letter-spacing:0.15em; text-transform:uppercase;">NEW CONTACT INQUIRY</span>
+        </div>
+        <h2 style="font-size:18px; color:#111; margin:0 0 16px; text-transform:uppercase; letter-spacing:-0.02em;">Inquiry Details</h2>
+        <table style="width:100%; border-collapse:collapse; margin-bottom:24px; font-size:14px;">
+          <tr>
+            <td style="padding:8px 0; color:#888; width:130px; font-weight:600; text-transform:uppercase; font-size:11px;">Customer</td>
+            <td style="padding:8px 0; color:#111; font-weight:700;">{customer_name}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0; color:#888; font-weight:600; text-transform:uppercase; font-size:11px;">Email</td>
+            <td style="padding:8px 0;"><a href="mailto:{customer_email}" style="color:#4232d9; text-decoration:none; font-weight:600;">{customer_email}</a></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0; color:#888; font-weight:600; text-transform:uppercase; font-size:11px;">Phone</td>
+            <td style="padding:8px 0; color:#111;">{full_phone}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0; color:#888; font-weight:600; text-transform:uppercase; font-size:11px;">Order #</td>
+            <td style="padding:8px 0; color:#111; font-weight:600;">{order_number}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0; color:#888; font-weight:600; text-transform:uppercase; font-size:11px;">Topic</td>
+            <td style="padding:8px 0; color:#111; font-weight:600;">{subject_topic}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0; color:#888; font-weight:600; text-transform:uppercase; font-size:11px;">Submitted</td>
+            <td style="padding:8px 0; color:#666;">{created_at}</td>
+          </tr>
+        </table>
+        <div style="background:#fbfbfb; border-left:3px solid #4232d9; padding:20px; margin-bottom:28px;">
+          <strong style="display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#888; margin-bottom:8px;">Message:</strong>
+          <p style="margin:0; font-size:14px; line-height:1.7; color:#222; white-space:pre-wrap;">{message_body}</p>
+        </div>
+        <div style="text-align:center; margin-top:28px;">
+          <a href="mailto:{customer_email}?subject=Re:%20{subject_topic}%20-%20VAHN%20Support" style="background:#4232d9; color:#fff; text-decoration:none; font-size:12px; font-weight:800; padding:12px 28px; letter-spacing:0.1em; text-transform:uppercase; display:inline-block;">REPLY TO CUSTOMER &rarr;</a>
+        </div>
+        <hr style="border:none; border-top:1px solid #eeeeee; margin:32px 0;">
+        <p style="font-size:11px; color:#aaaaaa; text-align:center; text-transform:uppercase; letter-spacing:0.1em;">VAHN Operations &bull; Customer Support Notification</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    email_subject = f"New Inquiry from {customer_name}: {subject_topic}"
+    return _send_email(
+        to_email=support_email,
+        subject=email_subject,
+        html_content=html_content,
+        text_content=f"New inquiry from {customer_name} ({customer_email}, Phone: {full_phone}):\n\n{message_body}",
+        reply_to=customer_email
+    )
+
+
+def send_contact_inquiry_receipt(to_email: str, customer_name: str = "", subject_topic: str = "") -> bool:
+    """
+    Sends an automatic inquiry receipt to the customer reassuring them that their message was received.
+    """
+    if not to_email:
+        return False
+
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+    name = customer_name or "Valued Customer"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><title>Message Received - VAHN</title></head>
+    <body style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background-color:#f7f7f7; margin:0; padding:40px 20px;">
+      <div style="max-width:540px; margin:0 auto; background:#ffffff; padding:40px; border:1px solid #e2e2e2;">
+        <div style="text-align:center; margin-bottom:24px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height:28px; width:auto; border:0;" />
+        </div>
+        <div style="text-align:center; margin-bottom:20px;">
+          <span style="background:#0d0d0d; color:#fff; font-size:11px; font-weight:800; padding:5px 14px; letter-spacing:0.15em; text-transform:uppercase;">MESSAGE RECEIVED</span>
+        </div>
+        <p style="font-size:15px; color:#111; line-height:1.6;">Dear {name},</p>
+        <p style="font-size:14px; color:#555; line-height:1.6;">Thank you for reaching out to VAHN. We have successfully received your inquiry regarding <strong>{subject_topic or 'Customer Support'}</strong>.</p>
+        <p style="font-size:14px; color:#555; line-height:1.6;">Our support team reviews every message carefully. We will respond directly to this email address within 24 hours on business days (Monday to Saturday, 10:00 AM &ndash; 6:00 PM IST).</p>
+        <div style="background:#fbfbfb; border:1px solid #e9e9e9; padding:16px; margin:24px 0; font-size:12px; color:#666;">
+          <strong style="color:#111; display:block; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.04em;">Need Urgent Assistance?</strong>
+          You can also reach our studio directly via Phone/WhatsApp at <a href="tel:+918013340567" style="color:#4232d9; font-weight:700; text-decoration:none;">+91 8013340567</a>.
+        </div>
+        <hr style="border:none; border-top:1px solid #eeeeee; margin:32px 0;">
+        <p style="font-size:11px; color:#aaaaaa; text-align:center; text-transform:uppercase; letter-spacing:0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    return _send_email(
+        to_email=to_email,
+        subject="We have received your message - VAHN Support",
+        html_content=html_content,
+        text_content=f"Dear {name}, thank you for contacting VAHN. We have received your inquiry regarding {subject_topic} and will respond within 24 hours."
+    )
+

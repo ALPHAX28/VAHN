@@ -13,7 +13,8 @@ import models
 import schemas
 from email_service import (
     send_otp_email, send_order_confirmation_email, send_restock_notification_email,
-    send_account_suspended_email, send_account_reactivated_email, send_account_deleted_email
+    send_account_suspended_email, send_account_reactivated_email, send_account_deleted_email,
+    send_contact_inquiry_notification, send_contact_inquiry_receipt
 )
 
 from sms_service import send_otp_sms
@@ -2983,5 +2984,176 @@ def admin_reorder_announcements(
             b.display_order = item.display_order
     db.commit()
     return {"message": "Reordered successfully"}
+
+
+# ============================================================
+# Contact Messages & Customer Care Endpoints
+# ============================================================
+
+@app.post("/api/contact")
+def submit_contact_inquiry(
+    data: schemas.ContactMessageCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Public customer contact form submission.
+    Stores inquiry in database and dispatches notifications via Amazon SES asynchronously.
+    """
+    contact_msg = models.ContactMessage(
+        first_name=data.first_name,
+        last_name=data.last_name,
+        email=data.email,
+        country_code=data.country_code or "+91",
+        phone=data.phone,
+        order_number=data.order_number,
+        subject=data.subject,
+        message=data.message,
+        status="NEW"
+    )
+    db.add(contact_msg)
+    db.commit()
+    db.refresh(contact_msg)
+
+    # Prepare payload for background email dispatch
+    inquiry_payload = {
+        "id": contact_msg.id,
+        "first_name": contact_msg.first_name,
+        "last_name": contact_msg.last_name,
+        "email": contact_msg.email,
+        "country_code": contact_msg.country_code,
+        "phone": contact_msg.phone,
+        "order_number": contact_msg.order_number,
+        "subject": contact_msg.subject,
+        "message": contact_msg.message,
+    }
+
+    # Dispatch email notification to support@vahnsports.com
+    background_tasks.add_task(send_contact_inquiry_notification, inquiry_payload)
+
+    # Dispatch receipt to customer
+    background_tasks.add_task(
+        send_contact_inquiry_receipt,
+        to_email=contact_msg.email,
+        customer_name=f"{contact_msg.first_name} {contact_msg.last_name}".strip(),
+        subject_topic=contact_msg.subject
+    )
+
+    return {
+        "success": True,
+        "message": "Your message has been received. Our support team will get back to you shortly.",
+        "id": contact_msg.id
+    }
+
+
+@app.get("/api/admin/contact-messages", response_model=schemas.ContactMessageListResponse)
+def list_admin_contact_messages(
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    page: int = 1,
+    limit: int = 20,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin: Fetch contact inquiries with status filtering, search, and counts.
+    """
+    query = db.query(models.ContactMessage)
+
+    if status and status.upper() != "ALL":
+        query = query.filter(models.ContactMessage.status == status.upper())
+
+    if search:
+        search_pattern = f"%{search.strip()}%"
+        query = query.filter(
+            sqlalchemy.or_(
+                models.ContactMessage.first_name.ilike(search_pattern),
+                models.ContactMessage.last_name.ilike(search_pattern),
+                models.ContactMessage.email.ilike(search_pattern),
+                models.ContactMessage.order_number.ilike(search_pattern),
+                models.ContactMessage.subject.ilike(search_pattern),
+                models.ContactMessage.message.ilike(search_pattern),
+            )
+        )
+
+    total = query.count()
+    offset = (max(1, page) - 1) * limit
+    items = query.order_by(models.ContactMessage.created_at.desc()).offset(offset).limit(limit).all()
+
+    # Calculate status counts for UI badge filters
+    all_count = db.query(models.ContactMessage).count()
+    new_count = db.query(models.ContactMessage).filter(models.ContactMessage.status == "NEW").count()
+    in_progress_count = db.query(models.ContactMessage).filter(models.ContactMessage.status == "IN_PROGRESS").count()
+    resolved_count = db.query(models.ContactMessage).filter(models.ContactMessage.status == "RESOLVED").count()
+    archived_count = db.query(models.ContactMessage).filter(models.ContactMessage.status == "ARCHIVED").count()
+
+    total_pages = (total + limit - 1) // limit if total > 0 else 1
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "total_pages": total_pages,
+        "counts": {
+            "all": all_count,
+            "new": new_count,
+            "in_progress": in_progress_count,
+            "resolved": resolved_count,
+            "archived": archived_count,
+        }
+    }
+
+
+@app.get("/api/admin/contact-messages/{message_id}", response_model=schemas.ContactMessageOut)
+def get_admin_contact_message(
+    message_id: int,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: Get single contact inquiry."""
+    msg = db.query(models.ContactMessage).filter_by(id=message_id).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+    return msg
+
+
+@app.patch("/api/admin/contact-messages/{message_id}", response_model=schemas.ContactMessageOut)
+def update_admin_contact_message(
+    message_id: int,
+    data: schemas.ContactMessageUpdate,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: Update contact inquiry status and internal notes."""
+    msg = db.query(models.ContactMessage).filter_by(id=message_id).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+
+    if data.status is not None:
+        msg.status = data.status.upper()
+    if data.admin_notes is not None:
+        msg.admin_notes = data.admin_notes
+    msg.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(msg)
+    return msg
+
+
+@app.delete("/api/admin/contact-messages/{message_id}", status_code=204)
+def delete_admin_contact_message(
+    message_id: int,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: Delete contact inquiry."""
+    msg = db.query(models.ContactMessage).filter_by(id=message_id).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+
+    db.delete(msg)
+    db.commit()
+
 
 

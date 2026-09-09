@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { getApiBaseUrl } from '@/lib/api/client';
 
 const COUNTRY_CODES = [
   { code: '+91', label: '🇮🇳 +91 (IN)' },
@@ -89,11 +90,34 @@ export default function ContactForm() {
     }
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setFormData(initialFormState);
-    setErrors({});
-    setSubmitted(true);
-    setLoading(false);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+          country_code: formData.countryCode,
+          phone: formData.phone || null,
+          subject: formData.subject,
+          message: formData.message,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'Failed to submit form');
+      }
+
+      setFormData(initialFormState);
+      setErrors({});
+      setSubmitted(true);
+    } catch (e: any) {
+      setErrors({ submit: e.message || 'Error submitting message. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {
