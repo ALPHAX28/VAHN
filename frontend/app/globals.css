@@ -394,6 +394,11 @@ input, textarea, select {
   transform: scale(1.04) !important;
 }
 
+.pick-your-side-panel:hover .pick-your-side-btn {
+  background-color: #3425b8 !important;
+  transform: translateY(-2px);
+}
+
 @media (max-width: 768px) {
   .pick-your-side-grid {
     grid-template-columns: 1fr !important;

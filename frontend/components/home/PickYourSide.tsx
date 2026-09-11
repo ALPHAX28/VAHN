@@ -162,12 +162,15 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
 
       {/* Two-panel image section — 2 columns on desktop, stacks vertically on mobile */}
       <div className="pick-your-side-grid">
-        {/* Left Panel */}
-        <div
+        {/* Left Panel — Entire card and image link to leftHref */}
+        <Link
+          href={leftHref}
           className="pick-your-side-panel"
           style={{
             background: '#1a1f64',
+            textDecoration: 'none',
           }}
+          aria-label={`Pick Your Side — ${leftColour || 'White'} Jersey — Buy Now`}
         >
           {/* Real Athlete Image Card 01 — White Jersey */}
           <Image
@@ -190,8 +193,8 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
           />
 
           {/* BUY NOW button */}
-          <Link
-            href={leftHref}
+          <span
+            className="pick-your-side-btn"
             style={{
               position: 'relative',
               zIndex: 2,
@@ -209,23 +212,20 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
               display: 'inline-block',
               transition: 'background-color 0.2s ease, transform 0.2s ease',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#3425b8';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = BRAND_BLUE;
-            }}
           >
             Buy Now
-          </Link>
-        </div>
+          </span>
+        </Link>
 
-        {/* Right Panel */}
-        <div
+        {/* Right Panel — Entire card and image link to rightHref */}
+        <Link
+          href={rightHref}
           className="pick-your-side-panel"
           style={{
             background: '#1a1a66',
+            textDecoration: 'none',
           }}
+          aria-label={`Pick Your Side — ${rightColour || 'Black'} Jersey — Buy Now`}
         >
           {/* Real Athlete Image Card 02 — Black Jersey */}
           <Image
@@ -248,8 +248,8 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
           />
 
           {/* BUY NOW button */}
-          <Link
-            href={rightHref}
+          <span
+            className="pick-your-side-btn"
             style={{
               position: 'relative',
               zIndex: 2,
@@ -267,16 +267,10 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
               display: 'inline-block',
               transition: 'background-color 0.2s ease, transform 0.2s ease',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#3425b8';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = BRAND_BLUE;
-            }}
           >
             Buy Now
-          </Link>
-        </div>
+          </span>
+        </Link>
       </div>
     </section>
   );
