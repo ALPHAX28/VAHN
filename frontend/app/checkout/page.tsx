@@ -266,6 +266,7 @@ export default function CheckoutPage() {
         order_id: rzpOrder.razorpay_order_id,
         handler: async function (response: any) {
           try {
+            let confirmedId = "";
             if (user && token) {
               const verifiedOrder = await verifyRazorpayPayment(
                 {
@@ -278,8 +279,7 @@ export default function CheckoutPage() {
                 },
                 token
               );
-              clearCart();
-              router.push(`/account/orders/${verifiedOrder.order_id}`);
+              confirmedId = (verifiedOrder as any)?.id || (verifiedOrder as any)?.order_id || (verifiedOrder as any)?.orderId || "";
             } else {
               // Guest checkout verification
               const guestOrder = await createMagicCheckoutOrder({
@@ -292,8 +292,13 @@ export default function CheckoutPage() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_signature: response.razorpay_signature,
               });
-              clearCart();
-              router.push(`/track?q=${guestOrder.id}&success=1`);
+              confirmedId = (guestOrder as any)?.id || (guestOrder as any)?.order_id || (guestOrder as any)?.orderId || "";
+            }
+            clearCart();
+            if (confirmedId) {
+              router.push(`/checkout/success?order_id=${confirmedId}`);
+            } else {
+              router.push("/account/orders");
             }
           } catch (verifyErr: any) {
             setError(

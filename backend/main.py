@@ -824,6 +824,8 @@ def build_order_schema(order: models.Order) -> schemas.OrderSchema:
 
     return schemas.OrderSchema(
         id=order.id,
+        order_id=order.id,
+        orderId=order.id,
         status=order.status,
         refundStatus=order.refund_status,
         refundNote=order.refund_note,
@@ -1650,7 +1652,11 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         items=items_list,
         current_location=curr_location,
         current_status=order.shipping_status or "UNFULFILLED",
-        is_picked_up=is_picked_up_status
+        is_picked_up=is_picked_up_status,
+        total_amount=order.total_amount,
+        currency=order.currency or "INR",
+        shipping_address=order.shipping_address,
+        created_at=order.created_at.strftime("%b %d, %Y") if order.created_at else ""
     )
 
 # 6. Authenticated Tracking for Customer Account View

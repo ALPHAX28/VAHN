@@ -595,6 +595,10 @@ class OrderTrackingResponse(BaseModel):
     current_location: Optional[str] = None
     current_status: Optional[str] = None
     is_picked_up: Optional[bool] = None
+    total_amount: Optional[float] = 0.0
+    currency: Optional[str] = "INR"
+    shipping_address: Optional[dict] = None
+    created_at: Optional[str] = None
 
 class OrderItemSchema(BaseModel):
     id: str
@@ -607,6 +611,8 @@ class OrderItemSchema(BaseModel):
 
 class OrderSchema(BaseModel):
     id: str
+    order_id: Optional[str] = None
+    orderId: Optional[str] = None
     status: str
     refundStatus: Optional[str] = None
     refundNote: Optional[str] = None

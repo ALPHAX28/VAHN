@@ -43,9 +43,14 @@ function numberToWordsINR(amount: number): string {
   return `Rupees ${inWords(a)} Only`;
 }
 
+import { useRouter, useSearchParams } from "next/navigation";
+
 export default function CustomerOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: orderId } = use(params);
   const { token, user, openAuthModal } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isSuccess = searchParams?.get("success") === "1";
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +64,11 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
   const [copiedAwb, setCopiedAwb] = useState(false);
 
   useEffect(() => {
-    if (!token || !orderId) return;
+    if (orderId === "undefined" || !orderId) {
+      router.replace("/account/orders");
+      return;
+    }
+    if (!token) return;
     loadOrder();
   }, [token, orderId]);
 
@@ -248,6 +257,44 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     <>
       {/* WEB VIEW CONTENT (Hidden during print) */}
       <div className="vahn-no-print">
+        {isSuccess && (
+          <div
+            style={{
+              background: "#ecfdf5",
+              border: "1px solid #a7f3d0",
+              padding: "16px 20px",
+              marginBottom: "24px",
+              display: "flex",
+              alignItems: "center",
+              gap: "14px",
+            }}
+          >
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: "#10b981",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <CheckIcon size={16} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, color: "#065f46", fontSize: "0.95rem", textTransform: "uppercase" }}>
+                Order Placed Successfully!
+              </div>
+              <div style={{ fontSize: "0.82rem", color: "#047857", marginTop: "2px" }}>
+                Thank you for your purchase. We have verified your payment and our fulfillment center is preparing your gear.
+              </div>
+            </div>
+          </div>
+        )}
+
       {/* Header: Back link + order meta + print button */}
       <div style={{ marginBottom: 28 }}>
         <Link href="/account/orders" style={{

@@ -313,10 +313,10 @@ export async function verifyRazorpayPayment(
     order_id?: string;
   },
   token?: string
-): Promise<{ success?: boolean; order_id: string; status?: string; message?: string }> {
+): Promise<{ success?: boolean; id: string; order_id: string; status?: string; message?: string }> {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  return fetchAPI<{ success?: boolean; order_id: string; status?: string; message?: string }>('/payments/razorpay/verify', {
+  return fetchAPI<{ success?: boolean; id: string; order_id: string; status?: string; message?: string }>('/payments/razorpay/verify', {
     method: 'POST',
     headers,
     body: payload,
