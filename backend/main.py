@@ -1472,11 +1472,19 @@ async def magic_checkout_shipping_info(request: Request, db: Session = Depends(g
         data = {}
 
     addresses = data.get("addresses") or []
+    if not addresses and (data.get("zipcode") or data.get("pincode") or data.get("postal_code")):
+        addresses = [{
+            "id": str(data.get("id", "0")),
+            "zipcode": str(data.get("zipcode") or data.get("pincode") or data.get("postal_code") or "").strip(),
+            "state_code": data.get("state_code", ""),
+            "country": data.get("country", "IN")
+        }]
+
     res_addresses = []
 
     for addr in addresses:
         addr_id = str(addr.get("id", "0"))
-        zipcode = str(addr.get("zipcode", "")).strip()
+        zipcode = str(addr.get("zipcode") or addr.get("pincode") or addr.get("postal_code") or "").strip()
         state_code = addr.get("state_code", "")
         country = addr.get("country", "IN")
 
@@ -1485,6 +1493,8 @@ async def magic_checkout_shipping_info(request: Request, db: Session = Depends(g
         is_serviceable = bool(sr_res.get("serviceable", True))
         courier_name = sr_res.get("courier_name") or "Express Air Courier"
         est_days = sr_res.get("estimated_days") or "3-5 business days"
+        if est_days == "N/A" or not est_days:
+            est_days = "3-5 business days"
 
         # Default flat shipping: ₹99 (9900 paise), Free shipping above ₹1,999
         shipping_fee_paise = 9900
