@@ -12,6 +12,7 @@ import {
   createRazorpayOrder,
   verifyRazorpayPayment,
   createMagicCheckoutOrder,
+  recordRazorpayPaymentFailure,
 } from "@/lib/api";
 import type { UserAddress, ServiceabilityResponse } from "@/lib/api/types";
 import AddressModal from "@/components/address/AddressModal";
@@ -301,12 +302,28 @@ export default function CheckoutPage() {
               router.push("/account/orders");
             }
           } catch (verifyErr: any) {
-            setError(
-              verifyErr?.message ||
-                "Payment was successful, but order confirmation failed. Please contact VAHN support with payment ID: " +
-                  response.razorpay_payment_id
-            );
-            setPlacingOrder(false);
+            const verifyMsg = verifyErr?.message || "Payment verification failed. Please contact VAHN support.";
+            try {
+              const failedOrder = await recordRazorpayPaymentFailure(
+                {
+                  cart_id: cart.id,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  error_description: verifyMsg,
+                  customer_name: customerName,
+                  customer_email: customerEmail,
+                  customer_phone: customerPhone,
+                  shipping_address: shippingPayload,
+                },
+                token || undefined
+              );
+              const failedOrderId = (failedOrder as any)?.id || (failedOrder as any)?.order_id || "";
+              router.push(`/checkout/failed?order_id=${failedOrderId}&reason=${encodeURIComponent(verifyMsg)}`);
+            } catch {
+              router.push(`/checkout/failed?reason=${encodeURIComponent(verifyMsg)}`);
+            } finally {
+              setPlacingOrder(false);
+            }
           }
         },
         prefill: {
@@ -324,15 +341,42 @@ export default function CheckoutPage() {
         modal: {
           ondismiss: function () {
             setPlacingOrder(false);
-            setError("Payment was not completed. Your cart is preserved — click below to retry.");
+            setError("Payment was cancelled or closed. You can retry anytime — your cart items are preserved.");
           },
         },
       };
 
       const rzpInstance = new window.Razorpay(options);
-      rzpInstance.on("payment.failed", function (response: any) {
-        setError(`Payment failed: ${response.error.description || "Transaction declined."}`);
-        setPlacingOrder(false);
+      rzpInstance.on("payment.failed", async function (response: any) {
+        const errorDesc =
+          response?.error?.description || response?.error?.reason || "Transaction declined by bank.";
+        const errorCode = response?.error?.code || "";
+        const rzpOrderId = response?.error?.metadata?.order_id || rzpOrder.razorpay_order_id;
+        const rzpPaymentId = response?.error?.metadata?.payment_id || "";
+
+        try {
+          const failedOrder = await recordRazorpayPaymentFailure(
+            {
+              cart_id: cart.id,
+              razorpay_order_id: rzpOrderId,
+              razorpay_payment_id: rzpPaymentId,
+              error_code: errorCode,
+              error_description: errorDesc,
+              customer_name: customerName,
+              customer_email: customerEmail,
+              customer_phone: customerPhone,
+              shipping_address: shippingPayload,
+            },
+            token || undefined
+          );
+          const failedOrderId = (failedOrder as any)?.id || (failedOrder as any)?.order_id || "";
+          router.push(`/checkout/failed?order_id=${failedOrderId}&reason=${encodeURIComponent(errorDesc)}`);
+        } catch (recErr) {
+          console.error("Could not record failure order:", recErr);
+          router.push(`/checkout/failed?reason=${encodeURIComponent(errorDesc)}`);
+        } finally {
+          setPlacingOrder(false);
+        }
       });
       rzpInstance.open();
     } catch (err: any) {

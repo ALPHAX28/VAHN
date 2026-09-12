@@ -377,4 +377,70 @@ export async function requestOrderReturn(
   });
 }
 
+export async function recordRazorpayPaymentFailure(payload: {
+  cart_id?: string;
+  order_id?: string;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  error_code?: string;
+  error_description?: string;
+  error_reason?: string;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  shipping_address?: any;
+}, token?: string): Promise<import('./types').OrderDetail> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<import('./types').OrderDetail>('/payments/razorpay/record-failure', {
+    method: 'POST',
+    headers,
+    body: payload,
+  });
+}
+
+export async function retryOrderPayment(
+  orderId: string,
+  token?: string
+): Promise<import('./types').RetryPaymentResponse> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<import('./types').RetryPaymentResponse>(`/orders/${orderId}/retry-payment`, {
+    method: 'POST',
+    headers,
+  });
+}
+
+export async function confirmRetryPayment(
+  orderId: string,
+  payload: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  },
+  token?: string
+): Promise<import('./types').OrderDetail> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<import('./types').OrderDetail>(`/orders/${orderId}/confirm-retry-payment`, {
+    method: 'POST',
+    headers,
+    body: payload,
+  });
+}
+
+export async function cancelPendingOrder(
+  orderId: string,
+  reason?: string,
+  token?: string
+): Promise<{ success: boolean; message: string; order_id: string }> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<{ success: boolean; message: string; order_id: string }>(`/orders/${orderId}/cancel-pending`, {
+    method: 'POST',
+    headers,
+    body: { reason },
+  });
+}
+
 

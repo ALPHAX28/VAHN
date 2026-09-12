@@ -1338,6 +1338,90 @@ def razorpay_verify_payment(
 
     return build_order_schema(order)
 
+# 3b. Record Razorpay Payment Failure (Preserves Cart, Records Pending Order for Recovery)
+@app.post("/api/payments/razorpay/record-failure", response_model=schemas.OrderSchema)
+def razorpay_record_failure(
+    payload: schemas.RazorpayRecordFailureRequest,
+    current_user: Optional[models.User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    # If existing order_id provided, update it
+    if payload.order_id:
+        existing = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=payload.order_id).first()
+        if existing:
+            if existing.payment_status != "CAPTURED":
+                existing.payment_status = "FAILED"
+                existing.status = "PENDING_PAYMENT"
+                existing.cancellation_reason = payload.error_description or payload.error_reason or "Payment session declined or failed."
+                if payload.razorpay_order_id:
+                    existing.razorpay_order_id = payload.razorpay_order_id
+                if payload.razorpay_payment_id:
+                    existing.razorpay_payment_id = payload.razorpay_payment_id
+                db.commit()
+                db.refresh(existing)
+            return build_order_schema(existing)
+
+    # If no order_id, locate cart and create an order with status PENDING_PAYMENT / FAILED
+    if not payload.cart_id:
+        raise HTTPException(status_code=400, detail="cart_id or order_id is required to record failure.")
+
+    cart = db.query(models.Cart).options(
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+    ).filter_by(id=payload.cart_id).first()
+
+    if not cart or not cart.items:
+        raise HTTPException(status_code=400, detail="Cart is empty or not found.")
+
+    subtotal, shipping_amount, tax_amount, total_amount, _ = calculate_cart_pricing(cart)
+    final_address = resolve_shipping_address(None, payload.shipping_address, current_user, db)
+
+    order_id = f"ORD-{secrets.randbelow(899999) + 100000}"
+    order = models.Order(
+        id=order_id,
+        user_id=current_user.id if current_user else None,
+        is_guest=current_user is None,
+        guest_name=payload.customer_name,
+        guest_email=payload.customer_email,
+        guest_phone=payload.customer_phone,
+        status="PENDING_PAYMENT",
+        payment_method="RAZORPAY_CUSTOM",
+        payment_status="FAILED",
+        razorpay_order_id=payload.razorpay_order_id,
+        razorpay_payment_id=payload.razorpay_payment_id,
+        cancellation_reason=payload.error_description or payload.error_reason or "Payment session declined or failed.",
+        subtotal_amount=subtotal,
+        shipping_amount=shipping_amount,
+        tax_amount=tax_amount,
+        discount_amount=0.0,
+        total_amount=total_amount,
+        currency="INR",
+        shipping_address=final_address,
+        shipping_status="UNFULFILLED"
+    )
+    db.add(order)
+    db.flush()
+
+    for item in cart.items:
+        var = item.variant
+        prod = var.product if var else None
+        order_item = models.OrderItem(
+            id=str(uuid.uuid4()),
+            order_id=order.id,
+            variant_id=item.variant_id,
+            product_title=prod.title if prod else "Product",
+            variant_title=var.title if var else "Default",
+            image_url=var.image_url if (var and var.image_url) else (prod.featured_image_url if prod else None),
+            price_amount=var.price_amount if var else 0.0,
+            quantity=item.quantity
+        )
+        db.add(order_item)
+
+    # Note: We intentionally DO NOT delete cart.items on failure so cart is preserved!
+    db.commit()
+    db.refresh(order)
+
+    return build_order_schema(order)
+
 # 4. Razorpay Magic Checkout Callback (Guest / 1-Click Checkout — No Login Required)
 @app.post("/api/orders/magic-checkout", response_model=schemas.OrderSchema)
 def magic_checkout_order(
@@ -1656,7 +1740,10 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         total_amount=order.total_amount,
         currency=order.currency or "INR",
         shipping_address=order.shipping_address,
-        created_at=order.created_at.strftime("%b %d, %Y") if order.created_at else ""
+        created_at=order.created_at.strftime("%b %d, %Y") if order.created_at else "",
+        payment_status=order.payment_status or "PENDING",
+        payment_method=order.payment_method or "ONLINE",
+        cancellation_reason=order.cancellation_reason
     )
 
 # 6. Authenticated Tracking for Customer Account View
@@ -1728,6 +1815,158 @@ def cancel_order(
     db.refresh(order)
 
     return build_order_schema(order)
+
+# 7b. Retry Payment for an Unpaid / Failed Order
+@app.post("/api/orders/{order_id}/retry-payment", response_model=schemas.OrderRetryPaymentResponse)
+def retry_order_payment(
+    order_id: str,
+    current_user: Optional[models.User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+
+    # Validation: Order must not already be captured
+    if order.payment_status == "CAPTURED":
+        raise HTTPException(status_code=400, detail="This order has already been paid for and confirmed.")
+
+    # Validation: Order must not be cancelled
+    if order.status == "CANCELLED":
+        raise HTTPException(status_code=400, detail="This order has been cancelled and cannot be retried.")
+
+    # Authorization check if user is attached
+    if order.user_id and current_user and order.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Unauthorized access to this order.")
+
+    # Validation: Verify stock availability for each item
+    for item in (order.items or []):
+        if item.variant_id:
+            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+            if var and var.inventory_quantity < item.quantity:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot retry payment: '{var.title}' is currently out of stock (only {var.inventory_quantity} remaining)."
+                )
+
+    # Initialize a fresh Razorpay order for this retry
+    receipt_id = f"REC-RETRY-{secrets.randbelow(899999) + 100000}"
+    notes = {
+        "order_id": order.id,
+        "is_retry": "true",
+        "user_email": order.guest_email or (current_user.email if current_user else ""),
+    }
+
+    rzp_order = razorpay_service.create_order(
+        amount_in_inr=order.total_amount,
+        receipt_id=receipt_id,
+        notes=notes
+    )
+
+    order.razorpay_order_id = rzp_order["id"]
+    db.commit()
+
+    shipping_addr = order.shipping_address or {}
+    cust_name = order.guest_name or shipping_addr.get("name") or (current_user.full_name if current_user else "")
+    cust_email = order.guest_email or shipping_addr.get("email") or (current_user.email if current_user else "")
+    cust_phone = order.guest_phone or shipping_addr.get("phone") or (current_user.phone if current_user else "")
+
+    return schemas.OrderRetryPaymentResponse(
+        order_id=order.id,
+        razorpay_order_id=rzp_order["id"],
+        amount=rzp_order["amount"],
+        currency=rzp_order.get("currency", "INR"),
+        key_id=razorpay_service.get_key_id(),
+        total_amount=order.total_amount,
+        customer_name=cust_name,
+        customer_email=cust_email,
+        customer_phone=cust_phone
+    )
+
+# 7c. Confirm Retry Payment
+@app.post("/api/orders/{order_id}/confirm-retry-payment", response_model=schemas.OrderSchema)
+def confirm_retry_payment(
+    order_id: str,
+    payload: schemas.OrderConfirmRetryPaymentRequest,
+    background_tasks: BackgroundTasks,
+    current_user: Optional[models.User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+
+    if order.payment_status == "CAPTURED":
+        return build_order_schema(order)
+
+    # Verify cryptographic signature
+    is_valid = razorpay_service.verify_payment_signature(
+        razorpay_order_id=payload.razorpay_order_id,
+        razorpay_payment_id=payload.razorpay_payment_id,
+        razorpay_signature=payload.razorpay_signature
+    )
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Cryptographic payment signature verification failed.")
+
+    # Decrement stock
+    for item in (order.items or []):
+        if item.variant_id:
+            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+            if var:
+                var.inventory_quantity = max(0, var.inventory_quantity - item.quantity)
+
+    # Transition order state to PROCESSING & CAPTURED
+    order.status = "PROCESSING"
+    order.payment_status = "CAPTURED"
+    order.razorpay_order_id = payload.razorpay_order_id
+    order.razorpay_payment_id = payload.razorpay_payment_id
+    order.razorpay_signature = payload.razorpay_signature
+    order.cancellation_reason = None
+    db.commit()
+    db.refresh(order)
+
+    # Dispatch Shiprocket shipment in background
+    background_tasks.add_task(_async_create_shiprocket_order, order.id)
+
+    # Send Order Confirmation Email
+    target_email = order.guest_email or (current_user.email if current_user else None)
+    if target_email:
+        items_summary = ", ".join(f"{i.product_title} ({i.quantity}x)" for i in (order.items or []))
+        background_tasks.add_task(
+            send_order_confirmation_email,
+            to_email=target_email,
+            order_id=order.id,
+            total_amount=order.total_amount,
+            currency=order.currency,
+            items_summary=items_summary
+        )
+
+    return build_order_schema(order)
+
+# 7d. Cancel Pending / Failed Order
+@app.post("/api/orders/{order_id}/cancel-pending")
+def cancel_pending_order(
+    order_id: str,
+    payload: schemas.OrderCancelPendingRequest,
+    current_user: Optional[models.User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+
+    if order.payment_status == "CAPTURED":
+        raise HTTPException(status_code=400, detail="Order has already been paid for. Please use standard cancellation.")
+
+    if order.status == "CANCELLED":
+        return {"success": True, "message": "Order is already cancelled.", "order_id": order_id}
+
+    order.status = "CANCELLED"
+    order.cancellation_reason = payload.reason or "Customer abandoned or cancelled payment."
+    db.commit()
+    db.refresh(order)
+
+    return {"success": True, "message": "Order cancelled successfully.", "order_id": order_id}
 
 # 8. Customer 7-Day Return Request (Automated Reverse Pickup Scheduling)
 @app.post("/api/orders/{order_id}/return", response_model=schemas.OrderSchema)

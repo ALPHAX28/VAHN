@@ -573,6 +573,38 @@ class OrderReturnRequest(BaseModel):
     notes: Optional[str] = None
     pickup_address: Optional[dict] = None
 
+class RazorpayRecordFailureRequest(BaseModel):
+    cart_id: Optional[str] = None
+    order_id: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+    error_code: Optional[str] = None
+    error_description: Optional[str] = None
+    error_reason: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
+    shipping_address: Optional[dict] = None
+
+class OrderRetryPaymentResponse(BaseModel):
+    order_id: str
+    razorpay_order_id: str
+    amount: int  # paise
+    currency: str = "INR"
+    key_id: str
+    total_amount: float
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
+
+class OrderConfirmRetryPaymentRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+class OrderCancelPendingRequest(BaseModel):
+    reason: Optional[str] = "Customer abandoned or cancelled payment"
+
 class OrderTrackingScanSchema(BaseModel):
     date: Optional[str] = None
     activity: str
@@ -599,6 +631,9 @@ class OrderTrackingResponse(BaseModel):
     currency: Optional[str] = "INR"
     shipping_address: Optional[dict] = None
     created_at: Optional[str] = None
+    payment_status: Optional[str] = None
+    payment_method: Optional[str] = None
+    cancellation_reason: Optional[str] = None
 
 class OrderItemSchema(BaseModel):
     id: str

@@ -315,6 +315,21 @@ export interface TrackingInfo {
   shipping_address?: any;
   items?: any[];
   created_at?: string;
+  payment_status?: string | null;
+  payment_method?: string | null;
+  cancellation_reason?: string | null;
+}
+
+export interface RetryPaymentResponse {
+  order_id: string;
+  razorpay_order_id: string;
+  amount: number;
+  currency: string;
+  key_id: string;
+  total_amount: number;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
 }
 
 export interface ServiceabilityResponse {

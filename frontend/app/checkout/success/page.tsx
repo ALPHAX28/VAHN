@@ -36,6 +36,19 @@ function OrderSuccessContent() {
     async function fetchSummary() {
       try {
         const data = await getPublicTracking(orderId);
+        // Safety guard: If this order failed, is unpaid, or was cancelled, redirect to /checkout/failed
+        if (
+          data?.payment_status === "FAILED" ||
+          data?.status === "CANCELLED" ||
+          data?.status === "PENDING_PAYMENT"
+        ) {
+          router.replace(
+            `/checkout/failed?order_id=${data.order_id || orderId}&reason=${encodeURIComponent(
+              data.cancellation_reason || "Payment was not completed."
+            )}`
+          );
+          return;
+        }
         setOrder(data);
       } catch (e) {
         console.error("Could not fetch order summary:", e);
