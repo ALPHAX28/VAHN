@@ -336,11 +336,29 @@ export interface ServiceabilityResponse {
   pincode: string;
   serviceable: boolean;
   courier_name?: string;
-  estimated_delivery_days?: number;
+  estimated_days?: string;
+  estimated_delivery_days?: number | string;
   etd?: string;
   shipping_rate?: number;
   cod_available?: boolean;
   message?: string;
+}
+
+export interface WarehouseLocation {
+  id: number;
+  pickup_location: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  address_2?: string | null;
+  city: string;
+  state: string;
+  country: string;
+  pin_code: string;
+  is_primary: boolean;
+  shiprocket_pickup_id?: string | null;
+  created_at?: string;
 }
 
 export interface RazorpayOrderResponse {

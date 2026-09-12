@@ -1149,7 +1149,7 @@ def _async_create_shiprocket_order(order_id: str):
         order = db.query(models.Order).options(selectinload(models.Order.items), selectinload(models.Order.user)).filter_by(id=order_id).first()
         if not order:
             return
-        res = shiprocket_service.create_forward_shipment(order, order.items or [])
+        res = shiprocket_service.create_forward_shipment(order, order.items or [], db=db)
         if res:
             order.shiprocket_order_id = res.get("shiprocket_order_id")
             order.shiprocket_shipment_id = res.get("shiprocket_shipment_id")
@@ -1176,14 +1176,17 @@ def _async_create_shiprocket_order(order_id: str):
 
 # 1. Check PIN Code Serviceability (Public)
 @app.post("/api/shipping/serviceability", response_model=schemas.ShiprocketServiceabilityResponse)
-def check_pincode_serviceability(payload: schemas.ShiprocketServiceabilityRequest):
-    result = shiprocket_service.check_serviceability(payload.pincode, payload.weight or 0.5)
+def check_pincode_serviceability(payload: schemas.ShiprocketServiceabilityRequest, db: Session = Depends(get_db)):
+    result = shiprocket_service.check_serviceability(payload.pincode, payload.weight or 0.5, db=db)
     return schemas.ShiprocketServiceabilityResponse(
         serviceable=result.get("serviceable", False),
-        estimated_days=result.get("estimated_days", "2-4 business days"),
+        estimated_days=result.get("estimated_days", "N/A"),
         courier_name=result.get("courier_name"),
         pincode=payload.pincode,
-        is_cod=False
+        is_cod=False,
+        shipping_rate=result.get("shipping_rate"),
+        etd=result.get("etd"),
+        message=result.get("message")
     )
 
 # 2. Create Razorpay Order for Logged-In User
@@ -3327,6 +3330,147 @@ def _admin_order_detail(order: models.Order) -> schemas.AdminOrderSchema:
             ) for i in (order.items or [])
         ]
     )
+
+
+# ============================================================
+# ADMIN LOGISTICS & WAREHOUSE MANAGEMENT
+# ============================================================
+
+@app.get("/api/admin/logistics/warehouses", response_model=List[schemas.WarehouseLocationResponse])
+def admin_list_warehouses(admin: models.User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    """Lists all pickup/warehouse locations and auto-syncs with Shiprocket."""
+    try:
+        sr_locations = shiprocket_service.fetch_shiprocket_pickup_locations()
+        for loc in sr_locations:
+            loc_name = loc.get("pickup_location")
+            if loc_name:
+                existing = db.query(models.WarehouseLocation).filter_by(pickup_location=loc_name).first()
+                if not existing:
+                    new_wh = models.WarehouseLocation(
+                        pickup_location=loc_name,
+                        name=loc.get("name", "Warehouse Contact"),
+                        email=loc.get("email", admin.email or "logistics@vahnsports.com"),
+                        phone=loc.get("phone", "9876543210"),
+                        address=loc.get("address", "Fulfillment Hub"),
+                        address_2=loc.get("address_2", ""),
+                        city=loc.get("city", "Mumbai"),
+                        state=loc.get("state", "Maharashtra"),
+                        country=loc.get("country", "India"),
+                        pin_code=str(loc.get("pin_code", "400001")),
+                        is_primary=bool(loc.get("is_primary_location")),
+                        shiprocket_pickup_id=str(loc.get("id", ""))
+                    )
+                    db.add(new_wh)
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Error syncing warehouses from Shiprocket: {e}")
+
+    warehouses = db.query(models.WarehouseLocation).order_by(models.WarehouseLocation.is_primary.desc(), models.WarehouseLocation.created_at.desc()).all()
+    if not warehouses:
+        default_wh = models.WarehouseLocation(
+            pickup_location="Primary",
+            name="VAHN Warehouse Manager",
+            email=admin.email or "logistics@vahnsports.com",
+            phone="9876543210",
+            address="VAHN Central Fulfillment Facility",
+            address_2="",
+            city="Mumbai",
+            state="Maharashtra",
+            country="India",
+            pin_code="400001",
+            is_primary=True
+        )
+        db.add(default_wh)
+        db.commit()
+        db.refresh(default_wh)
+        warehouses = [default_wh]
+
+    return warehouses
+
+@app.post("/api/admin/logistics/warehouses", response_model=schemas.WarehouseLocationResponse)
+def admin_create_warehouse(
+    payload: schemas.WarehouseLocationCreate,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    clean_loc = payload.pickup_location.strip()
+    existing = db.query(models.WarehouseLocation).filter_by(pickup_location=clean_loc).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"A warehouse with location nickname '{clean_loc}' already exists.")
+
+    sr_pickup_id = None
+    try:
+        sr_res = shiprocket_service.add_warehouse_to_shiprocket(payload.dict())
+        sr_pickup_id = str(sr_res.get("address_id") or sr_res.get("id", ""))
+    except Exception as e:
+        logger.warning(f"Notice: Warehouse registered in DB; Shiprocket API registration note: {e}")
+
+    is_first = db.query(models.WarehouseLocation).count() == 0
+    make_primary = payload.is_primary or is_first
+
+    if make_primary:
+        db.query(models.WarehouseLocation).update({models.WarehouseLocation.is_primary: False})
+
+    wh = models.WarehouseLocation(
+        pickup_location=clean_loc,
+        name=payload.name.strip(),
+        email=payload.email.strip(),
+        phone=payload.phone.strip(),
+        address=payload.address.strip(),
+        address_2=payload.address_2.strip() if payload.address_2 else None,
+        city=payload.city.strip(),
+        state=payload.state.strip(),
+        country=payload.country.strip() if payload.country else "India",
+        pin_code=payload.pin_code.strip(),
+        is_primary=make_primary,
+        shiprocket_pickup_id=sr_pickup_id
+    )
+    db.add(wh)
+    db.commit()
+    db.refresh(wh)
+    return wh
+
+@app.put("/api/admin/logistics/warehouses/{warehouse_id}/set-primary", response_model=schemas.WarehouseLocationResponse)
+def admin_set_primary_warehouse(
+    warehouse_id: int,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    wh = db.query(models.WarehouseLocation).filter_by(id=warehouse_id).first()
+    if not wh:
+        raise HTTPException(status_code=404, detail="Warehouse location not found")
+
+    db.query(models.WarehouseLocation).update({models.WarehouseLocation.is_primary: False})
+    wh.is_primary = True
+    db.commit()
+    db.refresh(wh)
+    return wh
+
+@app.delete("/api/admin/logistics/warehouses/{warehouse_id}")
+def admin_delete_warehouse(
+    warehouse_id: int,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    wh = db.query(models.WarehouseLocation).filter_by(id=warehouse_id).first()
+    if not wh:
+        raise HTTPException(status_code=404, detail="Warehouse location not found")
+
+    total_wh = db.query(models.WarehouseLocation).count()
+    if total_wh <= 1:
+        raise HTTPException(status_code=400, detail="Cannot delete the only configured warehouse location.")
+
+    was_primary = wh.is_primary
+    db.delete(wh)
+    db.commit()
+
+    if was_primary:
+        new_primary = db.query(models.WarehouseLocation).first()
+        if new_primary:
+            new_primary.is_primary = True
+            db.commit()
+
+    return {"message": "Warehouse location removed successfully"}
 
 
 # ============================================================

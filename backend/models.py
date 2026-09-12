@@ -370,3 +370,24 @@ class ContactMessage(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class WarehouseLocation(Base):
+    """Warehouse / Pickup Location for forward shipments and customer returns."""
+    __tablename__ = "warehouse_locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pickup_location = Column(String, unique=True, index=True, nullable=False)  # Shiprocket location nickname
+    name = Column(String, nullable=False)                                      # Contact person name
+    email = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
+    address = Column(String, nullable=False)
+    address_2 = Column(String, nullable=True)
+    city = Column(String, nullable=False)
+    state = Column(String, nullable=False)
+    country = Column(String, default="India", nullable=False)
+    pin_code = Column(String, nullable=False)
+    is_primary = Column(Boolean, default=False, nullable=False)
+    shiprocket_pickup_id = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+

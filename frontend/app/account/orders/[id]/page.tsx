@@ -1221,7 +1221,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                         Courier Partner
                       </div>
                       <div style={{ fontSize: "0.95rem", fontWeight: 900, color: "#000", marginTop: 2 }}>
-                        {order.shiprocketCourierName || trackingModalData?.courier_name || trackingModalData?.courierName || "Blr Express Air"}
+                        {order.shiprocketCourierName || trackingModalData?.courier_name || trackingModalData?.courierName || "Assigned on Dispatch"}
                       </div>
                     </div>
                     <div>
@@ -1230,24 +1230,25 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
                         <strong style={{ fontFamily: "monospace", fontSize: "0.95rem", color: "#000" }}>
-                          {order.shiprocketAwb || trackingModalData?.awb_code || trackingModalData?.awbCode || "14356161160"}
+                          {order.shiprocketAwb || trackingModalData?.awb_code || trackingModalData?.awbCode || "Pending Dispatch"}
                         </strong>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyAwb(order.shiprocketAwb || trackingModalData?.awb_code || "14356161160")}
-                          style={{
-                            background: copiedAwb ? "#16a34a" : "#fff",
-                            color: copiedAwb ? "#fff" : "#000",
-                            border: "1px solid #000",
-                            padding: "2px 8px",
-                            fontSize: "0.7rem",
-                            fontWeight: 800,
-                            cursor: "pointer",
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          {copiedAwb ? "Copied!" : "Copy"}
-                        </button>
+                        {(order.shiprocketAwb || trackingModalData?.awb_code) && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyAwb(order.shiprocketAwb || trackingModalData?.awb_code || "")}
+                            style={{
+                              background: copiedAwb ? "#16a34a" : "#fff",
+                              color: copiedAwb ? "#fff" : "#000",
+                              border: "1px solid #000",
+                              padding: "2px 8px",
+                              fontSize: "0.7rem",
+                              fontWeight: 800,
+                              cursor: "pointer",
+                            }}
+                          >
+                            {copiedAwb ? "COPIED" : "COPY"}
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div>

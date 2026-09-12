@@ -564,6 +564,41 @@ class ShiprocketServiceabilityResponse(BaseModel):
     courier_name: Optional[str] = None
     pincode: str
     is_cod: bool = False
+    shipping_rate: Optional[float] = None
+    etd: Optional[str] = None
+    message: Optional[str] = None
+
+class WarehouseLocationCreate(BaseModel):
+    pickup_location: str
+    name: str
+    email: str
+    phone: str
+    address: str
+    address_2: Optional[str] = None
+    city: str
+    state: str
+    country: str = "India"
+    pin_code: str
+    is_primary: bool = False
+
+class WarehouseLocationResponse(BaseModel):
+    id: int
+    pickup_location: str
+    name: str
+    email: str
+    phone: str
+    address: str
+    address_2: Optional[str] = None
+    city: str
+    state: str
+    country: str
+    pin_code: str
+    is_primary: bool
+    shiprocket_pickup_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 class OrderCancelRequest(BaseModel):
     reason: Optional[str] = "Customer requested cancellation"

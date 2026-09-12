@@ -5,6 +5,7 @@
  */
 
 import { getApiBaseUrl } from "./client";
+import { WarehouseLocation } from "./types";
 
 // ============================================================
 // Type Definitions
@@ -462,6 +463,44 @@ export const refundAdminOrder = (
   }>(`/admin/orders/${orderId}/refund`, token, {
     method: "POST",
     body: JSON.stringify(data),
+  });
+
+// ============================================================
+// Logistics & Warehouses
+// ============================================================
+
+export const getAdminWarehouses = (token: string) =>
+  adminFetch<WarehouseLocation[]>("/admin/logistics/warehouses", token);
+
+export const createAdminWarehouse = (
+  token: string,
+  data: {
+    pickup_location: string;
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    address_2?: string;
+    city: string;
+    state: string;
+    country?: string;
+    pin_code: string;
+    is_primary?: boolean;
+  }
+) =>
+  adminFetch<WarehouseLocation>("/admin/logistics/warehouses", token, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const setPrimaryAdminWarehouse = (token: string, warehouseId: number) =>
+  adminFetch<WarehouseLocation>(`/admin/logistics/warehouses/${warehouseId}/set-primary`, token, {
+    method: "PUT",
+  });
+
+export const deleteAdminWarehouse = (token: string, warehouseId: number) =>
+  adminFetch<{ message: string }>(`/admin/logistics/warehouses/${warehouseId}`, token, {
+    method: "DELETE",
   });
 
 // ============================================================

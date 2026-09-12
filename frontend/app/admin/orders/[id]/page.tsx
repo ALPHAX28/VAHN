@@ -321,7 +321,7 @@ export default function AdminOrderDetailPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, fontSize: "0.85rem", marginBottom: 16 }}>
                   <div>
                     <span style={{ color: "#666", fontSize: "0.75rem", display: "block", textTransform: "uppercase" }}>Courier Partner</span>
-                    <strong>{order.shiprocket_courier_name || "Delhivery / Blue Dart Express"}</strong>
+                    <strong>{order.shiprocket_courier_name || "Assigned on Dispatch"}</strong>
                   </div>
                   <div>
                     <span style={{ color: "#666", fontSize: "0.75rem", display: "block", textTransform: "uppercase" }}>AWB Code</span>
@@ -1203,7 +1203,7 @@ export default function AdminOrderDetailPage() {
                 PREPAID
               </span>
               <div style={{ fontSize: "0.72rem", fontWeight: 800, marginTop: 6, color: "#444" }}>
-                COURIER: {order.shiprocket_courier_name || "BLUE DART / DELHIVERY"}
+                COURIER: {order.shiprocket_courier_name || "ASSIGNED ON DISPATCH"}
               </div>
             </div>
           </div>
@@ -1222,7 +1222,7 @@ export default function AdminOrderDetailPage() {
                 margin: "4px 0",
               }}
             >
-              {order.shiprocket_awb || "AWB-MOCK-PENDING"}
+              {order.shiprocket_awb || "AWB-PENDING-DISPATCH"}
             </div>
           </div>
 
