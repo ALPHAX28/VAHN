@@ -53,22 +53,32 @@ export default function CheckoutPage() {
   const [error, setError] = useState("");
   const [rzpLoaded, setRzpLoaded] = useState(false);
 
-  // Load Razorpay Magic Checkout SDK
+  // Load appropriate Razorpay SDK based on auth state
+  // Guest users get Magic Checkout (1-click OPC); logged-in users get standard Razorpay Gateway
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const isGuest = !user || !token;
+      const targetScript = isGuest ? "magic-checkout.js" : "checkout.js";
+      const targetSrc = isGuest
+        ? "https://checkout.razorpay.com/v1/magic-checkout.js"
+        : "https://checkout.razorpay.com/v1/checkout.js";
+
       const existingScript = document.querySelector('script[src*="razorpay.com"]');
-      if (!existingScript || !existingScript.getAttribute("src")?.includes("magic-checkout.js")) {
-        if (existingScript) existingScript.remove();
-        const script = document.createElement("script");
-        script.src = "https://checkout.razorpay.com/v1/magic-checkout.js";
-        script.async = true;
-        script.onload = () => setRzpLoaded(true);
-        document.body.appendChild(script);
-      } else {
+      if (existingScript && existingScript.getAttribute("src")?.includes(targetScript)) {
         setRzpLoaded(true);
+        return;
       }
+
+      if (existingScript) existingScript.remove();
+      setRzpLoaded(false);
+
+      const script = document.createElement("script");
+      script.src = targetSrc;
+      script.async = true;
+      script.onload = () => setRzpLoaded(true);
+      document.body.appendChild(script);
     }
-  }, []);
+  }, [user, token]);
 
   // Load addresses if logged in
   useEffect(() => {
@@ -205,8 +215,10 @@ export default function CheckoutPage() {
         throw new Error("Razorpay gateway is initializing. Please try again in a few moments.");
       }
 
-      // 2. Open Razorpay Magic Checkout modal
-      const options = {
+      const isGuest = !user || !token;
+
+      // 2. Open Razorpay modal
+      const options: any = {
         key: rzpOrder.key_id,
         amount: rzpOrder.amount,
         currency: rzpOrder.currency || "INR",
@@ -214,8 +226,14 @@ export default function CheckoutPage() {
         description: `Order Payment (${cartLines.length} item${cartLines.length > 1 ? "s" : ""})`,
         image: "https://vahn.s3.ap-south-2.amazonaws.com/logo.png",
         order_id: rzpOrder.razorpay_order_id,
-        one_click_checkout: true, // Crucial: Activates Razorpay Magic Checkout One Page Checkout (OPC)
-        show_coupons: true,
+        ...(isGuest
+          ? {
+              one_click_checkout: true, // Activates Magic Checkout 1-Click for Guest
+              show_coupons: true,
+            }
+          : {
+              one_click_checkout: false, // Standard Payment Gateway for Logged-In User
+            }),
         handler: async function (response: any) {
           try {
             let confirmedId = "";
@@ -452,7 +470,7 @@ export default function CheckoutPage() {
             Secure Checkout
           </h1>
           <p style={{ color: "#666", fontSize: "0.85rem", margin: "4px 0 0" }}>
-            1-Click Magic Checkout • Shiprocket Automated Logistics
+            {user ? "Standard Secure Payment • Shiprocket Express Logistics" : "1-Click Magic Checkout • Shiprocket Automated Logistics"}
           </p>
         </div>
         {!user && (
@@ -847,26 +865,30 @@ export default function CheckoutPage() {
         >
           {placingOrder ? (
             <span>Connecting to Gateway...</span>
+          ) : user ? (
+            <span>Pay ₹{grandTotal.toLocaleString("en-IN")} Securely →</span>
           ) : (
             <span>⚡ Pay ₹{grandTotal.toLocaleString("en-IN")} via Magic Checkout →</span>
           )}
         </button>
 
-        {/* Magic Checkout 1-Click Explainer */}
-        <div
-          style={{
-            background: "#f9f9fb",
-            border: "1px solid #eef0f4",
-            padding: "12px 16px",
-            marginTop: "16px",
-            fontSize: "0.78rem",
-            color: "#555",
-            lineHeight: 1.5,
-            textAlign: "center",
-          }}
-        >
-          <strong>⚡ 1-Click Delivery & Payment:</strong> Your saved address and preferred payment methods from Razorpay&apos;s 100M+ shopper network will load instantly inside the modal. No manual form typing required.
-        </div>
+        {/* Magic Checkout 1-Click Explainer (only shown for guests) */}
+        {!user && (
+          <div
+            style={{
+              background: "#f9f9fb",
+              border: "1px solid #eef0f4",
+              padding: "12px 16px",
+              marginTop: "16px",
+              fontSize: "0.78rem",
+              color: "#555",
+              lineHeight: 1.5,
+              textAlign: "center",
+            }}
+          >
+            <strong>⚡ 1-Click Delivery & Payment:</strong> Your saved address and preferred payment methods from Razorpay&apos;s 100M+ shopper network will load instantly inside the modal. No manual form typing required.
+          </div>
+        )}
 
         {/* Trust Badges */}
         <div

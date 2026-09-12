@@ -13,7 +13,8 @@ import secrets
 import uuid
 from datetime import datetime
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Form, Request
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Form, Request, Response
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session, selectinload
@@ -87,11 +88,11 @@ app = FastAPI(
 # Enterprise Gzip Payload Compression (compresses responses > 500 bytes by 70-80%)
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
-# Enable CORS for Next.js frontend
+# Enable CORS for Next.js frontend and Razorpay Magic Checkout
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origin_regex=r"https?://.*",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -1465,6 +1466,37 @@ def razorpay_record_failure(
     return build_order_schema(order)
 
 # 3.1 Razorpay Magic Checkout Dynamic Shipping Info API (2-Way Serviceability with Shiprocket)
+PIN_TO_STATE_CODE = {
+    "11": "DL", "12": "HR", "13": "HR", "14": "PB", "15": "PB",
+    "16": "CH", "17": "HP", "18": "JK", "19": "JK",
+    "20": "UP", "21": "UP", "22": "UP", "23": "UP", "24": "UP", "25": "UP", "26": "UP", "27": "UP", "28": "UP",
+    "30": "RJ", "31": "RJ", "32": "RJ", "33": "RJ", "34": "RJ",
+    "36": "GJ", "37": "GJ", "38": "GJ", "39": "GJ",
+    "40": "MH", "41": "MH", "42": "MH", "43": "MH", "44": "MH",
+    "45": "MP", "46": "MP", "47": "MP", "48": "MP", "49": "MP",
+    "50": "TS", "51": "AP", "52": "AP", "53": "AP",
+    "56": "KA", "57": "KA", "58": "KA", "59": "KA",
+    "60": "TN", "61": "TN", "62": "TN", "63": "TN", "64": "TN",
+    "67": "KL", "68": "KL", "69": "KL",
+    "70": "WB", "71": "WB", "72": "WB", "73": "WB", "74": "WB",
+    "75": "OD", "76": "OD", "77": "OD",
+    "78": "AS", "79": "NE",
+    "80": "BR", "81": "BR", "82": "BR", "84": "BR", "85": "BR",
+    "83": "JH",
+}
+
+@app.options("/api/magic/shipping-info")
+async def magic_shipping_options(request: Request):
+    origin = request.headers.get("origin", "")
+    headers = {
+        "Access-Control-Allow-Origin": origin if origin else "*",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Max-Age": "86400",
+    }
+    return Response(content="OK", status_code=200, headers=headers)
+
 @app.post("/api/magic/shipping-info")
 @app.get("/api/magic/shipping-info")
 async def magic_checkout_shipping_info(request: Request, db: Session = Depends(get_db)):
@@ -1497,7 +1529,7 @@ async def magic_checkout_shipping_info(request: Request, db: Session = Depends(g
         logger.warning(f"Error parsing Magic Shipping Info request: {e}")
         data = {}
 
-    logger.info(f"Magic Shipping Info Request: method={request.method}, data={data}")
+    print(f"[MAGIC_SHIPPING] Request received: method={request.method}, url={request.url}, data={data}", flush=True)
 
     # Extract all possible addresses from the payload
     addresses = data.get("addresses") or []
@@ -1558,7 +1590,9 @@ async def magic_checkout_shipping_info(request: Request, db: Session = Depends(g
             or addr.get("delivery_postcode")
             or "831003"
         ).strip()
-        state_code = addr.get("state_code", "")
+        state_code = str(addr.get("state_code", "")).strip()
+        if not state_code:
+            state_code = PIN_TO_STATE_CODE.get(zipcode[:2], "DL")
         country = addr.get("country", "IN")
 
         # Query live Shiprocket serviceability for this pincode
@@ -1592,12 +1626,20 @@ async def magic_checkout_shipping_info(request: Request, db: Session = Depends(g
         })
 
     # Return comprehensive format supporting addresses array, methods, and serviceable flag
-    return {
+    response_payload = {
         "success": True,
         "serviceable": True,
         "addresses": res_addresses,
         "shipping_methods": res_shipping_methods
     }
+    origin = request.headers.get("origin", "")
+    resp_headers = {
+        "Access-Control-Allow-Origin": origin if origin else "*",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+    }
+    return JSONResponse(content=response_payload, headers=resp_headers)
 
 # 4. Razorpay Magic Checkout Callback (Guest / 1-Click Checkout — No Login Required)
 @app.post("/api/orders/magic-checkout", response_model=schemas.OrderSchema)
