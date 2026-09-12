@@ -83,7 +83,15 @@ function TrackingContent() {
   ];
 
   const activeSteps = tracking?.isReturn ? returnSteps : forwardSteps;
-  const currentStatusUpper = (tracking?.currentStatus || "").toUpperCase();
+  // Backend returns snake_case: current_status, order_id, awb_code, courier_name, current_location
+  // Also accept camelCase fallbacks for forward-compatibility
+  const currentStatusUpper = (
+    tracking?.current_status ||
+    tracking?.currentStatus ||
+    tracking?.shipping_status ||
+    tracking?.status ||
+    ""
+  ).toUpperCase();
   const currentStepIndex = activeSteps.findIndex(
     (s) => s.key === currentStatusUpper || currentStatusUpper.includes(s.key)
   );
@@ -317,18 +325,20 @@ function TrackingContent() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                {tracking.orderId}
+                {/* Backend returns order_id (snake_case) */}
+                {tracking.order_id || tracking.orderId}
               </h2>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "0.82rem", color: "#555", flexWrap: "wrap" }}>
                 <span>
-                  Courier: <strong style={{ color: "#000" }}>{tracking.courierName || "Express Delivery"}</strong>
+                  Courier: <strong style={{ color: "#000" }}>{tracking.courier_name || tracking.courierName || "Express Delivery"}</strong>
                 </span>
-                {tracking.awbCode && (
+                {/* Backend returns awb_code (snake_case) */}
+                {(tracking.awb_code || tracking.awbCode) && (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    AWB: <strong style={{ fontFamily: "monospace", color: "#000" }}>{tracking.awbCode}</strong>
+                    AWB: <strong style={{ fontFamily: "monospace", color: "#000" }}>{tracking.awb_code || tracking.awbCode}</strong>
                     <button
                       type="button"
-                      onClick={() => handleCopyAwb(tracking.awbCode || "")}
+                      onClick={() => handleCopyAwb(tracking.awb_code || tracking.awbCode || "")}
                       style={{
                         background: "#f3f4f6",
                         border: "1px solid #e5e7eb",
@@ -351,9 +361,9 @@ function TrackingContent() {
                 style={{
                   display: "inline-block",
                   background:
-                    tracking.currentStatus === "DELIVERED" || tracking.currentStatus === "REFUNDED"
+                    (tracking.current_status || tracking.currentStatus) === "DELIVERED" || (tracking.current_status || tracking.currentStatus) === "REFUNDED"
                       ? "#16a34a"
-                      : tracking.currentStatus === "CANCELLED"
+                      : (tracking.current_status || tracking.currentStatus) === "CANCELLED"
                       ? "#dc2626"
                       : "#000",
                   color: "#fff",
@@ -365,7 +375,7 @@ function TrackingContent() {
                   marginBottom: "6px",
                 }}
               >
-                {tracking.currentMilestone || tracking.currentStatus}
+                {tracking.currentMilestone || tracking.current_status || tracking.currentStatus}
               </span>
               {tracking.estimatedDelivery && (
                 <div style={{ fontSize: "0.78rem", color: "#666" }}>
@@ -375,8 +385,8 @@ function TrackingContent() {
             </div>
           </div>
 
-          {/* Live Location Callout */}
-          {tracking.currentLocation && (
+          {/* Backend returns current_location (snake_case) */}
+          {(tracking.current_location || tracking.currentLocation) && (
             <div
               style={{
                 background: "#f8fafc",
@@ -391,7 +401,7 @@ function TrackingContent() {
             >
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#2563eb", display: "inline-block" }} />
               <span style={{ fontWeight: 800, color: "#1e293b" }}>Current Location:</span>
-              <span style={{ color: "#334155" }}>{tracking.currentLocation}</span>
+              <span style={{ color: "#334155" }}>{tracking.current_location || tracking.currentLocation}</span>
             </div>
           )}
 

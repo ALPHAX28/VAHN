@@ -3528,6 +3528,13 @@ def admin_update_order_status(
                     order.tracking_url = f"/track?q={order.shiprocket_awb}" if order.shiprocket_awb else None
             except Exception as e:
                 logger.error(f"Shiprocket forward shipment error during status update to {payload.status}: {e}")
+                # Revert status so customer doesn't see SHIPPED with no AWB / broken tracking
+                order.status = previous_status
+                db.commit()
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Shiprocket dispatch failed: {str(e)}. Order status reverted. Use 'Ship via Shiprocket' button to retry."
+                )
 
     if payload.refund_status is not None:
         order.refund_status = payload.refund_status

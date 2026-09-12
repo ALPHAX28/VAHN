@@ -295,6 +295,8 @@ export interface TrackingInfo {
   courierName?: string | null;
   status?: string;
   shipping_status?: string;
+  // Backend sends current_status (snake_case) — also accept camelCase for compatibility
+  current_status?: string;
   currentStatus?: string;
   currentMilestone?: string;
   current_location?: string | null;
