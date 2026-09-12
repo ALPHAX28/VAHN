@@ -1609,8 +1609,22 @@ async def magic_checkout_shipping_info(request: Request, db: Session = Depends(g
         if est_days == "N/A" or not est_days:
             est_days = "3 business days"
 
-        # Free shipping for orders (₹0 fee paise)
+        # Determine shipping fee: check order/cart subtotal if available
         shipping_fee_paise = 0
+        order_id = data.get("order_id") or request.query_params.get("order_id")
+        if order_id:
+            try:
+                rzp_o = razorpay_service.fetch_order_details(order_id)
+                cart_id = rzp_o.get("order", {}).get("notes", {}).get("cart_id")
+                if cart_id:
+                    cart_obj = db.query(models.Cart).options(
+                        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+                    ).filter_by(id=cart_id).first()
+                    if cart_obj:
+                        _, cart_ship, _, _, _ = calculate_cart_pricing(cart_obj)
+                        shipping_fee_paise = int(round(cart_ship * 100))
+            except Exception as e:
+                logger.warning(f"Could not calculate order-specific shipping fee: {e}")
 
         method_obj = {
             "id": "standard_shipping",
@@ -1699,35 +1713,35 @@ def magic_checkout_order(
         except Exception as e:
             logger.warning(f"Could not fetch payment from Razorpay: {e}")
 
-    # Extract customer name
+    # Extract customer name (prioritizing details entered in the storefront checkout form)
     cust_name = (
-        rzp_shipping.get("name")
-        or rzp_cust_details.get("name")
+        payload.guest_name
         or payload.customer_name
-        or payload.guest_name
         or raw_addr.get("name")
+        or rzp_shipping.get("name")
+        or rzp_cust_details.get("name")
         or rzp_payment.get("notes", {}).get("name")
         or "Athlete"
     ).strip()
 
     # Extract customer email
     cust_email = (
-        rzp_cust_details.get("email")
-        or rzp_payment.get("email")
+        payload.guest_email
         or payload.customer_email
-        or payload.guest_email
         or raw_addr.get("email")
+        or rzp_cust_details.get("email")
+        or rzp_payment.get("email")
         or ""
     ).strip().lower() or None
 
     # Extract customer phone
     raw_phone = (
-        rzp_cust_details.get("contact")
+        payload.guest_phone
+        or payload.customer_phone
+        or raw_addr.get("phone")
+        or rzp_cust_details.get("contact")
         or rzp_shipping.get("contact")
         or rzp_payment.get("contact")
-        or payload.customer_phone
-        or payload.guest_phone
-        or raw_addr.get("phone")
         or ""
     ).strip()
 
@@ -1744,34 +1758,41 @@ def magic_checkout_order(
             else:
                 cust_phone = raw_phone
 
-    # Extract address components from Razorpay Magic Checkout
+    # Extract address components (prioritizing storefront form input)
     rzp_line1 = str(rzp_shipping.get("line1", "")).strip()
     rzp_line2 = str(rzp_shipping.get("line2", "")).strip()
     rzp_street = f"{rzp_line1}, {rzp_line2}".strip(", ") if (rzp_line1 or rzp_line2) else ""
 
     street_val = (
-        rzp_street
-        or raw_addr.get("address")
+        raw_addr.get("address")
         or raw_addr.get("street_address")
+        or rzp_street
         or "Standard Delivery"
     )
-    city_val = rzp_shipping.get("city") or raw_addr.get("city") or "Mumbai"
-    state_val = rzp_shipping.get("state") or raw_addr.get("state") or "Maharashtra"
+    apartment_val = (
+        raw_addr.get("apartment")
+        or raw_addr.get("house_flat_no")
+        or raw_addr.get("building_name")
+        or ""
+    )
+    city_val = raw_addr.get("city") or rzp_shipping.get("city") or "Mumbai"
+    state_val = raw_addr.get("state") or rzp_shipping.get("state") or "Maharashtra"
     pincode_val = str(
-        rzp_shipping.get("zipcode")
-        or rzp_shipping.get("postal_code")
-        or raw_addr.get("postalCode")
+        raw_addr.get("postalCode")
         or raw_addr.get("pincode")
+        or rzp_shipping.get("zipcode")
+        or rzp_shipping.get("postal_code")
         or "400001"
     ).strip()
-    country_val = rzp_shipping.get("country") or raw_addr.get("country") or "India"
+    country_val = raw_addr.get("country") or rzp_shipping.get("country") or "India"
     if str(country_val).lower() in ("in", "ind"):
         country_val = "India"
 
     final_address = {
-        "label": rzp_shipping.get("tag") or "Delivery",
+        "label": "Delivery",
         "name": cust_name,
         "address": street_val,
+        "apartment": apartment_val,
         "city": city_val,
         "state": state_val,
         "postalCode": pincode_val,
@@ -1781,9 +1802,13 @@ def magic_checkout_order(
 
     # Automatically save or link customer account in database (models.User)
     user = None
-    if cust_email:
+    if cust_email and cust_phone:
+        user = db.query(models.User).filter(
+            (models.User.email == cust_email) | (models.User.phone == cust_phone)
+        ).first()
+    elif cust_email:
         user = db.query(models.User).filter(models.User.email == cust_email).first()
-    if not user and cust_phone:
+    elif cust_phone:
         user = db.query(models.User).filter(models.User.phone == cust_phone).first()
 
     if user:
@@ -1803,11 +1828,18 @@ def magic_checkout_order(
         db.flush()
     else:
         # Auto-create new customer in database (saved with role='customer')
+        final_email = cust_email
+        final_phone = cust_phone
+        if final_email and db.query(models.User).filter(models.User.email == final_email).first():
+            final_email = None
+        if final_phone and db.query(models.User).filter(models.User.phone == final_phone).first():
+            final_phone = None
+
         user = models.User(
-            email=cust_email,
-            email_verified=bool(cust_email),
-            phone=cust_phone,
-            phone_verified=bool(cust_phone),
+            email=final_email,
+            email_verified=bool(final_email),
+            phone=final_phone,
+            phone_verified=bool(final_phone),
             full_name=cust_name or "Guest Customer",
             role="customer",
             is_verified=True,
@@ -1820,7 +1852,7 @@ def magic_checkout_order(
 
     # Automatically link / save customer delivery address
     if user and user.id:
-        name_parts = cust_name.split(" ", 1)
+        name_parts = (cust_name or "").split(" ", 1)
         first_name = name_parts[0] if name_parts else "Guest"
         last_name = name_parts[1] if len(name_parts) > 1 else ""
         street_val = final_address.get("address", "").strip()
@@ -1835,10 +1867,13 @@ def magic_checkout_order(
             if not existing_addr:
                 user_addr = models.UserAddress(
                     user_id=user.id,
-                    label="Delivery",
+                    label="Home",
                     first_name=first_name,
                     last_name=last_name,
                     street_address=street_val,
+                    apartment=apartment_val or None,
+                    house_flat_no=raw_addr.get("house_flat_no") or None,
+                    building_name=raw_addr.get("building_name") or None,
                     city=final_address.get("city", "Mumbai"),
                     state=final_address.get("state", "Maharashtra"),
                     pincode=pincode_val or "400001",

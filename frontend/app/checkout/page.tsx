@@ -67,18 +67,75 @@ export default function CheckoutPage() {
   const [error, setError] = useState("");
   const [rzpLoaded, setRzpLoaded] = useState(false);
 
-  // Load Razorpay SDK
+const PIN_PREFIX_STATE: Record<string, string> = {
+  "11": "Delhi",
+  "12": "Haryana", "13": "Haryana",
+  "14": "Punjab", "15": "Punjab",
+  "16": "Chandigarh",
+  "17": "Himachal Pradesh",
+  "18": "Jammu & Kashmir", "19": "Jammu & Kashmir",
+  "20": "Uttar Pradesh", "21": "Uttar Pradesh", "22": "Uttar Pradesh", "23": "Uttar Pradesh",
+  "24": "Uttar Pradesh", "25": "Uttar Pradesh", "26": "Uttar Pradesh", "27": "Uttar Pradesh", "28": "Uttar Pradesh",
+  "30": "Rajasthan", "31": "Rajasthan", "32": "Rajasthan", "33": "Rajasthan", "34": "Rajasthan",
+  "36": "Gujarat", "37": "Gujarat", "38": "Gujarat", "39": "Gujarat",
+  "40": "Maharashtra", "41": "Maharashtra", "42": "Maharashtra", "43": "Maharashtra", "44": "Maharashtra",
+  "45": "Madhya Pradesh", "46": "Madhya Pradesh", "47": "Madhya Pradesh", "48": "Madhya Pradesh",
+  "49": "Chhattisgarh",
+  "50": "Telangana", "51": "Andhra Pradesh", "52": "Andhra Pradesh", "53": "Andhra Pradesh",
+  "56": "Karnataka", "57": "Karnataka", "58": "Karnataka", "59": "Karnataka",
+  "60": "Tamil Nadu", "61": "Tamil Nadu", "62": "Tamil Nadu", "63": "Tamil Nadu", "64": "Tamil Nadu",
+  "67": "Kerala", "68": "Kerala", "69": "Kerala",
+  "70": "West Bengal", "71": "West Bengal", "72": "West Bengal", "73": "West Bengal", "74": "West Bengal",
+  "75": "Odisha", "76": "Odisha", "77": "Odisha",
+  "78": "Assam", "79": "North East",
+  "80": "Bihar", "81": "Bihar", "82": "Bihar", "84": "Bihar", "85": "Bihar",
+  "83": "Jharkhand",
+};
+
+  // Load appropriate Razorpay SDK (magic-checkout.js for guests, checkout.js for logged in athletes)
   useEffect(() => {
-    if (typeof window !== "undefined" && !window.Razorpay) {
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      script.onload = () => setRzpLoaded(true);
-      document.body.appendChild(script);
-    } else {
+    if (typeof window === "undefined") return;
+
+    const isGuest = !user;
+    const targetScriptSrc = isGuest
+      ? "https://checkout.razorpay.com/v1/magic-checkout.js"
+      : "https://checkout.razorpay.com/v1/checkout.js";
+
+    const currentScript = document.getElementById("rzp-checkout-script") as HTMLScriptElement | null;
+
+    if (currentScript && currentScript.src === targetScriptSrc && window.Razorpay) {
       setRzpLoaded(true);
+      return;
     }
-  }, []);
+
+    if (currentScript) {
+      currentScript.remove();
+      try {
+        delete (window as any).Razorpay;
+      } catch {
+        (window as any).Razorpay = undefined;
+      }
+    }
+
+    setRzpLoaded(false);
+    const script = document.createElement("script");
+    script.id = "rzp-checkout-script";
+    script.src = targetScriptSrc;
+    script.async = true;
+    script.onload = () => {
+      setRzpLoaded(true);
+    };
+    script.onerror = () => {
+      console.warn("Primary SDK load failed, falling back to standard checkout.js");
+      const fallbackScript = document.createElement("script");
+      fallbackScript.id = "rzp-checkout-script";
+      fallbackScript.src = "https://checkout.razorpay.com/v1/checkout.js";
+      fallbackScript.async = true;
+      fallbackScript.onload = () => setRzpLoaded(true);
+      document.body.appendChild(fallbackScript);
+    };
+    document.body.appendChild(script);
+  }, [user]);
 
   // Load addresses if logged in
   useEffect(() => {
@@ -257,8 +314,10 @@ export default function CheckoutPage() {
         throw new Error("Razorpay gateway is initializing. Please try again in a few moments.");
       }
 
+      const isGuest = !user;
+
       // 2. Open Razorpay modal
-      const options = {
+      const options: any = {
         key: rzpOrder.key_id,
         amount: rzpOrder.amount,
         currency: rzpOrder.currency || "INR",
@@ -266,6 +325,8 @@ export default function CheckoutPage() {
         description: `Order Payment (${cartLines.length} item${cartLines.length > 1 ? "s" : ""})`,
         image: "https://vahn.s3.ap-south-2.amazonaws.com/logo.png",
         order_id: rzpOrder.razorpay_order_id,
+        one_click_checkout: isGuest, // True for guest (Razorpay Magic Checkout Gateway), False for logged-in athletes
+        show_coupons: isGuest,
         handler: async function (response: any) {
           try {
             let confirmedId = "";
@@ -343,12 +404,18 @@ export default function CheckoutPage() {
         },
         notes: {
           cart_id: cart.id,
+          is_guest: isGuest ? "true" : "false",
+          customer_name: customerName,
+          customer_email: customerEmail,
+          customer_phone: customerPhone,
+          delivery_address: `${shippingPayload.address}, ${shippingPayload.city}, ${shippingPayload.state} - ${shippingPayload.pincode}`,
           store: "VAHN Sports Official",
         },
         theme: {
           color: "#4232d9",
         },
         modal: {
+          confirm_close: true,
           ondismiss: function () {
             setPlacingOrder(false);
             if (typeof document !== "undefined") {
@@ -946,6 +1013,10 @@ export default function CheckoutPage() {
                         setGuestPincode(val);
                         if (val.length === 6) {
                           handleCheckPincode(val);
+                          const prefix = val.substring(0, 2);
+                          if (!guestState && PIN_PREFIX_STATE[prefix]) {
+                            setGuestState(PIN_PREFIX_STATE[prefix]);
+                          }
                         }
                       }}
                       style={{
@@ -1241,8 +1312,10 @@ export default function CheckoutPage() {
             >
               {placingOrder ? (
                 <span>Connecting to Gateway...</span>
-              ) : (
+              ) : user ? (
                 <span>Pay ₹{grandTotal.toLocaleString("en-IN")} via Razorpay →</span>
+              ) : (
+                <span>⚡ Pay ₹{grandTotal.toLocaleString("en-IN")} with Magic Checkout →</span>
               )}
             </button>
 
@@ -1258,7 +1331,11 @@ export default function CheckoutPage() {
               }}
             >
               <ShieldCheckIcon size={15} color="#52c41a" />
-              <span>256-Bit SSL Encrypted Razorpay Gateway</span>
+              <span>
+                {user
+                  ? "256-Bit SSL Encrypted Razorpay Gateway (Cards, UPI, Netbanking)"
+                  : "⚡ 1-Click Razorpay Magic Checkout Gateway"}
+              </span>
             </div>
 
             <div
