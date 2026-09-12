@@ -1239,32 +1239,39 @@ def razorpay_create_order(
         "user_phone": current_user.phone if current_user else ""
     }
 
-    # Line items required to activate Razorpay Magic Checkout (OPC)
-    line_items = []
-    for item in cart.items:
-        var = item.variant
-        prod = var.product if var else None
-        item_title = f"{prod.title if prod else 'VAHN Gear'}{f' - {var.title}' if var and var.title and var.title != 'Default Title' else ''}"
-        unit_price = float(var.price_amount) if (var and var.price_amount is not None) else 0.0
-        line_items.append({
-            "sku": str(getattr(var, 'sku', None) or var.id) if var else str(item.id),
-            "variant_id": str(var.id) if var else str(item.id),
-            "price": int(round(unit_price * 100)),
-            "offer_price": int(round(unit_price * 100)),
-            "quantity": item.quantity,
-            "name": item_title[:255]
-        })
-    line_items_total = int(round(subtotal * 100))
+    if current_user:
+        # Standard Razorpay Payment Gateway Order for Logged-In User (amount is full total_amount)
+        rzp_order = razorpay_service.create_order(
+            amount_in_inr=total_amount,
+            receipt_id=receipt_id,
+            notes=notes
+        )
+    else:
+        # Line items for Razorpay Magic Checkout (Guest 1-Click OPC)
+        line_items = []
+        for item in cart.items:
+            var = item.variant
+            prod = var.product if var else None
+            item_title = f"{prod.title if prod else 'VAHN Gear'}{f' - {var.title}' if var and var.title and var.title != 'Default Title' else ''}"
+            unit_price = float(var.price_amount) if (var and var.price_amount is not None) else 0.0
+            line_items.append({
+                "sku": str(getattr(var, 'sku', None) or var.id) if var else str(item.id),
+                "variant_id": str(var.id) if var else str(item.id),
+                "price": int(round(unit_price * 100)),
+                "offer_price": int(round(unit_price * 100)),
+                "quantity": item.quantity,
+                "name": item_title[:255]
+            })
+        line_items_total = int(round(subtotal * 100))
 
-    # For Razorpay Magic Checkout, base order amount MUST match line_items_total
-    # Magic Checkout dynamically calculates and appends the shipping charge from your dashboard slabs
-    rzp_order = razorpay_service.create_order(
-        amount_in_inr=subtotal,
-        receipt_id=receipt_id,
-        notes=notes,
-        line_items=line_items,
-        line_items_total=line_items_total
-    )
+        # For Razorpay Magic Checkout, base order amount matches line_items_total
+        rzp_order = razorpay_service.create_order(
+            amount_in_inr=subtotal,
+            receipt_id=receipt_id,
+            notes=notes,
+            line_items=line_items,
+            line_items_total=line_items_total
+        )
 
     return schemas.RazorpayCreateOrderResponse(
         razorpay_order_id=rzp_order["id"],
