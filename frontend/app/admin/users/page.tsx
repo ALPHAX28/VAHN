@@ -23,9 +23,9 @@ export default function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   // Modals state
-  const [suspendModal, setSuspendModal] = useState<{ userId: number; name: string; email: string; is_active: boolean } | null>(null);
+  const [suspendModal, setSuspendModal] = useState<{ userId: number; name: string; email?: string | null; is_active: boolean } | null>(null);
   const [suspendReason, setSuspendReason] = useState("");
-  const [deleteModal, setDeleteModal] = useState<{ userId: number; name: string; email: string } | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ userId: number; name: string; email?: string | null } | null>(null);
 
   async function load(isSilent = false) {
     if (!adminToken) return;
@@ -77,7 +77,7 @@ export default function AdminUsersPage() {
       </div>
 
       <form className="admin-search-bar" onSubmit={e => { e.preventDefault(); setSearch(searchInput); setPage(1); }}>
-        <input type="text" className="admin-search-input" placeholder="Search by name or email..." value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+        <input type="text" className="admin-search-input" placeholder="Search by name, email or phone..." value={searchInput} onChange={e => setSearchInput(e.target.value)} />
         <button type="submit" className="admin-btn admin-btn--secondary">Search</button>
         {search && <button type="button" className="admin-btn admin-btn--ghost" onClick={() => { setSearch(""); setSearchInput(""); }}>Clear</button>}
       </form>
@@ -106,9 +106,14 @@ export default function AdminUsersPage() {
                   <tr key={user.id}>
                     <td>
                       <div className="admin-table-name">
-                        <Link href={`/admin/users/${user.id}`} className="admin-table-link">{user.full_name}</Link>
+                        <Link href={`/admin/users/${user.id}`} className="admin-table-link">{user.full_name || "Customer"}</Link>
                       </div>
-                      <div className="admin-table-sub">{user.email}</div>
+                      <div className="admin-table-sub" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                        {user.email && <span>{user.email}</span>}
+                        {user.email && user.phone && <span style={{ opacity: 0.4 }}>•</span>}
+                        {user.phone && <span style={{ fontFamily: "monospace", fontWeight: 600 }}>{user.phone}</span>}
+                        {!user.email && !user.phone && <span style={{ color: "#999" }}>No contact info</span>}
+                      </div>
                     </td>
                     <td><AdminBadge label={user.is_verified ? "verified" : "unverified"} /></td>
                     <td><AdminBadge label={user.is_active ? "active" : "suspended"} variant={user.is_active ? "active" : "suspended"} /></td>
@@ -125,7 +130,7 @@ export default function AdminUsersPage() {
                             title="Suspend Account"
                             onClick={() => {
                               setSuspendReason("");
-                              setSuspendModal({ userId: user.id, name: user.full_name || user.email, email: user.email, is_active: true });
+                              setSuspendModal({ userId: user.id, name: user.full_name || user.email || user.phone || "Customer", email: user.email || user.phone, is_active: true });
                             }}
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
@@ -136,7 +141,7 @@ export default function AdminUsersPage() {
                             title="Reactivate Account"
                             onClick={() => {
                               setSuspendReason("");
-                              setSuspendModal({ userId: user.id, name: user.full_name || user.email, email: user.email, is_active: false });
+                              setSuspendModal({ userId: user.id, name: user.full_name || user.email || user.phone || "Customer", email: user.email || user.phone, is_active: false });
                             }}
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
@@ -145,7 +150,7 @@ export default function AdminUsersPage() {
                         <button
                           className="admin-icon-btn admin-icon-btn--danger"
                           title="Delete Customer"
-                          onClick={() => setDeleteModal({ userId: user.id, name: user.full_name || user.email, email: user.email })}
+                          onClick={() => setDeleteModal({ userId: user.id, name: user.full_name || user.email || user.phone || "Customer", email: user.email || user.phone })}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                         </button>

@@ -1,26 +1,40 @@
+import os
+import re
+import json
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded immediately
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_path):
+    load_dotenv(_env_path)
+load_dotenv()
+
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func
 
-from database import Base, engine, get_db
+from database import engine, get_db
 import models
 import schemas
+import razorpay_service
+import shiprocket_service
+import logging
+
+logger = logging.getLogger(__name__)
 from email_service import (
     send_otp_email, send_order_confirmation_email, send_restock_notification_email,
     send_account_suspended_email, send_account_reactivated_email, send_account_deleted_email,
     send_contact_inquiry_notification, send_contact_inquiry_receipt
 )
 
-from sms_service import send_otp_sms
 from auth_utils import (
-    generate_salt, hash_password, verify_password,
-    create_access_token, get_current_user, get_current_admin,
+    create_access_token, get_current_user, get_optional_current_user, get_current_admin,
     create_otp_token, verify_otp_token, check_rate_limit, normalize_phone
 )
 from storage import storage
@@ -28,7 +42,6 @@ from storage import storage
 import asyncio
 from contextlib import asynccontextmanager
 import sqlalchemy
-import os
 
 async def _db_heartbeat_loop():
     """Background task that runs every 3 minutes (180s) to keep DB connection pool warm while server is running."""
@@ -98,7 +111,7 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
                     id=v.id,
                     title=v.title,
                     availableForSale=v.available_for_sale,
-                    selectedOptions=[schemas.SelectedOption(**opt) for opt in v.selected_options],
+                    selectedOptions=[schemas.SelectedOption(name=str(opt.get("name", "")), value=str(opt.get("value", ""))) for opt in (v.selected_options or []) if isinstance(opt, dict)],
                     price=schemas.Money(amount=f"{v.price_amount:.2f}", currencyCode=v.price_currency),
                     compareAtPrice=schemas.Money(amount=f"{v.compare_at_price_amount:.2f}", currencyCode=v.compare_at_price_currency) if v.compare_at_price_amount else None,
                     image=schemas.ImageNode(url=v.image_url, altText=v.title) if v.image_url else None,
@@ -434,7 +447,7 @@ def build_cart_schema(cart: models.Cart, db: Session) -> schemas.CartSchema:
                         id=v.id,
                         title=v.title,
                         price=schemas.Money(amount=f"{v.price_amount:.2f}", currencyCode=v.price_currency),
-                        selectedOptions=[schemas.SelectedOption(**opt) for opt in v.selected_options],
+                        selectedOptions=[schemas.SelectedOption(name=str(opt.get("name", "")), value=str(opt.get("value", ""))) for opt in (v.selected_options or []) if isinstance(opt, dict)],
                         product=schemas.CartProductMini(
                             id=f"gid://shopify/Product/{p.id}",
                             title=p.title,
@@ -729,7 +742,7 @@ def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
                 )
                 db.add(new_user)
                 db.commit()
-        except Exception as e:
+        except Exception:
             db.rollback()
             raise HTTPException(status_code=500, detail="Failed to initialize account registration. Please try again.")
 
@@ -797,30 +810,6 @@ def update_profile(payload: schemas.ProfileUpdateRequest, current_user: models.U
 # ============================================================
 
 def build_order_schema(order: models.Order) -> schemas.OrderSchema:
-    item_schemas = []
-    for item in order.items:
-        item_schemas.append(
-            schemas.OrderItemSchema(
-                id=item.id,
-                variantId=item.variant_id,
-                productTitle=item.product_title,
-                variantTitle=item.variant_title,
-                imageUrl=item.image_url,
-                price=schemas.Money(amount=f"{item.price_amount:.2f}", currencyCode=order.currency),
-                quantity=item.quantity
-            )
-        )
-
-    addr_dict = order.shipping_address or {}
-    shipping_addr = schemas.ShippingAddress(
-        name=addr_dict.get("name", "Customer"),
-        address=addr_dict.get("address", "Standard Delivery"),
-        city=addr_dict.get("city", "City"),
-        postalCode=addr_dict.get("postalCode", "000000"),
-        phone=addr_dict.get("phone", "")
-    )
-
-def build_order_schema(order: models.Order) -> schemas.OrderSchema:
     item_schemas = [
         schemas.OrderItemSchema(
             id=i.id,
@@ -828,23 +817,47 @@ def build_order_schema(order: models.Order) -> schemas.OrderSchema:
             productTitle=i.product_title,
             variantTitle=i.variant_title,
             imageUrl=i.image_url,
-            price=schemas.Money(amount=f"{i.price_amount:.2f}", currencyCode=order.currency),
+            price=schemas.Money(amount=f"{i.price_amount:.2f}", currencyCode=order.currency or "INR"),
             quantity=i.quantity
-        ) for i in order.items
+        ) for i in (order.items or [])
     ]
 
     return schemas.OrderSchema(
         id=order.id,
         status=order.status,
         refundStatus=order.refund_status,
-        subtotalPrice=schemas.Money(amount=f"{order.subtotal_amount:.2f}", currencyCode=order.currency),
-        taxPrice=schemas.Money(amount=f"{getattr(order, 'tax_amount', 0.0) or 0.0:.2f}", currencyCode=order.currency),
-        shippingPrice=schemas.Money(amount=f"{getattr(order, 'shipping_amount', 0.0) or 0.0:.2f}", currencyCode=order.currency),
-        discountPrice=schemas.Money(amount=f"{getattr(order, 'discount_amount', 0.0) or 0.0:.2f}", currencyCode=order.currency),
-        totalPrice=schemas.Money(amount=f"{order.total_amount:.2f}", currencyCode=order.currency),
+        refundNote=order.refund_note,
+        refundAmount=order.refund_amount or 0.0,
+        refundedAt=order.refunded_at.strftime("%b %d, %Y") if order.refunded_at else None,
+        cancellationReason=order.cancellation_reason,
+        subtotalPrice=schemas.Money(amount=f"{order.subtotal_amount:.2f}", currencyCode=order.currency or "INR"),
+        taxPrice=schemas.Money(amount=f"{getattr(order, 'tax_amount', 0.0) or 0.0:.2f}", currencyCode=order.currency or "INR"),
+        shippingPrice=schemas.Money(amount=f"{getattr(order, 'shipping_amount', 0.0) or 0.0:.2f}", currencyCode=order.currency or "INR"),
+        discountPrice=schemas.Money(amount=f"{getattr(order, 'discount_amount', 0.0) or 0.0:.2f}", currencyCode=order.currency or "INR"),
+        totalPrice=schemas.Money(amount=f"{order.total_amount:.2f}", currencyCode=order.currency or "INR"),
         shippingAddress=order.shipping_address,
-        createdAt=order.created_at.strftime("%b %d, %Y"),
-        items=item_schemas
+        createdAt=order.created_at.strftime("%b %d, %Y") if order.created_at else "",
+        items=item_schemas,
+        isGuest=order.is_guest or False,
+        guestName=order.guest_name,
+        guestEmail=order.guest_email,
+        guestPhone=order.guest_phone,
+        paymentMethod=order.payment_method or "ONLINE",
+        paymentStatus=order.payment_status or "PENDING",
+        razorpayOrderId=order.razorpay_order_id,
+        razorpayPaymentId=order.razorpay_payment_id,
+        shiprocketAwb=order.shiprocket_awb,
+        shiprocketCourierName=order.shiprocket_courier_name,
+        shippingStatus=order.shipping_status or "UNFULFILLED",
+        trackingUrl=order.tracking_url,
+        trackingData=order.tracking_data or {},
+        deliveredAt=order.delivered_at.strftime("%b %d, %Y") if order.delivered_at else None,
+        returnStatus=order.return_status or "NONE",
+        returnReason=order.return_reason,
+        returnNotes=order.return_notes,
+        reverseAwb=order.reverse_awb,
+        reverseCourierName=order.reverse_courier_name,
+        reverseTrackingData=order.reverse_tracking_data or {}
     )
 
 # ============================================================
@@ -1031,99 +1044,18 @@ def delete_user_address(address_id: int, current_user: models.User = Depends(get
     return {"message": "Address deleted."}
 
 # ============================================================
-# CHECKOUT & ORDERS
+# CHECKOUT, PREPAID PAYMENTS & SHIPROCKET LOGISTICS
 # ============================================================
 
-@app.post("/api/orders/checkout", response_model=schemas.OrderSchema)
-def checkout(payload: schemas.CheckoutRequest, background_tasks: BackgroundTasks, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    cart = db.query(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
-    ).filter_by(id=payload.cart_id).first()
-
-    if not cart or not cart.items:
-        raise HTTPException(status_code=400, detail="Cart is empty or not found.")
-
-    # Determine shipping address
-    final_address_dict = {}
-
-    if payload.address_id:
-        user_addr = db.query(models.UserAddress).filter_by(id=payload.address_id, user_id=current_user.id).first()
-        if not user_addr:
-            raise HTTPException(status_code=404, detail="Selected address not found.")
-        final_address_dict = {
-            "label": user_addr.label,
-            "name": f"{user_addr.first_name} {user_addr.last_name}",
-            "address": f"{user_addr.street_address}{f', {user_addr.apartment}' if user_addr.apartment else ''}",
-            "city": user_addr.city,
-            "state": user_addr.state,
-            "postalCode": user_addr.pincode,
-            "country": "India",
-            "phone": user_addr.phone
-        }
-    elif payload.shipping_address:
-        raw_addr = payload.shipping_address
-        country = str(raw_addr.get("country", "India")).strip().lower()
-        if country not in ["india", "in"]:
-            raise HTTPException(status_code=400, detail="Shipping is currently only available within India.")
-        pincode = str(raw_addr.get("postalCode", raw_addr.get("pincode", ""))).strip()
-        import re
-        if not re.match(r'^[1-9][0-9]{5}$', pincode):
-            raise HTTPException(status_code=400, detail="Please enter a valid 6-digit Indian PIN Code (e.g. 400001).")
-
-        final_address_dict = {
-            "label": raw_addr.get("label", "Home"),
-            "name": raw_addr.get("name", current_user.full_name),
-            "address": raw_addr.get("address", raw_addr.get("street_address", "Standard Address")),
-            "city": raw_addr.get("city", "Mumbai"),
-            "state": raw_addr.get("state", "Maharashtra"),
-            "postalCode": pincode,
-            "country": "India",
-            "phone": raw_addr.get("phone", "")
-        }
-    else:
-        # Fallback to user default address or first address
-        default_addr = db.query(models.UserAddress).filter_by(user_id=current_user.id, is_default=True).first()
-        if not default_addr:
-            default_addr = db.query(models.UserAddress).filter_by(user_id=current_user.id).first()
-
-        if default_addr:
-            final_address_dict = {
-                "label": default_addr.label,
-                "name": f"{default_addr.first_name} {default_addr.last_name}",
-                "address": f"{default_addr.street_address}{f', {default_addr.apartment}' if default_addr.apartment else ''}",
-                "city": default_addr.city,
-                "state": default_addr.state,
-                "postalCode": default_addr.pincode,
-                "country": "India",
-                "phone": default_addr.phone
-            }
-        else:
-            final_address_dict = {
-                "label": "Home",
-                "name": current_user.full_name,
-                "address": "Standard Express Shipping",
-                "city": "Mumbai",
-                "state": "Maharashtra",
-                "postalCode": "400001",
-                "country": "India",
-                "phone": "+91 9876543210"
-            }
-
-    order_id = f"ORD-{secrets.randbelow(899999) + 100000}"
+def calculate_cart_pricing(cart: models.Cart):
     subtotal = 0.0
     tax_amount = 0.0
     custom_shipping_rates = []
     items_summary = []
 
-    # Calculate shipping & tax per product
     for item in cart.items:
         var = item.variant
         prod = var.product if var else None
-        if var:
-            if var.inventory_quantity < item.quantity:
-                raise HTTPException(status_code=400, detail=f"Insufficient stock for {var.title}. Only {var.inventory_quantity} remaining.")
-            var.inventory_quantity = max(0, var.inventory_quantity - item.quantity)
-
         item_price = var.price_amount if var else 0.0
         line_total = item_price * item.quantity
         subtotal += line_total
@@ -1135,16 +1067,13 @@ def checkout(payload: schemas.CheckoutRequest, background_tasks: BackgroundTasks
             "price": item_price
         })
 
-        # Calculate GST for single or multiple pieces of this product automatically
         gst_pct = prod.gst_percent if (prod and prod.gst_percent is not None) else 12.0
         item_tax = line_total * (gst_pct / (100.0 + gst_pct))
         tax_amount += item_tax
 
-        # Track per-product shipping rate overrides
         if prod and prod.shipping_rate is not None:
             custom_shipping_rates.append(prod.shipping_rate)
 
-    # Calculate shipping fee: use max product custom shipping rate if set, else global rule
     if custom_shipping_rates:
         shipping_amount = max(custom_shipping_rates)
     else:
@@ -1152,18 +1081,219 @@ def checkout(payload: schemas.CheckoutRequest, background_tasks: BackgroundTasks
 
     tax_amount = round(tax_amount, 2)
     total_amount = subtotal + shipping_amount
+    return subtotal, shipping_amount, tax_amount, total_amount, items_summary
 
+def resolve_shipping_address(address_id: Optional[int], shipping_address: Optional[dict], user: Optional[models.User], db: Session) -> dict:
+    if address_id and user:
+        user_addr = db.query(models.UserAddress).filter_by(id=address_id, user_id=user.id).first()
+        if user_addr:
+            return {
+                "label": user_addr.label,
+                "name": f"{user_addr.first_name} {user_addr.last_name}",
+                "address": f"{user_addr.street_address}{f', {user_addr.apartment}' if user_addr.apartment else ''}",
+                "city": user_addr.city,
+                "state": user_addr.state,
+                "postalCode": user_addr.pincode,
+                "country": "India",
+                "phone": user_addr.phone
+            }
+
+    if shipping_address:
+        raw_addr = shipping_address
+        pincode = str(raw_addr.get("postalCode", raw_addr.get("pincode", ""))).strip()
+        import re
+        if not re.match(r'^[1-9][0-9]{5}$', pincode):
+            pincode = "400001"
+        return {
+            "label": raw_addr.get("label", "Home"),
+            "name": raw_addr.get("name", (user.full_name if user else "Athlete")),
+            "address": raw_addr.get("address", raw_addr.get("street_address", "Standard Address")),
+            "city": raw_addr.get("city", "Mumbai"),
+            "state": raw_addr.get("state", "Maharashtra"),
+            "postalCode": pincode,
+            "country": "India",
+            "phone": raw_addr.get("phone", (user.phone if user else ""))
+        }
+
+    if user:
+        default_addr = db.query(models.UserAddress).filter_by(user_id=user.id, is_default=True).first() or db.query(models.UserAddress).filter_by(user_id=user.id).first()
+        if default_addr:
+            return {
+                "label": default_addr.label,
+                "name": f"{default_addr.first_name} {default_addr.last_name}",
+                "address": f"{default_addr.street_address}{f', {default_addr.apartment}' if default_addr.apartment else ''}",
+                "city": default_addr.city,
+                "state": default_addr.state,
+                "postalCode": default_addr.pincode,
+                "country": "India",
+                "phone": default_addr.phone
+            }
+
+    return {
+        "label": "Home",
+        "name": (user.full_name if user else "Athlete"),
+        "address": "Standard Express Shipping",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "postalCode": "400001",
+        "country": "India",
+        "phone": "+91 9876543210"
+    }
+
+def _async_create_shiprocket_order(order_id: str):
+    """Background task to create Shiprocket forward shipment and assign AWB."""
+    db = next(get_db())
+    try:
+        order = db.query(models.Order).options(selectinload(models.Order.items), selectinload(models.Order.user)).filter_by(id=order_id).first()
+        if not order:
+            return
+        res = shiprocket_service.create_forward_shipment(order, order.items or [])
+        if res:
+            order.shiprocket_order_id = res.get("shiprocket_order_id")
+            order.shiprocket_shipment_id = res.get("shiprocket_shipment_id")
+            order.shiprocket_awb = res.get("shiprocket_awb")
+            order.shiprocket_courier_name = res.get("shiprocket_courier_name")
+            order.shipping_status = res.get("shipping_status", "MANIFEST_GENERATED")
+            order.tracking_data = {
+                "awb": res.get("shiprocket_awb"),
+                "courier_name": res.get("shiprocket_courier_name"),
+                "current_status": "MANIFEST_GENERATED",
+                "scans": [
+                    {
+                        "date": datetime.utcnow().strftime("%b %d, %Y - %I:%M %p"),
+                        "activity": "Order Confirmed & Manifest Generated for Dispatch",
+                        "location": "VAHN Warehouse"
+                    }
+                ]
+            }
+            db.commit()
+    except Exception as e:
+        logger.error(f"Error in background Shiprocket forward shipment for {order_id}: {e}")
+    finally:
+        db.close()
+
+# 1. Check PIN Code Serviceability (Public)
+@app.post("/api/shipping/serviceability", response_model=schemas.ShiprocketServiceabilityResponse)
+def check_pincode_serviceability(payload: schemas.ShiprocketServiceabilityRequest):
+    result = shiprocket_service.check_serviceability(payload.pincode, payload.weight or 0.5)
+    return schemas.ShiprocketServiceabilityResponse(
+        serviceable=result.get("serviceable", False),
+        estimated_days=result.get("estimated_days", "2-4 business days"),
+        courier_name=result.get("courier_name"),
+        pincode=payload.pincode,
+        is_cod=False
+    )
+
+# 2. Create Razorpay Order for Logged-In User
+@app.post("/api/payments/razorpay/create-order", response_model=schemas.RazorpayCreateOrderResponse)
+def razorpay_create_order(
+    payload: schemas.RazorpayCreateOrderRequest,
+    current_user: Optional[models.User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    cart = db.query(models.Cart).options(
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+    ).filter_by(id=payload.cart_id).first()
+
+    if not cart or not cart.items:
+        raise HTTPException(status_code=400, detail="Cart is empty or not found.")
+
+    # Validate stock before initiating payment
+    for item in cart.items:
+        var = item.variant
+        if var and var.inventory_quantity < item.quantity:
+            raise HTTPException(status_code=400, detail=f"Insufficient stock for {var.title}. Only {var.inventory_quantity} remaining.")
+
+    subtotal, shipping_fee, tax_amount, total_amount, _ = calculate_cart_pricing(cart)
+    receipt_id = f"REC-{secrets.randbelow(899999) + 100000}"
+
+    notes = {
+        "cart_id": payload.cart_id,
+        "is_guest": "false" if current_user else "true",
+        "user_id": str(current_user.id) if current_user else "",
+        "user_email": current_user.email if current_user else "",
+        "user_phone": current_user.phone if current_user else ""
+    }
+
+    rzp_order = razorpay_service.create_order(
+        amount_in_inr=total_amount,
+        receipt_id=receipt_id,
+        notes=notes
+    )
+
+    return schemas.RazorpayCreateOrderResponse(
+        razorpay_order_id=rzp_order["id"],
+        amount=rzp_order["amount"],
+        currency=rzp_order.get("currency", "INR"),
+        key_id=razorpay_service.get_key_id(),
+        receipt=receipt_id,
+        subtotal=subtotal,
+        shipping_fee=shipping_fee,
+        tax_amount=tax_amount,
+        total_amount=total_amount
+    )
+
+# 3. Verify Razorpay Payment & Confirm Logged-In Order
+@app.post("/api/payments/razorpay/verify", response_model=schemas.OrderSchema)
+def razorpay_verify_payment(
+    payload: schemas.RazorpayVerifyPaymentRequest,
+    background_tasks: BackgroundTasks,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Verify cryptographic signature
+    is_valid = razorpay_service.verify_payment_signature(
+        razorpay_order_id=payload.razorpay_order_id,
+        razorpay_payment_id=payload.razorpay_payment_id,
+        razorpay_signature=payload.razorpay_signature
+    )
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Cryptographic payment signature verification failed.")
+
+    cart = db.query(models.Cart).options(
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+    ).filter_by(id=payload.cart_id).first()
+
+    if not cart or not cart.items:
+        raise HTTPException(status_code=400, detail="Cart items could not be found.")
+
+    final_address = resolve_shipping_address(payload.address_id, payload.shipping_address, current_user, db)
+    subtotal, shipping_amount, tax_amount, total_amount, items_summary = calculate_cart_pricing(cart)
+
+    # Decrement stock
+    for item in cart.items:
+        var = item.variant
+        if var:
+            if var.inventory_quantity < item.quantity:
+                # Race condition: item went out of stock during payment
+                # Auto-refund payment immediately
+                razorpay_service.initiate_refund(
+                    payment_id=payload.razorpay_payment_id,
+                    amount_in_inr=total_amount,
+                    reason_note=f"Stock exhausted for {var.title}"
+                )
+                raise HTTPException(status_code=400, detail="Stock was exhausted during payment. A 100% refund has been initiated to your payment method.")
+            var.inventory_quantity = max(0, var.inventory_quantity - item.quantity)
+
+    order_id = f"ORD-{secrets.randbelow(899999) + 100000}"
     order = models.Order(
         id=order_id,
         user_id=current_user.id,
+        is_guest=False,
         status="PROCESSING",
+        payment_method="RAZORPAY_CUSTOM",
+        payment_status="CAPTURED",
+        razorpay_order_id=payload.razorpay_order_id,
+        razorpay_payment_id=payload.razorpay_payment_id,
+        razorpay_signature=payload.razorpay_signature,
         subtotal_amount=subtotal,
         shipping_amount=shipping_amount,
         tax_amount=tax_amount,
         discount_amount=0.0,
         total_amount=total_amount,
         currency="INR",
-        shipping_address=final_address_dict
+        shipping_address=final_address,
+        shipping_status="UNFULFILLED"
     )
     db.add(order)
     db.flush()
@@ -1171,8 +1301,6 @@ def checkout(payload: schemas.CheckoutRequest, background_tasks: BackgroundTasks
     for item in cart.items:
         var = item.variant
         prod = var.product if var else None
-        item_price = var.price_amount if var else 0.0
-
         order_item = models.OrderItem(
             id=str(uuid.uuid4()),
             order_id=order.id,
@@ -1180,29 +1308,573 @@ def checkout(payload: schemas.CheckoutRequest, background_tasks: BackgroundTasks
             product_title=prod.title if prod else "Product",
             variant_title=var.title if var else "Default",
             image_url=var.image_url if (var and var.image_url) else (prod.featured_image_url if prod else None),
-            price_amount=item_price,
+            price_amount=var.price_amount if var else 0.0,
             quantity=item.quantity
         )
         db.add(order_item)
 
-    # Empty cart after checkout
+    # Empty cart
     for item in cart.items:
         db.delete(item)
 
     db.commit()
     db.refresh(order)
 
-    # Send Order Confirmation Email asynchronously in background task
-    background_tasks.add_task(
-        send_order_confirmation_email,
-        to_email=current_user.email,
-        order_id=order.id,
-        total_amount=order.total_amount,
-        currency=order.currency,
-        items_summary=items_summary
-    )
+    # Dispatch Shiprocket shipment in background
+    background_tasks.add_task(_async_create_shiprocket_order, order.id)
+
+    # Send Order Confirmation Email
+    if current_user.email:
+        background_tasks.add_task(
+            send_order_confirmation_email,
+            to_email=current_user.email,
+            order_id=order.id,
+            total_amount=order.total_amount,
+            currency=order.currency,
+            items_summary=items_summary
+        )
 
     return build_order_schema(order)
+
+# 4. Razorpay Magic Checkout Callback (Guest / 1-Click Checkout — No Login Required)
+@app.post("/api/orders/magic-checkout", response_model=schemas.OrderSchema)
+def magic_checkout_order(
+    payload: schemas.MagicCheckoutOrderRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    cart = db.query(models.Cart).options(
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+    ).filter_by(id=payload.cart_id).first()
+
+    if not cart or not cart.items:
+        raise HTTPException(status_code=400, detail="Cart is empty or not found.")
+
+    subtotal, shipping_amount, tax_amount, total_amount, items_summary = calculate_cart_pricing(cart)
+
+    # Validate and decrement stock
+    for item in cart.items:
+        var = item.variant
+        if var:
+            if var.inventory_quantity < item.quantity:
+                razorpay_service.initiate_refund(
+                    payment_id=payload.razorpay_payment_id,
+                    amount_in_inr=total_amount,
+                    reason_note=f"Stock exhausted for {var.title}"
+                )
+                raise HTTPException(status_code=400, detail="Stock exhausted during checkout. A 100% refund has been initiated.")
+            var.inventory_quantity = max(0, var.inventory_quantity - item.quantity)
+
+    # Format structured shipping address
+    raw_addr = payload.shipping_address or {}
+    cust_name = (payload.customer_name or payload.guest_name or raw_addr.get("name") or "Athlete").strip()
+    cust_email = (payload.customer_email or payload.guest_email or raw_addr.get("email") or "").strip().lower() or None
+    raw_phone = (payload.customer_phone or payload.guest_phone or raw_addr.get("phone") or "").strip()
+
+    # If phone or email is missing, fetch directly from Razorpay's verified payment record
+    if (not raw_phone or not cust_email) and payload.razorpay_payment_id:
+        try:
+            rzp_payment = razorpay_service.fetch_payment(payload.razorpay_payment_id)
+            if rzp_payment:
+                if not raw_phone and rzp_payment.get("contact"):
+                    raw_phone = str(rzp_payment.get("contact")).strip()
+                if not cust_email and rzp_payment.get("email"):
+                    cust_email = str(rzp_payment.get("email")).strip().lower()
+        except Exception as e:
+            logger.warning(f"Could not fetch payment from Razorpay: {e}")
+
+    cust_phone = None
+    if raw_phone:
+        try:
+            cust_phone = normalize_phone(raw_phone)
+        except Exception:
+            cleaned_digits = re.sub(r'\D', '', raw_phone)
+            if len(cleaned_digits) == 10:
+                cust_phone = f"+91{cleaned_digits}"
+            elif len(cleaned_digits) > 10:
+                cust_phone = f"+{cleaned_digits}"
+            else:
+                cust_phone = raw_phone
+
+    final_address = {
+        "label": "Delivery",
+        "name": cust_name,
+        "address": raw_addr.get("address", raw_addr.get("street_address", "Standard Delivery")),
+        "city": raw_addr.get("city", "Mumbai"),
+        "state": raw_addr.get("state", "Maharashtra"),
+        "postalCode": raw_addr.get("postalCode", raw_addr.get("pincode", "400001")),
+        "country": "India",
+        "phone": cust_phone or raw_phone or ""
+    }
+
+    # Automatically save or link customer account in database (models.User)
+    user = None
+    if cust_email:
+        user = db.query(models.User).filter(models.User.email == cust_email).first()
+    if not user and cust_phone:
+        user = db.query(models.User).filter(models.User.phone == cust_phone).first()
+
+    if user:
+        # Update missing customer details if present
+        if (not user.full_name or user.full_name in ("Athlete", "Customer", "Guest", "")) and cust_name:
+            user.full_name = cust_name
+        if not user.email and cust_email:
+            existing_email_user = db.query(models.User).filter(models.User.email == cust_email).first()
+            if not existing_email_user:
+                user.email = cust_email
+                user.email_verified = True
+        if not user.phone and cust_phone:
+            existing_phone_user = db.query(models.User).filter(models.User.phone == cust_phone).first()
+            if not existing_phone_user:
+                user.phone = cust_phone
+                user.phone_verified = True
+        db.flush()
+    else:
+        # Auto-create new customer in database (saved with role='customer')
+        user = models.User(
+            email=cust_email,
+            email_verified=bool(cust_email),
+            phone=cust_phone,
+            phone_verified=bool(cust_phone),
+            full_name=cust_name or "Guest Customer",
+            role="customer",
+            is_verified=True,
+            is_active=True,
+            password_hash=None,
+            salt=None
+        )
+        db.add(user)
+        db.flush()
+
+    # Automatically link / save customer delivery address
+    if user and user.id:
+        name_parts = cust_name.split(" ", 1)
+        first_name = name_parts[0] if name_parts else "Guest"
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
+        street_val = final_address.get("address", "").strip()
+        pincode_val = str(final_address.get("postalCode", "")).strip()
+
+        if street_val:
+            existing_addr = db.query(models.UserAddress).filter(
+                models.UserAddress.user_id == user.id,
+                models.UserAddress.street_address == street_val,
+                models.UserAddress.pincode == pincode_val
+            ).first()
+            if not existing_addr:
+                user_addr = models.UserAddress(
+                    user_id=user.id,
+                    label="Delivery",
+                    first_name=first_name,
+                    last_name=last_name,
+                    street_address=street_val,
+                    city=final_address.get("city", "Mumbai"),
+                    state=final_address.get("state", "Maharashtra"),
+                    pincode=pincode_val or "400001",
+                    country="India",
+                    phone=cust_phone or raw_phone or "",
+                    email=cust_email,
+                    is_default=True
+                )
+                db.add(user_addr)
+                db.flush()
+
+    order_id = f"ORD-{secrets.randbelow(899999) + 100000}"
+    is_registered_athlete = bool(user and user.password_hash)
+    order = models.Order(
+        id=order_id,
+        user_id=user.id if user else None,
+        is_guest=not is_registered_athlete,
+        guest_name=cust_name,
+        guest_email=cust_email,
+        guest_phone=cust_phone or raw_phone,
+        status="PROCESSING",
+        payment_method="RAZORPAY_MAGIC",
+        payment_status="CAPTURED",
+        razorpay_order_id=payload.razorpay_order_id,
+        razorpay_payment_id=payload.razorpay_payment_id,
+        razorpay_signature=payload.razorpay_signature,
+        subtotal_amount=subtotal,
+        shipping_amount=shipping_amount,
+        tax_amount=tax_amount,
+        discount_amount=0.0,
+        total_amount=total_amount,
+        currency="INR",
+        shipping_address=final_address,
+        shipping_status="UNFULFILLED"
+    )
+    db.add(order)
+    db.flush()
+
+    for item in cart.items:
+        var = item.variant
+        prod = var.product if var else None
+        order_item = models.OrderItem(
+            id=str(uuid.uuid4()),
+            order_id=order.id,
+            variant_id=item.variant_id,
+            product_title=prod.title if prod else "Product",
+            variant_title=var.title if var else "Default",
+            image_url=var.image_url if (var and var.image_url) else (prod.featured_image_url if prod else None),
+            price_amount=var.price_amount if var else 0.0,
+            quantity=item.quantity
+        )
+        db.add(order_item)
+
+    # Empty cart
+    for item in cart.items:
+        db.delete(item)
+
+    db.commit()
+    db.refresh(order)
+
+    # Dispatch Shiprocket shipment in background
+    background_tasks.add_task(_async_create_shiprocket_order, order.id)
+
+    # Send confirmation email
+    target_email = cust_email or (user.email if user else None)
+    if target_email:
+        background_tasks.add_task(
+            send_order_confirmation_email,
+            to_email=target_email,
+            order_id=order.id,
+            total_amount=order.total_amount,
+            currency=order.currency,
+            items_summary=items_summary
+        )
+
+    return build_order_schema(order)
+
+# 5. Single-Input Public Order Tracking (/track)
+@app.get("/api/shipping/track/{query}", response_model=schemas.OrderTrackingResponse)
+def public_track_order(query: str, db: Session = Depends(get_db)):
+    clean_query = query.strip()
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter(
+        (models.Order.id.ilike(clean_query)) |
+        (models.Order.shiprocket_awb == clean_query) |
+        (models.Order.reverse_awb == clean_query)
+    ).first()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order or tracking number not found.")
+
+    # Live track AWB if present
+    forward_scans = []
+    if order.shiprocket_awb:
+        track_info = shiprocket_service.track_awb(order.shiprocket_awb)
+        raw_scans = track_info.get("scans") if isinstance(track_info, dict) else []
+        if isinstance(raw_scans, list):
+            forward_scans = [
+                schemas.OrderTrackingScanSchema(
+                    date=s.get("date"),
+                    activity=str(s.get("activity", "")),
+                    location=s.get("location")
+                )
+                for s in raw_scans
+                if isinstance(s, dict)
+            ]
+    elif order.tracking_data and isinstance(order.tracking_data, dict) and "scans" in order.tracking_data:
+        raw_scans = order.tracking_data.get("scans")
+        if isinstance(raw_scans, list):
+            forward_scans = [
+                schemas.OrderTrackingScanSchema(
+                    date=s.get("date"),
+                    activity=str(s.get("activity", "")),
+                    location=s.get("location")
+                )
+                for s in raw_scans
+                if isinstance(s, dict)
+            ]
+
+    reverse_scans = []
+    if order.reverse_awb:
+        rev_info = shiprocket_service.track_awb(order.reverse_awb)
+        raw_rev_scans = rev_info.get("scans") if isinstance(rev_info, dict) else []
+        if isinstance(raw_rev_scans, list):
+            reverse_scans = [
+                schemas.OrderTrackingScanSchema(
+                    date=s.get("date"),
+                    activity=str(s.get("activity", "")),
+                    location=s.get("location")
+                )
+                for s in raw_rev_scans
+                if isinstance(s, dict)
+            ]
+    elif order.reverse_tracking_data and isinstance(order.reverse_tracking_data, dict) and "scans" in order.reverse_tracking_data:
+        raw_rev_scans = order.reverse_tracking_data.get("scans")
+        if isinstance(raw_rev_scans, list):
+            reverse_scans = [
+                schemas.OrderTrackingScanSchema(
+                    date=s.get("date"),
+                    activity=str(s.get("activity", "")),
+                    location=s.get("location")
+                )
+                for s in raw_rev_scans
+                if isinstance(s, dict)
+            ]
+
+    items_list = [
+        {
+            "id": i.id,
+            "product_title": i.product_title,
+            "variant_title": i.variant_title,
+            "image_url": i.image_url,
+            "quantity": i.quantity,
+            "price_amount": i.price_amount
+        }
+        for i in (order.items or [])
+    ]
+
+    curr_location = None
+    if forward_scans:
+        curr_location = forward_scans[-1].location
+    elif reverse_scans:
+        curr_location = reverse_scans[-1].location
+    if not curr_location and order.tracking_data and isinstance(order.tracking_data, dict):
+        curr_location = order.tracking_data.get("current_location")
+
+    is_picked_up_status = any("pick" in str(s.activity).lower() for s in (reverse_scans or forward_scans))
+
+    return schemas.OrderTrackingResponse(
+        order_id=order.id,
+        status=order.status,
+        shipping_status=order.shipping_status or "UNFULFILLED",
+        courier_name=order.shiprocket_courier_name,
+        awb_code=order.shiprocket_awb,
+        tracking_url=order.tracking_url,
+        scans=forward_scans,
+        delivered_at=order.delivered_at.strftime("%b %d, %Y") if order.delivered_at else None,
+        return_status=order.return_status or "NONE",
+        reverse_awb=order.reverse_awb,
+        reverse_courier_name=order.reverse_courier_name,
+        reverse_scans=reverse_scans,
+        items=items_list,
+        current_location=curr_location,
+        current_status=order.shipping_status or "UNFULFILLED",
+        is_picked_up=is_picked_up_status
+    )
+
+# 6. Authenticated Tracking for Customer Account View
+@app.get("/api/orders/{order_id}/tracking", response_model=schemas.OrderTrackingResponse)
+def get_order_tracking(
+    order_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+
+    # Ensure customer only accesses their own order
+    if order.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Unauthorized access to order tracking.")
+
+    return public_track_order(query=order.id, db=db)
+
+# 7. Customer Instant Cancellation Before Dispatch (Prepaid 100% Instant Refund)
+@app.post("/api/orders/{order_id}/cancel", response_model=schemas.OrderSchema)
+def cancel_order(
+    order_id: str,
+    payload: schemas.OrderCancelRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+
+    if order.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Unauthorized.")
+
+    if order.status != "PROCESSING" or order.shipping_status in ("PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"):
+        raise HTTPException(status_code=400, detail="Order has already been dispatched with courier and cannot be self-cancelled. You may request a return within 7 days of delivery.")
+
+    # Cancel courier shipment in Shiprocket
+    shiprocket_service.cancel_shipment(awb_code=order.shiprocket_awb, order_id=order.shiprocket_order_id)
+
+    # Disburse 100% instant refund via Razorpay API
+    rfnd_id = None
+    if order.razorpay_payment_id:
+        try:
+            rfnd_res = razorpay_service.initiate_refund(
+                payment_id=order.razorpay_payment_id,
+                amount_in_inr=order.total_amount,
+                reason_note=payload.reason or "Customer self-cancellation before dispatch"
+            )
+            rfnd_id = rfnd_res.get("id")
+        except Exception as e:
+            logger.error(f"Refund call error on cancel: {e}")
+
+    # Restock inventory
+    for item in (order.items or []):
+        if item.variant_id:
+            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+            if var:
+                var.inventory_quantity += item.quantity
+
+    order.status = "CANCELLED"
+    order.refund_status = "REFUNDED"
+    order.refund_amount = order.total_amount
+    order.refunded_at = datetime.utcnow()
+    order.razorpay_refund_id = rfnd_id
+    order.cancellation_reason = payload.reason
+    order.shipping_status = "CANCELLED"
+    db.commit()
+    db.refresh(order)
+
+    return build_order_schema(order)
+
+# 8. Customer 7-Day Return Request (Automated Reverse Pickup Scheduling)
+@app.post("/api/orders/{order_id}/return", response_model=schemas.OrderSchema)
+def request_order_return(
+    order_id: str,
+    payload: schemas.OrderReturnRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+
+    if order.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Unauthorized.")
+
+    if order.status != "DELIVERED":
+        raise HTTPException(status_code=400, detail="Returns can only be requested after the order has been delivered.")
+
+    # 7-day return window validation
+    delivered_time = order.delivered_at or order.updated_at or order.created_at
+    if (datetime.utcnow() - delivered_time).days > 7:
+        raise HTTPException(status_code=400, detail="The 7-day return window for this order has expired.")
+
+    if order.return_status and order.return_status != "NONE":
+        raise HTTPException(status_code=400, detail=f"A return has already been requested for this order (Status: {order.return_status}).")
+
+    # Automated Reverse Pickup Creation on Shiprocket
+    rev_res = shiprocket_service.create_reverse_pickup(order, return_reason=payload.reason)
+
+    order.return_status = "PICKUP_SCHEDULED"
+    order.return_reason = payload.reason
+    order.return_notes = payload.notes
+    order.return_requested_at = datetime.utcnow()
+    order.reverse_shipment_id = rev_res.get("reverse_shipment_id")
+    order.reverse_awb = rev_res.get("reverse_awb")
+    order.reverse_courier_name = rev_res.get("reverse_courier_name")
+    order.reverse_tracking_data = {
+        "awb": rev_res.get("reverse_awb"),
+        "courier_name": rev_res.get("reverse_courier_name"),
+        "current_status": "PICKUP_SCHEDULED",
+        "scans": [
+            {
+                "date": datetime.utcnow().strftime("%b %d, %Y - %I:%M %p"),
+                "activity": f"Return Requested ({payload.reason}) & Reverse Pickup Scheduled",
+                "location": "Customer Address"
+            }
+        ]
+    }
+    db.commit()
+    db.refresh(order)
+
+    return build_order_schema(order)
+
+# 9. Razorpay Webhook Handler
+@app.post("/api/webhooks/razorpay")
+async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
+    body_bytes = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+
+    if not razorpay_service.verify_webhook_signature(body_bytes, signature):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature.")
+
+    try:
+        data = json.loads(body_bytes.decode("utf-8"))
+        event = data.get("event")
+        payload = data.get("payload", {})
+
+        if event in ("payment.captured", "order.paid"):
+            payment_entity = payload.get("payment", {}).get("entity", {})
+            rzp_order_id = payment_entity.get("order_id")
+            rzp_payment_id = payment_entity.get("id")
+
+            order = db.query(models.Order).filter_by(razorpay_order_id=rzp_order_id).first()
+            if order and order.payment_status != "CAPTURED":
+                order.payment_status = "CAPTURED"
+                order.razorpay_payment_id = rzp_payment_id
+                order.status = "PROCESSING"
+                db.commit()
+
+        elif event == "refund.processed":
+            refund_entity = payload.get("refund", {}).get("entity", {})
+            rzp_payment_id = refund_entity.get("payment_id")
+            order = db.query(models.Order).filter_by(razorpay_payment_id=rzp_payment_id).first()
+            if order:
+                order.refund_status = "REFUNDED"
+                order.refund_amount = float(refund_entity.get("amount", 0)) / 100.0
+                order.refunded_at = datetime.utcnow()
+                db.commit()
+
+    except Exception as e:
+        logger.error(f"Error processing Razorpay webhook: {e}")
+
+    return {"status": "ok"}
+
+# 10. Shiprocket Webhook Handler (Forward Tracking & Reverse Pickup Refund Trigger)
+@app.post("/api/webhooks/shiprocket")
+async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
+    try:
+        data = await request.json()
+        awb = str(data.get("awb", "")).strip()
+        current_status = str(data.get("current_status", "")).upper()
+
+        if not awb:
+            return {"status": "ignored"}
+
+        # Check forward shipment
+        order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_awb=awb).first()
+        if order:
+            order.shipping_status = current_status
+            if current_status == "DELIVERED":
+                order.status = "DELIVERED"
+                order.delivered_at = datetime.utcnow()
+            db.commit()
+            return {"status": "forward_updated"}
+
+        # Check reverse shipment (AUTOMATED REFUND TRIGGER ON PICKUP)
+        rev_order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(reverse_awb=awb).first()
+        if rev_order:
+            if current_status in ("PICKED_UP", "IN_TRANSIT") and rev_order.refund_status != "REFUNDED":
+                # Courier scanned parcel from customer -> Auto disburse refund immediately!
+                rfnd_id = None
+                if rev_order.razorpay_payment_id:
+                    try:
+                        rfnd_res = razorpay_service.initiate_refund(
+                            payment_id=rev_order.razorpay_payment_id,
+                            amount_in_inr=rev_order.total_amount,
+                            reason_note="Automated refund upon reverse pickup scan"
+                        )
+                        rfnd_id = rfnd_res.get("id")
+                    except Exception as e:
+                        logger.error(f"Error disbursing auto refund on pickup: {e}")
+
+                rev_order.refund_status = "REFUNDED"
+                rev_order.refund_amount = rev_order.total_amount
+                rev_order.refunded_at = datetime.utcnow()
+                rev_order.razorpay_refund_id = rfnd_id
+                rev_order.return_status = "REFUND_INITIATED"
+
+                # Restock returned inventory
+                for item in (rev_order.items or []):
+                    if item.variant_id:
+                        var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+                        if var:
+                            var.inventory_quantity += item.quantity
+
+                db.commit()
+                return {"status": "reverse_picked_up_refunded"}
+
+    except Exception as e:
+        logger.error(f"Error in Shiprocket webhook: {e}")
+
+    return {"status": "ok"}
 
 @app.get("/api/orders", response_model=List[schemas.OrderSchema])
 def get_user_orders(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1211,9 +1883,44 @@ def get_user_orders(current_user: models.User = Depends(get_current_user), db: S
 
 @app.get("/api/orders/{order_id}", response_model=schemas.OrderSchema)
 def get_order_detail(order_id: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id, user_id=current_user.id).first()
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found.")
+    if order.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Unauthorized.")
+
+    # Auto-fetch live tracking if AWB exists
+    updated = False
+    if order.shiprocket_awb and order.status != "CANCELLED":
+        try:
+            live_track = shiprocket_service.track_awb(order.shiprocket_awb)
+            if live_track and isinstance(live_track, dict):
+                order.tracking_data = live_track
+                curr_st = live_track.get("current_status")
+                if curr_st:
+                    order.shipping_status = str(curr_st).upper()
+                updated = True
+        except Exception as e:
+            logger.warning(f"Failed to sync forward tracking for order {order.id}: {e}")
+
+    if order.reverse_awb:
+        try:
+            rev_track = shiprocket_service.track_awb(order.reverse_awb)
+            if rev_track and isinstance(rev_track, dict):
+                order.reverse_tracking_data = rev_track
+                if rev_track.get("is_picked_up") and order.return_status == "REQUESTED":
+                    order.return_status = "PICKED_UP"
+                updated = True
+        except Exception as e:
+            logger.warning(f"Failed to sync reverse tracking for order {order.id}: {e}")
+
+    if updated:
+        try:
+            db.commit()
+            db.refresh(order)
+        except Exception:
+            db.rollback()
+
     return build_order_schema(order)
 
 
@@ -1955,6 +2662,9 @@ def admin_list_orders(
     page: int = 1,
     page_size: int = 20,
     status: Optional[str] = None,
+    shipping_status: Optional[str] = None,
+    return_status: Optional[str] = None,
+    payment_status: Optional[str] = None,
     search: Optional[str] = None,
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
@@ -1965,9 +2675,24 @@ def admin_list_orders(
     )
     if status:
         q = q.filter(models.Order.status == status)
+    if shipping_status:
+        q = q.filter(models.Order.shipping_status == shipping_status)
+    if return_status:
+        q = q.filter(models.Order.return_status == return_status)
+    if payment_status:
+        q = q.filter(models.Order.payment_status == payment_status)
     if search:
-        q = q.join(models.User).filter(
-            (models.User.email.ilike(f"%{search}%")) | (models.Order.id.ilike(f"%{search}%"))
+        search_filter = f"%{search}%"
+        q = q.outerjoin(models.User).filter(
+            (models.Order.id.ilike(search_filter)) |
+            (models.Order.guest_email.ilike(search_filter)) |
+            (models.Order.guest_name.ilike(search_filter)) |
+            (models.Order.guest_phone.ilike(search_filter)) |
+            (models.Order.shiprocket_awb.ilike(search_filter)) |
+            (models.Order.razorpay_payment_id.ilike(search_filter)) |
+            (models.User.email.ilike(search_filter)) |
+            (models.User.full_name.ilike(search_filter)) |
+            (models.User.phone.ilike(search_filter))
         )
     total = q.count()
     orders = q.order_by(models.Order.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
@@ -1978,10 +2703,17 @@ def admin_list_orders(
             refund_status=o.refund_status,
             total_amount=o.total_amount,
             currency=o.currency,
-            created_at=o.created_at.strftime("%b %d, %Y"),
-            user_email=o.user.email if o.user else "",
-            user_name=o.user.full_name if o.user else "",
-            items_count=len(o.items)
+            created_at=o.created_at.strftime("%b %d, %Y") if o.created_at else "",
+            is_guest=bool(o.is_guest),
+            user_email=o.guest_email if o.is_guest else (o.user.email if o.user else ""),
+            user_name=o.guest_name if o.is_guest else (o.user.full_name if o.user else ""),
+            user_phone=o.guest_phone if o.is_guest else ((o.shipping_address or {}).get("phone") if isinstance(o.shipping_address, dict) else ""),
+            payment_method=o.payment_method or "ONLINE",
+            payment_status=o.payment_status or "PENDING",
+            shipping_status=o.shipping_status or "UNFULFILLED",
+            shiprocket_awb=o.shiprocket_awb,
+            return_status=o.return_status or "NONE",
+            items_count=len(o.items or [])
         ) for o in orders
     ]
     return {"items": items, "total": total, "page": page, "page_size": page_size, "total_pages": (total + page_size - 1) // page_size}
@@ -1998,6 +2730,77 @@ def admin_get_order(
     ).filter_by(id=order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    updated = False
+    # Auto-fetch live forward tracking if AWB exists
+    if order.shiprocket_awb:
+        try:
+            live_track = shiprocket_service.track_awb(order.shiprocket_awb)
+            if live_track and isinstance(live_track, dict):
+                order.tracking_data = live_track
+                curr_st = live_track.get("current_status")
+                if curr_st:
+                    order.shipping_status = str(curr_st).upper()
+                updated = True
+        except Exception as e:
+            logger.warning(f"Failed to sync forward tracking for order {order.id}: {e}")
+
+    # Auto-fetch live reverse return tracking if reverse AWB exists
+    if order.reverse_awb:
+        try:
+            rev_track = shiprocket_service.track_awb(order.reverse_awb)
+            if rev_track and isinstance(rev_track, dict):
+                order.reverse_tracking_data = rev_track
+                updated = True
+        except Exception as e:
+            logger.warning(f"Failed to sync reverse tracking for order {order.id}: {e}")
+
+    if updated:
+        try:
+            db.commit()
+            db.refresh(order)
+        except Exception:
+            db.rollback()
+
+    return _admin_order_detail(order)
+
+@app.post("/api/admin/orders/{order_id}/refresh-tracking", response_model=schemas.AdminOrderSchema)
+def admin_refresh_order_tracking(
+    order_id: str,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(
+        selectinload(models.Order.items),
+        selectinload(models.Order.user)
+    ).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.shiprocket_awb:
+        try:
+            live_track = shiprocket_service.track_awb(order.shiprocket_awb)
+            if live_track and isinstance(live_track, dict):
+                order.tracking_data = live_track
+                if live_track.get("current_status"):
+                    order.shipping_status = str(live_track["current_status"]).upper()
+        except Exception as e:
+            logger.warning(f"Error refreshing tracking for order {order.id}: {e}")
+
+    if order.reverse_awb:
+        try:
+            rev_track = shiprocket_service.track_awb(order.reverse_awb)
+            if rev_track and isinstance(rev_track, dict):
+                order.reverse_tracking_data = rev_track
+        except Exception as e:
+            logger.warning(f"Error refreshing reverse tracking for order {order.id}: {e}")
+
+    try:
+        db.commit()
+        db.refresh(order)
+    except Exception:
+        db.rollback()
+
     return _admin_order_detail(order)
 
 @app.put("/api/admin/orders/{order_id}/status")
@@ -2032,21 +2835,147 @@ def admin_update_order_status(
     db.commit()
     return {"message": "Order updated.", "order_id": order_id, "status": order.status}
 
+@app.post("/api/admin/orders/{order_id}/ship")
+def admin_ship_order(
+    order_id: str,
+    pickup_location: Optional[str] = None,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status in ["CANCELLED", "REFUNDED"]:
+        raise HTTPException(status_code=400, detail=f"Cannot ship order with status {order.status}")
+    
+    # 1. Check if shipment already created in Shiprocket
+    if not order.shiprocket_shipment_id:
+        sr_order = shiprocket_service.create_forward_shipment(order, pickup_location=pickup_location)
+        order.shiprocket_order_id = sr_order.get("order_id")
+        order.shiprocket_shipment_id = sr_order.get("shipment_id")
+
+    # 2. Generate AWB
+    awb_res = shiprocket_service.generate_awb(order.shiprocket_shipment_id)
+    order.shiprocket_awb = awb_res.get("awb_code")
+    order.shiprocket_courier_name = awb_res.get("courier_name")
+    order.tracking_url = f"/track?q={order.shiprocket_awb}"
+    order.shipping_status = "SHIPPED"
+    if order.status == "PROCESSING":
+        order.status = "SHIPPED"
+    db.commit()
+    return {
+        "message": "Shipment initiated successfully",
+        "order_id": order.id,
+        "shiprocket_shipment_id": order.shiprocket_shipment_id,
+        "awb_code": order.shiprocket_awb,
+        "courier_name": order.shiprocket_courier_name,
+        "shipping_status": order.shipping_status
+    }
+
+@app.get("/api/admin/orders/{order_id}/label")
+def admin_get_shipping_label(
+    order_id: str,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not order.shiprocket_shipment_id:
+        raise HTTPException(status_code=400, detail="Shipment has not been created for this order")
+    label_res = shiprocket_service.generate_label(order.shiprocket_shipment_id)
+    return label_res
+
+@app.post("/api/admin/orders/{order_id}/refund")
+def admin_refund_order(
+    order_id: str,
+    payload: schemas.AdminInitiateRefundRequest,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.refund_status == "REFUNDED":
+        raise HTTPException(status_code=400, detail="Order is already fully refunded")
+    
+    refund_amount = payload.amount if payload.amount is not None else order.total_amount
+    refund_res = razorpay_service.refund_payment(
+        payment_id=order.razorpay_payment_id,
+        amount=refund_amount,
+        notes={"order_id": order.id, "reason": payload.reason or "Admin initiated refund"}
+    )
+
+    order.refund_status = "REFUNDED"
+    order.refund_amount = (order.refund_amount or 0.0) + refund_amount
+    order.refund_note = payload.reason
+    order.refunded_at = datetime.utcnow()
+    order.status = "REFUNDED"
+    order.razorpay_refund_id = refund_res.get("refund_id")
+
+    if payload.restock_items:
+        for item in (order.items or []):
+            if item.variant_id:
+                var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+                if var:
+                    var.inventory_quantity += item.quantity
+
+    db.commit()
+    return {
+        "message": f"Refund of INR {refund_amount:.2f} processed successfully",
+        "refund_id": order.razorpay_refund_id,
+        "order_id": order.id,
+        "refund_status": order.refund_status
+    }
+
 def _admin_order_detail(order: models.Order) -> schemas.AdminOrderSchema:
+    user_email = order.guest_email if order.is_guest else (order.user.email if order.user else "")
+    user_name = order.guest_name if order.is_guest else (order.user.full_name if order.user else "")
     return schemas.AdminOrderSchema(
         id=order.id,
         status=order.status,
         refund_status=order.refund_status,
         refund_note=order.refund_note,
+        refund_amount=order.refund_amount or 0.0,
+        refunded_at=order.refunded_at.strftime("%Y-%m-%dT%H:%M:%S") if order.refunded_at else None,
+        cancellation_reason=order.cancellation_reason,
         subtotal_amount=order.subtotal_amount,
+        shipping_amount=order.shipping_amount or 0.0,
+        tax_amount=order.tax_amount or 0.0,
+        discount_amount=order.discount_amount or 0.0,
         total_amount=order.total_amount,
         currency=order.currency,
         shipping_address=order.shipping_address,
         created_at=order.created_at.strftime("%Y-%m-%dT%H:%M:%S") if order.created_at else "",
         updated_at=order.updated_at.strftime("%Y-%m-%dT%H:%M:%S") if order.updated_at else None,
-        user_id=order.user.id if order.user else (order.user_id or 0),
-        user_email=order.user.email if order.user else "",
-        user_name=order.user.full_name if order.user else "",
+        is_guest=bool(order.is_guest),
+        guest_name=order.guest_name,
+        guest_email=order.guest_email,
+        guest_phone=order.guest_phone,
+        user_id=order.user.id if order.user else (order.user_id or None),
+        user_email=user_email,
+        user_name=user_name,
+        payment_method=order.payment_method or "ONLINE",
+        payment_status=order.payment_status or "PENDING",
+        razorpay_order_id=order.razorpay_order_id,
+        razorpay_payment_id=order.razorpay_payment_id,
+        razorpay_refund_id=order.razorpay_refund_id,
+        shiprocket_order_id=order.shiprocket_order_id,
+        shiprocket_shipment_id=order.shiprocket_shipment_id,
+        shiprocket_awb=order.shiprocket_awb,
+        shiprocket_courier_name=order.shiprocket_courier_name,
+        shipping_status=order.shipping_status or "UNFULFILLED",
+        tracking_url=order.tracking_url,
+        tracking_data=order.tracking_data,
+        delivered_at=order.delivered_at.strftime("%Y-%m-%dT%H:%M:%S") if order.delivered_at else None,
+        return_status=order.return_status or "NONE",
+        return_reason=order.return_reason,
+        return_notes=order.return_notes,
+        return_requested_at=order.return_requested_at.strftime("%Y-%m-%dT%H:%M:%S") if order.return_requested_at else None,
+        reverse_shipment_id=order.reverse_shipment_id,
+        reverse_awb=order.reverse_awb,
+        reverse_courier_name=order.reverse_courier_name,
+        reverse_tracking_data=order.reverse_tracking_data,
         items=[
             schemas.AdminOrderItemSchema(
                 id=i.id,
@@ -2074,12 +3003,15 @@ def admin_list_users(
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    q = db.query(models.User)
+    q = db.query(models.User).options(selectinload(models.User.addresses))
     if role:
         q = q.filter(models.User.role == role)
     if search:
+        search_filter = f"%{search}%"
         q = q.filter(
-            (models.User.email.ilike(f"%{search}%")) | (models.User.full_name.ilike(f"%{search}%"))
+            (models.User.email.ilike(search_filter)) |
+            (models.User.full_name.ilike(search_filter)) |
+            (models.User.phone.ilike(search_filter))
         )
     total = q.count()
     users = q.order_by(models.User.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
@@ -2087,16 +3019,20 @@ def admin_list_users(
     items = []
     for u in users:
         orders_count = db.query(func.count(models.Order.id)).filter(models.Order.user_id == u.id).scalar() or 0
+        u_phone = u.phone
+        if not u_phone and u.addresses:
+            u_phone = u.addresses[0].phone
         items.append(schemas.AdminUserSchema(
             id=u.id,
             email=u.email,
+            phone=u_phone,
             full_name=u.full_name,
             role=u.role,
             is_verified=u.is_verified,
             is_active=u.is_active,
             suspended_at=u.suspended_at.strftime("%b %d, %Y") if u.suspended_at else None,
             suspension_reason=u.suspension_reason,
-            created_at=u.created_at.strftime("%b %d, %Y"),
+            created_at=u.created_at.strftime("%b %d, %Y") if u.created_at else "",
             orders_count=orders_count
         ))
     return {"items": items, "total": total, "page": page, "page_size": page_size, "total_pages": (total + page_size - 1) // page_size}
@@ -2737,7 +3673,7 @@ def admin_trigger_database_backup(
         meta.reflect(bind=engine)
 
         sql_lines = [
-            f"-- VAHN Automated Database Backup",
+            "-- VAHN Automated Database Backup",
             f"-- Generated: {datetime.utcnow().isoformat()} UTC",
             "BEGIN;\n"
         ]

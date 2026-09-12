@@ -275,3 +275,106 @@ export async function getActiveAnnouncements(): Promise<import('./types').Notifi
   }).catch(() => []);
 }
 
+// ---- Logistics, Prepaid Payments & Returns ----
+
+export async function checkShippingServiceability(pincode: string): Promise<import('./types').ServiceabilityResponse> {
+  return fetchAPI<import('./types').ServiceabilityResponse>('/shipping/serviceability', {
+    method: 'POST',
+    body: { pincode },
+  });
+}
+
+export async function createRazorpayOrder(
+  payload: {
+    cart_id: string;
+    address_id?: number;
+    shipping_address?: any;
+    discount_code?: string;
+  },
+  token?: string
+): Promise<import('./types').RazorpayOrderResponse> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<import('./types').RazorpayOrderResponse>('/payments/razorpay/create-order', {
+    method: 'POST',
+    headers,
+    body: payload,
+  });
+}
+
+export async function verifyRazorpayPayment(
+  payload: {
+    cart_id: string;
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+    address_id?: number;
+    shipping_address?: any;
+    order_id?: string;
+  },
+  token?: string
+): Promise<{ success?: boolean; order_id: string; status?: string; message?: string }> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<{ success?: boolean; order_id: string; status?: string; message?: string }>('/payments/razorpay/verify', {
+    method: 'POST',
+    headers,
+    body: payload,
+  });
+}
+
+export async function createMagicCheckoutOrder(payload: {
+  cart_id: string;
+  guest_name: string;
+  guest_email: string;
+  guest_phone: string;
+  shipping_address: any;
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+  discount_code?: string;
+}): Promise<import('./types').OrderDetail> {
+  return fetchAPI<import('./types').OrderDetail>('/orders/magic-checkout', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function getPublicTracking(query: string): Promise<import('./types').TrackingInfo> {
+  return fetchAPI<import('./types').TrackingInfo>(`/shipping/track/${encodeURIComponent(query.trim())}`);
+}
+
+export async function getOrderTracking(orderId: string, token?: string): Promise<import('./types').TrackingInfo> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<import('./types').TrackingInfo>(`/orders/${orderId}/tracking`, {
+    headers,
+  });
+}
+
+export async function cancelOrder(orderId: string, reason?: string, token?: string): Promise<{ message: string; order_id: string; refund_id?: string; status: string }> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<{ message: string; order_id: string; refund_id?: string; status: string }>(`/orders/${orderId}/cancel`, {
+    method: 'POST',
+    headers,
+    body: { reason },
+  });
+}
+
+export async function requestOrderReturn(
+  orderId: string,
+  reason: string,
+  notes?: string,
+  token?: string
+): Promise<{ message: string; order_id: string; return_status: string; reverse_awb?: string; reverse_courier_name?: string }> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<{ message: string; order_id: string; return_status: string; reverse_awb?: string; reverse_courier_name?: string }>(`/orders/${orderId}/return`, {
+    method: 'POST',
+    headers,
+    body: { reason, notes },
+  });
+}
+
+

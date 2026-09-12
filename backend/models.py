@@ -202,10 +202,23 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(String, primary_key=True, index=True)  # e.g. ORD-894721
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    
+    # Guest order identification
+    is_guest = Column(Boolean, default=False, nullable=False)
+    guest_name = Column(String, nullable=True)
+    guest_email = Column(String, nullable=True)
+    guest_phone = Column(String, nullable=True)
+
+    # Core order statuses
     status = Column(String, default="PROCESSING")  # PROCESSING | SHIPPED | DELIVERED | CANCELLED
     refund_status = Column(String, nullable=True)   # PENDING | REFUNDED
     refund_note = Column(Text, nullable=True)
+    refund_amount = Column(Float, default=0.0)
+    refunded_at = Column(DateTime, nullable=True)
+    cancellation_reason = Column(Text, nullable=True)
+
+    # Financial breakdown
     subtotal_amount = Column(Float, nullable=False)
     shipping_amount = Column(Float, default=0.0)
     tax_amount = Column(Float, default=0.0)
@@ -213,6 +226,35 @@ class Order(Base):
     total_amount = Column(Float, nullable=False)
     currency = Column(String, default="INR")
     shipping_address = Column(JSON, default=dict)
+
+    # Razorpay Payment Gateway tracking (Strictly Prepaid)
+    payment_method = Column(String, default="ONLINE", nullable=False)  # RAZORPAY_MAGIC | RAZORPAY_CUSTOM
+    payment_status = Column(String, default="PENDING", nullable=False)  # PENDING | CAPTURED | FAILED | REFUNDED
+    razorpay_order_id = Column(String, nullable=True, index=True)
+    razorpay_payment_id = Column(String, nullable=True, index=True)
+    razorpay_signature = Column(String, nullable=True)
+    razorpay_refund_id = Column(String, nullable=True)
+
+    # Shiprocket Forward Logistics & Live Tracking
+    shiprocket_order_id = Column(String, nullable=True)
+    shiprocket_shipment_id = Column(String, nullable=True)
+    shiprocket_awb = Column(String, nullable=True, index=True)
+    shiprocket_courier_name = Column(String, nullable=True)
+    shipping_status = Column(String, default="UNFULFILLED")  # UNFULFILLED | MANIFEST_GENERATED | PICKED_UP | IN_TRANSIT | OUT_FOR_DELIVERY | DELIVERED | CANCELLED | RTO
+    tracking_url = Column(String, nullable=True)
+    tracking_data = Column(JSON, default=dict)
+    delivered_at = Column(DateTime, nullable=True)
+
+    # 7-Day Returns & Reverse Logistics
+    return_status = Column(String, default="NONE", nullable=False)  # NONE | REQUESTED | PICKUP_SCHEDULED | PICKED_UP | REFUND_INITIATED | COMPLETED
+    return_reason = Column(Text, nullable=True)
+    return_notes = Column(Text, nullable=True)
+    return_requested_at = Column(DateTime, nullable=True)
+    reverse_shipment_id = Column(String, nullable=True)
+    reverse_awb = Column(String, nullable=True, index=True)
+    reverse_courier_name = Column(String, nullable=True)
+    reverse_tracking_data = Column(JSON, default=dict)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

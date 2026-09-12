@@ -15,3 +15,13 @@ Whenever adding, importing, updating, or deleting ANY third-party Python module 
 2. **Automatically regenerate `backend/pylock.toml`**: Run `create_pylock.py` (`backend\.venv\Scripts\python.exe create_pylock.py`) to keep `pylock.toml` locked and synced.
 3. **NEVER leave `requirements.txt` or `pylock.toml` out of sync** with backend Python imports under any circumstances.
 
+## 4. STRICT PRODUCTION DEPLOYMENT RULE (DO NOT DEPLOY TO PROD) (STRICT RULE)
+Under NO circumstances should the assistant push to `main`, merge `dev` into `main`, or trigger a production deployment UNLESS AND UNTIL the user EXPLICITLY commands it (e.g., "deploy to prod", "deploy to production", "merge dev to main").
+- All regular development, features, fixes, commits, and pushes MUST be strictly performed on the **`dev`** branch (deploying exclusively to `https://dev.vahnsports.com`).
+- The `main` branch is locked for production releases only and requires explicit, verbatim user authorization before any push or merge is executed.
+
+## 5. Mandatory Backend Python Compilation & Zero-Error Rule (`py_compile`) (STRICT RULE)
+Whenever generating, editing, refactoring, or modifying ANY backend Python file, module, endpoint, or logic (e.g., `main.py`, `models.py`, `schemas.py`, services, migrations, or scripts):
+1. **Immediately verify code with `py_compile`**: The assistant MUST ALWAYS compile every generated or modified backend Python file using `python -m py_compile <file_path>` (or `.\backend\.venv\Scripts\python.exe -m py_compile <file_path>`).
+2. **Zero Errors Allowed**: Not a single file is allowed to have any syntax error, indentation issue, undefined token, or compilation failure. Every modified file must compile cleanly with exit code 0.
+3. **Verify clean module import**: When modifying `main.py` or foundational services, verify that the module imports cleanly without unhandled runtime exceptions (`python -c "import main"`).

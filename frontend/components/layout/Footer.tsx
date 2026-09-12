@@ -11,7 +11,7 @@ const QUICK_LINKS = [
 ];
 
 const SUPPORT_LINKS = [
-  { label: 'Order Tracking', href: '/account/orders' },
+  { label: 'Order Tracking', href: '/track' },
   { label: 'Shipping & Returns', href: '/pages/shipping' },
   { label: 'Contact Us', href: '/pages/contact' },
 ];

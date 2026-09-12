@@ -272,26 +272,143 @@ export interface OrderItem {
   quantity: number;
 }
 
+export interface TrackingMilestone {
+  status: string;
+  title: string;
+  location?: string | null;
+  timestamp: string;
+  description?: string | null;
+}
+
+export interface TrackingScan {
+  date?: string | null;
+  activity: string;
+  location?: string | null;
+}
+
+export interface TrackingInfo {
+  order_id?: string;
+  orderId?: string;
+  awb_code?: string | null;
+  awbCode?: string | null;
+  courier_name?: string | null;
+  courierName?: string | null;
+  status?: string;
+  shipping_status?: string;
+  currentStatus?: string;
+  currentMilestone?: string;
+  current_location?: string | null;
+  currentLocation?: string | null;
+  estimatedDelivery?: string | null;
+  origin?: string | null;
+  destination?: string | null;
+  milestones?: TrackingMilestone[];
+  scans?: TrackingScan[];
+  reverse_scans?: TrackingScan[];
+  reverse_awb?: string | null;
+  reverse_courier_name?: string | null;
+  isReturn?: boolean;
+  return_status?: string | null;
+  is_picked_up?: boolean;
+}
+
+export interface ServiceabilityResponse {
+  pincode: string;
+  serviceable: boolean;
+  courier_name?: string;
+  estimated_delivery_days?: number;
+  etd?: string;
+  shipping_rate?: number;
+  cod_available?: boolean;
+  message?: string;
+}
+
+export interface RazorpayOrderResponse {
+  order_id: string;
+  razorpay_order_id: string;
+  amount: number;
+  currency: string;
+  key_id: string;
+  business_name?: string;
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
+}
+
 export interface OrderDetail {
   id: string;
   status: string;
   refundStatus?: string | null;
+  refundNote?: string | null;
+  refundAmount?: number | null;
+  refundedAt?: string | null;
+  cancellationReason?: string | null;
   subtotalPrice: Money;
   taxPrice: Money;
   shippingPrice: Money;
   discountPrice: Money;
   totalPrice: Money;
+  currency: string;
   shippingAddress?: {
     label?: string;
     name?: string;
+    first_name?: string;
+    last_name?: string;
     address?: string;
+    street_address?: string;
     city?: string;
     state?: string;
     postalCode?: string;
+    pincode?: string;
     country?: string;
     phone?: string;
+    email?: string;
   } | null;
   createdAt: string;
+  isGuest?: boolean;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  razorpayOrderId?: string | null;
+  razorpayPaymentId?: string | null;
+  shippingStatus?: string;
+  shiprocketAwb?: string | null;
+  shiprocketCourierName?: string | null;
+  trackingUrl?: string | null;
+  trackingData?: {
+    awb?: string;
+    current_status?: string;
+    courier_name?: string;
+    current_location?: string;
+    is_picked_up?: boolean;
+    scans?: Array<{
+      date?: string;
+      activity: string;
+      location?: string;
+    }>;
+    [key: string]: any;
+  } | null;
+  reverseTrackingData?: {
+    awb?: string;
+    current_status?: string;
+    courier_name?: string;
+    current_location?: string;
+    is_picked_up?: boolean;
+    scans?: Array<{
+      date?: string;
+      activity: string;
+      location?: string;
+    }>;
+    [key: string]: any;
+  } | null;
+  deliveredAt?: string | null;
+  returnStatus?: string;
+  returnReason?: string | null;
+  returnNotes?: string | null;
+  returnRequestedAt?: string | null;
+  reverseAwb?: string | null;
+  reverseCourierName?: string | null;
   items: OrderItem[];
 }
 

@@ -72,15 +72,46 @@ export interface AdminOrder {
   status: string;
   refund_status: string | null;
   refund_note: string | null;
+  refund_amount?: number | null;
+  refunded_at?: string | null;
+  cancellation_reason?: string | null;
   subtotal_amount: number;
+  shipping_amount: number;
+  tax_amount: number;
+  discount_amount: number;
   total_amount: number;
   currency: string;
-  shipping_address: Record<string, string> | null;
+  shipping_address: Record<string, any> | null;
   created_at: string;
   updated_at: string | null;
-  user_id: number;
+  is_guest: boolean;
+  guest_name?: string | null;
+  guest_email?: string | null;
+  guest_phone?: string | null;
+  user_id: number | null;
   user_email: string;
   user_name: string;
+  payment_method: string;
+  payment_status: string;
+  razorpay_order_id?: string | null;
+  razorpay_payment_id?: string | null;
+  razorpay_refund_id?: string | null;
+  shiprocket_order_id?: string | null;
+  shiprocket_shipment_id?: string | null;
+  shiprocket_awb?: string | null;
+  shiprocket_courier_name?: string | null;
+  shipping_status: string;
+  tracking_url?: string | null;
+  tracking_data?: Record<string, any> | null;
+  delivered_at?: string | null;
+  return_status: string;
+  return_reason?: string | null;
+  return_notes?: string | null;
+  return_requested_at?: string | null;
+  reverse_shipment_id?: string | null;
+  reverse_awb?: string | null;
+  reverse_courier_name?: string | null;
+  reverse_tracking_data?: Record<string, any> | null;
   items: Array<{
     id: string;
     variant_id: string | null;
@@ -99,14 +130,22 @@ export interface AdminOrderSummary {
   total_amount: number;
   currency: string;
   created_at: string;
+  is_guest?: boolean;
   user_email: string;
   user_name: string;
+  user_phone?: string;
+  payment_method?: string;
+  payment_status?: string;
+  shipping_status?: string;
+  shiprocket_awb?: string | null;
+  return_status?: string;
   items_count: number;
 }
 
 export interface AdminUser {
   id: number;
-  email: string;
+  email?: string | null;
+  phone?: string | null;
   full_name: string;
   role: string;
   is_verified: boolean;
@@ -364,10 +403,23 @@ export const manageCollectionProducts = (token: string, collectionId: number, pr
 // Orders
 // ============================================================
 
-export const getAdminOrders = (token: string, params?: { page?: number; status?: string; search?: string }) => {
+export const getAdminOrders = (
+  token: string,
+  params?: {
+    page?: number;
+    status?: string;
+    shipping_status?: string;
+    return_status?: string;
+    payment_status?: string;
+    search?: string;
+  }
+) => {
   const q = new URLSearchParams();
   if (params?.page) q.set("page", String(params.page));
   if (params?.status) q.set("status", params.status);
+  if (params?.shipping_status) q.set("shipping_status", params.shipping_status);
+  if (params?.return_status) q.set("return_status", params.return_status);
+  if (params?.payment_status) q.set("payment_status", params.payment_status);
   if (params?.search) q.set("search", params.search);
   return adminFetch<PaginatedResponse<AdminOrderSummary>>(`/admin/orders?${q}`, token);
 };
@@ -375,8 +427,42 @@ export const getAdminOrders = (token: string, params?: { page?: number; status?:
 export const getAdminOrder = (token: string, id: string) =>
   adminFetch<AdminOrder>(`/admin/orders/${id}`, token);
 
+export const refreshAdminOrderTracking = (token: string, orderId: string) =>
+  adminFetch<AdminOrder>(`/admin/orders/${orderId}/refresh-tracking`, token, { method: "POST" });
+
 export const updateOrderStatus = (token: string, id: string, data: { status?: string; refund_status?: string; refund_note?: string }) =>
   adminFetch<{ message: string }>(`/admin/orders/${id}/status`, token, { method: "PUT", body: JSON.stringify(data) });
+
+export const shipAdminOrder = (token: string, orderId: string, pickupLocation?: string) =>
+  adminFetch<{
+    message: string;
+    order_id: string;
+    shiprocket_shipment_id?: string;
+    awb_code?: string;
+    courier_name?: string;
+    shipping_status: string;
+  }>(`/admin/orders/${orderId}/ship`, token, {
+    method: "POST",
+    body: JSON.stringify({ pickup_location: pickupLocation }),
+  });
+
+export const getAdminOrderShippingLabel = (token: string, orderId: string) =>
+  adminFetch<{ label_url?: string; message?: string }>(`/admin/orders/${orderId}/label`, token);
+
+export const refundAdminOrder = (
+  token: string,
+  orderId: string,
+  data: { amount?: number; reason?: string; restock_items?: boolean }
+) =>
+  adminFetch<{
+    message: string;
+    refund_id?: string;
+    order_id: string;
+    refund_status: string;
+  }>(`/admin/orders/${orderId}/refund`, token, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 
 // ============================================================
 // Users

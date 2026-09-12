@@ -1,14 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
-import { useCart } from "@/context/CartContext";
-import { getUserAddresses, checkoutCart } from "@/lib/api";
-import type { UserAddress, OrderDetail } from "@/lib/api/types";
-import AddressModal from "@/components/address/AddressModal";
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
+import {
+  getUserAddresses,
+  checkShippingServiceability,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+  createMagicCheckoutOrder,
+} from "@/lib/api";
+import type { UserAddress, ServiceabilityResponse } from "@/lib/api/types";
+import AddressModal from "@/components/address/AddressModal";
 import {
   MapPinIcon,
   ShoppingBagIcon,
@@ -19,30 +25,66 @@ import {
   AlertCircleIcon,
   CheckIcon,
   TruckIcon,
-  EditIcon
+  EditIcon,
 } from "@/components/icons/Icons";
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 export default function CheckoutPage() {
   const { user, token, openAuthModal } = useAuth();
-  const { cart, clearCart, updateItem, removeItem } = useCart();
+  const { cart, clearCart } = useCart();
   const router = useRouter();
 
-  const [step, setStep] = useState<"address" | "review">("address");
+  // Logged-in address state
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
-  const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
 
+  // Guest address state
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
+  const [guestStreet, setGuestStreet] = useState("");
+  const [guestApartment, setGuestApartment] = useState("");
+  const [guestCity, setGuestCity] = useState("");
+  const [guestState, setGuestState] = useState("");
+  const [guestPincode, setGuestPincode] = useState("");
 
+  // Payment method selection (100% Prepaid only)
+  const [paymentMethod, setPaymentMethod] = useState<"UPI" | "CARD" | "NETBANKING">("UPI");
+
+  // Serviceability check state
+  const [serviceability, setServiceability] = useState<ServiceabilityResponse | null>(null);
+  const [checkingPincode, setCheckingPincode] = useState(false);
+
+  // Process & Error states
   const [placingOrder, setPlacingOrder] = useState(false);
   const [error, setError] = useState("");
+  const [rzpLoaded, setRzpLoaded] = useState(false);
 
+  // Load Razorpay SDK
+  useEffect(() => {
+    if (typeof window !== "undefined" && !window.Razorpay) {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.onload = () => setRzpLoaded(true);
+      document.body.appendChild(script);
+    } else {
+      setRzpLoaded(true);
+    }
+  }, []);
+
+  // Load addresses if logged in
   useEffect(() => {
     if (token) {
       loadAddresses();
-    } else {
-      setLoadingAddresses(false);
     }
   }, [token]);
 
@@ -53,686 +95,1327 @@ export default function CheckoutPage() {
       const data = await getUserAddresses(token);
       setAddresses(data);
       if (data.length > 0) {
-        const defaultAddr = data.find(a => a.is_default) || data[0];
+        const defaultAddr = data.find((a) => a.is_default) || data[0];
         setSelectedAddressId(defaultAddr.id);
+        handleCheckPincode(defaultAddr.pincode);
       }
     } catch {
-      // Error loading addresses
+      // Ignored
     } finally {
       setLoadingAddresses(false);
     }
   }
 
-  // Calculate pricing dynamically per product
-  const cartLines = cart?.lines.edges.map(e => e.node) || [];
-  const subtotal = cartLines.reduce((sum, line) => sum + (parseFloat(line.merchandise.price.amount) * line.quantity), 0);
+  // Live Pincode Serviceability Check
+  async function handleCheckPincode(pin: string) {
+    const cleanPin = pin.trim();
+    if (cleanPin.length !== 6 || !/^\d{6}$/.test(cleanPin)) {
+      setServiceability(null);
+      return;
+    }
+    setCheckingPincode(true);
+    try {
+      const res = await checkShippingServiceability(cleanPin);
+      setServiceability(res);
+    } catch {
+      setServiceability({
+        pincode: cleanPin,
+        serviceable: true,
+        courier_name: "Standard Express Delivery",
+        estimated_delivery_days: 4,
+        shipping_rate: 0,
+        cod_available: false,
+      });
+    } finally {
+      setCheckingPincode(false);
+    }
+  }
+
+  // Calculate pricing
+  const cartLines = cart?.lines.edges.map((e) => e.node) || [];
+  const subtotal = cartLines.reduce(
+    (sum, line) => sum + parseFloat(line.merchandise.price.amount) * line.quantity,
+    0
+  );
   const customShippingRate = cartLines.reduce((max, line) => {
     const rate = line.merchandise.product.shippingRate;
     return rate != null ? Math.max(max, rate) : max;
   }, -1);
-  const shippingFee = customShippingRate >= 0 ? customShippingRate : (subtotal >= 1999 || subtotal === 0 ? 0 : 99);
-  const estimatedTax = Math.round(cartLines.reduce((taxSum, line) => {
-    const price = parseFloat(line.merchandise.price.amount);
-    const lineTotal = price * line.quantity;
-    const gstPct = line.merchandise.product.gstPercent ?? 12;
-    return taxSum + (lineTotal * (gstPct / (100 + gstPct)));
-  }, 0));
+  const shippingFee =
+    customShippingRate >= 0
+      ? customShippingRate
+      : subtotal >= 1999 || subtotal === 0
+      ? 0
+      : 99;
+
+  const estimatedTax = Math.round(
+    cartLines.reduce((taxSum, line) => {
+      const price = parseFloat(line.merchandise.price.amount);
+      const lineTotal = price * line.quantity;
+      const gstPct = line.merchandise.product.gstPercent ?? 12;
+      return taxSum + lineTotal * (gstPct / (100 + gstPct));
+    }, 0)
+  );
+
   const grandTotal = subtotal + shippingFee;
+  const selectedAddr = addresses.find((a) => a.id === selectedAddressId);
 
-  const selectedAddr = addresses.find(a => a.id === selectedAddressId);
-
-  function handleProceedToReview(e: React.FormEvent) {
-    e.preventDefault();
+  // Trigger Razorpay Checkout
+  async function handleInitiatePayment() {
     setError("");
 
-    if (!selectedAddressId || !selectedAddr) {
-      setError("Please select or add a delivery address.");
+    if (!cart?.id || cartLines.length === 0) {
+      setError("Your cart is empty. Please add items before checking out.");
       return;
     }
 
-    setStep("review");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+    // Validation
+    let shippingPayload: any = null;
+    let customerName = "";
+    let customerEmail = "";
+    let customerPhone = "";
 
-  async function handleConfirmOrder() {
-    if (!token || !cart || !selectedAddressId) return;
+    if (user && token) {
+      if (!selectedAddressId || !selectedAddr) {
+        setError("Please select a delivery address.");
+        return;
+      }
+      customerName = `${selectedAddr.first_name} ${selectedAddr.last_name}`.trim() || user.full_name;
+      customerEmail = selectedAddr.email || user.email || "";
+      customerPhone = selectedAddr.phone || user.phone || "";
+      shippingPayload = {
+        name: customerName,
+        phone: customerPhone,
+        address: `${selectedAddr.house_flat_no || ""} ${selectedAddr.street_address}`.trim(),
+        apartment: selectedAddr.apartment || selectedAddr.building_name || "",
+        city: selectedAddr.city,
+        state: selectedAddr.state,
+        pincode: selectedAddr.pincode,
+        country: selectedAddr.country || "India",
+      };
+    } else {
+      // Guest validation
+      if (!guestName.trim()) {
+        setError("Please enter your full name.");
+        return;
+      }
+      if (!guestEmail.trim() || !guestEmail.includes("@")) {
+        setError("Please enter a valid email address.");
+        return;
+      }
+      if (!guestPhone.trim() || guestPhone.replace(/\D/g, "").length < 10) {
+        setError("Please enter a valid 10-digit mobile number.");
+        return;
+      }
+      if (!guestStreet.trim()) {
+        setError("Please enter your delivery street address.");
+        return;
+      }
+      if (!guestCity.trim()) {
+        setError("Please enter your city.");
+        return;
+      }
+      if (!guestState.trim()) {
+        setError("Please select or enter your state.");
+        return;
+      }
+      if (!guestPincode.trim() || !/^\d{6}$/.test(guestPincode.trim())) {
+        setError("Please enter a valid 6-digit PIN code.");
+        return;
+      }
+
+      customerName = guestName.trim();
+      customerEmail = guestEmail.trim();
+      customerPhone = guestPhone.trim();
+      shippingPayload = {
+        name: customerName,
+        email: customerEmail,
+        phone: customerPhone,
+        address: `${guestApartment ? guestApartment + ", " : ""}${guestStreet}`.trim(),
+        city: guestCity.trim(),
+        state: guestState.trim(),
+        pincode: guestPincode.trim(),
+        country: "India",
+      };
+    }
+
     setPlacingOrder(true);
-    setError("");
 
     try {
-      const resultOrder: OrderDetail = await checkoutCart(token, cart.id, selectedAddressId);
-      clearCart();
-      router.push(`/account/orders/${resultOrder.id}`);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to place order.");
+      // 1. Create Razorpay order on backend
+      const rzpOrder = await createRazorpayOrder(
+        {
+          cart_id: cart.id,
+          address_id: selectedAddressId || undefined,
+          shipping_address: shippingPayload,
+        },
+        token || undefined
+      );
+
+      // Check if window.Razorpay is loaded
+      if (typeof window.Razorpay === "undefined") {
+        throw new Error("Razorpay gateway is initializing. Please try again in a few moments.");
+      }
+
+      // 2. Open Razorpay modal
+      const options = {
+        key: rzpOrder.key_id,
+        amount: rzpOrder.amount,
+        currency: rzpOrder.currency || "INR",
+        name: "VAHN Sports",
+        description: `Order Payment (${cartLines.length} item${cartLines.length > 1 ? "s" : ""})`,
+        image: "https://vahn.s3.ap-south-2.amazonaws.com/logo.png",
+        order_id: rzpOrder.razorpay_order_id,
+        handler: async function (response: any) {
+          try {
+            if (user && token) {
+              const verifiedOrder = await verifyRazorpayPayment(
+                {
+                  cart_id: cart.id,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  address_id: selectedAddressId || undefined,
+                  shipping_address: shippingPayload,
+                },
+                token
+              );
+              clearCart();
+              router.push(`/account/orders/${verifiedOrder.order_id}`);
+            } else {
+              // Guest checkout verification
+              const guestOrder = await createMagicCheckoutOrder({
+                cart_id: cart.id,
+                guest_name: customerName,
+                guest_email: customerEmail,
+                guest_phone: customerPhone,
+                shipping_address: shippingPayload,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+              });
+              clearCart();
+              router.push(`/track?q=${guestOrder.id}&success=1`);
+            }
+          } catch (verifyErr: any) {
+            setError(
+              verifyErr?.message ||
+                "Payment was successful, but order confirmation failed. Please contact VAHN support with payment ID: " +
+                  response.razorpay_payment_id
+            );
+            setPlacingOrder(false);
+          }
+        },
+        prefill: {
+          name: customerName,
+          email: customerEmail,
+          contact: customerPhone,
+        },
+        notes: {
+          cart_id: cart.id,
+          store: "VAHN Sports Official",
+        },
+        theme: {
+          color: "#4232d9",
+        },
+        modal: {
+          ondismiss: function () {
+            setPlacingOrder(false);
+            setError("Payment was not completed. Your cart is preserved — click below to retry.");
+          },
+        },
+      };
+
+      const rzpInstance = new window.Razorpay(options);
+      rzpInstance.on("payment.failed", function (response: any) {
+        setError(`Payment failed: ${response.error.description || "Transaction declined."}`);
+        setPlacingOrder(false);
+      });
+      rzpInstance.open();
+    } catch (err: any) {
+      setError(err?.message || "Failed to initiate payment. Please try again.");
       setPlacingOrder(false);
     }
   }
 
-  if (!user) {
+  if (!cartLines.length) {
     return (
       <div style={{ maxWidth: 560, margin: "100px auto", padding: "0 24px", textAlign: "center" }}>
-        <div style={{ width: 64, height: 64, background: "#000", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-          <ShoppingBagIcon size={28} color="#fff" />
-        </div>
-        <h2 style={{ fontSize: "1.4rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', margin: "0 0 10px" }}>
-          Sign In to Checkout
-        </h2>
-        <p style={{ color: "#555", fontSize: "0.9rem", margin: "0 0 24px", lineHeight: 1.6 }}>
-          Log in to access your saved delivery addresses and order history.
-        </p>
-        <button
-          type="button"
-          onClick={() => openAuthModal()}
+        <div
           style={{
-            display: "inline-block", background: "#000", color: "#fff",
-            padding: "14px 32px", fontWeight: 900, border: "none", cursor: "pointer",
-            textTransform: "uppercase", letterSpacing: '-0.025em', fontSize: "0.85rem"
+            width: 64,
+            height: 64,
+            background: "#000",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 20px",
+            borderRadius: "0px",
           }}
         >
-          Sign In Now →
-        </button>
-      </div>
-    );
-  }
-
-
-  if (!cartLines.length && step === "address") {
-    return (
-      <div style={{ maxWidth: 560, margin: "100px auto", padding: "0 24px", textAlign: "center" }}>
-        <div style={{ width: 64, height: 64, background: "#f3f4f6", border: "1px solid #000", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-          <ShoppingBagIcon size={28} color="#000" />
+          <ShoppingBagIcon size={28} color="#fff" />
         </div>
-        <h2 style={{ fontSize: "1.4rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em', margin: "0 0 10px" }}>
+        <h2
+          style={{
+            fontSize: "1.4rem",
+            fontWeight: 900,
+            textTransform: "uppercase",
+            letterSpacing: "-0.025em",
+            margin: "0 0 10px",
+            fontFamily: "var(--font-ui)",
+          }}
+        >
           Your Cart is Empty
         </h2>
-        <p style={{ color: "#555", fontSize: "0.9rem", margin: "0 0 24px", lineHeight: 1.6 }}>
-          Add products to your cart before checking out.
+        <p style={{ color: "#666", fontSize: "0.9rem", margin: "0 0 24px" }}>
+          Add high-performance gear to your cart before proceeding to checkout.
         </p>
         <Link
           href="/products"
           style={{
-            display: "inline-block", background: "#000", color: "#fff",
-            padding: "14px 32px", fontWeight: 900, textDecoration: "none",
-            textTransform: "uppercase", letterSpacing: '-0.025em', fontSize: "0.85rem",
-            transition: "background 0.2s"
+            display: "inline-block",
+            background: "#4232d9",
+            color: "#fff",
+            padding: "14px 32px",
+            fontWeight: 800,
+            textDecoration: "none",
+            textTransform: "uppercase",
+            letterSpacing: "-0.025em",
+            fontSize: "0.85rem",
+            borderRadius: "0px",
           }}
-          onMouseEnter={e => (e.currentTarget.style.background = "#4232d9")}
-          onMouseLeave={e => (e.currentTarget.style.background = "#000000")}
         >
-          Explore Products →
+          Explore Collection →
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="vahn-checkout-container" style={{ maxWidth: step === "address" ? 840 : 1100, margin: "40px auto", color: "#000", transition: "max-width 0.25s ease" }}>
-
-      {/* Step Indicator Header */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 8 }}>
-          {/* Step 1 */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 32, height: 32,
-              background: step === "address" ? "#000" : "#000",
-              color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "0.8rem", fontWeight: 900, flexShrink: 0
-            }}>
-              {step === "review" ? <CheckIcon size={14} color="#fff" /> : "1"}
-            </div>
-            <span style={{
-              fontSize: "0.82rem", fontWeight: step === "address" ? 900 : 700,
-              color: "#000", textTransform: "uppercase", letterSpacing: '-0.025em'
-            }}>
-              Delivery Address
-            </span>
-          </div>
-
-          {/* Connector */}
-          <div style={{ flex: 1, height: 2, background: step === "review" ? "#000" : "#d1d5db", margin: "0 16px", minWidth: 24 }} />
-
-          {/* Step 2 */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 32, height: 32,
-              background: step === "review" ? "#000" : "#f3f4f6",
-              border: step === "review" ? "none" : "1px solid #d1d5db",
-              color: step === "review" ? "#fff" : "#9ca3af",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "0.8rem", fontWeight: 900, flexShrink: 0
-            }}>
-              2
-            </div>
-            <span style={{
-              fontSize: "0.82rem", fontWeight: step === "review" ? 900 : 600,
-              color: step === "review" ? "#000" : "#9ca3af",
-              textTransform: "uppercase", letterSpacing: '-0.025em'
-            }}>
-              Review & Pay
-            </span>
-          </div>
+    <div
+      style={{
+        maxWidth: 1200,
+        margin: "40px auto 100px",
+        padding: "0 24px",
+        fontFamily: "var(--font-ui)",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          borderBottom: "2px solid #000",
+          paddingBottom: "16px",
+          marginBottom: "36px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          flexWrap: "wrap",
+          gap: "12px",
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontSize: "clamp(1.6rem, 3vw, 2.2rem)",
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "-0.03em",
+              margin: 0,
+            }}
+          >
+            Secure Checkout
+          </h1>
+          <p style={{ color: "#666", fontSize: "0.85rem", margin: "4px 0 0" }}>
+            100% Secure Prepaid Payment • Shiprocket Automated Logistics
+          </p>
         </div>
-
-        <h1 style={{ fontSize: "1.75rem", fontWeight: 900, margin: "12px 0 0", textTransform: "uppercase", letterSpacing: '-0.025em', borderBottom: "2px solid #000", paddingBottom: 16 }}>
-          {step === "address" ? "Select Delivery Address" : "Order Review & Confirmation"}
-        </h1>
+        {!user && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem" }}>
+            <span style={{ color: "#666" }}>Returning Athlete?</span>
+            <button
+              onClick={() => openAuthModal()}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#4232d9",
+                fontWeight: 700,
+                cursor: "pointer",
+                textDecoration: "underline",
+                padding: 0,
+              }}
+            >
+              Sign In for Saved Addresses
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Error Banner */}
+      {/* Error Alert */}
       {error && (
-        <div style={{
-          borderLeft: "4px solid #dc2626", background: "#fef2f2", color: "#dc2626",
-          padding: "14px 18px", fontSize: "0.875rem", marginBottom: 28,
-          display: "flex", alignItems: "center", gap: 10, fontWeight: 700
-        }}>
-          <AlertCircleIcon size={18} color="#dc2626" />
-          <span>{error}</span>
+        <div
+          style={{
+            background: "#fff5f5",
+            border: "1px solid #ff4d4f",
+            borderRadius: "0px",
+            padding: "16px 20px",
+            marginBottom: "28px",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "12px",
+          }}
+        >
+          <AlertCircleIcon size={20} color="#ff4d4f" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, color: "#cf1322", fontSize: "0.9rem" }}>Payment Alert</div>
+            <div style={{ fontSize: "0.85rem", color: "#434343", marginTop: "2px" }}>{error}</div>
+          </div>
+          <button
+            onClick={() => setError("")}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#999",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            ✕
+          </button>
         </div>
       )}
 
       {/* Main Grid */}
-      <div className={`vahn-checkout-grid ${step === "review" ? "vahn-checkout-grid-review" : ""}`}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gap: "40px",
+          alignItems: "start",
+        }}
+      >
+        {/* Left Column: Shipping & Payment */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+          {/* 1. Delivery Details Section */}
+          <div
+            style={{
+              border: "1px solid #e0e0e0",
+              borderRadius: "0px",
+              padding: "24px",
+              background: "#fff",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+                borderBottom: "1px solid #f0f0f0",
+                paddingBottom: "12px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    width: 24,
+                    height: 24,
+                    background: "#000",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                  }}
+                >
+                  1
+                </div>
+                <h2
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    letterSpacing: "-0.02em",
+                    margin: 0,
+                  }}
+                >
+                  Delivery Address
+                </h2>
+              </div>
+              {user && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingAddress(null);
+                    setShowAddressModal(true);
+                  }}
+                  style={{
+                    background: "#000",
+                    color: "#fff",
+                    border: "none",
+                    padding: "6px 14px",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    borderRadius: "0px",
+                  }}
+                >
+                  + Add New Address
+                </button>
+              )}
+            </div>
 
-        {/* Left: Main Content */}
-        <div>
-          {step === "address" ? (
-            <form onSubmit={handleProceedToReview}>
-              <div style={{ background: "#fff", border: "2px solid #000" }}>
-                {/* Card Header */}
-                <div style={{ padding: "18px 24px", borderBottom: "1px solid #e5e5e5", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <MapPinIcon size={18} color="#000" />
-                    <span style={{ fontSize: "0.85rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
-                      Shipping Location
-                    </span>
-                  </div>
+            {/* If Logged In: Show Address Selector */}
+            {user ? (
+              loadingAddresses ? (
+                <div style={{ padding: "20px", textAlign: "center", color: "#666" }}>
+                  Loading saved addresses...
+                </div>
+              ) : addresses.length === 0 ? (
+                <div style={{ padding: "20px", textAlign: "center" }}>
+                  <p style={{ color: "#666", fontSize: "0.9rem", marginBottom: "16px" }}>
+                    No saved addresses found. Add an address to proceed.
+                  </p>
                   <button
-                    type="button"
                     onClick={() => {
                       setEditingAddress(null);
                       setShowAddressModal(true);
                     }}
                     style={{
-
-                      background: "#000", color: "#fff", border: "none",
-                      padding: "8px 18px", fontSize: "0.78rem", fontWeight: 900,
-                      cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
-                      display: "flex", alignItems: "center", gap: 6
+                      background: "#4232d9",
+                      color: "#fff",
+                      border: "none",
+                      padding: "10px 24px",
+                      fontSize: "0.85rem",
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      cursor: "pointer",
+                      borderRadius: "0px",
                     }}
                   >
-                    + Add New
+                    Add Delivery Address
                   </button>
                 </div>
-
-                {/* Address List */}
-                <div className="vahn-checkout-card-body">
-                  {loadingAddresses ? (
-                    <div style={{ textAlign: "center", padding: "48px 0", color: "#888" }}>
-                      <div style={{ width: 32, height: 32, border: "3px solid #000", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
-                      <span style={{ fontSize: "0.85rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: '-0.025em' }}>Loading addresses...</span>
-                    </div>
-                  ) : addresses.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "48px 24px", background: "#f8fafc", border: "1px dashed #000" }}>
-                      <div style={{ width: 52, height: 52, background: "#fff", border: "2px solid #000", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                        <MapPinIcon size={24} color="#000" />
-                      </div>
-                      <h4 style={{ fontSize: "1rem", fontWeight: 900, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: '-0.025em' }}>
-                        No Saved Addresses
-                      </h4>
-                      <p style={{ fontSize: "0.85rem", color: "#666", margin: "0 0 20px", lineHeight: 1.5 }}>
-                        Add a delivery address to proceed with checkout.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddressModal(true)}
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {addresses.map((addr) => {
+                    const isSelected = selectedAddressId === addr.id;
+                    return (
+                      <div
+                        key={addr.id}
+                        onClick={() => {
+                          setSelectedAddressId(addr.id);
+                          handleCheckPincode(addr.pincode);
+                        }}
                         style={{
-                          background: "#000", color: "#fff", border: "none",
-                          padding: "12px 28px", fontWeight: 900, fontSize: "0.85rem",
-                          cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em'
+                          border: isSelected ? "2px solid #4232d9" : "1px solid #e0e0e0",
+                          background: isSelected ? "rgba(66, 50, 217, 0.03)" : "#fff",
+                          borderRadius: "0px",
+                          padding: "16px",
+                          cursor: "pointer",
+                          transition: "border 0.2s ease",
                         }}
                       >
-                        + Add Address Now
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="vahn-address-scroll-container">
-                      <div className="vahn-address-select-grid">
-                        {addresses.map(addr => {
-                          const isSelected = selectedAddressId === addr.id;
-                          return (
-                            <div
-                              key={addr.id}
-                              onClick={() => setSelectedAddressId(addr.id)}
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <input
+                              type="radio"
+                              name="selected_address"
+                              checked={isSelected}
+                              onChange={() => {
+                                setSelectedAddressId(addr.id);
+                                handleCheckPincode(addr.pincode);
+                              }}
+                              style={{ accentColor: "#4232d9", cursor: "pointer" }}
+                            />
+                            <span
                               style={{
-                                border: isSelected ? "2px solid #000" : "1px solid #e5e5e5",
-                                background: isSelected ? "#fff" : "#fafafa",
-                                boxShadow: isSelected ? "3px 3px 0px #000" : "none",
-                                padding: "18px 20px",
-                                cursor: "pointer",
-                                transition: "all 0.15s ease",
-                                display: "flex", gap: 14, alignItems: "flex-start",
-                                position: "relative",
-                                maxWidth: "100%",
-                                boxSizing: "border-box"
+                                fontWeight: 800,
+                                fontSize: "0.9rem",
+                                textTransform: "uppercase",
                               }}
                             >
-                              {/* Radio dot */}
-                              <div style={{
-                                width: 20, height: 20, borderRadius: "50%",
-                                border: isSelected ? "6px solid #000" : "2px solid #bbb",
-                                background: "#fff", flexShrink: 0, marginTop: 2, transition: "all 0.15s"
-                              }} />
-
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                {/* Name + label + Edit row */}
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 12 }}>
-                                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                                    <span style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000" }}>
-                                      {addr.first_name} {addr.last_name}
-                                    </span>
-                                    <span style={{
-                                      background: "#000", color: "#fff",
-                                      padding: "2px 8px", fontSize: "0.65rem", fontWeight: 900,
-                                      textTransform: "uppercase", letterSpacing: '-0.025em',
-                                      display: "inline-flex", alignItems: "center", gap: 4
-                                    }}>
-                                      {addr.label === "Home" ? <HomeIcon size={10} color="#fff" /> : addr.label === "Work" || addr.label === "Office" ? <BriefcaseIcon size={10} color="#fff" /> : <MapPinIcon size={10} color="#fff" />}
-                                      {addr.label}
-                                    </span>
-                                    {addr.is_default && (
-                                      <span style={{ background: "#f0fdf4", border: "1px solid #16a34a", color: "#15803d", padding: "2px 7px", fontSize: "0.62rem", fontWeight: 900, letterSpacing: '-0.025em' }}>
-                                        DEFAULT
-                                      </span>
-                                    )}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingAddress(addr);
-                                      setShowAddressModal(true);
-                                    }}
-                                    style={{
-                                      background: "#fff", border: "1px solid #000", color: "#000",
-                                      padding: "4px 10px", fontSize: "0.7rem", fontWeight: 800,
-                                      cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em',
-                                      display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0,
-                                      transition: "background 0.15s"
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = "#f3f4f6"; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = "#fff"; }}
-                                  >
-                                    <EditIcon size={12} color="#000" />
-                                    Edit
-                                  </button>
-                                </div>
-
-
-
-                                {/* Address lines */}
-                                <p style={{ fontSize: "0.875rem", color: "#333", margin: "0 0 3px", lineHeight: 1.5 }}>
-                                  {addr.street_address}{addr.apartment ? `, ${addr.apartment}` : ""}
-                                </p>
-                                <p style={{ fontSize: "0.82rem", color: "#666", margin: 0 }}>
-                                  {addr.city}, {addr.state} — <strong style={{ color: "#000" }}>{addr.pincode}</strong>
-                                </p>
-                                <p style={{ fontSize: "0.8rem", color: "#888", margin: "4px 0 0", display: "flex", alignItems: "center", gap: 5 }}>
-                                  <PhoneIcon size={12} color="#888" />
-                                  {addr.phone}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Integrated Card Footer: Continue Button */}
-                <div style={{ padding: "20px 24px", borderTop: "1px solid #e5e5e5", background: "#fafafa" }}>
-                  <button
-                    type="submit"
-                    disabled={!selectedAddressId || addresses.length === 0}
-                    style={{
-                      width: "100%",
-                      background: selectedAddressId && addresses.length > 0 ? "#000" : "#ccc",
-                      color: "#fff", border: "none",
-                      padding: "16px", fontWeight: 900, fontSize: "0.9rem",
-                      cursor: selectedAddressId && addresses.length > 0 ? "pointer" : "not-allowed",
-                      textTransform: "uppercase", letterSpacing: '-0.025em',
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                      transition: "background 0.2s"
-                    }}
-                  >
-                    <TruckIcon size={16} color="#fff" />
-                    Continue to Order Review →
-                  </button>
-                </div>
-              </div>
-            </form>
-          ) : (
-            /* STEP 2: REVIEW & PAY */
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {/* Delivery Address confirmation */}
-              <div className="vahn-card-box">
-                <div className="vahn-card-box-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                    <MapPinIcon size={16} color="#000" />
-                    <span style={{ fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
-                      Delivery Address
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setStep("address")}
-                    style={{ background: "none", border: "1px solid #000", color: "#000", padding: "6px 14px", fontSize: "0.75rem", fontWeight: 900, cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em' }}
-                  >
-                    Edit
-                  </button>
-                </div>
-
-                {selectedAddr && (
-                  <div className="vahn-card-box-body">
-                    <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 900, fontSize: "1rem", color: "#000" }}>
-                        {selectedAddr.first_name} {selectedAddr.last_name}
-                      </span>
-                      <span style={{ background: "#000", color: "#fff", padding: "2px 8px", fontSize: "0.65rem", fontWeight: 900, textTransform: "uppercase" }}>
-                        {selectedAddr.label}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: "0.875rem", color: "#333", margin: "0 0 3px", lineHeight: 1.5 }}>
-                      {selectedAddr.street_address}{selectedAddr.apartment ? `, ${selectedAddr.apartment}` : ""}
-                    </p>
-                    <p style={{ fontSize: "0.85rem", color: "#555", margin: "0 0 6px" }}>
-                      {selectedAddr.city}, {selectedAddr.state} — <strong>{selectedAddr.pincode}</strong>
-                    </p>
-                    <p style={{ fontSize: "0.82rem", color: "#777", margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-                      <PhoneIcon size={13} color="#777" />
-                      {selectedAddr.phone}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Items in order */}
-              <div className="vahn-card-box">
-                <div className="vahn-card-box-header" style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                  <ShoppingBagIcon size={16} color="#000" />
-                  <span style={{ fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
-                    Ordered Items ({cartLines.length})
-                  </span>
-                </div>
-
-                <div className="vahn-card-box-body" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {cartLines.map(line => {
-                    const price = parseFloat(line.merchandise.price.amount);
-                    return (
-                      <div key={line.id} style={{ display: "flex", gap: 14, alignItems: "center", borderBottom: "1px solid #f3f4f6", paddingBottom: 16 }}>
-                        {line.merchandise.product.featuredImage ? (
-                          <Image
-                            src={line.merchandise.product.featuredImage.url}
-                            alt={line.merchandise.product.title}
-                            width={64} height={64}
-                            style={{ objectFit: "cover", border: "1px solid #e5e5e5", flexShrink: 0 }}
-                          />
-                        ) : (
-                          <div style={{ width: 64, height: 64, background: "#f3f4f6", border: "1px solid #e5e5e5", flexShrink: 0 }} />
-                        )}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 900, fontSize: "0.92rem", color: "#000", marginBottom: 3, lineHeight: 1.35 }}>
-                            {line.merchandise.product.title}
-                          </div>
-                          <div style={{ fontSize: "0.82rem", color: "#666" }}>
-                            {line.merchandise.title}
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
-                            {/* Quantity Stepper */}
-                            <div style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              border: "1px solid #000",
-                              background: "#fff",
-                            }}>
-                              <button
-                                type="button"
-                                aria-label="Decrease quantity"
-                                onClick={() => {
-                                  if (line.quantity > 1) {
-                                    updateItem(line.id, line.quantity - 1);
-                                  } else {
-                                    removeItem(line.id);
-                                  }
-                                }}
-                                style={{
-                                  width: 28,
-                                  height: 28,
-                                  background: "transparent",
-                                  border: "none",
-                                  borderRight: "1px solid #000",
-                                  cursor: "pointer",
-                                  fontWeight: 900,
-                                  fontSize: "0.9rem",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}
-                              >
-                                −
-                              </button>
-                              <span style={{
-                                width: 32,
-                                textAlign: "center",
-                                fontSize: "0.82rem",
-                                fontWeight: 900,
-                                color: "#000",
-                              }}>
-                                {line.quantity}
-                              </span>
-                              <button
-                                type="button"
-                                aria-label="Increase quantity"
-                                onClick={() => updateItem(line.id, line.quantity + 1)}
-                                style={{
-                                  width: 28,
-                                  height: 28,
-                                  background: "transparent",
-                                  border: "none",
-                                  borderLeft: "1px solid #000",
-                                  cursor: "pointer",
-                                  fontWeight: 900,
-                                  fontSize: "0.9rem",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}
-                              >
-                                +
-                              </button>
-                            </div>
-
-                            {/* Remove item button */}
-                            <button
-                              type="button"
-                              onClick={() => removeItem(line.id)}
+                              {addr.first_name} {addr.last_name}
+                            </span>
+                            <span
                               style={{
-                                background: "none",
-                                border: "none",
-                                color: "#777",
-                                fontSize: "0.75rem",
-                                cursor: "pointer",
-                                textDecoration: "underline",
-                                padding: "4px 6px",
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                background: "#f0f0f0",
+                                padding: "2px 6px",
+                                textTransform: "uppercase",
                               }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = "#777")}
                             >
-                              Remove
-                            </button>
+                              {addr.label || "HOME"}
+                            </span>
                           </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingAddress(addr);
+                              setShowAddressModal(true);
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#666",
+                              cursor: "pointer",
+                              fontSize: "0.75rem",
+                              fontWeight: 600,
+                              textDecoration: "underline",
+                            }}
+                          >
+                            Edit
+                          </button>
                         </div>
-                        <div style={{ fontWeight: 900, fontSize: "0.95rem", color: "#000", flexShrink: 0 }}>
-                          ₹{(price * line.quantity).toLocaleString()}
+                        <div
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "#444",
+                            lineHeight: 1.5,
+                            marginLeft: "24px",
+                          }}
+                        >
+                          {addr.house_flat_no ? `${addr.house_flat_no}, ` : ""}
+                          {addr.street_address}
+                          {addr.apartment ? `, ${addr.apartment}` : ""}
+                          <br />
+                          {addr.city}, {addr.state} - <strong>{addr.pincode}</strong>
+                          <br />
+                          <span style={{ color: "#777" }}>Phone: {addr.phone}</span>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              </div>
+              )
+            ) : (
+              /* Guest Address Form */
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div
+                  style={{
+                    background: "#f9f9f9",
+                    padding: "10px 14px",
+                    fontSize: "0.8rem",
+                    color: "#555",
+                    borderLeft: "3px solid #4232d9",
+                  }}
+                >
+                  Checking out as Guest. You will receive real-time SMS & Email tracking updates.
+                </div>
 
-              {/* Action Buttons */}
-              <div style={{ display: "flex", gap: 12 }}>
-                <button
-                  type="button"
-                  onClick={() => setStep("address")}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Rahul Sharma"
+                      value={guestName}
+                      onChange={(e) => setGuestName(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        border: "1px solid #ccc",
+                        borderRadius: "0px",
+                        fontSize: "0.9rem",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Phone Number *
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="10-digit mobile number"
+                      value={guestPhone}
+                      maxLength={10}
+                      onChange={(e) => setGuestPhone(e.target.value.replace(/\D/g, ""))}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        border: "1px solid #ccc",
+                        borderRadius: "0px",
+                        fontSize: "0.9rem",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "0.75rem",
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="order.updates@example.com"
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "0px",
+                      fontSize: "0.9rem",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "0.75rem",
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Flat / House No / Building Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Flat 402, Tower B"
+                    value={guestApartment}
+                    onChange={(e) => setGuestApartment(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "0px",
+                      fontSize: "0.9rem",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "0.75rem",
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Street Address & Locality *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 100 Feet Road, Indiranagar"
+                    value={guestStreet}
+                    onChange={(e) => setGuestStreet(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "0px",
+                      fontSize: "0.9rem",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+
+                <div
                   style={{
-                    background: "#fff", border: "2px solid #000", color: "#000",
-                    padding: "14px 20px", fontWeight: 900, fontSize: "0.82rem",
-                    cursor: "pointer", textTransform: "uppercase", letterSpacing: '-0.025em', flexShrink: 0
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: "12px",
                   }}
                 >
-                  ← Back
-                </button>
-                <button
-                  type="button"
-                  disabled={placingOrder}
-                  onClick={handleConfirmOrder}
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      PIN Code *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="6 Digits"
+                      maxLength={6}
+                      value={guestPincode}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        setGuestPincode(val);
+                        if (val.length === 6) {
+                          handleCheckPincode(val);
+                        }
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        border: "1px solid #ccc",
+                        borderRadius: "0px",
+                        fontSize: "0.9rem",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      City *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Bengaluru"
+                      value={guestCity}
+                      onChange={(e) => setGuestCity(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        border: "1px solid #ccc",
+                        borderRadius: "0px",
+                        fontSize: "0.9rem",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      State *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Karnataka"
+                      value={guestState}
+                      onChange={(e) => setGuestState(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        border: "1px solid #ccc",
+                        borderRadius: "0px",
+                        fontSize: "0.9rem",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Pincode Serviceability Indicator */}
+            <div style={{ marginTop: "16px" }}>
+              {checkingPincode ? (
+                <div style={{ fontSize: "0.8rem", color: "#666" }}>
+                  Verifying courier serviceability with Shiprocket...
+                </div>
+              ) : serviceability ? (
+                <div
                   style={{
-                    flex: 1, background: placingOrder ? "#555" : "#000", color: "#fff",
-                    border: "none", padding: "14px", fontWeight: 900, fontSize: "0.9rem",
-                    cursor: placingOrder ? "not-allowed" : "pointer",
-                    textTransform: "uppercase", letterSpacing: '-0.025em',
-                    transition: "background 0.2s"
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "8px 12px",
+                    background: serviceability.serviceable ? "#f6ffed" : "#fffbe6",
+                    border: `1px solid ${serviceability.serviceable ? "#b7eb8f" : "#ffe58f"}`,
+                    fontSize: "0.8rem",
+                    color: serviceability.serviceable ? "#389e0d" : "#d48806",
+                    fontWeight: 600,
                   }}
                 >
-                  {placingOrder ? "Placing Order..." : "Confirm & Place Order →"}
-                </button>
+                  <TruckIcon size={16} />
+                  <span>
+                    {serviceability.serviceable
+                      ? `✓ Delivery available by ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_delivery_days || 3-5} days)`
+                      : "Delivery may require extra transit days to this PIN code"}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {/* 2. Payment Method Section (Strictly Prepaid - No COD) */}
+          <div
+            style={{
+              border: "1px solid #e0e0e0",
+              borderRadius: "0px",
+              padding: "24px",
+              background: "#fff",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                marginBottom: "20px",
+                borderBottom: "1px solid #f0f0f0",
+                paddingBottom: "12px",
+              }}
+            >
+              <div
+                style={{
+                  width: 24,
+                  height: 24,
+                  background: "#000",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.75rem",
+                  fontWeight: 800,
+                }}
+              >
+                2
+              </div>
+              <h2
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  letterSpacing: "-0.02em",
+                  margin: 0,
+                }}
+              >
+                Payment Method (Prepaid Only)
+              </h2>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {/* UPI */}
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "14px 16px",
+                  border: paymentMethod === "UPI" ? "2px solid #4232d9" : "1px solid #e0e0e0",
+                  background: paymentMethod === "UPI" ? "rgba(66, 50, 217, 0.03)" : "#fff",
+                  borderRadius: "0px",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="payment_method"
+                  value="UPI"
+                  checked={paymentMethod === "UPI"}
+                  onChange={() => setPaymentMethod("UPI")}
+                  style={{ accentColor: "#4232d9" }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: "0.88rem", textTransform: "uppercase" }}>
+                    Instant UPI (Recommended)
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "#666" }}>
+                    Google Pay, PhonePe, Paytm, BHIM, CRED
+                  </div>
+                </div>
+                <span
+                  style={{
+                    background: "#e6f7ff",
+                    color: "#096dd9",
+                    fontSize: "0.68rem",
+                    fontWeight: 800,
+                    padding: "2px 6px",
+                  }}
+                >
+                  FASTEST
+                </span>
+              </label>
+
+              {/* Cards */}
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "14px 16px",
+                  border: paymentMethod === "CARD" ? "2px solid #4232d9" : "1px solid #e0e0e0",
+                  background: paymentMethod === "CARD" ? "rgba(66, 50, 217, 0.03)" : "#fff",
+                  borderRadius: "0px",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="payment_method"
+                  value="CARD"
+                  checked={paymentMethod === "CARD"}
+                  onChange={() => setPaymentMethod("CARD")}
+                  style={{ accentColor: "#4232d9" }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: "0.88rem", textTransform: "uppercase" }}>
+                    Credit & Debit Cards
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "#666" }}>
+                    Visa, MasterCard, RuPay, American Express
+                  </div>
+                </div>
+              </label>
+
+              {/* Netbanking */}
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "14px 16px",
+                  border: paymentMethod === "NETBANKING" ? "2px solid #4232d9" : "1px solid #e0e0e0",
+                  background: paymentMethod === "NETBANKING" ? "rgba(66, 50, 217, 0.03)" : "#fff",
+                  borderRadius: "0px",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="payment_method"
+                  value="NETBANKING"
+                  checked={paymentMethod === "NETBANKING"}
+                  onChange={() => setPaymentMethod("NETBANKING")}
+                  style={{ accentColor: "#4232d9" }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: "0.88rem", textTransform: "uppercase" }}>
+                    Netbanking & Wallets
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "#666" }}>
+                    HDFC, ICICI, SBI, Axis, Kotak, and 50+ banks
+                  </div>
+                </div>
+              </label>
+
+              {/* Disabled COD Notice */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "14px 16px",
+                  border: "1px dashed #d9d9d9",
+                  background: "#fafafa",
+                  borderRadius: "0px",
+                  opacity: 0.7,
+                }}
+              >
+                <input type="radio" disabled />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#888" }}>
+                    Cash on Delivery (COD)
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "#999" }}>
+                    Currently unavailable — VAHN operates 100% online prepaid to guarantee expedited fulfillment.
+                  </div>
+                </div>
+                <span
+                  style={{
+                    background: "#f0f0f0",
+                    color: "#888",
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    padding: "2px 6px",
+                  }}
+                >
+                  UNAVAILABLE
+                </span>
               </div>
             </div>
-          )}
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginTop: "16px",
+                color: "#666",
+                fontSize: "0.75rem",
+              }}
+            >
+              <ShieldCheckIcon size={16} color="#52c41a" />
+              <span>
+                256-Bit SSL Encrypted Razorpay Gateway • Instant Refund Guarantee on Cancellation
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Right Sidebar: Order Summary (Only shown in Step 2: Order Review & Confirmation) */}
-        {step === "review" && (
-          <div className="vahn-checkout-sidebar">
-            <div style={{ padding: "16px 22px", borderBottom: "1px solid #e5e5e5", display: "flex", alignItems: "center", gap: 9 }}>
-              <ShoppingBagIcon size={16} color="#000" />
-              <h3 style={{ fontSize: "0.82rem", fontWeight: 900, margin: 0, textTransform: "uppercase", letterSpacing: '-0.025em' }}>
-                Order Summary
-              </h3>
-            </div>
+        {/* Right Column: Order Summary & Pay CTA */}
+        <div>
+          <div
+            style={{
+              border: "1px solid #e0e0e0",
+              borderRadius: "0px",
+              padding: "24px",
+              background: "#fff",
+              position: "sticky",
+              top: "100px",
+            }}
+          >
+            <h2
+              style={{
+                fontSize: "1.1rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "-0.02em",
+                margin: "0 0 16px",
+                borderBottom: "1px solid #f0f0f0",
+                paddingBottom: "12px",
+              }}
+            >
+              Order Summary ({cartLines.length} item{cartLines.length > 1 ? "s" : ""})
+            </h2>
 
-            {/* Item thumbnails strip */}
-            {cartLines.length > 0 && (
-              <div style={{ padding: "14px 22px", display: "flex", gap: 8, flexWrap: "wrap", borderBottom: "1px solid #f3f4f6" }}>
-                {cartLines.slice(0, 4).map(line => (
-                  <div key={line.id} style={{ position: "relative" }}>
+            {/* Cart Items list */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+                maxHeight: "320px",
+                overflowY: "auto",
+                marginBottom: "20px",
+                paddingRight: "4px",
+              }}
+            >
+              {cartLines.map((line) => (
+                <div
+                  key={line.id}
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    alignItems: "center",
+                    borderBottom: "1px solid #f5f5f5",
+                    paddingBottom: "12px",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "relative",
+                      width: 54,
+                      height: 54,
+                      flexShrink: 0,
+                      background: "#f7f7f7",
+                      border: "1px solid #eee",
+                    }}
+                  >
                     {line.merchandise.product.featuredImage ? (
                       <Image
                         src={line.merchandise.product.featuredImage.url}
                         alt={line.merchandise.product.title}
-                        width={48} height={48}
-                        style={{ objectFit: "cover", border: "1px solid #e5e5e5" }}
+                        fill
+                        sizes="54px"
+                        style={{ objectFit: "cover" }}
                       />
                     ) : (
-                      <div style={{ width: 48, height: 48, background: "#f3f4f6", border: "1px solid #e5e5e5" }} />
-                    )}
-                    {line.quantity > 1 && (
-                      <span style={{
-                        position: "absolute", top: -6, right: -6,
-                        background: "#000", color: "#fff", fontSize: "0.6rem",
-                        fontWeight: 900, width: 16, height: 16, borderRadius: "50%",
-                        display: "flex", alignItems: "center", justifyContent: "center"
-                      }}>
-                        {line.quantity}
-                      </span>
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "0.65rem",
+                          color: "#999",
+                        }}
+                      >
+                        VAHN
+                      </div>
                     )}
                   </div>
-                ))}
-                {cartLines.length > 4 && (
-                  <div style={{ width: 48, height: 48, background: "#f3f4f6", border: "1px solid #e5e5e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.72rem", fontWeight: 900, color: "#666" }}>
-                    +{cartLines.length - 4}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "0.85rem",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {line.merchandise.product.title}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "#666" }}>
+                      {line.merchandise.title !== "Default Title" ? line.merchandise.title : ""} • Qty:{" "}
+                      {line.quantity}
+                    </div>
                   </div>
-                )}
+                  <div style={{ fontWeight: 800, fontSize: "0.85rem", whiteSpace: "nowrap" }}>
+                    ₹{(parseFloat(line.merchandise.price.amount) * line.quantity).toLocaleString("en-IN")}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Calculations */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                fontSize: "0.85rem",
+                color: "#555",
+                borderBottom: "1px solid #f0f0f0",
+                paddingBottom: "16px",
+                marginBottom: "16px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Subtotal</span>
+                <span>₹{subtotal.toLocaleString("en-IN")}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Shipping</span>
+                <span style={{ color: shippingFee === 0 ? "#52c41a" : "#000", fontWeight: 700 }}>
+                  {shippingFee === 0 ? "FREE" : `₹${shippingFee.toLocaleString("en-IN")}`}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "#888" }}>
+                <span>Estimated GST Included</span>
+                <span>₹{estimatedTax.toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+
+            {/* Total */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                fontWeight: 900,
+                fontSize: "1.2rem",
+                marginBottom: "24px",
+              }}
+            >
+              <span style={{ textTransform: "uppercase" }}>Total</span>
+              <span style={{ color: "#4232d9" }}>₹{grandTotal.toLocaleString("en-IN")}</span>
+            </div>
+
+            {/* Free Shipping Progress */}
+            {subtotal < 1999 && (
+              <div
+                style={{
+                  background: "#f9f9f9",
+                  padding: "10px",
+                  fontSize: "0.75rem",
+                  color: "#666",
+                  marginBottom: "20px",
+                  textAlign: "center",
+                }}
+              >
+                Add ₹{(1999 - subtotal).toLocaleString("en-IN")} more to unlock <strong>FREE SHIPPING</strong>
               </div>
             )}
 
-            {/* Price breakdown */}
-            <div style={{ padding: "18px 22px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.875rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: "#555" }}>Subtotal</span>
-                    <span style={{ fontWeight: 800, color: "#000" }}>₹{subtotal.toLocaleString()}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: "#555" }}>Shipping</span>
-                    <span>
-                      {shippingFee === 0
-                        ? <strong style={{ color: "#16a34a", fontWeight: 800 }}>FREE</strong>
-                        : <span style={{ fontWeight: 700 }}>₹{shippingFee}</span>
-                      }
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#888", fontSize: "0.8rem" }}>
-                    <span>Est. GST (12% incl.)</span>
-                    <span>₹{estimatedTax.toLocaleString()}</span>
-                  </div>
-                </div>
+            {/* Pay Button */}
+            <button
+              type="button"
+              onClick={handleInitiatePayment}
+              disabled={placingOrder}
+              style={{
+                width: "100%",
+                background: placingOrder ? "#666" : "#4232d9",
+                color: "#fff",
+                border: "none",
+                padding: "16px",
+                fontSize: "0.95rem",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "-0.02em",
+                cursor: placingOrder ? "not-allowed" : "pointer",
+                borderRadius: "0px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                transition: "background 0.2s ease",
+              }}
+            >
+              {placingOrder ? (
+                <span>Connecting to Gateway...</span>
+              ) : (
+                <span>Pay ₹{grandTotal.toLocaleString("en-IN")} via Razorpay →</span>
+              )}
+            </button>
 
-                <div style={{ marginTop: 16, paddingTop: 16, borderTop: "2px solid #000", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: '-0.025em', color: "#555" }}>Total Payable</div>
-                    <div style={{ fontSize: "0.72rem", color: "#999", marginTop: 2 }}>Incl. taxes & shipping</div>
-                  </div>
-                  <div style={{ fontSize: "1.5rem", fontWeight: 900, color: "#000" }}>
-                    ₹{grandTotal.toLocaleString()}
-                  </div>
-                </div>
-
-                {/* Free shipping progress */}
-                {subtotal < 1999 && subtotal > 0 && (
-                  <div style={{ marginTop: 14, background: "#f8fafc", border: "1px solid #e5e5e5", padding: 12 }}>
-                    <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#555", marginBottom: 6 }}>
-                      Add ₹{(1999 - subtotal).toLocaleString()} more for <strong style={{ color: "#000" }}>FREE shipping</strong>
-                    </div>
-                    <div style={{ height: 4, background: "#e5e5e5", width: "100%" }}>
-                      <div style={{ height: 4, background: "#000", width: `${Math.min((subtotal / 1999) * 100, 100)}%`, transition: "width 0.4s" }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Security note */}
-            <div style={{ margin: "0 22px 22px", background: "#f8fafc", border: "1px solid #e5e5e5", padding: "10px 14px", display: "flex", gap: 8, alignItems: "center" }}>
-              <ShieldCheckIcon size={16} color="#555" />
-              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: '-0.025em' }}>
-                256-bit Encrypted & Secure
-              </span>
+            <div
+              style={{
+                textAlign: "center",
+                marginTop: "12px",
+                fontSize: "0.7rem",
+                color: "#888",
+              }}
+            >
+              7-Day Returns • Automated Shiprocket Reverse Logistics
             </div>
           </div>
-        )}
+        </div>
       </div>
 
-      {token && (
+      {/* Address Modal (for logged-in users) */}
+      {showAddressModal && token && (
         <AddressModal
           token={token}
           isOpen={showAddressModal}
-          onClose={() => {
-            setShowAddressModal(false);
-            setEditingAddress(null);
-          }}
-          onSuccess={(savedAddr) => {
-            loadAddresses();
-            setSelectedAddressId(savedAddr.id);
-          }}
           initialAddress={editingAddress}
+          onClose={() => setShowAddressModal(false)}
+          onSuccess={() => {
+            setShowAddressModal(false);
+            loadAddresses();
+          }}
         />
       )}
-
     </div>
   );
 }

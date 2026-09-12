@@ -9,3 +9,5 @@ python-multipart
 python-dotenv
 boto3
 pillow
+razorpay
+httpx

@@ -517,6 +517,85 @@ class CheckoutRequest(BaseModel):
     address_id: Optional[int] = None
     shipping_address: Optional[dict] = None
 
+class RazorpayCreateOrderRequest(BaseModel):
+    cart_id: str
+    address_id: Optional[int] = None
+    shipping_address: Optional[dict] = None
+
+class RazorpayCreateOrderResponse(BaseModel):
+    razorpay_order_id: str
+    amount: int  # in paise
+    currency: str
+    key_id: str
+    receipt: str
+    subtotal: float
+    shipping_fee: float
+    tax_amount: float
+    total_amount: float
+
+class RazorpayVerifyPaymentRequest(BaseModel):
+    cart_id: str
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    address_id: Optional[int] = None
+    shipping_address: Optional[dict] = None
+
+class MagicCheckoutOrderRequest(BaseModel):
+    cart_id: str
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
+    guest_name: Optional[str] = None
+    guest_email: Optional[str] = None
+    guest_phone: Optional[str] = None
+    shipping_address: dict
+
+class ShiprocketServiceabilityRequest(BaseModel):
+    pincode: str
+    weight: Optional[float] = 0.5
+
+class ShiprocketServiceabilityResponse(BaseModel):
+    serviceable: bool
+    estimated_days: str
+    courier_name: Optional[str] = None
+    pincode: str
+    is_cod: bool = False
+
+class OrderCancelRequest(BaseModel):
+    reason: Optional[str] = "Customer requested cancellation"
+
+class OrderReturnRequest(BaseModel):
+    reason: str
+    notes: Optional[str] = None
+    pickup_address: Optional[dict] = None
+
+class OrderTrackingScanSchema(BaseModel):
+    date: Optional[str] = None
+    activity: str
+    location: Optional[str] = None
+
+class OrderTrackingResponse(BaseModel):
+    order_id: str
+    status: str
+    shipping_status: str
+    courier_name: Optional[str] = None
+    awb_code: Optional[str] = None
+    tracking_url: Optional[str] = None
+    scans: List[OrderTrackingScanSchema] = []
+    delivered_at: Optional[str] = None
+    return_status: Optional[str] = None
+    reverse_awb: Optional[str] = None
+    reverse_courier_name: Optional[str] = None
+    reverse_scans: List[OrderTrackingScanSchema] = []
+    items: List[dict] = []
+    current_location: Optional[str] = None
+    current_status: Optional[str] = None
+    is_picked_up: Optional[bool] = None
+
 class OrderItemSchema(BaseModel):
     id: str
     variantId: Optional[str] = None
@@ -530,6 +609,10 @@ class OrderSchema(BaseModel):
     id: str
     status: str
     refundStatus: Optional[str] = None
+    refundNote: Optional[str] = None
+    refundAmount: Optional[float] = 0.0
+    refundedAt: Optional[str] = None
+    cancellationReason: Optional[str] = None
     subtotalPrice: Money
     taxPrice: Money
     shippingPrice: Money
@@ -538,6 +621,26 @@ class OrderSchema(BaseModel):
     shippingAddress: Optional[dict] = None
     createdAt: str
     items: List[OrderItemSchema]
+    isGuest: bool = False
+    guestName: Optional[str] = None
+    guestEmail: Optional[str] = None
+    guestPhone: Optional[str] = None
+    paymentMethod: Optional[str] = None
+    paymentStatus: Optional[str] = None
+    razorpayOrderId: Optional[str] = None
+    razorpayPaymentId: Optional[str] = None
+    shiprocketAwb: Optional[str] = None
+    shiprocketCourierName: Optional[str] = None
+    shippingStatus: Optional[str] = None
+    trackingUrl: Optional[str] = None
+    trackingData: Optional[dict] = None
+    deliveredAt: Optional[str] = None
+    returnStatus: Optional[str] = None
+    returnReason: Optional[str] = None
+    returnNotes: Optional[str] = None
+    reverseAwb: Optional[str] = None
+    reverseCourierName: Optional[str] = None
+    reverseTrackingData: Optional[dict] = None
 
 # ============================================================
 # Admin Auth Schemas
@@ -814,6 +917,11 @@ class OrderStatusUpdateRequest(BaseModel):
     refund_status: Optional[str] = None   # PENDING | REFUNDED
     refund_note: Optional[str] = None
 
+class AdminInitiateRefundRequest(BaseModel):
+    amount: Optional[float] = None
+    reason: Optional[str] = "Admin initiated refund"
+    restock_items: bool = True
+
 class AdminOrderItemSchema(BaseModel):
     id: str
     variant_id: Optional[str]
@@ -826,28 +934,66 @@ class AdminOrderItemSchema(BaseModel):
 class AdminOrderSchema(BaseModel):
     id: str
     status: str
-    refund_status: Optional[str]
-    refund_note: Optional[str]
+    refund_status: Optional[str] = None
+    refund_note: Optional[str] = None
+    refund_amount: Optional[float] = 0.0
+    refunded_at: Optional[str] = None
+    cancellation_reason: Optional[str] = None
     subtotal_amount: float
+    shipping_amount: float = 0.0
+    tax_amount: float = 0.0
+    discount_amount: float = 0.0
     total_amount: float
-    currency: str
-    shipping_address: Optional[dict]
+    currency: str = "INR"
+    shipping_address: Optional[dict] = None
     created_at: str
-    updated_at: Optional[str]
-    user_id: int
-    user_email: str
-    user_name: str
+    updated_at: Optional[str] = None
+    is_guest: bool = False
+    guest_name: Optional[str] = None
+    guest_email: Optional[str] = None
+    guest_phone: Optional[str] = None
+    user_id: Optional[int] = None
+    user_email: str = ""
+    user_name: str = ""
+    payment_method: str = "ONLINE"
+    payment_status: str = "PENDING"
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+    razorpay_refund_id: Optional[str] = None
+    shiprocket_order_id: Optional[str] = None
+    shiprocket_shipment_id: Optional[str] = None
+    shiprocket_awb: Optional[str] = None
+    shiprocket_courier_name: Optional[str] = None
+    shipping_status: str = "UNFULFILLED"
+    tracking_url: Optional[str] = None
+    tracking_data: Optional[dict] = None
+    delivered_at: Optional[str] = None
+    return_status: str = "NONE"
+    return_reason: Optional[str] = None
+    return_notes: Optional[str] = None
+    return_requested_at: Optional[str] = None
+    reverse_shipment_id: Optional[str] = None
+    reverse_awb: Optional[str] = None
+    reverse_courier_name: Optional[str] = None
+    reverse_tracking_data: Optional[dict] = None
     items: List[AdminOrderItemSchema]
 
 class AdminOrderSummary(BaseModel):
     id: str
     status: str
-    refund_status: Optional[str]
+    refund_status: Optional[str] = None
     total_amount: float
-    currency: str
+    currency: str = "INR"
     created_at: str
-    user_email: str
-    user_name: str
+    is_guest: bool = False
+    user_email: str = ""
+    user_name: str = ""
+    user_phone: Optional[str] = ""
+    payment_method: str = "ONLINE"
+    payment_status: str = "PENDING"
+    shipping_status: str = "UNFULFILLED"
+    shiprocket_awb: Optional[str] = None
+    return_status: str = "NONE"
     items_count: int
 
 # ============================================================
@@ -859,13 +1005,14 @@ class UserSuspendRequest(BaseModel):
 
 class AdminUserSchema(BaseModel):
     id: int
-    email: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
     full_name: str
     role: str
     is_verified: bool
     is_active: bool
-    suspended_at: Optional[str]
-    suspension_reason: Optional[str]
+    suspended_at: Optional[str] = None
+    suspension_reason: Optional[str] = None
     created_at: str
     orders_count: int
 

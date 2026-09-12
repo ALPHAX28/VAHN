@@ -17,3 +17,10 @@ Whenever any database models or schemas (`backend/models.py`) are modified or ad
 1. **Create Alembic Migration**: The agent MUST always generate/write a corresponding revision file under `backend/migrations/versions/` with exact `upgrade()` and `downgrade()` statements matching the schema changes.
 2. **Execute Migration**: The agent MUST automatically run the Alembic migration command (`python -m alembic upgrade head` or `alembic upgrade head`) to apply changes to the local/production database immediately.
 3. **Seed Update**: If the schema change introduces new default attributes, the agent MUST update `backend/seed.py` and run database seeding.
+
+# Mandatory Backend Python Compilation & Zero-Error Rule (`py_compile`)
+
+Whenever generating, editing, refactoring, or modifying ANY backend Python file, module, endpoint, or logic (e.g., `main.py`, `models.py`, `schemas.py`, services, migrations, or scripts):
+1. **Immediately verify code with `py_compile`**: The assistant MUST ALWAYS compile every generated or modified backend Python file using `python -m py_compile <file_path>` (or `.\backend\.venv\Scripts\python.exe -m py_compile <file_path>`).
+2. **Zero Errors Allowed**: Not a single file is allowed to have any syntax error, indentation issue, undefined token, or compilation failure. Every modified file must compile cleanly with exit code 0.
+3. **Verify clean module import**: When modifying `main.py` or foundational services, verify that the module imports cleanly without unhandled runtime exceptions (`python -c "import main"`).
