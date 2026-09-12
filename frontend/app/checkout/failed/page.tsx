@@ -51,19 +51,42 @@ function CheckoutFailedContent() {
     }
   }, []);
 
-  // Dynamically load Razorpay Magic Checkout SDK
+  // Dynamically load correct Razorpay SDK:
+  // - Logged-in users → standard checkout.js (no Magic Checkout)
+  // - Guest users → magic-checkout.js (Magic Checkout / one-click)
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const existingScript = document.querySelector('script[src*="razorpay.com"]');
-      if (!existingScript || !existingScript.getAttribute("src")?.includes("magic-checkout.js")) {
-        if (existingScript) existingScript.remove();
-        const script = document.createElement("script");
-        script.src = "https://checkout.razorpay.com/v1/magic-checkout.js";
-        script.async = true;
-        document.body.appendChild(script);
-      }
+    if (typeof window === "undefined") return;
+
+    const isGuest = !user;
+    const targetSrc = isGuest
+      ? "https://checkout.razorpay.com/v1/magic-checkout.js"
+      : "https://checkout.razorpay.com/v1/checkout.js";
+
+    const existingScript = document.getElementById("rzp-retry-script") as HTMLScriptElement | null;
+
+    if (existingScript && existingScript.src === targetSrc && window.Razorpay) {
+      return; // correct SDK already loaded
     }
-  }, []);
+
+    if (existingScript) {
+      existingScript.remove();
+      try { delete (window as any).Razorpay; } catch { (window as any).Razorpay = undefined; }
+    }
+
+    const script = document.createElement("script");
+    script.id = "rzp-retry-script";
+    script.src = targetSrc;
+    script.async = true;
+    script.onerror = () => {
+      // Fallback to standard checkout.js
+      const fallback = document.createElement("script");
+      fallback.id = "rzp-retry-script";
+      fallback.src = "https://checkout.razorpay.com/v1/checkout.js";
+      fallback.async = true;
+      document.body.appendChild(fallback);
+    };
+    document.body.appendChild(script);
+  }, [user]);
 
   // Fetch order summary if orderId is present
   useEffect(() => {
@@ -154,7 +177,10 @@ function CheckoutFailedContent() {
       if (orderId) {
         const retryData = await retryOrderPayment(orderId, token || undefined);
 
-        const options = {
+        // Guest users get Magic Checkout (one_click_checkout), logged-in users get standard checkout
+        const isGuest = !user;
+
+        const options: any = {
           key: retryData.key_id,
           amount: retryData.amount,
           currency: retryData.currency || "INR",
@@ -162,8 +188,9 @@ function CheckoutFailedContent() {
           description: `Retry Payment for Order #${orderId}`,
           image: "https://vahn.s3.ap-south-2.amazonaws.com/logo.png",
           order_id: retryData.razorpay_order_id,
-          one_click_checkout: true,
-          show_coupons: true,
+          // Magic Checkout only for guest users
+          one_click_checkout: isGuest,
+          show_coupons: isGuest,
           handler: async function (response: any) {
             try {
               await confirmRetryPayment(
