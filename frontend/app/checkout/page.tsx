@@ -341,6 +341,9 @@ export default function CheckoutPage() {
         modal: {
           ondismiss: function () {
             setPlacingOrder(false);
+            if (typeof document !== "undefined") {
+              document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
+            }
             setError("Payment was cancelled or closed. You can retry anytime — your cart items are preserved.");
           },
         },
@@ -348,6 +351,16 @@ export default function CheckoutPage() {
 
       const rzpInstance = new window.Razorpay(options);
       rzpInstance.on("payment.failed", async function (response: any) {
+        // Immediately dismiss and tear down Razorpay's modal so our failure page is visible
+        try {
+          rzpInstance.close();
+        } catch {
+          // Ignore
+        }
+        if (typeof document !== "undefined") {
+          document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
+        }
+
         const errorDesc =
           response?.error?.description || response?.error?.reason || "Transaction declined by bank.";
         const errorCode = response?.error?.code || "";

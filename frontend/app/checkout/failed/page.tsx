@@ -53,6 +53,13 @@ function CheckoutFailedContent() {
   const [isCancelled, setIsCancelled] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string>("");
 
+  // Dismiss and clean up any leftover Razorpay overlay / container on page mount
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
+    }
+  }, []);
+
   // Dynamically load Razorpay SDK
   useEffect(() => {
     if (typeof window !== "undefined" && !window.Razorpay) {
@@ -194,12 +201,23 @@ function CheckoutFailedContent() {
           modal: {
             ondismiss: function () {
               setRetrying(false);
+              if (typeof document !== "undefined") {
+                document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
+              }
             },
           },
         };
 
         const rzp = new window.Razorpay(options);
         rzp.on("payment.failed", function (failRes: any) {
+          try {
+            rzp.close();
+          } catch {
+            // Ignore
+          }
+          if (typeof document !== "undefined") {
+            document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
+          }
           const newDesc = failRes?.error?.description || "Payment attempt declined.";
           setReason(newDesc);
           setActionError(`Payment failed: ${newDesc}`);
