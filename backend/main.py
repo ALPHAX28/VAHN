@@ -1452,6 +1452,70 @@ def razorpay_record_failure(
 
     return build_order_schema(order)
 
+# 3.1 Razorpay Magic Checkout Dynamic Shipping Info API (2-Way Serviceability with Shiprocket)
+@app.post("/api/magic/shipping-info")
+@app.get("/api/magic/shipping-info")
+async def magic_checkout_shipping_info(request: Request, db: Session = Depends(get_db)):
+    """
+    Official Razorpay Magic Checkout Shipping Info API endpoint.
+    Called by Razorpay Magic Checkout modal when customer enters a delivery zipcode.
+    Queries live Shiprocket serviceability and returns serviceable: true/false and shipping fees.
+    """
+    try:
+        if request.method == "POST":
+            data = await request.json()
+        else:
+            data = dict(request.query_params)
+    except Exception:
+        data = {}
+
+    addresses = data.get("addresses") or []
+    res_addresses = []
+
+    for addr in addresses:
+        addr_id = str(addr.get("id", "0"))
+        zipcode = str(addr.get("zipcode", "")).strip()
+        state_code = addr.get("state_code", "")
+        country = addr.get("country", "IN")
+
+        # Query live Shiprocket serviceability for this pincode
+        sr_res = shiprocket_service.check_serviceability(zipcode, weight=0.5, db=db)
+        is_serviceable = bool(sr_res.get("serviceable", True))
+        courier_name = sr_res.get("courier_name") or "Express Air Courier"
+        est_days = sr_res.get("estimated_days") or "3-5 business days"
+
+        # Default flat shipping: ₹99 (9900 paise), Free shipping above ₹1,999
+        shipping_fee_paise = 9900
+        rzp_order_id = data.get("razorpay_order_id")
+        if rzp_order_id:
+            raw_id = rzp_order_id.replace("order_", "")
+            order_record = (
+                db.query(models.Order).filter_by(razorpay_order_id=f"order_{raw_id}").first()
+                or db.query(models.Order).filter_by(razorpay_order_id=raw_id).first()
+            )
+            if order_record and order_record.subtotal_amount >= 1999:
+                shipping_fee_paise = 0
+
+        res_addresses.append({
+            "id": addr_id,
+            "zipcode": zipcode,
+            "state_code": state_code,
+            "country": country,
+            "shipping_methods": [
+                {
+                    "id": "standard_shipping",
+                    "name": f"Standard Delivery ({est_days})",
+                    "description": f"Delivered via {courier_name}",
+                    "serviceable": is_serviceable,
+                    "shipping_fee": shipping_fee_paise,
+                    "cod": False,
+                    "cod_fee": 0
+                }
+            ]
+        })
+
+    return {"addresses": res_addresses}
+
 # 4. Razorpay Magic Checkout Callback (Guest / 1-Click Checkout — No Login Required)
 @app.post("/api/orders/magic-checkout", response_model=schemas.OrderSchema)
 def magic_checkout_order(
