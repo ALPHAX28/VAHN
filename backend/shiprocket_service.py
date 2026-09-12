@@ -110,13 +110,13 @@ def get_primary_warehouse(db: Optional[Session] = None) -> Dict[str, Any]:
                             # Auto-seed into DB so admin can view and manage
                             new_wh = models.WarehouseLocation(
                                 pickup_location=loc_name,
-                                name=primary_addr.get("name", "VAHN Warehouse Manager"),
-                                email=primary_addr.get("email", SHIPROCKET_EMAIL),
-                                phone=primary_addr.get("phone", "9876543210"),
-                                address=primary_addr.get("address", "VAHN Logistics Hub"),
-                                address_2=primary_addr.get("address_2", ""),
-                                city=primary_addr.get("city", "Mumbai"),
-                                state=primary_addr.get("state", "Maharashtra"),
+                                name=primary_addr.get("name") or "VAHN Warehouse Manager",
+                                email=primary_addr.get("email") or SHIPROCKET_EMAIL or "logistics@vahnsports.com",
+                                phone=primary_addr.get("phone") or "9876543210",
+                                address=primary_addr.get("address") or "VAHN Logistics Hub",
+                                address_2=primary_addr.get("address_2") or "",
+                                city=primary_addr.get("city") or "New Delhi",
+                                state=primary_addr.get("state") or "Delhi",
                                 country="India",
                                 pin_code=pin,
                                 is_primary=True,
@@ -140,6 +140,7 @@ def get_primary_warehouse(db: Optional[Session] = None) -> Dict[str, Any]:
                                 "is_primary": True
                             }
             except Exception as e:
+                db.rollback()
                 logger.warning(f"Could not auto-fetch pickup locations from Shiprocket: {e}")
     finally:
         if close_db:

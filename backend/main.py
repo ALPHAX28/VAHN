@@ -3348,21 +3348,22 @@ def admin_list_warehouses(admin: models.User = Depends(get_current_admin), db: S
                 if not existing:
                     new_wh = models.WarehouseLocation(
                         pickup_location=loc_name,
-                        name=loc.get("name", "Warehouse Contact"),
-                        email=loc.get("email", admin.email or "logistics@vahnsports.com"),
-                        phone=loc.get("phone", "9876543210"),
-                        address=loc.get("address", "Fulfillment Hub"),
-                        address_2=loc.get("address_2", ""),
-                        city=loc.get("city", "Mumbai"),
-                        state=loc.get("state", "Maharashtra"),
-                        country=loc.get("country", "India"),
-                        pin_code=str(loc.get("pin_code", "400001")),
+                        name=loc.get("name") or "Warehouse Contact",
+                        email=loc.get("email") or admin.email or "logistics@vahnsports.com",
+                        phone=loc.get("phone") or "9876543210",
+                        address=loc.get("address") or "Fulfillment Hub",
+                        address_2=loc.get("address_2") or "",
+                        city=loc.get("city") or "New Delhi",
+                        state=loc.get("state") or "Delhi",
+                        country=loc.get("country") or "India",
+                        pin_code=str(loc.get("pin_code") or "110016"),
                         is_primary=bool(loc.get("is_primary_location")),
                         shiprocket_pickup_id=str(loc.get("id", ""))
                     )
                     db.add(new_wh)
         db.commit()
     except Exception as e:
+        db.rollback()
         logger.warning(f"Error syncing warehouses from Shiprocket: {e}")
 
     warehouses = db.query(models.WarehouseLocation).order_by(models.WarehouseLocation.is_primary.desc(), models.WarehouseLocation.created_at.desc()).all()
