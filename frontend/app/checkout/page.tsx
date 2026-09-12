@@ -131,13 +131,13 @@ export default function CheckoutPage() {
   );
   const customShippingRate = cartLines.reduce((max, line) => {
     const rate = line.merchandise.product.shippingRate;
-    return rate != null ? Math.max(max, rate) : max;
+    return rate != null && rate <= 500 ? Math.max(max, rate) : max;
   }, -1);
   const shippingFee =
-    customShippingRate >= 0
-      ? customShippingRate
-      : subtotal >= 1999 || subtotal === 0
+    subtotal >= 1999 || subtotal === 0
       ? 0
+      : customShippingRate >= 0
+      ? customShippingRate
       : 99;
 
   const estimatedTax = Math.round(
@@ -154,6 +154,7 @@ export default function CheckoutPage() {
 
   // Trigger Razorpay Checkout
   async function handleInitiatePayment() {
+    if (placingOrder) return;
     setError("");
 
     if (!cart?.id || cartLines.length === 0) {
