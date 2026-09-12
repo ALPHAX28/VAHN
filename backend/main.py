@@ -1217,10 +1217,29 @@ def razorpay_create_order(
         "user_phone": current_user.phone if current_user else ""
     }
 
+    # Line items required to activate Razorpay Magic Checkout (OPC)
+    line_items = []
+    for item in cart.items:
+        var = item.variant
+        prod = var.product if var else None
+        item_title = f"{prod.title if prod else 'VAHN Gear'}{f' - {var.title}' if var and var.title and var.title != 'Default Title' else ''}"
+        unit_price = float(var.price_amount) if (var and var.price_amount is not None) else 0.0
+        line_items.append({
+            "sku": str(getattr(var, 'sku', None) or var.id) if var else str(item.id),
+            "variant_id": str(var.id) if var else str(item.id),
+            "price": int(round(unit_price * 100)),
+            "offer_price": int(round(unit_price * 100)),
+            "quantity": item.quantity,
+            "name": item_title[:255]
+        })
+    line_items_total = int(round(subtotal * 100))
+
     rzp_order = razorpay_service.create_order(
         amount_in_inr=total_amount,
         receipt_id=receipt_id,
-        notes=notes
+        notes=notes,
+        line_items=line_items,
+        line_items_total=line_items_total
     )
 
     return schemas.RazorpayCreateOrderResponse(
@@ -1451,23 +1470,59 @@ def magic_checkout_order(
                 raise HTTPException(status_code=400, detail="Stock exhausted during checkout. A 100% refund has been initiated.")
             var.inventory_quantity = max(0, var.inventory_quantity - item.quantity)
 
-    # Format structured shipping address
+    # Format structured shipping address and customer identity from Razorpay Magic Checkout
     raw_addr = payload.shipping_address or {}
-    cust_name = (payload.customer_name or payload.guest_name or raw_addr.get("name") or "Athlete").strip()
-    cust_email = (payload.customer_email or payload.guest_email or raw_addr.get("email") or "").strip().lower() or None
-    raw_phone = (payload.customer_phone or payload.guest_phone or raw_addr.get("phone") or "").strip()
+    rzp_order_obj = {}
+    rzp_cust_details = {}
+    rzp_shipping = {}
 
-    # If phone or email is missing, fetch directly from Razorpay's verified payment record
-    if (not raw_phone or not cust_email) and payload.razorpay_payment_id:
+    if payload.razorpay_order_id:
         try:
-            rzp_payment = razorpay_service.fetch_payment(payload.razorpay_payment_id)
-            if rzp_payment:
-                if not raw_phone and rzp_payment.get("contact"):
-                    raw_phone = str(rzp_payment.get("contact")).strip()
-                if not cust_email and rzp_payment.get("email"):
-                    cust_email = str(rzp_payment.get("email")).strip().lower()
+            details = razorpay_service.fetch_order_details(payload.razorpay_order_id)
+            rzp_order_obj = details.get("order") or {}
+            rzp_cust_details = rzp_order_obj.get("customer_details") or {}
+            rzp_shipping = rzp_cust_details.get("shipping_address") or rzp_cust_details.get("billing_address") or {}
+        except Exception as e:
+            logger.warning(f"Could not fetch Razorpay order details: {e}")
+
+    rzp_payment = {}
+    if payload.razorpay_payment_id:
+        try:
+            rzp_payment = razorpay_service.fetch_payment(payload.razorpay_payment_id) or {}
         except Exception as e:
             logger.warning(f"Could not fetch payment from Razorpay: {e}")
+
+    # Extract customer name
+    cust_name = (
+        rzp_shipping.get("name")
+        or rzp_cust_details.get("name")
+        or payload.customer_name
+        or payload.guest_name
+        or raw_addr.get("name")
+        or rzp_payment.get("notes", {}).get("name")
+        or "Athlete"
+    ).strip()
+
+    # Extract customer email
+    cust_email = (
+        rzp_cust_details.get("email")
+        or rzp_payment.get("email")
+        or payload.customer_email
+        or payload.guest_email
+        or raw_addr.get("email")
+        or ""
+    ).strip().lower() or None
+
+    # Extract customer phone
+    raw_phone = (
+        rzp_cust_details.get("contact")
+        or rzp_shipping.get("contact")
+        or rzp_payment.get("contact")
+        or payload.customer_phone
+        or payload.guest_phone
+        or raw_addr.get("phone")
+        or ""
+    ).strip()
 
     cust_phone = None
     if raw_phone:
@@ -1482,14 +1537,38 @@ def magic_checkout_order(
             else:
                 cust_phone = raw_phone
 
+    # Extract address components from Razorpay Magic Checkout
+    rzp_line1 = str(rzp_shipping.get("line1", "")).strip()
+    rzp_line2 = str(rzp_shipping.get("line2", "")).strip()
+    rzp_street = f"{rzp_line1}, {rzp_line2}".strip(", ") if (rzp_line1 or rzp_line2) else ""
+
+    street_val = (
+        rzp_street
+        or raw_addr.get("address")
+        or raw_addr.get("street_address")
+        or "Standard Delivery"
+    )
+    city_val = rzp_shipping.get("city") or raw_addr.get("city") or "Mumbai"
+    state_val = rzp_shipping.get("state") or raw_addr.get("state") or "Maharashtra"
+    pincode_val = str(
+        rzp_shipping.get("zipcode")
+        or rzp_shipping.get("postal_code")
+        or raw_addr.get("postalCode")
+        or raw_addr.get("pincode")
+        or "400001"
+    ).strip()
+    country_val = rzp_shipping.get("country") or raw_addr.get("country") or "India"
+    if str(country_val).lower() in ("in", "ind"):
+        country_val = "India"
+
     final_address = {
-        "label": "Delivery",
+        "label": rzp_shipping.get("tag") or "Delivery",
         "name": cust_name,
-        "address": raw_addr.get("address", raw_addr.get("street_address", "Standard Delivery")),
-        "city": raw_addr.get("city", "Mumbai"),
-        "state": raw_addr.get("state", "Maharashtra"),
-        "postalCode": raw_addr.get("postalCode", raw_addr.get("pincode", "400001")),
-        "country": "India",
+        "address": street_val,
+        "city": city_val,
+        "state": state_val,
+        "postalCode": pincode_val,
+        "country": country_val,
         "phone": cust_phone or raw_phone or ""
     }
 
@@ -1857,10 +1936,25 @@ def retry_order_payment(
         "user_email": order.guest_email or (current_user.email if current_user else ""),
     }
 
+    retry_line_items = []
+    for itm in (order.items or []):
+        unit_price = float(itm.price_amount) if itm.price_amount is not None else 0.0
+        retry_line_items.append({
+            "sku": str(itm.variant_id or itm.id),
+            "variant_id": str(itm.variant_id or itm.id),
+            "price": int(round(unit_price * 100)),
+            "offer_price": int(round(unit_price * 100)),
+            "quantity": itm.quantity,
+            "name": (itm.product_title or "VAHN Gear")[:255]
+        })
+    retry_line_items_total = int(round((order.subtotal_amount or order.total_amount) * 100))
+
     rzp_order = razorpay_service.create_order(
         amount_in_inr=order.total_amount,
         receipt_id=receipt_id,
-        notes=notes
+        notes=notes,
+        line_items=retry_line_items,
+        line_items_total=retry_line_items_total
     )
 
     order.razorpay_order_id = rzp_order["id"]

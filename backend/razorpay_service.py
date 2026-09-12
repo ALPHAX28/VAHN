@@ -53,10 +53,17 @@ def get_razorpay_client():
         logger.warning(f"Failed to initialize razorpay client: {e}. Falling back to sandbox simulator.")
         return None
 
-def create_order(amount_in_inr: float, receipt_id: str, notes: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def create_order(
+    amount_in_inr: float,
+    receipt_id: str,
+    notes: Optional[Dict[str, Any]] = None,
+    line_items: Optional[list] = None,
+    line_items_total: Optional[int] = None
+) -> Dict[str, Any]:
     """
     Creates an order on Razorpay in paise.
     Works seamlessly in both real and mock/sandbox modes.
+    Includes line_items and line_items_total to activate Razorpay Magic Checkout (OPC).
     """
     amount_in_paise = int(round(amount_in_inr * 100))
     client = get_razorpay_client()
@@ -69,8 +76,13 @@ def create_order(amount_in_inr: float, receipt_id: str, notes: Optional[Dict[str
                 "receipt": receipt_id,
                 "notes": notes or {}
             }
+            if line_items:
+                payload["line_items"] = line_items
+            if line_items_total is not None:
+                payload["line_items_total"] = line_items_total
+
             order = client.order.create(data=payload)
-            logger.info(f"Created Razorpay order: {order['id']} for receipt {receipt_id}")
+            logger.info(f"Created Razorpay order: {order['id']} for receipt {receipt_id} (Magic Checkout line_items: {bool(line_items)})")
             return order
         except Exception as e:
             logger.error(f"Razorpay order creation failed: {e}")
@@ -90,7 +102,9 @@ def create_order(amount_in_inr: float, receipt_id: str, notes: Optional[Dict[str
         "status": "created",
         "attempts": 0,
         "notes": notes or {},
-        "created_at": int(time.time())
+        "created_at": int(time.time()),
+        "line_items_total": line_items_total or amount_in_paise,
+        "line_items": line_items or []
     }
 
 def verify_payment_signature(razorpay_order_id: str, razorpay_payment_id: str, razorpay_signature: str) -> bool:
@@ -116,6 +130,7 @@ def verify_payment_signature(razorpay_order_id: str, razorpay_payment_id: str, r
 def fetch_order_details(razorpay_order_id: str) -> Dict[str, Any]:
     """
     Fetches order and payment details from Razorpay, especially for Magic Checkout.
+    Extracts customer_details including shipping_address, contact, and email.
     """
     client = get_razorpay_client()
     if client:
@@ -131,7 +146,34 @@ def fetch_order_details(razorpay_order_id: str) -> Dict[str, Any]:
             return {"order": {}, "payments": []}
 
     return {
-        "order": {"id": razorpay_order_id, "status": "paid"},
+        "order": {
+            "id": razorpay_order_id,
+            "status": "paid",
+            "customer_details": {
+                "contact": "+918757412431",
+                "email": "customer@vahnsports.com",
+                "shipping_address": {
+                    "name": "Arnab Dutta",
+                    "contact": "+918757412431",
+                    "line1": "131, 10nobasti Sukhiya Road",
+                    "line2": "sidhgora",
+                    "city": "Jamshedpur",
+                    "state": "Jharkhand",
+                    "zipcode": "831003",
+                    "country": "in"
+                },
+                "billing_address": {
+                    "name": "Arnab Dutta",
+                    "contact": "+918757412431",
+                    "line1": "131, 10nobasti Sukhiya Road",
+                    "line2": "sidhgora",
+                    "city": "Jamshedpur",
+                    "state": "Jharkhand",
+                    "zipcode": "831003",
+                    "country": "in"
+                }
+            }
+        },
         "payments": [{"id": f"pay_{secrets.token_hex(7)}", "status": "captured"}]
     }
 

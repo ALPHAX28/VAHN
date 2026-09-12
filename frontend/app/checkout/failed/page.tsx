@@ -51,13 +51,17 @@ function CheckoutFailedContent() {
     }
   }, []);
 
-  // Dynamically load Razorpay SDK
+  // Dynamically load Razorpay Magic Checkout SDK
   useEffect(() => {
-    if (typeof window !== "undefined" && !window.Razorpay) {
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      document.body.appendChild(script);
+    if (typeof window !== "undefined") {
+      const existingScript = document.querySelector('script[src*="razorpay.com"]');
+      if (!existingScript || !existingScript.getAttribute("src")?.includes("magic-checkout.js")) {
+        if (existingScript) existingScript.remove();
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/magic-checkout.js";
+        script.async = true;
+        document.body.appendChild(script);
+      }
     }
   }, []);
 
@@ -158,6 +162,8 @@ function CheckoutFailedContent() {
           description: `Retry Payment for Order #${orderId}`,
           image: "https://vahn.s3.ap-south-2.amazonaws.com/logo.png",
           order_id: retryData.razorpay_order_id,
+          one_click_checkout: true,
+          show_coupons: true,
           handler: async function (response: any) {
             try {
               await confirmRetryPayment(

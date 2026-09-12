@@ -552,7 +552,7 @@ class MagicCheckoutOrderRequest(BaseModel):
     guest_name: Optional[str] = None
     guest_email: Optional[str] = None
     guest_phone: Optional[str] = None
-    shipping_address: dict
+    shipping_address: Optional[dict] = None
 
 class ShiprocketServiceabilityRequest(BaseModel):
     pincode: str

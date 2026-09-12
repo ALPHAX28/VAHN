@@ -325,13 +325,13 @@ export async function verifyRazorpayPayment(
 
 export async function createMagicCheckoutOrder(payload: {
   cart_id: string;
-  guest_name: string;
-  guest_email: string;
-  guest_phone: string;
-  shipping_address: any;
+  guest_name?: string;
+  guest_email?: string;
+  guest_phone?: string;
+  shipping_address?: any;
   razorpay_payment_id: string;
   razorpay_order_id: string;
-  razorpay_signature: string;
+  razorpay_signature?: string;
   discount_code?: string;
 }): Promise<import('./types').OrderDetail> {
   return fetchAPI<import('./types').OrderDetail>('/orders/magic-checkout', {

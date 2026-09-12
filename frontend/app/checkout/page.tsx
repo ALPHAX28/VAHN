@@ -56,7 +56,7 @@ export default function CheckoutPage() {
   const [guestCity, setGuestCity] = useState("");
   const [guestState, setGuestState] = useState("");
   const [guestPincode, setGuestPincode] = useState("");
-
+  const [showManualAddress, setShowManualAddress] = useState(false);
 
   // Serviceability check state
   const [serviceability, setServiceability] = useState<ServiceabilityResponse | null>(null);
@@ -67,16 +67,20 @@ export default function CheckoutPage() {
   const [error, setError] = useState("");
   const [rzpLoaded, setRzpLoaded] = useState(false);
 
-  // Load Razorpay SDK
+  // Load Razorpay Magic Checkout SDK
   useEffect(() => {
-    if (typeof window !== "undefined" && !window.Razorpay) {
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      script.onload = () => setRzpLoaded(true);
-      document.body.appendChild(script);
-    } else {
-      setRzpLoaded(true);
+    if (typeof window !== "undefined") {
+      const existingScript = document.querySelector('script[src*="razorpay.com"]');
+      if (!existingScript || !existingScript.getAttribute("src")?.includes("magic-checkout.js")) {
+        if (existingScript) existingScript.remove();
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/magic-checkout.js";
+        script.async = true;
+        script.onload = () => setRzpLoaded(true);
+        document.body.appendChild(script);
+      } else {
+        setRzpLoaded(true);
+      }
     }
   }, []);
 
@@ -193,49 +197,24 @@ export default function CheckoutPage() {
         country: selectedAddr.country || "India",
       };
     } else {
-      // Guest validation
-      if (!guestName.trim()) {
-        setError("Please enter your full name.");
-        return;
-      }
-      if (!guestEmail.trim() || !guestEmail.includes("@")) {
-        setError("Please enter a valid email address.");
-        return;
-      }
-      if (!guestPhone.trim() || guestPhone.replace(/\D/g, "").length < 10) {
-        setError("Please enter a valid 10-digit mobile number.");
-        return;
-      }
-      if (!guestStreet.trim()) {
-        setError("Please enter your delivery street address.");
-        return;
-      }
-      if (!guestCity.trim()) {
-        setError("Please enter your city.");
-        return;
-      }
-      if (!guestState.trim()) {
-        setError("Please select or enter your state.");
-        return;
-      }
-      if (!guestPincode.trim() || !/^\d{6}$/.test(guestPincode.trim())) {
-        setError("Please enter a valid 6-digit PIN code.");
-        return;
-      }
-
+      // Guest Magic Checkout flow:
+      // Contact & address are handled seamlessly by Razorpay Magic Checkout (OPC)
       customerName = guestName.trim();
       customerEmail = guestEmail.trim();
       customerPhone = guestPhone.trim();
-      shippingPayload = {
-        name: customerName,
-        email: customerEmail,
-        phone: customerPhone,
-        address: `${guestApartment ? guestApartment + ", " : ""}${guestStreet}`.trim(),
-        city: guestCity.trim(),
-        state: guestState.trim(),
-        pincode: guestPincode.trim(),
-        country: "India",
-      };
+
+      if (guestStreet.trim() || guestPincode.trim()) {
+        shippingPayload = {
+          name: customerName || "Athlete",
+          email: customerEmail || undefined,
+          phone: customerPhone || undefined,
+          address: `${guestApartment ? guestApartment + ", " : ""}${guestStreet}`.trim(),
+          city: guestCity.trim() || undefined,
+          state: guestState.trim() || undefined,
+          pincode: guestPincode.trim() || undefined,
+          country: "India",
+        };
+      }
     }
 
     setPlacingOrder(true);
@@ -256,7 +235,7 @@ export default function CheckoutPage() {
         throw new Error("Razorpay gateway is initializing. Please try again in a few moments.");
       }
 
-      // 2. Open Razorpay modal
+      // 2. Open Razorpay Magic Checkout modal
       const options = {
         key: rzpOrder.key_id,
         amount: rzpOrder.amount,
@@ -265,6 +244,8 @@ export default function CheckoutPage() {
         description: `Order Payment (${cartLines.length} item${cartLines.length > 1 ? "s" : ""})`,
         image: "https://vahn.s3.ap-south-2.amazonaws.com/logo.png",
         order_id: rzpOrder.razorpay_order_id,
+        one_click_checkout: true, // Crucial: Activates Razorpay Magic Checkout One Page Checkout (OPC)
+        show_coupons: true,
         handler: async function (response: any) {
           try {
             let confirmedId = "";
@@ -282,13 +263,14 @@ export default function CheckoutPage() {
               );
               confirmedId = (verifiedOrder as any)?.id || (verifiedOrder as any)?.order_id || (verifiedOrder as any)?.orderId || "";
             } else {
-              // Guest checkout verification
+              // Guest checkout verification:
+              // Backend fetches full customer contact & shipping address from Razorpay Magic Checkout order!
               const guestOrder = await createMagicCheckoutOrder({
                 cart_id: cart.id,
-                guest_name: customerName,
-                guest_email: customerEmail,
-                guest_phone: customerPhone,
-                shipping_address: shippingPayload,
+                guest_name: customerName || undefined,
+                guest_email: customerEmail || undefined,
+                guest_phone: customerPhone || undefined,
+                shipping_address: shippingPayload || undefined,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_signature: response.razorpay_signature,
@@ -299,7 +281,7 @@ export default function CheckoutPage() {
             if (confirmedId) {
               router.push(`/checkout/success?order_id=${confirmedId}`);
             } else {
-              router.push("/account/orders");
+              router.push("/checkout/success");
             }
           } catch (verifyErr: any) {
             const verifyMsg = verifyErr?.message || "Payment verification failed. Please contact VAHN support.";
@@ -316,9 +298,9 @@ export default function CheckoutPage() {
                     razorpay_order_id: response.razorpay_order_id,
                     razorpay_payment_id: response.razorpay_payment_id,
                     error_description: verifyMsg,
-                    customer_name: customerName,
-                    customer_email: customerEmail,
-                    customer_phone: customerPhone,
+                    customer_name: customerName || undefined,
+                    customer_email: customerEmail || undefined,
+                    customer_phone: customerPhone || undefined,
                     shipping_address: shippingPayload,
                   },
                   token || undefined
@@ -336,9 +318,9 @@ export default function CheckoutPage() {
           }
         },
         prefill: {
-          name: customerName,
-          email: customerEmail,
-          contact: customerPhone,
+          name: customerName || undefined,
+          email: customerEmail || undefined,
+          contact: customerPhone ? (customerPhone.startsWith("+") ? customerPhone : `+91${customerPhone.replace(/\D/g, "")}`) : undefined,
         },
         notes: {
           cart_id: cart.id,
@@ -760,258 +742,386 @@ export default function CheckoutPage() {
                 </div>
               )
             ) : (
-              /* Guest Address Form */
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              /* Guest Magic Checkout Experience */
+              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                {/* 1-Click Magic Checkout Banner */}
                 <div
                   style={{
-                    background: "#f9f9f9",
-                    padding: "10px 14px",
-                    fontSize: "0.8rem",
-                    color: "#555",
-                    borderLeft: "3px solid #4232d9",
+                    background: "linear-gradient(135deg, rgba(66, 50, 217, 0.06) 0%, rgba(66, 50, 217, 0.01) 100%)",
+                    border: "1.5px solid #4232d9",
+                    padding: "20px",
+                    borderRadius: "0px",
                   }}
                 >
-                  Checking out as Guest. You will receive real-time SMS & Email tracking updates.
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "0.75rem",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Rahul Sharma"
-                      value={guestName}
-                      onChange={(e) => setGuestName(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        border: "1px solid #ccc",
-                        borderRadius: "0px",
-                        fontSize: "0.9rem",
-                        outline: "none",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "0.75rem",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      Phone Number *
-                    </label>
-                    <input
-                      type="tel"
-                      placeholder="10-digit mobile number"
-                      value={guestPhone}
-                      maxLength={10}
-                      onChange={(e) => setGuestPhone(e.target.value.replace(/\D/g, ""))}
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        border: "1px solid #ccc",
-                        borderRadius: "0px",
-                        fontSize: "0.9rem",
-                        outline: "none",
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
+                  <div
                     style={{
-                      display: "block",
-                      fontSize: "0.75rem",
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                      marginBottom: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      flexWrap: "wrap",
+                      gap: "8px",
+                      marginBottom: "10px",
                     }}
                   >
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="order.updates@example.com"
-                    value={guestEmail}
-                    onChange={(e) => setGuestEmail(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 12px",
-                      border: "1px solid #ccc",
-                      borderRadius: "0px",
-                      fontSize: "0.9rem",
-                      outline: "none",
-                    }}
-                  />
-                </div>
+                    <span
+                      style={{
+                        background: "#4232d9",
+                        color: "#fff",
+                        fontSize: "0.7rem",
+                        fontWeight: 900,
+                        textTransform: "uppercase",
+                        padding: "3px 8px",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      ⚡ Razorpay Magic Checkout • 1-Click OPC
+                    </span>
+                    <span style={{ fontSize: "0.75rem", color: "#555", fontWeight: 600 }}>
+                      No typing or account creation needed
+                    </span>
+                  </div>
 
-                <div>
-                  <label
+                  <h3
                     style={{
-                      display: "block",
-                      fontSize: "0.75rem",
-                      fontWeight: 800,
+                      fontSize: "1.05rem",
+                      fontWeight: 900,
                       textTransform: "uppercase",
-                      marginBottom: "4px",
+                      letterSpacing: "-0.02em",
+                      margin: "0 0 6px",
+                      color: "#000",
                     }}
                   >
-                    Flat / House No / Building Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Flat 402, Tower B"
-                    value={guestApartment}
-                    onChange={(e) => setGuestApartment(e.target.value)}
+                    Instant 1-Click Delivery & Payment
+                  </h3>
+
+                  <p style={{ fontSize: "0.82rem", color: "#555", margin: "0 0 16px", lineHeight: 1.5 }}>
+                    Your saved delivery addresses and payment methods from Razorpay&apos;s 100M+ buyer network
+                    will be securely loaded inside the checkout modal.
+                  </p>
+
+                  {/* Optional mobile prefill */}
+                  <div style={{ marginBottom: "16px" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.75rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        marginBottom: "6px",
+                        color: "#333",
+                      }}
+                    >
+                      Mobile Number (Optional — to auto-load saved addresses)
+                    </label>
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <span
+                        style={{
+                          background: "#eee",
+                          padding: "10px 12px",
+                          fontSize: "0.85rem",
+                          fontWeight: 700,
+                          border: "1px solid #ccc",
+                          borderRight: "none",
+                        }}
+                      >
+                        +91
+                      </span>
+                      <input
+                        type="tel"
+                        placeholder="10-digit mobile number"
+                        value={guestPhone}
+                        maxLength={10}
+                        onChange={(e) => setGuestPhone(e.target.value.replace(/\D/g, ""))}
+                        style={{
+                          flex: 1,
+                          padding: "10px 12px",
+                          border: "1px solid #ccc",
+                          fontSize: "0.9rem",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 1-Click Buy Button */}
+                  <button
+                    type="button"
+                    onClick={handleInitiatePayment}
+                    disabled={placingOrder}
                     style={{
                       width: "100%",
-                      padding: "10px 12px",
-                      border: "1px solid #ccc",
-                      borderRadius: "0px",
+                      background: placingOrder ? "#666" : "#4232d9",
+                      color: "#fff",
+                      border: "none",
+                      padding: "14px",
                       fontSize: "0.9rem",
-                      outline: "none",
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "0.75rem",
-                      fontWeight: 800,
+                      fontWeight: 900,
                       textTransform: "uppercase",
-                      marginBottom: "4px",
+                      letterSpacing: "-0.02em",
+                      cursor: placingOrder ? "not-allowed" : "pointer",
+                      borderRadius: "0px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      transition: "background 0.2s ease",
                     }}
                   >
-                    Street Address & Locality *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 100 Feet Road, Indiranagar"
-                    value={guestStreet}
-                    onChange={(e) => setGuestStreet(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "10px 12px",
-                      border: "1px solid #ccc",
-                      borderRadius: "0px",
-                      fontSize: "0.9rem",
-                      outline: "none",
-                    }}
-                  />
+                    {placingOrder ? (
+                      <span>Opening Magic Checkout...</span>
+                    ) : (
+                      <span>⚡ Proceed with Magic 1-Click Checkout →</span>
+                    )}
+                  </button>
+
+                  <div style={{ textAlign: "center", marginTop: "12px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualAddress(!showManualAddress)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#4232d9",
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        padding: 0,
+                      }}
+                    >
+                      {showManualAddress
+                        ? "▲ Hide manual address form"
+                        : "▼ Or enter delivery address manually on this page"}
+                    </button>
+                  </div>
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr 1fr",
-                    gap: "12px",
-                  }}
-                >
-                  <div>
-                    <label
+                {/* Collapsible Manual Address Form */}
+                {showManualAddress && (
+                  <div
+                    style={{
+                      background: "#fafafa",
+                      border: "1px solid #e0e0e0",
+                      padding: "18px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "14px",
+                    }}
+                  >
+                    <div style={{ fontSize: "0.8rem", fontWeight: 800, textTransform: "uppercase", color: "#333" }}>
+                      Manual Delivery Address
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "0.75rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          Full Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Rahul Sharma"
+                          value={guestName}
+                          onChange={(e) => setGuestName(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            border: "1px solid #ccc",
+                            borderRadius: "0px",
+                            fontSize: "0.9rem",
+                            outline: "none",
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "0.75rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          Email Address
+                        </label>
+                        <input
+                          type="email"
+                          placeholder="order.updates@example.com"
+                          value={guestEmail}
+                          onChange={(e) => setGuestEmail(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            border: "1px solid #ccc",
+                            borderRadius: "0px",
+                            fontSize: "0.9rem",
+                            outline: "none",
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "0.75rem",
+                          fontWeight: 800,
+                          textTransform: "uppercase",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Flat / House No / Building Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Flat 402, Tower B"
+                        value={guestApartment}
+                        onChange={(e) => setGuestApartment(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          border: "1px solid #ccc",
+                          borderRadius: "0px",
+                          fontSize: "0.9rem",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "0.75rem",
+                          fontWeight: 800,
+                          textTransform: "uppercase",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        Street Address & Locality
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 100 Feet Road, Indiranagar"
+                        value={guestStreet}
+                        onChange={(e) => setGuestStreet(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          border: "1px solid #ccc",
+                          borderRadius: "0px",
+                          fontSize: "0.9rem",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+
+                    <div
                       style={{
-                        display: "block",
-                        fontSize: "0.75rem",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        marginBottom: "4px",
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gap: "12px",
                       }}
                     >
-                      PIN Code *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="6 Digits"
-                      maxLength={6}
-                      value={guestPincode}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "");
-                        setGuestPincode(val);
-                        if (val.length === 6) {
-                          handleCheckPincode(val);
-                        }
-                      }}
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        border: "1px solid #ccc",
-                        borderRadius: "0px",
-                        fontSize: "0.9rem",
-                        outline: "none",
-                      }}
-                    />
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "0.75rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          PIN Code
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="6 Digits"
+                          maxLength={6}
+                          value={guestPincode}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "");
+                            setGuestPincode(val);
+                            if (val.length === 6) {
+                              handleCheckPincode(val);
+                            }
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            border: "1px solid #ccc",
+                            borderRadius: "0px",
+                            fontSize: "0.9rem",
+                            outline: "none",
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "0.75rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          City
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Bengaluru"
+                          value={guestCity}
+                          onChange={(e) => setGuestCity(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            border: "1px solid #ccc",
+                            borderRadius: "0px",
+                            fontSize: "0.9rem",
+                            outline: "none",
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "0.75rem",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          State
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Karnataka"
+                          value={guestState}
+                          onChange={(e) => setGuestState(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            border: "1px solid #ccc",
+                            borderRadius: "0px",
+                            fontSize: "0.9rem",
+                            outline: "none",
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "0.75rem",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      City *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Bengaluru"
-                      value={guestCity}
-                      onChange={(e) => setGuestCity(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        border: "1px solid #ccc",
-                        borderRadius: "0px",
-                        fontSize: "0.9rem",
-                        outline: "none",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "0.75rem",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      State *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Karnataka"
-                      value={guestState}
-                      onChange={(e) => setGuestState(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        border: "1px solid #ccc",
-                        borderRadius: "0px",
-                        fontSize: "0.9rem",
-                        outline: "none",
-                      }}
-                    />
-                  </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -1241,7 +1351,7 @@ export default function CheckoutPage() {
               {placingOrder ? (
                 <span>Connecting to Gateway...</span>
               ) : (
-                <span>Pay ₹{grandTotal.toLocaleString("en-IN")} via Razorpay →</span>
+                <span>⚡ Pay ₹{grandTotal.toLocaleString("en-IN")} via Magic Checkout →</span>
               )}
             </button>
 
