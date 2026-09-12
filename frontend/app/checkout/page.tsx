@@ -56,8 +56,6 @@ export default function CheckoutPage() {
   const [guestState, setGuestState] = useState("");
   const [guestPincode, setGuestPincode] = useState("");
 
-  // Payment method selection (100% Prepaid only)
-  const [paymentMethod, setPaymentMethod] = useState<"UPI" | "CARD" | "NETBANKING">("UPI");
 
   // Serviceability check state
   const [serviceability, setServiceability] = useState<ServiceabilityResponse | null>(null);
@@ -515,21 +513,7 @@ export default function CheckoutPage() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div
-                  style={{
-                    width: 24,
-                    height: 24,
-                    background: "#000",
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.75rem",
-                    fontWeight: 800,
-                  }}
-                >
-                  1
-                </div>
+                <MapPinIcon size={20} color="#000" />
                 <h2
                   style={{
                     fontSize: "1.1rem",
@@ -984,211 +968,6 @@ export default function CheckoutPage() {
               ) : null}
             </div>
           </div>
-
-          {/* 2. Payment Method Section (Strictly Prepaid - No COD) */}
-          <div
-            style={{
-              border: "1px solid #e0e0e0",
-              borderRadius: "0px",
-              padding: "24px",
-              background: "#fff",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                marginBottom: "20px",
-                borderBottom: "1px solid #f0f0f0",
-                paddingBottom: "12px",
-              }}
-            >
-              <div
-                style={{
-                  width: 24,
-                  height: 24,
-                  background: "#000",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "0.75rem",
-                  fontWeight: 800,
-                }}
-              >
-                2
-              </div>
-              <h2
-                style={{
-                  fontSize: "1.1rem",
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  letterSpacing: "-0.02em",
-                  margin: 0,
-                }}
-              >
-                Payment Method (Prepaid Only)
-              </h2>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {/* UPI */}
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "14px 16px",
-                  border: paymentMethod === "UPI" ? "2px solid #4232d9" : "1px solid #e0e0e0",
-                  background: paymentMethod === "UPI" ? "rgba(66, 50, 217, 0.03)" : "#fff",
-                  borderRadius: "0px",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="radio"
-                  name="payment_method"
-                  value="UPI"
-                  checked={paymentMethod === "UPI"}
-                  onChange={() => setPaymentMethod("UPI")}
-                  style={{ accentColor: "#4232d9" }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: "0.88rem", textTransform: "uppercase" }}>
-                    Instant UPI (Recommended)
-                  </div>
-                  <div style={{ fontSize: "0.78rem", color: "#666" }}>
-                    Google Pay, PhonePe, Paytm, BHIM, CRED
-                  </div>
-                </div>
-                <span
-                  style={{
-                    background: "#e6f7ff",
-                    color: "#096dd9",
-                    fontSize: "0.68rem",
-                    fontWeight: 800,
-                    padding: "2px 6px",
-                  }}
-                >
-                  FASTEST
-                </span>
-              </label>
-
-              {/* Cards */}
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "14px 16px",
-                  border: paymentMethod === "CARD" ? "2px solid #4232d9" : "1px solid #e0e0e0",
-                  background: paymentMethod === "CARD" ? "rgba(66, 50, 217, 0.03)" : "#fff",
-                  borderRadius: "0px",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="radio"
-                  name="payment_method"
-                  value="CARD"
-                  checked={paymentMethod === "CARD"}
-                  onChange={() => setPaymentMethod("CARD")}
-                  style={{ accentColor: "#4232d9" }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: "0.88rem", textTransform: "uppercase" }}>
-                    Credit & Debit Cards
-                  </div>
-                  <div style={{ fontSize: "0.78rem", color: "#666" }}>
-                    Visa, MasterCard, RuPay, American Express
-                  </div>
-                </div>
-              </label>
-
-              {/* Netbanking */}
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "14px 16px",
-                  border: paymentMethod === "NETBANKING" ? "2px solid #4232d9" : "1px solid #e0e0e0",
-                  background: paymentMethod === "NETBANKING" ? "rgba(66, 50, 217, 0.03)" : "#fff",
-                  borderRadius: "0px",
-                  cursor: "pointer",
-                }}
-              >
-                <input
-                  type="radio"
-                  name="payment_method"
-                  value="NETBANKING"
-                  checked={paymentMethod === "NETBANKING"}
-                  onChange={() => setPaymentMethod("NETBANKING")}
-                  style={{ accentColor: "#4232d9" }}
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: "0.88rem", textTransform: "uppercase" }}>
-                    Netbanking & Wallets
-                  </div>
-                  <div style={{ fontSize: "0.78rem", color: "#666" }}>
-                    HDFC, ICICI, SBI, Axis, Kotak, and 50+ banks
-                  </div>
-                </div>
-              </label>
-
-              {/* Disabled COD Notice */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "14px 16px",
-                  border: "1px dashed #d9d9d9",
-                  background: "#fafafa",
-                  borderRadius: "0px",
-                  opacity: 0.7,
-                }}
-              >
-                <input type="radio" disabled />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#888" }}>
-                    Cash on Delivery (COD)
-                  </div>
-                  <div style={{ fontSize: "0.75rem", color: "#999" }}>
-                    Currently unavailable — VAHN operates 100% online prepaid to guarantee expedited fulfillment.
-                  </div>
-                </div>
-                <span
-                  style={{
-                    background: "#f0f0f0",
-                    color: "#888",
-                    fontSize: "0.68rem",
-                    fontWeight: 700,
-                    padding: "2px 6px",
-                  }}
-                >
-                  UNAVAILABLE
-                </span>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginTop: "16px",
-                color: "#666",
-                fontSize: "0.75rem",
-              }}
-            >
-              <ShieldCheckIcon size={16} color="#52c41a" />
-              <span>
-                256-Bit SSL Encrypted Razorpay Gateway • Instant Refund Guarantee on Cancellation
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Right Column: Order Summary & Pay CTA */}
@@ -1391,8 +1170,23 @@ export default function CheckoutPage() {
 
             <div
               style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+                marginTop: "14px",
+                fontSize: "0.74rem",
+                color: "#555",
+              }}
+            >
+              <ShieldCheckIcon size={15} color="#52c41a" />
+              <span>256-Bit SSL Encrypted Razorpay Gateway</span>
+            </div>
+
+            <div
+              style={{
                 textAlign: "center",
-                marginTop: "12px",
+                marginTop: "6px",
                 fontSize: "0.7rem",
                 color: "#888",
               }}
