@@ -2,8 +2,8 @@
 
 import { useEffect, useState, use } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getOrderDetail, cancelOrder, requestOrderReturn, getOrderTracking } from "@/lib/api";
-import type { OrderDetail, TrackingInfo } from "@/lib/api/types";
+import { getOrderDetail, cancelOrder, requestOrderReturn, getOrderTracking, getOrderExchangeOptions } from "@/lib/api";
+import type { OrderDetail, TrackingInfo, OrderExchangeOptionsResponse, ExchangeItemOption, ExchangeVariantOption } from "@/lib/api/types";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -120,10 +120,46 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [returnActionType, setReturnActionType] = useState<"REPLACEMENT" | "RETURN">("REPLACEMENT");
   const [returnReason, setReturnReason] = useState("SIZE_FIT");
   const [returnNotes, setReturnNotes] = useState("");
+  const [exchangeOptions, setExchangeOptions] = useState<OrderExchangeOptionsResponse | null>(null);
+  const [loadingExchangeOptions, setLoadingExchangeOptions] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<string>("");
+  const [selectedVariantId, setSelectedVariantId] = useState<string>("");
+  const [selectedVariantTitle, setSelectedVariantTitle] = useState<string>("");
   const [submittingAction, setSubmittingAction] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  async function handleOpenReturnModal() {
+    if (!order) return;
+    setShowReturnModal(true);
+    setReturnActionType("REPLACEMENT");
+    setReturnReason("SIZE_FIT");
+    setReturnNotes("");
+    setLoadingExchangeOptions(true);
+    try {
+      const res = await getOrderExchangeOptions(order.id, token || undefined);
+      setExchangeOptions(res);
+      if (res?.items && res.items.length > 0) {
+        const firstItem = res.items[0];
+        setSelectedItemId(firstItem.item_id);
+        // Pre-select first available replacement variant
+        const firstAvail = firstItem.variants.find(v => v.is_available && !v.is_current);
+        if (firstAvail) {
+          setSelectedVariantId(firstAvail.variant_id);
+          setSelectedVariantTitle(firstAvail.title);
+        } else {
+          setSelectedVariantId("");
+          setSelectedVariantTitle("");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load exchange options:", err);
+    } finally {
+      setLoadingExchangeOptions(false);
+    }
+  }
 
   async function handleCancelOrder() {
     if (!token || !order) return;
@@ -149,14 +185,35 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
 
   async function handleRequestReturn() {
     if (!token || !order) return;
+    if (returnActionType === "REPLACEMENT" && !selectedVariantId) {
+      setActionMessage({
+        type: "error",
+        text: "Please select an available size for exchange, or switch to Return for 100% Refund."
+      });
+      return;
+    }
     setSubmittingAction(true);
     setActionMessage(null);
     try {
-      const res = await requestOrderReturn(order.id, returnReason, returnNotes, token);
-      setActionMessage({
-        type: "success",
-        text: `Return requested for Order #${order.id}! Shiprocket reverse pickup scheduled${res.reverse_awb ? ` (AWB: ${res.reverse_awb})` : ""}. Courier scan will automatically disburse your full refund via Razorpay.`
-      });
+      const res = await requestOrderReturn(order.id, {
+        action: returnActionType,
+        reason: returnReason,
+        notes: returnNotes,
+        order_item_id: selectedItemId || undefined,
+        replacement_variant_id: returnActionType === "REPLACEMENT" ? selectedVariantId : undefined,
+      }, token);
+
+      if (returnActionType === "REPLACEMENT") {
+        setActionMessage({
+          type: "success",
+          text: `Size replacement requested for Order #${order.id}! Replacement item (${selectedVariantTitle}) reserved in warehouse. Shiprocket reverse pickup scheduled${res.reverseAwb ? ` (AWB: ${res.reverseAwb})` : ""}. Courier scan will trigger immediate replacement dispatch!`
+        });
+      } else {
+        setActionMessage({
+          type: "success",
+          text: `Return requested for Order #${order.id}! Shiprocket reverse pickup scheduled${res.reverseAwb ? ` (AWB: ${res.reverseAwb})` : ""}. Courier scan will automatically disburse your 100% refund via Razorpay.`
+        });
+      }
       setShowReturnModal(false);
       loadOrder();
     } catch (err: any) {
@@ -363,7 +420,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
             {order.status === "DELIVERED" && (!order.returnStatus || order.returnStatus === "NONE") && (
               <button
                 type="button"
-                onClick={() => setShowReturnModal(true)}
+                onClick={handleOpenReturnModal}
                 style={{
                   background: "#000",
                   border: "2px solid #000",
@@ -376,7 +433,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   letterSpacing: "-0.025em",
                 }}
               >
-                Request 7-Day Return
+                Request 10-Day Return / Exchange
               </button>
             )}
 
@@ -768,15 +825,17 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   letterSpacing: "-0.01em",
                 }}
               >
-                Automated Reverse Logistics
+                {order.returnType === "REPLACEMENT" ? "Automated Size Replacement & Reverse Logistics" : "Automated Reverse Logistics"}
               </span>
               <h3 style={{ fontSize: "1.2rem", fontWeight: 900, margin: "2px 0 0", textTransform: "uppercase" }}>
-                Return Status: {order.returnStatus}
+                {order.returnType === "REPLACEMENT"
+                  ? `Replacement Status: ${order.replacementStatus && order.replacementStatus !== "NONE" ? order.replacementStatus : order.returnStatus}`
+                  : `Return Status: ${order.returnStatus}`}
               </h3>
             </div>
             <span
               style={{
-                background: order.returnStatus === "REFUNDED" ? "#52c41a" : "#4232d9",
+                background: order.returnStatus === "REFUNDED" || order.replacementStatus === "REPLACEMENT_DISPATCHED" ? "#52c41a" : "#4232d9",
                 color: "#fff",
                 padding: "6px 14px",
                 fontSize: "0.75rem",
@@ -785,9 +844,51 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 borderRadius: "0px",
               }}
             >
-              {order.returnStatus}
+              {order.returnType === "REPLACEMENT"
+                ? (order.replacementStatus === "REPLACEMENT_DISPATCHED" ? "DISPATCHED" : order.replacementStatus === "PICKED_UP" ? "ORIGINAL PICKED UP" : "EXCHANGE REQUESTED")
+                : order.returnStatus}
             </span>
           </div>
+
+          {/* Size Replacement Highlights Banner */}
+          {order.returnType === "REPLACEMENT" && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 12,
+                marginBottom: 16,
+                padding: "12px 16px",
+                background: "#f5f3ff",
+                border: "1px solid #c4b5fd",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: "1.2rem" }}>🔄</span>
+                <div>
+                  <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#6b21a8", textTransform: "uppercase" }}>
+                    Reserved Replacement Size
+                  </div>
+                  <div style={{ fontSize: "0.95rem", fontWeight: 900, color: "#4232d9" }}>
+                    {order.replacementVariantTitle || "Selected Replacement Item"}
+                  </div>
+                </div>
+              </div>
+
+              {order.replacementAwb && (
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "0.72rem", fontWeight: 800, color: "#666", textTransform: "uppercase" }}>
+                    Replacement Shipment AWB
+                  </div>
+                  <div style={{ fontFamily: "monospace", fontWeight: 900, color: "#000", fontSize: "0.9rem" }}>
+                    {order.replacementAwb} ({order.replacementCourierName || "Courier"})
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Doorstep Pickup Verification Banner */}
           <div
@@ -815,7 +916,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
               />
               <span style={{ fontSize: "0.82rem", fontWeight: 800, color: isReturnPickedUp ? "#15803d" : "#b45309" }}>
                 {isReturnPickedUp
-                  ? "✔ PARCEL SUCCESSFULLY PICKED UP FROM CUSTOMER DOORSTEP"
+                  ? "✔ ORIGINAL ITEM COLLECTED FROM YOUR DOORSTEP"
                   : "⏳ PICKUP SCHEDULED — COURIER ARRIVING FOR COLLECTION"}
               </span>
             </div>
@@ -829,7 +930,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16, fontSize: "0.85rem", color: "#333", marginBottom: 16 }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
               <div>
-                Courier: <strong>{order.reverseCourierName || "Shiprocket Reverse"}</strong>
+                Reverse Courier: <strong>{order.reverseCourierName || "Shiprocket Reverse"}</strong>
               </div>
               {order.reverseAwb && (
                 <div>
@@ -874,7 +975,15 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
               lineHeight: 1.5,
             }}
           >
-            <strong>Automated Refund Process:</strong> Once the courier arrives at your address and scans the package pickup, your 100% refund of ₹{parseFloat(order.totalPrice.amount).toLocaleString()} is automatically disbursed back to your original payment method via Razorpay.
+            {order.returnType === "REPLACEMENT" ? (
+              <>
+                <strong>Size Replacement & Exchange Process:</strong> Shiprocket reverse courier will collect the original garment from your address. Once collected and verified, our warehouse will immediately dispatch your replacement size ({order.replacementVariantTitle || "Selected Size"}). Live replacement shipment updates will appear directly on this page.
+              </>
+            ) : (
+              <>
+                <strong>Automated 10-Day Refund Process:</strong> Once the courier arrives at your address and scans the package pickup, your 100% refund of ₹{parseFloat(order.totalPrice.amount).toLocaleString()} is automatically disbursed back to your original payment method via Razorpay.
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1794,86 +1903,378 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         </div>
       )}
 
-      {/* Return Request Modal (7-Day Automated Return Window) */}
+      {/* Return / Replacement Request Modal (10-Day Automated Return & Exchange Window) */}
       {showReturnModal && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.6)",
+            background: "rgba(0,0,0,0.65)",
             zIndex: 1000,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             padding: "20px",
+            overflowY: "auto",
           }}
           onClick={() => setShowReturnModal(false)}
         >
           <div
             style={{
               background: "#fff",
-              maxWidth: 520,
+              maxWidth: 620,
               width: "100%",
+              maxHeight: "90vh",
+              overflowY: "auto",
               padding: "28px",
               borderRadius: "0px",
               border: "2px solid #000",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ fontSize: "1.2rem", fontWeight: 900, textTransform: "uppercase", margin: "0 0 12px" }}>
-              Request 7-Day Return #{order.id}
-            </h3>
-            <p style={{ fontSize: "0.85rem", color: "#555", lineHeight: 1.5, marginBottom: "20px" }}>
-              VAHN provides a 7-day hassle-free return window. Shiprocket reverse pickup will be automatically dispatched to your delivery address. Once the courier scans the package, a 100% refund of ₹{parseFloat(order.totalPrice.amount).toLocaleString()} will be automatically credited to your payment account.
-            </p>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", marginBottom: "6px" }}>
-                Reason for Return *
-              </label>
-              <select
-                value={returnReason}
-                onChange={(e) => setReturnReason(e.target.value)}
+            {/* Modal Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+              <div>
+                <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "#4232d9", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  10-Day Guarantee
+                </span>
+                <h3 style={{ fontSize: "1.25rem", fontWeight: 900, textTransform: "uppercase", margin: "2px 0 0" }}>
+                  Return / Replacement #{order.id}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReturnModal(false)}
                 style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  border: "1px solid #ccc",
-                  borderRadius: "0px",
-                  fontSize: "0.85rem",
-                  outline: "none",
-                  background: "#fff",
+                  background: "none",
+                  border: "none",
+                  fontSize: "1.2rem",
+                  cursor: "pointer",
+                  color: "#000",
+                  padding: "4px 8px",
+                  lineHeight: 1,
                 }}
               >
-                <option value="SIZE_FIT">Size / Fit Issue (Too small / Too large)</option>
-                <option value="DEFECTIVE">Item defective or damaged</option>
-                <option value="QUALITY">Quality not as expected</option>
-                <option value="WRONG_ITEM">Received incorrect product</option>
-                <option value="OTHER">Other Reason</option>
-              </select>
+                ✕
+              </button>
             </div>
 
-            <div style={{ marginBottom: "20px" }}>
-              <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", marginBottom: "6px" }}>
-                Additional Notes
-              </label>
-              <textarea
-                rows={3}
-                placeholder="Describe why you want to return or any specific instructions..."
-                value={returnNotes}
-                onChange={(e) => setReturnNotes(e.target.value)}
+            {/* Segmented Option Selector: Exchange vs Refund */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+              <button
+                type="button"
+                onClick={() => setReturnActionType("REPLACEMENT")}
                 style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  border: "1px solid #ccc",
+                  padding: "14px 12px",
+                  border: returnActionType === "REPLACEMENT" ? "2px solid #4232d9" : "1px solid #ddd",
+                  background: returnActionType === "REPLACEMENT" ? "#f5f3ff" : "#fff",
+                  color: returnActionType === "REPLACEMENT" ? "#4232d9" : "#333",
+                  fontWeight: 900,
+                  fontSize: "0.82rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "-0.01em",
+                  cursor: "pointer",
+                  textAlign: "center",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
                   borderRadius: "0px",
-                  fontSize: "0.85rem",
-                  outline: "none",
-                  resize: "vertical",
+                  transition: "all 0.15s ease",
                 }}
-              />
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  🔄 Exchange Size (Free)
+                </span>
+                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: returnActionType === "REPLACEMENT" ? "#4232d9" : "#777" }}>
+                  Select available replacement size
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReturnActionType("RETURN")}
+                style={{
+                  padding: "14px 12px",
+                  border: returnActionType === "RETURN" ? "2px solid #000" : "1px solid #ddd",
+                  background: returnActionType === "RETURN" ? "#fafafa" : "#fff",
+                  color: returnActionType === "RETURN" ? "#000" : "#333",
+                  fontWeight: 900,
+                  fontSize: "0.82rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "-0.01em",
+                  cursor: "pointer",
+                  textAlign: "center",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  borderRadius: "0px",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  💰 Return for Refund
+                </span>
+                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#777" }}>
+                  100% Refund via Razorpay
+                </span>
+              </button>
             </div>
 
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+            {/* FLOW 1: REPLACEMENT (SIZE EXCHANGE) */}
+            {returnActionType === "REPLACEMENT" && (
+              <div>
+                <div
+                  style={{
+                    background: "#f9f8ff",
+                    border: "1px solid #d9d6fe",
+                    padding: "12px 14px",
+                    marginBottom: "18px",
+                    fontSize: "0.82rem",
+                    color: "#333",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <strong>How Size Replacement Works:</strong> Choose your new size below. Shiprocket reverse pickup will collect the original garment. Once picked up, your replacement piece will be dispatched immediately!
+                </div>
+
+                {loadingExchangeOptions ? (
+                  <div style={{ textAlign: "center", padding: "30px 0" }}>
+                    <div style={{ width: 28, height: 28, border: "2px solid #4232d9", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 10px" }} />
+                    <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#666", textTransform: "uppercase" }}>
+                      Checking Live Size Availability...
+                    </span>
+                  </div>
+                ) : (
+                  <div>
+                    {(exchangeOptions?.items || []).map((item) => (
+                      <div
+                        key={item.item_id}
+                        style={{
+                          border: "1px solid #eee",
+                          padding: "14px",
+                          marginBottom: "18px",
+                          background: "#fff",
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14 }}>
+                          {item.image_url ? (
+                            <Image
+                              src={item.image_url}
+                              alt={item.product_title}
+                              width={48}
+                              height={48}
+                              style={{ objectFit: "cover", border: "1px solid #ddd" }}
+                            />
+                          ) : (
+                            <div style={{ width: 48, height: 48, background: "#f3f4f6", border: "1px solid #ddd" }} />
+                          )}
+                          <div>
+                            <div style={{ fontWeight: 900, fontSize: "0.88rem", textTransform: "uppercase" }}>
+                              {item.product_title}
+                            </div>
+                            <div style={{ fontSize: "0.78rem", color: "#666" }}>
+                              Currently Ordered: <strong>{item.current_variant_title}</strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", marginBottom: 8, color: "#444" }}>
+                          Select New Size for Replacement *
+                        </div>
+
+                        {/* Variants Stock Grid */}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 8 }}>
+                          {item.variants.map((v) => {
+                            const isSelected = selectedVariantId === v.variant_id;
+                            const isCurrent = v.is_current;
+                            const isAvailable = v.is_available && !isCurrent;
+
+                            return (
+                              <button
+                                key={v.variant_id}
+                                type="button"
+                                disabled={!isAvailable}
+                                onClick={() => {
+                                  setSelectedItemId(item.item_id);
+                                  setSelectedVariantId(v.variant_id);
+                                  setSelectedVariantTitle(v.title);
+                                }}
+                                style={{
+                                  padding: "10px 8px",
+                                  border: isSelected ? "2px solid #4232d9" : "1px solid #ccc",
+                                  background: isSelected
+                                    ? "#4232d9"
+                                    : isCurrent
+                                    ? "#f3f4f6"
+                                    : isAvailable
+                                    ? "#fff"
+                                    : "#fafafa",
+                                  color: isSelected ? "#fff" : isAvailable ? "#000" : "#999",
+                                  cursor: isAvailable ? "pointer" : "not-allowed",
+                                  textAlign: "center",
+                                  borderRadius: "0px",
+                                  opacity: isAvailable || isSelected ? 1 : 0.6,
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  transition: "all 0.1s ease",
+                                }}
+                              >
+                                <span style={{ fontWeight: 900, fontSize: "0.85rem" }}>
+                                  {v.size || v.title}
+                                </span>
+
+                                {isCurrent ? (
+                                  <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#666" }}>
+                                    (Current)
+                                  </span>
+                                ) : isAvailable ? (
+                                  <span
+                                    style={{
+                                      fontSize: "0.65rem",
+                                      fontWeight: 800,
+                                      color: isSelected ? "#fff" : "#16a34a",
+                                      textTransform: "uppercase",
+                                    }}
+                                  >
+                                    {isSelected ? "✓ Selected" : "✓ In Stock"}
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      fontSize: "0.62rem",
+                                      fontWeight: 700,
+                                      color: "#dc2626",
+                                      textTransform: "uppercase",
+                                    }}
+                                  >
+                                    ✕ Out of Stock
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {item.variants.some((v) => !v.is_available && !v.is_current) && (
+                          <div style={{ fontSize: "0.72rem", color: "#888", marginTop: 8, fontStyle: "italic" }}>
+                            * Out of stock sizes cannot be selected. If your desired size is unavailable, please choose &ldquo;Return for Refund&rdquo;.
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    <div style={{ marginBottom: "16px" }}>
+                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", marginBottom: "6px" }}>
+                        Reason for Replacement *
+                      </label>
+                      <select
+                        value={returnReason}
+                        onChange={(e) => setReturnReason(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          border: "1px solid #ccc",
+                          borderRadius: "0px",
+                          fontSize: "0.85rem",
+                          outline: "none",
+                          background: "#fff",
+                        }}
+                      >
+                        <option value="SIZE_TOO_SMALL">Size Too Small — Need Larger Size</option>
+                        <option value="SIZE_TOO_LARGE">Size Too Large — Need Smaller Size</option>
+                        <option value="FIT_ISSUE">Fit / Cut Issue</option>
+                        <option value="DEFECTIVE">Defective or Damaged Piece (Need Fresh Piece)</option>
+                        <option value="OTHER">Other Reason</option>
+                      </select>
+                    </div>
+
+                    <div style={{ marginBottom: "20px" }}>
+                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", marginBottom: "6px" }}>
+                        Additional Notes (Optional)
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Any specific delivery instructions or notes for the fulfillment team..."
+                        value={returnNotes}
+                        onChange={(e) => setReturnNotes(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          border: "1px solid #ccc",
+                          borderRadius: "0px",
+                          fontSize: "0.85rem",
+                          outline: "none",
+                          resize: "vertical",
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* FLOW 2: RETURN FOR REFUND */}
+            {returnActionType === "RETURN" && (
+              <div>
+                <p style={{ fontSize: "0.85rem", color: "#555", lineHeight: 1.5, marginBottom: "20px" }}>
+                  VAHN provides a <strong>10-day hassle-free return window</strong>. Shiprocket reverse pickup will be automatically dispatched to your delivery address. Once the courier scans the package at your doorstep, a 100% refund of <strong>₹{parseFloat(order.totalPrice.amount).toLocaleString()}</strong> will be automatically credited to your payment account via Razorpay.
+                </p>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", marginBottom: "6px" }}>
+                    Reason for Return *
+                  </label>
+                  <select
+                    value={returnReason}
+                    onChange={(e) => setReturnReason(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "0px",
+                      fontSize: "0.85rem",
+                      outline: "none",
+                      background: "#fff",
+                    }}
+                  >
+                    <option value="SIZE_FIT">Size / Fit Issue (Too small / Too large)</option>
+                    <option value="DEFECTIVE">Item defective or damaged</option>
+                    <option value="QUALITY">Quality not as expected</option>
+                    <option value="WRONG_ITEM">Received incorrect product</option>
+                    <option value="OTHER">Other Reason</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: "20px" }}>
+                  <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 800, textTransform: "uppercase", marginBottom: "6px" }}>
+                    Additional Notes
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Describe why you want to return or any specific instructions..."
+                    value={returnNotes}
+                    onChange={(e) => setReturnNotes(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "0px",
+                      fontSize: "0.85rem",
+                      outline: "none",
+                      resize: "vertical",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", borderTop: "1px solid #eee", paddingTop: 16 }}>
               <button
                 type="button"
                 onClick={() => setShowReturnModal(false)}
@@ -1890,23 +2291,32 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
               >
                 Cancel
               </button>
+
               <button
                 type="button"
                 onClick={handleRequestReturn}
-                disabled={submittingAction}
+                disabled={submittingAction || (returnActionType === "REPLACEMENT" && !selectedVariantId)}
                 style={{
-                  background: "#4232d9",
+                  background: returnActionType === "REPLACEMENT" ? "#4232d9" : "#000",
                   color: "#fff",
                   border: "none",
-                  padding: "10px 20px",
-                  fontSize: "0.8rem",
+                  padding: "12px 24px",
+                  fontSize: "0.82rem",
                   fontWeight: 900,
                   textTransform: "uppercase",
-                  cursor: submittingAction ? "not-allowed" : "pointer",
+                  cursor: submittingAction || (returnActionType === "REPLACEMENT" && !selectedVariantId) ? "not-allowed" : "pointer",
                   borderRadius: "0px",
+                  opacity: returnActionType === "REPLACEMENT" && !selectedVariantId ? 0.6 : 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
                 }}
               >
-                {submittingAction ? "Scheduling Pickup..." : "Schedule Reverse Pickup →"}
+                {submittingAction
+                  ? "Processing..."
+                  : returnActionType === "REPLACEMENT"
+                  ? `Confirm Size Exchange (${selectedVariantTitle || "Select Size"}) →`
+                  : "Schedule Pickup & 100% Refund →"}
               </button>
             </div>
           </div>

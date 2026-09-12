@@ -12,7 +12,7 @@ const STATUS_FILTERS = [
   { label: "Processing", status: "PROCESSING", returnStatus: "" },
   { label: "Shipped", status: "SHIPPED", returnStatus: "" },
   { label: "Delivered", status: "DELIVERED", returnStatus: "" },
-  { label: "Returns", status: "", returnStatus: "RETURN_REQUESTED" },
+  { label: "Returns & Exchanges", status: "", returnStatus: "ACTIVE" },
   { label: "Cancelled / Refunded", status: "CANCELLED", returnStatus: "" },
 ];
 
@@ -212,20 +212,30 @@ export default function AdminOrdersPage() {
                     </td>
                     <td>
                       {order.return_status && order.return_status !== "NONE" ? (
-                        <span
-                          style={{
-                            display: "inline-block",
-                            background: order.return_status === "REFUNDED" ? "#f6ffed" : "#fff7e6",
-                            color: order.return_status === "REFUNDED" ? "#389e0d" : "#d46b08",
-                            border: `1px solid ${order.return_status === "REFUNDED" ? "#b7eb8f" : "#ffd591"}`,
-                            fontSize: "0.7rem",
-                            fontWeight: 800,
-                            padding: "2px 6px",
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          {order.return_status}
-                        </span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              background: order.return_type === "REPLACEMENT" ? "#faf5ff" : order.return_status === "REFUNDED" ? "#f6ffed" : "#fff7e6",
+                              color: order.return_type === "REPLACEMENT" ? "#6b21a8" : order.return_status === "REFUNDED" ? "#389e0d" : "#d46b08",
+                              border: `1px solid ${order.return_type === "REPLACEMENT" ? "#d8b4fe" : order.return_status === "REFUNDED" ? "#b7eb8f" : "#ffd591"}`,
+                              fontSize: "0.7rem",
+                              fontWeight: 800,
+                              padding: "2px 6px",
+                              textTransform: "uppercase",
+                              width: "fit-content",
+                            }}
+                          >
+                            {order.return_type === "REPLACEMENT"
+                              ? (order.replacement_status === "REPLACEMENT_DISPATCHED" ? "EXCHANGE DISPATCHED" : "EXCHANGE")
+                              : order.return_status}
+                          </span>
+                          {order.return_type === "REPLACEMENT" && order.replacement_variant_title && (
+                            <span style={{ fontSize: "0.68rem", color: "#7c3aed", fontWeight: 700 }}>
+                              → {order.replacement_variant_title}
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span style={{ color: "#aaa", fontSize: "0.8rem" }}>—</span>
                       )}

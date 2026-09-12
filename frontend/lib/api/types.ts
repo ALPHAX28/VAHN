@@ -442,12 +442,45 @@ export interface OrderDetail {
   } | null;
   deliveredAt?: string | null;
   returnStatus?: string;
+  returnType?: string | null;
   returnReason?: string | null;
   returnNotes?: string | null;
   returnRequestedAt?: string | null;
   reverseAwb?: string | null;
   reverseCourierName?: string | null;
+  replacementVariantId?: string | null;
+  replacementVariantTitle?: string | null;
+  replacementStatus?: string | null;
+  replacementShipmentId?: string | null;
+  replacementAwb?: string | null;
+  replacementCourierName?: string | null;
+  replacementTrackingUrl?: string | null;
   items: OrderItem[];
+}
+
+export interface ExchangeVariantOption {
+  variant_id: string;
+  title: string;
+  size: string;
+  price: number;
+  inventory_quantity: number;
+  is_available: boolean;
+  is_current: boolean;
+}
+
+export interface ExchangeItemOption {
+  item_id: string;
+  product_title: string;
+  current_variant_title: string;
+  current_variant_id?: string | null;
+  image_url?: string | null;
+  quantity: number;
+  variants: ExchangeVariantOption[];
+}
+
+export interface OrderExchangeOptionsResponse {
+  order_id: string;
+  items: ExchangeItemOption[];
 }
 
 export interface NotificationBanner {

@@ -362,18 +362,34 @@ export async function cancelOrder(orderId: string, reason?: string, token?: stri
   });
 }
 
-export async function requestOrderReturn(
+export async function getOrderExchangeOptions(
   orderId: string,
-  reason: string,
-  notes?: string,
   token?: string
-): Promise<{ message: string; order_id: string; return_status: string; reverse_awb?: string; reverse_courier_name?: string }> {
+): Promise<import('./types').OrderExchangeOptionsResponse> {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  return fetchAPI<{ message: string; order_id: string; return_status: string; reverse_awb?: string; reverse_courier_name?: string }>(`/orders/${orderId}/return`, {
+  return fetchAPI<import('./types').OrderExchangeOptionsResponse>(`/orders/${orderId}/exchange-options`, {
+    headers,
+  });
+}
+
+export async function requestOrderReturn(
+  orderId: string,
+  payload: {
+    action?: "RETURN" | "REPLACEMENT";
+    reason: string;
+    notes?: string;
+    order_item_id?: string;
+    replacement_variant_id?: string;
+  },
+  token?: string
+): Promise<import('./types').OrderDetail> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<import('./types').OrderDetail>(`/orders/${orderId}/return`, {
     method: 'POST',
     headers,
-    body: { reason, notes },
+    body: payload,
   });
 }
 

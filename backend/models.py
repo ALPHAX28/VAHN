@@ -245,7 +245,8 @@ class Order(Base):
     tracking_data = Column(JSON, default=dict)
     delivered_at = Column(DateTime, nullable=True)
 
-    # 7-Day Returns & Reverse Logistics
+    # 10-Day Returns, Exchanges & Reverse Logistics
+    return_type = Column(String, default="RETURN", nullable=True)  # RETURN | REPLACEMENT
     return_status = Column(String, default="NONE", nullable=False)  # NONE | REQUESTED | PICKUP_SCHEDULED | PICKED_UP | REFUND_INITIATED | COMPLETED
     return_reason = Column(Text, nullable=True)
     return_notes = Column(Text, nullable=True)
@@ -254,6 +255,15 @@ class Order(Base):
     reverse_awb = Column(String, nullable=True, index=True)
     reverse_courier_name = Column(String, nullable=True)
     reverse_tracking_data = Column(JSON, default=dict)
+
+    # Size Replacement / Exchange Logistics
+    replacement_variant_id = Column(String, nullable=True)
+    replacement_variant_title = Column(String, nullable=True)
+    replacement_status = Column(String, default="NONE", nullable=False)  # NONE | REQUESTED | PICKUP_SCHEDULED | PICKED_UP | REPLACEMENT_DISPATCHED | COMPLETED
+    replacement_shipment_id = Column(String, nullable=True)
+    replacement_awb = Column(String, nullable=True, index=True)
+    replacement_courier_name = Column(String, nullable=True)
+    replacement_tracking_url = Column(String, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

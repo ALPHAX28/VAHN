@@ -855,11 +855,19 @@ def build_order_schema(order: models.Order) -> schemas.OrderSchema:
         trackingData=order.tracking_data or {},
         deliveredAt=order.delivered_at.strftime("%b %d, %Y") if order.delivered_at else None,
         returnStatus=order.return_status or "NONE",
+        returnType=order.return_type or "RETURN",
         returnReason=order.return_reason,
         returnNotes=order.return_notes,
         reverseAwb=order.reverse_awb,
         reverseCourierName=order.reverse_courier_name,
-        reverseTrackingData=order.reverse_tracking_data or {}
+        reverseTrackingData=order.reverse_tracking_data or {},
+        replacementVariantId=order.replacement_variant_id,
+        replacementVariantTitle=order.replacement_variant_title,
+        replacementStatus=order.replacement_status or "NONE",
+        replacementShipmentId=order.replacement_shipment_id,
+        replacementAwb=order.replacement_awb,
+        replacementCourierName=order.replacement_courier_name,
+        replacementTrackingUrl=order.replacement_tracking_url
     )
 
 # ============================================================
@@ -1861,7 +1869,7 @@ def cancel_order(
         raise HTTPException(status_code=403, detail="Unauthorized.")
 
     if order.status != "PROCESSING" or order.shipping_status in ("PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"):
-        raise HTTPException(status_code=400, detail="Order has already been dispatched with courier and cannot be self-cancelled. You may request a return within 7 days of delivery.")
+        raise HTTPException(status_code=400, detail="Order has already been dispatched with courier and cannot be self-cancelled. You may request a return or exchange within 10 days of delivery.")
 
     # Cancel courier shipment in Shiprocket
     shiprocket_service.cancel_shipment(awb_code=order.shiprocket_awb, order_id=order.shiprocket_order_id)
@@ -2065,7 +2073,74 @@ def cancel_pending_order(
 
     return {"success": True, "message": "Order cancelled successfully.", "order_id": order_id}
 
-# 8. Customer 7-Day Return Request (Automated Reverse Pickup Scheduling)
+# 8. Customer 10-Day Return & Replacement / Exchange Options
+@app.get("/api/orders/{order_id}/exchange-options", response_model=schemas.OrderExchangeOptionsResponse)
+def get_order_exchange_options(
+    order_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    if order.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Unauthorized.")
+
+    items_res = []
+    for item in (order.items or []):
+        product_id = None
+        current_var = None
+        if item.variant_id:
+            current_var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+            if current_var:
+                product_id = current_var.product_id
+
+        # Find all sibling variants of the product
+        sibling_variants = []
+        if product_id:
+            sibling_variants = db.query(models.ProductVariant).filter_by(product_id=product_id).all()
+        elif item.product_title:
+            prod = db.query(models.Product).options(selectinload(models.Product.variants)).filter_by(title=item.product_title).first()
+            if prod:
+                sibling_variants = prod.variants or []
+
+        variant_opts = []
+        for v in sibling_variants:
+            size_label = v.title
+            if v.selected_options and isinstance(v.selected_options, list):
+                for opt in v.selected_options:
+                    if isinstance(opt, dict) and opt.get("name", "").lower() == "size":
+                        size_label = opt.get("value", v.title)
+                        break
+
+            in_stock = bool(v.available_for_sale and (v.inventory_quantity or 0) > 0)
+            is_curr = bool(item.variant_id and v.id == item.variant_id)
+
+            variant_opts.append(schemas.ExchangeVariantOption(
+                variant_id=v.id,
+                title=v.title,
+                size=size_label,
+                price=v.price_amount,
+                inventory_quantity=v.inventory_quantity or 0,
+                is_available=in_stock,
+                is_current=is_curr
+            ))
+
+        items_res.append(schemas.ExchangeItemOption(
+            item_id=item.id,
+            product_title=item.product_title,
+            current_variant_title=item.variant_title,
+            current_variant_id=item.variant_id,
+            image_url=item.image_url,
+            quantity=item.quantity,
+            variants=variant_opts
+        ))
+
+    return schemas.OrderExchangeOptionsResponse(
+        order_id=order.id,
+        items=items_res
+    )
+
 @app.post("/api/orders/{order_id}/return", response_model=schemas.OrderSchema)
 def request_order_return(
     order_id: str,
@@ -2081,18 +2156,49 @@ def request_order_return(
         raise HTTPException(status_code=403, detail="Unauthorized.")
 
     if order.status != "DELIVERED":
-        raise HTTPException(status_code=400, detail="Returns can only be requested after the order has been delivered.")
+        raise HTTPException(status_code=400, detail="Returns or exchanges can only be requested after the order has been delivered.")
 
-    # 7-day return window validation
+    # 10-day return & exchange window validation
     delivered_time = order.delivered_at or order.updated_at or order.created_at
-    if (datetime.utcnow() - delivered_time).days > 7:
-        raise HTTPException(status_code=400, detail="The 7-day return window for this order has expired.")
+    if (datetime.utcnow() - delivered_time).days > 10:
+        raise HTTPException(status_code=400, detail="The 10-day return and exchange window for this order has expired.")
 
     if order.return_status and order.return_status != "NONE":
-        raise HTTPException(status_code=400, detail=f"A return has already been requested for this order (Status: {order.return_status}).")
+        raise HTTPException(status_code=400, detail=f"A return or exchange has already been requested for this order (Status: {order.return_status}).")
+
+    is_replacement = (payload.action or "").upper() == "REPLACEMENT"
+
+    if is_replacement:
+        if not payload.replacement_variant_id:
+            raise HTTPException(status_code=400, detail="Please select a replacement size/variant.")
+
+        rep_variant = db.query(models.ProductVariant).filter_by(id=payload.replacement_variant_id).first()
+        if not rep_variant:
+            raise HTTPException(status_code=404, detail="Selected replacement variant not found.")
+
+        if not rep_variant.available_for_sale or (rep_variant.inventory_quantity or 0) <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Selected size ({rep_variant.title}) is currently out of stock. Please select another available size or request a return for refund."
+            )
+
+        # Decrement stock for the replacement item
+        rep_variant.inventory_quantity = max(0, (rep_variant.inventory_quantity or 0) - 1)
+
+        order.return_type = "REPLACEMENT"
+        order.replacement_variant_id = rep_variant.id
+        order.replacement_variant_title = rep_variant.title
+        order.replacement_status = "PICKUP_SCHEDULED"
+        pickup_reason = f"Size Replacement: Exchange for {rep_variant.title} - {payload.reason}"
+        scan_activity = f"Replacement Requested (Exchange for {rep_variant.title}) & Reverse Pickup Scheduled"
+    else:
+        order.return_type = "RETURN"
+        order.replacement_status = "NONE"
+        pickup_reason = payload.reason
+        scan_activity = f"Return Requested ({payload.reason}) & Reverse Pickup Scheduled"
 
     # Automated Reverse Pickup Creation on Shiprocket
-    rev_res = shiprocket_service.create_reverse_pickup(order, return_reason=payload.reason)
+    rev_res = shiprocket_service.create_reverse_pickup(order, return_reason=pickup_reason)
 
     order.return_status = "PICKUP_SCHEDULED"
     order.return_reason = payload.reason
@@ -2108,7 +2214,7 @@ def request_order_return(
         "scans": [
             {
                 "date": datetime.utcnow().strftime("%b %d, %Y - %I:%M %p"),
-                "activity": f"Return Requested ({payload.reason}) & Reverse Pickup Scheduled",
+                "activity": scan_activity,
                 "location": "Customer Address"
             }
         ]
@@ -2180,38 +2286,53 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
             db.commit()
             return {"status": "forward_updated"}
 
-        # Check reverse shipment (AUTOMATED REFUND TRIGGER ON PICKUP)
+        # Check reverse shipment (AUTOMATED REFUND OR REPLACEMENT TRIGGER ON PICKUP)
         rev_order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(reverse_awb=awb).first()
         if rev_order:
-            if current_status in ("PICKED_UP", "IN_TRANSIT") and rev_order.refund_status != "REFUNDED":
-                # Courier scanned parcel from customer -> Auto disburse refund immediately!
-                rfnd_id = None
-                if rev_order.razorpay_payment_id:
-                    try:
-                        rfnd_res = razorpay_service.initiate_refund(
-                            payment_id=rev_order.razorpay_payment_id,
-                            amount_in_inr=rev_order.total_amount,
-                            reason_note="Automated refund upon reverse pickup scan"
-                        )
-                        rfnd_id = rfnd_res.get("id")
-                    except Exception as e:
-                        logger.error(f"Error disbursing auto refund on pickup: {e}")
+            if current_status in ("PICKED_UP", "IN_TRANSIT"):
+                if rev_order.return_type == "REPLACEMENT":
+                    rev_order.return_status = "PICKED_UP"
+                    if rev_order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                        rev_order.replacement_status = "PICKED_UP"
 
-                rev_order.refund_status = "REFUNDED"
-                rev_order.refund_amount = rev_order.total_amount
-                rev_order.refunded_at = datetime.utcnow()
-                rev_order.razorpay_refund_id = rfnd_id
-                rev_order.return_status = "REFUND_INITIATED"
+                    # Restock returned inventory
+                    for item in (rev_order.items or []):
+                        if item.variant_id:
+                            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+                            if var:
+                                var.inventory_quantity += item.quantity
 
-                # Restock returned inventory
-                for item in (rev_order.items or []):
-                    if item.variant_id:
-                        var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
-                        if var:
-                            var.inventory_quantity += item.quantity
+                    db.commit()
+                    return {"status": "reverse_picked_up_replacement_ready"}
+                elif rev_order.refund_status != "REFUNDED":
+                    # Courier scanned parcel from customer -> Auto disburse refund immediately!
+                    rfnd_id = None
+                    if rev_order.razorpay_payment_id:
+                        try:
+                            rfnd_res = razorpay_service.initiate_refund(
+                                payment_id=rev_order.razorpay_payment_id,
+                                amount_in_inr=rev_order.total_amount,
+                                reason_note="Automated refund upon reverse pickup scan"
+                            )
+                            rfnd_id = rfnd_res.get("id")
+                        except Exception as e:
+                            logger.error(f"Error disbursing auto refund on pickup: {e}")
 
-                db.commit()
-                return {"status": "reverse_picked_up_refunded"}
+                    rev_order.refund_status = "REFUNDED"
+                    rev_order.refund_amount = rev_order.total_amount
+                    rev_order.refunded_at = datetime.utcnow()
+                    rev_order.razorpay_refund_id = rfnd_id
+                    rev_order.return_status = "REFUND_INITIATED"
+
+                    # Restock returned inventory
+                    for item in (rev_order.items or []):
+                        if item.variant_id:
+                            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+                            if var:
+                                var.inventory_quantity += item.quantity
+
+                    db.commit()
+                    return {"status": "reverse_picked_up_refunded"}
 
     except Exception as e:
         logger.error(f"Error in Shiprocket webhook: {e}")
@@ -2250,8 +2371,13 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
             rev_track = shiprocket_service.track_awb(order.reverse_awb)
             if rev_track and isinstance(rev_track, dict):
                 order.reverse_tracking_data = rev_track
-                if rev_track.get("is_picked_up") and order.return_status == "REQUESTED":
-                    order.return_status = "PICKED_UP"
+                if rev_track.get("is_picked_up"):
+                    if order.return_type == "REPLACEMENT":
+                        if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                            order.replacement_status = "PICKED_UP"
+                        order.return_status = "PICKED_UP"
+                    elif order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                        order.return_status = "PICKED_UP"
                 updated = True
         except Exception as e:
             logger.warning(f"Failed to sync reverse tracking for order {order.id}: {e}")
@@ -3020,7 +3146,10 @@ def admin_list_orders(
     if shipping_status:
         q = q.filter(models.Order.shipping_status == shipping_status)
     if return_status:
-        q = q.filter(models.Order.return_status == return_status)
+        if return_status in ("ANY", "ACTIVE", "RETURN_REQUESTED"):
+            q = q.filter(models.Order.return_status.isnot(None), models.Order.return_status != "NONE")
+        else:
+            q = q.filter(models.Order.return_status == return_status)
     if payment_status:
         q = q.filter(models.Order.payment_status == payment_status)
     if search:
@@ -3055,6 +3184,9 @@ def admin_list_orders(
             shipping_status=o.shipping_status or "UNFULFILLED",
             shiprocket_awb=o.shiprocket_awb,
             return_status=o.return_status or "NONE",
+            return_type=o.return_type or "RETURN",
+            replacement_status=o.replacement_status or "NONE",
+            replacement_variant_title=o.replacement_variant_title,
             items_count=len(o.items or [])
         ) for o in orders
     ]
@@ -3311,6 +3443,7 @@ def _admin_order_detail(order: models.Order) -> schemas.AdminOrderSchema:
         tracking_data=order.tracking_data,
         delivered_at=order.delivered_at.strftime("%Y-%m-%dT%H:%M:%S") if order.delivered_at else None,
         return_status=order.return_status or "NONE",
+        return_type=order.return_type or "RETURN",
         return_reason=order.return_reason,
         return_notes=order.return_notes,
         return_requested_at=order.return_requested_at.strftime("%Y-%m-%dT%H:%M:%S") if order.return_requested_at else None,
@@ -3318,6 +3451,13 @@ def _admin_order_detail(order: models.Order) -> schemas.AdminOrderSchema:
         reverse_awb=order.reverse_awb,
         reverse_courier_name=order.reverse_courier_name,
         reverse_tracking_data=order.reverse_tracking_data,
+        replacement_variant_id=order.replacement_variant_id,
+        replacement_variant_title=order.replacement_variant_title,
+        replacement_status=order.replacement_status or "NONE",
+        replacement_shipment_id=order.replacement_shipment_id,
+        replacement_awb=order.replacement_awb,
+        replacement_courier_name=order.replacement_courier_name,
+        replacement_tracking_url=order.replacement_tracking_url,
         items=[
             schemas.AdminOrderItemSchema(
                 id=i.id,
@@ -3330,6 +3470,32 @@ def _admin_order_detail(order: models.Order) -> schemas.AdminOrderSchema:
             ) for i in (order.items or [])
         ]
     )
+
+@app.post("/api/admin/orders/{order_id}/dispatch-replacement", response_model=schemas.AdminOrderSchema)
+def dispatch_order_replacement(
+    order_id: str,
+    payload: schemas.AdminDispatchReplacementRequest,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+
+    if order.return_type != "REPLACEMENT":
+        raise HTTPException(status_code=400, detail="This order is not a size exchange / replacement request.")
+
+    order.replacement_status = "REPLACEMENT_DISPATCHED"
+    if payload.awb_code:
+        order.replacement_awb = payload.awb_code
+    if payload.courier_name:
+        order.replacement_courier_name = payload.courier_name
+    if payload.tracking_url:
+        order.replacement_tracking_url = payload.tracking_url
+
+    db.commit()
+    db.refresh(order)
+    return _admin_order_detail(order)
 
 
 # ============================================================

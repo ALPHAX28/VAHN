@@ -10,6 +10,7 @@ import {
   shipAdminOrder,
   getAdminOrderShippingLabel,
   refundAdminOrder,
+  dispatchAdminOrderReplacement,
   type AdminOrder,
 } from "@/lib/api/admin";
 import AdminBadge from "@/components/admin/AdminBadge";
@@ -46,6 +47,33 @@ export default function AdminOrderDetailPage() {
   const [refundReason, setRefundReason] = useState("");
   const [restockItems, setRestockItems] = useState(true);
   const [processingRefund, setProcessingRefund] = useState(false);
+  const [dispatchingReplacement, setDispatchingReplacement] = useState(false);
+  const [replacementAwbInput, setReplacementAwbInput] = useState("");
+  const [replacementCourierInput, setReplacementCourierInput] = useState("Blue Dart Air");
+
+  async function handleDispatchReplacement() {
+    if (!adminToken || !order) return;
+    if (!replacementAwbInput) {
+      setError("Please enter an AWB tracking code for the replacement parcel.");
+      return;
+    }
+    setDispatchingReplacement(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await dispatchAdminOrderReplacement(adminToken, order.id, {
+        awb_code: replacementAwbInput,
+        courier_name: replacementCourierInput,
+      });
+      setOrder(res);
+      setSuccess(`Replacement shipment marked as dispatched (AWB: ${replacementAwbInput})!`);
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (e: any) {
+      setError(e?.message || "Failed to dispatch replacement.");
+    } finally {
+      setDispatchingReplacement(false);
+    }
+  }
 
   async function load() {
     if (!adminToken) return;
@@ -537,13 +565,21 @@ export default function AdminOrderDetailPage() {
             const latestReverseScan =
               reverseScans.length > 0 ? reverseScans[reverseScans.length - 1] : null;
 
+            const isReplacement = order.return_type === "REPLACEMENT";
+
             return (
-              <div className="admin-card" style={{ borderLeft: "4px solid #fa8c16", background: "#fffaf0" }}>
+              <div
+                className="admin-card"
+                style={{
+                  borderLeft: isReplacement ? "4px solid #7c3aed" : "4px solid #fa8c16",
+                  background: isReplacement ? "#faf5ff" : "#fffaf0",
+                }}
+              >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <PackageIcon size={20} color="#d46b08" />
-                    <h2 className="admin-card-title" style={{ margin: 0, textTransform: "uppercase", color: "#d46b08" }}>
-                      Reverse Return Logistics
+                    <PackageIcon size={20} color={isReplacement ? "#6b21a8" : "#d46b08"} />
+                    <h2 className="admin-card-title" style={{ margin: 0, textTransform: "uppercase", color: isReplacement ? "#6b21a8" : "#d46b08" }}>
+                      {isReplacement ? "Size Replacement & Exchange Logistics" : "Reverse Return Logistics"}
                     </h2>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -554,7 +590,7 @@ export default function AdminOrderDetailPage() {
                         disabled={refreshingTracking}
                         style={{
                           background: "#fff",
-                          border: "1px solid #ffd591",
+                          border: `1px solid ${isReplacement ? "#d8b4fe" : "#ffd591"}`,
                           padding: "5px 12px",
                           fontSize: "0.75rem",
                           fontWeight: 700,
@@ -568,7 +604,7 @@ export default function AdminOrderDetailPage() {
                     )}
                     <span
                       style={{
-                        background: order.return_status === "REFUNDED" ? "#52c41a" : "#fa8c16",
+                        background: order.return_status === "REFUNDED" || order.replacement_status === "REPLACEMENT_DISPATCHED" ? "#52c41a" : isReplacement ? "#7c3aed" : "#fa8c16",
                         color: "#fff",
                         padding: "5px 12px",
                         fontSize: "0.72rem",
@@ -576,10 +612,53 @@ export default function AdminOrderDetailPage() {
                         textTransform: "uppercase",
                       }}
                     >
-                      {order.return_status}
+                      {isReplacement
+                        ? (order.replacement_status === "REPLACEMENT_DISPATCHED" ? "REPLACEMENT DISPATCHED" : order.replacement_status === "PICKED_UP" ? "ORIGINAL PICKED UP" : "EXCHANGE REQUESTED")
+                        : order.return_status}
                     </span>
                   </div>
                 </div>
+
+                {/* REPLACEMENT VARIANT SUMMARY (IF EXCHANGE) */}
+                {isReplacement && (
+                  <div
+                    style={{
+                      background: "#f3e8ff",
+                      border: "1px solid #d8b4fe",
+                      padding: "12px 16px",
+                      marginBottom: 16,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: 12,
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "#6b21a8", textTransform: "uppercase" }}>
+                        Requested Replacement Size
+                      </span>
+                      <div style={{ fontSize: "1.05rem", fontWeight: 900, color: "#581c87" }}>
+                        {order.replacement_variant_title || "New Size / Alternative Variant"}
+                      </div>
+                    </div>
+
+                    {order.replacement_awb ? (
+                      <div style={{ textAlign: "right" }}>
+                        <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "#6b21a8", textTransform: "uppercase" }}>
+                          Replacement Dispatch AWB
+                        </span>
+                        <div style={{ fontFamily: "monospace", fontWeight: 900, color: "#111", fontSize: "0.95rem" }}>
+                          {order.replacement_awb} ({order.replacement_courier_name || "Courier"})
+                        </div>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#7c3aed", background: "#fff", padding: "4px 10px", border: "1px solid #d8b4fe" }}>
+                        Awaiting Replacement Dispatch
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* CUSTOMER PICKUP VERIFICATION BANNER */}
                 <div
@@ -612,15 +691,22 @@ export default function AdminOrderDetailPage() {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: "0.88rem", fontWeight: 900, color: isPickedUpFromCustomer ? "#237804" : "#ad6800", textTransform: "uppercase" }}>
-                      {isPickedUpFromCustomer ? "✔ Parcel Successfully Picked Up from Customer" : "⏳ Reverse Pickup Scheduled — Awaiting Customer Handover"}
+                      {isPickedUpFromCustomer
+                        ? (isReplacement ? "✔ Original Item Collected from Customer — Ready to Dispatch Replacement" : "✔ Parcel Successfully Picked Up from Customer")
+                        : (isReplacement ? "⏳ Reverse Pickup Scheduled — Awaiting Original Item Collection" : "⏳ Reverse Pickup Scheduled — Awaiting Customer Handover")}
                     </div>
                     <div style={{ fontSize: "0.8rem", color: "#444", marginTop: 3 }}>
                       {isPickedUpFromCustomer ? (
                         <>
-                          Physical parcel was collected at customer doorstep and verified by <strong>{order.reverse_courier_name || "Reverse Courier"}</strong>.
-                          {order.refund_status === "REFUNDED" && (
+                          Physical original item was collected at customer doorstep and verified by <strong>{order.reverse_courier_name || "Reverse Courier"}</strong>.
+                          {!isReplacement && order.refund_status === "REFUNDED" && (
                             <span style={{ color: "#15803d", fontWeight: 800, display: "block", marginTop: 2 }}>
                               ✓ 100% Refund of ₹{(order.refund_amount || order.total_amount).toLocaleString("en-IN")} automatically disbursed via Razorpay.
+                            </span>
+                          )}
+                          {isReplacement && (
+                            <span style={{ color: "#6b21a8", fontWeight: 800, display: "block", marginTop: 2 }}>
+                              ✓ Doorstep handover complete. You can now dispatch the replacement parcel ({order.replacement_variant_title}) below.
                             </span>
                           )}
                         </>
@@ -632,6 +718,55 @@ export default function AdminOrderDetailPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* DISPATCH REPLACEMENT INPUT (IF EXCHANGE NOT YET DISPATCHED) */}
+                {isReplacement && order.replacement_status !== "REPLACEMENT_DISPATCHED" && (
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: "1px solid #d8b4fe",
+                      padding: "16px 18px",
+                      marginBottom: 16,
+                    }}
+                  >
+                    <div style={{ fontSize: "0.82rem", fontWeight: 900, textTransform: "uppercase", color: "#6b21a8", marginBottom: 8 }}>
+                      Dispatch Replacement Package ({order.replacement_variant_title})
+                    </div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                      <input
+                        type="text"
+                        placeholder="Courier Partner"
+                        value={replacementCourierInput}
+                        onChange={(e) => setReplacementCourierInput(e.target.value)}
+                        style={{ padding: "8px 12px", border: "1px solid #ccc", fontSize: "0.82rem", width: 180 }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Enter Replacement Shipment AWB"
+                        value={replacementAwbInput}
+                        onChange={(e) => setReplacementAwbInput(e.target.value)}
+                        style={{ padding: "8px 12px", border: "1px solid #ccc", fontSize: "0.82rem", flex: 1, minWidth: 200 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleDispatchReplacement}
+                        disabled={dispatchingReplacement}
+                        style={{
+                          background: "#7c3aed",
+                          color: "#fff",
+                          border: "none",
+                          padding: "9px 18px",
+                          fontWeight: 900,
+                          fontSize: "0.8rem",
+                          cursor: dispatchingReplacement ? "not-allowed" : "pointer",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {dispatchingReplacement ? "Saving..." : "Mark Dispatched →"}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, fontSize: "0.85rem", marginBottom: 16 }}>
                   <div>
@@ -782,8 +917,16 @@ export default function AdminOrderDetailPage() {
                   </div>
                 )}
 
-                <div style={{ fontSize: "0.75rem", color: "#873800", borderTop: "1px solid #ffd591", paddingTop: 10 }}>
-                  <strong>Automated Refund Flow:</strong> When the courier confirms &ldquo;PICKED_UP&rdquo; at the customer doorstep, Shiprocket notifies our webhook and automatically disburses the 100% Razorpay refund immediately.
+                <div style={{ fontSize: "0.75rem", color: isReplacement ? "#6b21a8" : "#873800", borderTop: `1px solid ${isReplacement ? "#d8b4fe" : "#ffd591"}`, paddingTop: 10 }}>
+                  {isReplacement ? (
+                    <>
+                      <strong>Automated Exchange Flow:</strong> When the courier confirms &ldquo;PICKED_UP&rdquo; at the customer doorstep, our webhook automatically updates the status to &ldquo;PICKED_UP&rdquo; so you can dispatch the replacement unit. <strong>No monetary refund is disbursed.</strong>
+                    </>
+                  ) : (
+                    <>
+                      <strong>Automated Refund Flow:</strong> When the courier confirms &ldquo;PICKED_UP&rdquo; at the customer doorstep, Shiprocket notifies our webhook and automatically disburses the 100% Razorpay refund immediately.
+                    </>
+                  )}
                 </div>
               </div>
             );

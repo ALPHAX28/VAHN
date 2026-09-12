@@ -891,7 +891,7 @@ export default function CheckoutPage() {
             color: "#888",
           }}
         >
-          7-Day Returns • Automated Shiprocket Reverse Logistics
+          10-Day Returns & Exchanges • Automated Shiprocket Reverse Logistics
         </div>
       </div>
 

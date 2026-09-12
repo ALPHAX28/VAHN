@@ -604,9 +604,39 @@ class OrderCancelRequest(BaseModel):
     reason: Optional[str] = "Customer requested cancellation"
 
 class OrderReturnRequest(BaseModel):
+    action: Optional[str] = "RETURN"  # "RETURN" or "REPLACEMENT"
     reason: str
     notes: Optional[str] = None
     pickup_address: Optional[dict] = None
+    order_item_id: Optional[str] = None
+    replacement_variant_id: Optional[str] = None
+
+class ExchangeVariantOption(BaseModel):
+    variant_id: str
+    title: str
+    size: str
+    price: float
+    inventory_quantity: int
+    is_available: bool
+    is_current: bool
+
+class ExchangeItemOption(BaseModel):
+    item_id: str
+    product_title: str
+    current_variant_title: str
+    current_variant_id: Optional[str] = None
+    image_url: Optional[str] = None
+    quantity: int
+    variants: List[ExchangeVariantOption]
+
+class OrderExchangeOptionsResponse(BaseModel):
+    order_id: str
+    items: List[ExchangeItemOption]
+
+class AdminDispatchReplacementRequest(BaseModel):
+    awb_code: Optional[str] = None
+    courier_name: Optional[str] = None
+    tracking_url: Optional[str] = None
 
 class RazorpayRecordFailureRequest(BaseModel):
     cart_id: Optional[str] = None
@@ -712,11 +742,19 @@ class OrderSchema(BaseModel):
     trackingData: Optional[dict] = None
     deliveredAt: Optional[str] = None
     returnStatus: Optional[str] = None
+    returnType: Optional[str] = "RETURN"
     returnReason: Optional[str] = None
     returnNotes: Optional[str] = None
     reverseAwb: Optional[str] = None
     reverseCourierName: Optional[str] = None
     reverseTrackingData: Optional[dict] = None
+    replacementVariantId: Optional[str] = None
+    replacementVariantTitle: Optional[str] = None
+    replacementStatus: Optional[str] = "NONE"
+    replacementShipmentId: Optional[str] = None
+    replacementAwb: Optional[str] = None
+    replacementCourierName: Optional[str] = None
+    replacementTrackingUrl: Optional[str] = None
 
 # ============================================================
 # Admin Auth Schemas
@@ -1045,6 +1083,7 @@ class AdminOrderSchema(BaseModel):
     tracking_data: Optional[dict] = None
     delivered_at: Optional[str] = None
     return_status: str = "NONE"
+    return_type: Optional[str] = "RETURN"
     return_reason: Optional[str] = None
     return_notes: Optional[str] = None
     return_requested_at: Optional[str] = None
@@ -1052,6 +1091,13 @@ class AdminOrderSchema(BaseModel):
     reverse_awb: Optional[str] = None
     reverse_courier_name: Optional[str] = None
     reverse_tracking_data: Optional[dict] = None
+    replacement_variant_id: Optional[str] = None
+    replacement_variant_title: Optional[str] = None
+    replacement_status: str = "NONE"
+    replacement_shipment_id: Optional[str] = None
+    replacement_awb: Optional[str] = None
+    replacement_courier_name: Optional[str] = None
+    replacement_tracking_url: Optional[str] = None
     items: List[AdminOrderItemSchema]
 
 class AdminOrderSummary(BaseModel):
@@ -1070,6 +1116,9 @@ class AdminOrderSummary(BaseModel):
     shipping_status: str = "UNFULFILLED"
     shiprocket_awb: Optional[str] = None
     return_status: str = "NONE"
+    return_type: Optional[str] = "RETURN"
+    replacement_status: Optional[str] = "NONE"
+    replacement_variant_title: Optional[str] = None
     items_count: int
 
 # ============================================================

@@ -106,6 +106,7 @@ export interface AdminOrder {
   tracking_data?: Record<string, any> | null;
   delivered_at?: string | null;
   return_status: string;
+  return_type?: string;
   return_reason?: string | null;
   return_notes?: string | null;
   return_requested_at?: string | null;
@@ -113,6 +114,13 @@ export interface AdminOrder {
   reverse_awb?: string | null;
   reverse_courier_name?: string | null;
   reverse_tracking_data?: Record<string, any> | null;
+  replacement_variant_id?: string | null;
+  replacement_variant_title?: string | null;
+  replacement_status?: string;
+  replacement_shipment_id?: string | null;
+  replacement_awb?: string | null;
+  replacement_courier_name?: string | null;
+  replacement_tracking_url?: string | null;
   items: Array<{
     id: string;
     variant_id: string | null;
@@ -140,6 +148,9 @@ export interface AdminOrderSummary {
   shipping_status?: string;
   shiprocket_awb?: string | null;
   return_status?: string;
+  return_type?: string;
+  replacement_status?: string;
+  replacement_variant_title?: string | null;
   items_count: number;
 }
 
@@ -461,6 +472,16 @@ export const refundAdminOrder = (
     order_id: string;
     refund_status: string;
   }>(`/admin/orders/${orderId}/refund`, token, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const dispatchAdminOrderReplacement = (
+  token: string,
+  orderId: string,
+  data: { awb_code?: string; courier_name?: string; tracking_url?: string }
+) =>
+  adminFetch<AdminOrder>(`/admin/orders/${orderId}/dispatch-replacement`, token, {
     method: "POST",
     body: JSON.stringify(data),
   });
