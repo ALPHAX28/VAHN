@@ -1372,9 +1372,6 @@ def razorpay_verify_payment(
     db.commit()
     db.refresh(order)
 
-    # Dispatch Shiprocket shipment in background
-    background_tasks.add_task(_async_create_shiprocket_order, order.id)
-
     # Send Order Confirmation Email
     if current_user.email:
         background_tasks.add_task(
@@ -1934,9 +1931,6 @@ def magic_checkout_order(
     db.commit()
     db.refresh(order)
 
-    # Dispatch Shiprocket shipment in background
-    background_tasks.add_task(_async_create_shiprocket_order, order.id)
-
     # Send confirmation email
     target_email = cust_email or (user.email if user else None)
     if target_email:
@@ -2260,9 +2254,6 @@ def confirm_retry_payment(
     order.cancellation_reason = None
     db.commit()
     db.refresh(order)
-
-    # Dispatch Shiprocket shipment in background
-    background_tasks.add_task(_async_create_shiprocket_order, order.id)
 
     # Send Order Confirmation Email
     target_email = order.guest_email or (current_user.email if current_user else None)
@@ -3524,6 +3515,20 @@ def admin_update_order_status(
 
     if payload.status:
         order.status = payload.status
+        # If admin changes status to SHIPPED or IN_TRANSIT, automatically trigger dynamic Shiprocket dispatch if not already generated!
+        if payload.status in ["SHIPPED", "IN_TRANSIT"] and not order.shiprocket_awb:
+            try:
+                sr_res = shiprocket_service.create_forward_shipment(order, order.items or [], db=db)
+                if sr_res:
+                    order.shiprocket_order_id = sr_res.get("shiprocket_order_id") or sr_res.get("order_id")
+                    order.shiprocket_shipment_id = sr_res.get("shiprocket_shipment_id") or sr_res.get("shipment_id")
+                    order.shiprocket_awb = sr_res.get("shiprocket_awb") or sr_res.get("awb_code")
+                    order.shiprocket_courier_name = sr_res.get("shiprocket_courier_name") or sr_res.get("courier_name")
+                    order.shipping_status = "SHIPPED"
+                    order.tracking_url = f"/track?q={order.shiprocket_awb}" if order.shiprocket_awb else None
+            except Exception as e:
+                logger.error(f"Shiprocket forward shipment error during status update to {payload.status}: {e}")
+
     if payload.refund_status is not None:
         order.refund_status = payload.refund_status
     if payload.refund_note is not None:
@@ -3553,23 +3558,20 @@ def admin_ship_order(
     if order.status in ["CANCELLED", "REFUNDED"]:
         raise HTTPException(status_code=400, detail=f"Cannot ship order with status {order.status}")
     
-    # 1. Check if shipment already created in Shiprocket
-    if not order.shiprocket_shipment_id:
-        sr_order = shiprocket_service.create_forward_shipment(order, pickup_location=pickup_location)
-        order.shiprocket_order_id = sr_order.get("order_id")
-        order.shiprocket_shipment_id = sr_order.get("shipment_id")
+    # Check if shipment already created in Shiprocket
+    if not order.shiprocket_shipment_id or not order.shiprocket_awb:
+        sr_res = shiprocket_service.create_forward_shipment(order, order.items or [], pickup_location=pickup_location, db=db)
+        order.shiprocket_order_id = sr_res.get("shiprocket_order_id") or sr_res.get("order_id")
+        order.shiprocket_shipment_id = sr_res.get("shiprocket_shipment_id") or sr_res.get("shipment_id")
+        order.shiprocket_awb = sr_res.get("shiprocket_awb") or sr_res.get("awb_code")
+        order.shiprocket_courier_name = sr_res.get("shiprocket_courier_name") or sr_res.get("courier_name")
 
-    # 2. Generate AWB
-    awb_res = shiprocket_service.generate_awb(order.shiprocket_shipment_id)
-    order.shiprocket_awb = awb_res.get("awb_code")
-    order.shiprocket_courier_name = awb_res.get("courier_name")
-    order.tracking_url = f"/track?q={order.shiprocket_awb}"
+    order.tracking_url = f"/track?q={order.shiprocket_awb}" if order.shiprocket_awb else None
     order.shipping_status = "SHIPPED"
-    if order.status == "PROCESSING":
-        order.status = "SHIPPED"
+    order.status = "SHIPPED"
     db.commit()
     return {
-        "message": "Shipment initiated successfully",
+        "message": "Shipment initiated successfully via Shiprocket",
         "order_id": order.id,
         "shiprocket_shipment_id": order.shiprocket_shipment_id,
         "awb_code": order.shiprocket_awb,

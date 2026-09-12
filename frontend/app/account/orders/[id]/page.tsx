@@ -274,10 +274,23 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     );
   }
 
+  // Order is considered shipped ONLY when admin has dispatched via Shiprocket API
+  const isShipped = Boolean(
+    order.status !== "CANCELLED" &&
+    order.status !== "PROCESSING" &&
+    (order.status === "SHIPPED" || order.status === "DELIVERED" || order.shippingStatus === "SHIPPED" || order.shippingStatus === "IN_TRANSIT" || order.shippingStatus === "DELIVERED") &&
+    Boolean(order.shiprocketAwb || order.trackingData?.awb)
+  );
+
   // Calculate status tracker step index & live logistics snapshot
   let stepIndex = 0;
-  if (order.status === "SHIPPED") stepIndex = 1;
-  if (order.status === "DELIVERED") stepIndex = 2;
+  if (order.status === "DELIVERED" || order.shippingStatus === "DELIVERED") {
+    stepIndex = 2;
+  } else if (isShipped) {
+    stepIndex = 1;
+  } else {
+    stepIndex = 0;
+  }
 
   const isCancelled = order.status === "CANCELLED";
 
@@ -294,10 +307,12 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     ? order.reverseTrackingData.scans
     : [];
 
-  const forwardCurrentLoc = trackingModalData?.current_location
-    || order.trackingData?.current_location
-    || (activeForwardScans.length > 0 ? activeForwardScans[activeForwardScans.length - 1]?.location : null)
-    || (order.shippingStatus === "IN_TRANSIT" || order.shippingStatus === "SHIPPED" ? "In Transit to Sorting Facility" : null);
+  // Strictly dynamic courier location from API (no static fake fallbacks)
+  const forwardCurrentLoc = isShipped
+    ? (trackingModalData?.current_location
+      || order.trackingData?.current_location
+      || (activeForwardScans.length > 0 ? activeForwardScans[activeForwardScans.length - 1]?.location : null))
+    : null;
 
   const reverseCurrentLoc = trackingModalData?.current_location
     || order.reverseTrackingData?.current_location
@@ -373,7 +388,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
             </span>
           </div>
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-            {order.status !== "CANCELLED" && (order.shiprocketAwb || order.trackingData?.awb) && (
+            {isShipped && (
               <button
                 type="button"
                 onClick={() => handleOpenTrackingModal("forward")}
@@ -632,7 +647,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   <div
                     key={s.key}
                     onClick={() => {
-                      if (order.shiprocketAwb || order.trackingData?.awb) {
+                      if (isShipped) {
                         handleOpenTrackingModal("forward");
                       }
                     }}
@@ -642,9 +657,9 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       alignItems: "center",
                       width: "33.33%",
                       textAlign: "center",
-                      cursor: (order.shiprocketAwb || order.trackingData?.awb) ? "pointer" : "default",
+                      cursor: isShipped ? "pointer" : "default",
                     }}
-                    title={(order.shiprocketAwb || order.trackingData?.awb) ? "Click to view live tracking" : undefined}
+                    title={isShipped ? "Click to view live tracking" : undefined}
                   >
                     <div style={{
                       width: 40, height: 40,
@@ -707,7 +722,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
           </div>
 
           {/* Live Forward Tracking Snapshot Bar */}
-          {(order.shiprocketAwb || order.trackingData?.awb || order.shippingStatus === "IN_TRANSIT" || order.shippingStatus === "SHIPPED") && (
+          {isShipped && (
             <div
               style={{
                 marginTop: 24,
@@ -739,7 +754,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: "0.85rem", fontWeight: 900, textTransform: "uppercase", color: "#000" }}>
-                      {order.shippingStatus || "IN TRANSIT"}
+                      {order.shippingStatus || "SHIPPED"}
                     </span>
                     {forwardCurrentLoc && (
                       <span
@@ -757,7 +772,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                     )}
                   </div>
                   <div style={{ fontSize: "0.78rem", color: "#666", marginTop: 3 }}>
-                    {order.shiprocketCourierName || "Express Courier"}
+                    {order.shiprocketCourierName || order.trackingData?.courier_name || "Express Courier"}
                     {(order.shiprocketAwb || order.trackingData?.awb) && (
                       <span> · AWB: <strong style={{ fontFamily: "monospace", color: "#000" }}>{order.shiprocketAwb || order.trackingData?.awb}</strong></span>
                     )}
