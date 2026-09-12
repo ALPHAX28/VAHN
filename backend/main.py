@@ -1245,8 +1245,10 @@ def razorpay_create_order(
         })
     line_items_total = int(round(subtotal * 100))
 
+    # For Razorpay Magic Checkout, base order amount MUST match line_items_total
+    # Magic Checkout dynamically calculates and appends the shipping charge from your dashboard slabs
     rzp_order = razorpay_service.create_order(
-        amount_in_inr=total_amount,
+        amount_in_inr=subtotal,
         receipt_id=receipt_id,
         notes=notes,
         line_items=line_items,
