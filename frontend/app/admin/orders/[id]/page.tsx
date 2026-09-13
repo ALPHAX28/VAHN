@@ -225,6 +225,16 @@ export default function AdminOrderDetailPage() {
 
   async function handleSchedulePickup() {
     if (!adminToken || !order) return;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrowStr = tomorrowDate.toISOString().split("T")[0];
+
+    if (pickupDate < todayStr || pickupDate > tomorrowStr) {
+      setError("Courier partners only accept pickups scheduled for Today or Tomorrow (the immediate next business day). Future dates beyond tomorrow are not supported.");
+      return;
+    }
+
     setSchedulingPickup(true);
     setError("");
     try {
@@ -239,7 +249,7 @@ export default function AdminOrderDetailPage() {
         setError(res.message || "Failed to schedule courier pickup.");
       }
     } catch (e: any) {
-      setError(e?.message || "Courier partner rejected pickup scheduling.");
+      setError(e?.message || "Courier partner rejected pickup scheduling. Couriers only support pickup manifests for Today or Tomorrow.");
     } finally {
       setSchedulingPickup(false);
     }
@@ -683,6 +693,11 @@ export default function AdminOrderDetailPage() {
                         type="button"
                         onClick={() => {
                           setError("");
+                          const today = new Date().toISOString().split("T")[0];
+                          const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+                          if (pickupDate < today || pickupDate > tomorrow) {
+                            setPickupDate(tomorrow);
+                          }
                           setShowPickupModal(true);
                         }}
                         disabled={order.status === "CANCELLED" || order.status === "REFUNDED"}
@@ -1588,53 +1603,65 @@ export default function AdminOrderDetailPage() {
               <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase", marginBottom: 8 }}>
                 Select Pickup Date
               </label>
-              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                {(() => {
-                  const today = new Date().toISOString().split("T")[0];
-                  const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
-                  const dayAfter = new Date(Date.now() + 172800000).toISOString().split("T")[0];
-                  return [
-                    { label: "Today", val: today },
-                    { label: "Tomorrow", val: tomorrow },
-                    { label: "Day After", val: dayAfter },
-                  ].map((p) => (
-                    <button
-                      key={p.val}
-                      type="button"
-                      onClick={() => setPickupDate(p.val)}
-                      style={{
-                        flex: 1,
-                        padding: "8px",
-                        fontSize: "0.78rem",
-                        fontWeight: 800,
-                        cursor: "pointer",
-                        border: pickupDate === p.val ? "2px solid #4232d9" : "1px solid #d1d5db",
-                        background: pickupDate === p.val ? "#eef2ff" : "#fff",
-                        color: pickupDate === p.val ? "#4232d9" : "#374151",
+              {(() => {
+                const today = new Date().toISOString().split("T")[0];
+                const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+                return (
+                  <>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                      {[
+                        { label: "Today (Earliest)", val: today },
+                        { label: "Tomorrow (Next Business Day)", val: tomorrow },
+                      ].map((p) => (
+                        <button
+                          key={p.val}
+                          type="button"
+                          onClick={() => setPickupDate(p.val)}
+                          style={{
+                            flex: 1,
+                            padding: "10px 8px",
+                            fontSize: "0.78rem",
+                            fontWeight: 800,
+                            cursor: "pointer",
+                            border: pickupDate === p.val ? "2px solid #4232d9" : "1px solid #d1d5db",
+                            background: pickupDate === p.val ? "#eef2ff" : "#fff",
+                            color: pickupDate === p.val ? "#4232d9" : "#374151",
+                          }}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="date"
+                      value={pickupDate}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val > tomorrow) {
+                          setPickupDate(tomorrow);
+                        } else if (val < today) {
+                          setPickupDate(today);
+                        } else {
+                          setPickupDate(val);
+                        }
                       }}
-                    >
-                      {p.label}
-                    </button>
-                  ));
-                })()}
-              </div>
-              <input
-                type="date"
-                value={pickupDate}
-                onChange={(e) => setPickupDate(e.target.value)}
-                min={new Date().toISOString().split("T")[0]}
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  fontSize: "0.88rem",
-                  border: "1px solid #d1d5db",
-                  fontFamily: "inherit",
-                }}
-              />
+                      min={today}
+                      max={tomorrow}
+                      style={{
+                        width: "100%",
+                        padding: "10px",
+                        fontSize: "0.88rem",
+                        border: "1px solid #d1d5db",
+                        fontFamily: "inherit",
+                      }}
+                    />
+                  </>
+                );
+              })()}
             </div>
 
-            <div style={{ fontSize: "0.78rem", color: "#64748b", marginBottom: 16, lineHeight: 1.4 }}>
-              💡 Courier pickup agent will be assigned by Shiprocket to collect this parcel from the registered warehouse location.
+            <div style={{ fontSize: "0.78rem", color: "#475569", marginBottom: 16, lineHeight: 1.45, background: "#f8fafc", padding: "10px 12px", borderLeft: "3px solid #3b82f6" }}>
+              💡 <strong>Courier SLA Window:</strong> Indian courier partners (Shadowfax, Delhivery, etc.) only accept pickup allocations for <strong>Today</strong> or <strong>Tomorrow</strong>. Manifests requested for dates beyond tomorrow are rejected by courier routing systems.
             </div>
 
             {isPickupScheduled && (

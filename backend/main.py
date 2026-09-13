@@ -3717,7 +3717,7 @@ def admin_ship_order(
         raise HTTPException(status_code=400, detail=f"Cannot ship order with status {order.status}")
     
     # Check if shipment already created in Shiprocket
-    if not order.shiprocket_shipment_id or not order.shiprocket_awb:
+    if not order.shiprocket_shipment_id or not order.shiprocket_awb or order.shipping_status == "CANCELLED":
         sr_res = shiprocket_service.create_forward_shipment(order, order.items or [], pickup_location=pickup_location, db=db)
         order.shiprocket_order_id = sr_res.get("shiprocket_order_id") or sr_res.get("order_id")
         order.shiprocket_shipment_id = sr_res.get("shiprocket_shipment_id") or sr_res.get("shipment_id")

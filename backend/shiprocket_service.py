@@ -744,7 +744,9 @@ def schedule_courier_pickup(
                 )
 
                 if not is_ok:
-                    clean_err = raw_msg or data.get("message") or "Courier rejected pickup scheduling."
+                    clean_err = raw_msg or data.get("message")
+                    if not clean_err or "rejected" in clean_err.lower():
+                        clean_err = "Courier partner rejected pickup scheduling. Couriers only accept pickups scheduled for Today or Tomorrow (the immediate next business day). Future dates beyond tomorrow are not supported."
                     logger.warning(f"Shiprocket courier rejected pickup for shipment {shipment_id}: {clean_err}")
                     return {
                         "success": False,
@@ -774,13 +776,20 @@ def schedule_courier_pickup(
                 }
             else:
                 try:
-                    err_msg = res.json().get("message") or res.text
+                    err_json = res.json()
+                    err_msg = err_json.get("message") or str(err_json)
                 except Exception:
                     err_msg = res.text
+                if "already canceled" in str(err_msg).lower():
+                    clean_err = "This shipment was cancelled in Shiprocket. Please re-dispatch or assign a new courier AWB before scheduling pickup."
+                elif "pickup_date" in str(err_msg).lower() or "date" in str(err_msg).lower():
+                    clean_err = "Courier partners only accept pickup scheduling for Today or Tomorrow (the immediate next business day)."
+                else:
+                    clean_err = f"Failed to schedule pickup ({res.status_code}): {err_msg}"
                 return {
                     "success": False,
                     "pickup_status": 0,
-                    "message": f"Failed to schedule pickup ({res.status_code}): {err_msg}"
+                    "message": clean_err
                 }
     except Exception as e:
         logger.warning(f"Failed to schedule pickup for shipment {shipment_id}: {e}")
