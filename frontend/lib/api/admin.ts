@@ -461,6 +461,35 @@ export const shipAdminOrder = (token: string, orderId: string, pickupLocation?: 
 export const getAdminOrderShippingLabel = (token: string, orderId: string) =>
   adminFetch<{ label_url?: string; message?: string }>(`/admin/orders/${orderId}/label`, token);
 
+export const getAdminOrderInvoice = (token: string, orderId: string) =>
+  adminFetch<{ invoice_url?: string; message?: string }>(`/admin/orders/${orderId}/invoice`, token);
+
+export const scheduleAdminOrderPickup = (
+  token: string,
+  orderId: string,
+  data?: { pickup_date?: string }
+) =>
+  adminFetch<{
+    success: boolean;
+    pickup_status?: number;
+    pickup_token?: string;
+    courier_name?: string;
+    message?: string;
+  }>(`/admin/orders/${orderId}/pickup`, token, {
+    method: "POST",
+    body: JSON.stringify(data || {}),
+  });
+
+export const cancelAdminOrderShipment = (
+  token: string,
+  orderId: string,
+  data?: { reason?: string }
+) =>
+  adminFetch<AdminOrder>(`/admin/orders/${orderId}/cancel-shipment`, token, {
+    method: "POST",
+    body: JSON.stringify(data || {}),
+  });
+
 export const refundAdminOrder = (
   token: string,
   orderId: string,

@@ -2053,6 +2053,12 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
 
     is_picked_up_status = any("pick" in str(s.activity).lower() for s in (reverse_scans or forward_scans))
 
+    t_data = order.tracking_data if isinstance(order.tracking_data, dict) else {}
+    invoice_url = t_data.get("invoice_url")
+    label_url = t_data.get("label_url")
+    pickup_status = t_data.get("pickup_status")
+    pickup_scheduled_date = t_data.get("pickup_scheduled_date")
+
     return schemas.OrderTrackingResponse(
         order_id=order.id,
         status=order.status,
@@ -2077,7 +2083,11 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         payment_status=order.payment_status or "PENDING",
         payment_method=order.payment_method or "ONLINE",
         cancellation_reason=order.cancellation_reason,
-        is_guest=bool(order.is_guest)
+        is_guest=bool(order.is_guest),
+        invoice_url=invoice_url,
+        label_url=label_url,
+        pickup_status=pickup_status,
+        pickup_scheduled_date=pickup_scheduled_date
     )
 
 # 6. Authenticated Tracking for Customer Account View
@@ -2096,6 +2106,53 @@ def get_order_tracking(
         raise HTTPException(status_code=403, detail="Unauthorized access to order tracking.")
 
     return public_track_order(query=order.id, db=db)
+
+# 6.1 Download Official Shiprocket Invoice (Customer Account)
+@app.get("/api/orders/{order_id}/invoice")
+def get_customer_order_invoice(
+    order_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    if not order.shiprocket_order_id:
+        raise HTTPException(status_code=400, detail="Official invoice is not yet available for this order")
+    
+    invoice_res = shiprocket_service.generate_order_invoice(order.shiprocket_order_id)
+    if invoice_res.get("invoice_url"):
+        if not order.tracking_data:
+            order.tracking_data = {}
+        order.tracking_data["invoice_url"] = invoice_res["invoice_url"]
+        db.commit()
+    return invoice_res
+
+# 6.2 Download Official Shiprocket Invoice (Public Tracking by Order ID or AWB)
+@app.get("/api/shipping/invoice/{query}")
+def get_public_order_invoice(
+    query: str,
+    db: Session = Depends(get_db)
+):
+    clean_query = query.strip()
+    order = db.query(models.Order).filter(
+        (models.Order.id.ilike(clean_query)) |
+        (models.Order.shiprocket_awb == clean_query)
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order or tracking number not found")
+    if not order.shiprocket_order_id:
+        raise HTTPException(status_code=400, detail="Official invoice is not yet available for this order")
+    
+    invoice_res = shiprocket_service.generate_order_invoice(order.shiprocket_order_id)
+    if invoice_res.get("invoice_url"):
+        if not order.tracking_data:
+            order.tracking_data = {}
+        order.tracking_data["invoice_url"] = invoice_res["invoice_url"]
+        db.commit()
+    return invoice_res
 
 # 7. Customer Instant Cancellation Before Dispatch (Prepaid 100% Instant Refund)
 @app.post("/api/orders/{order_id}/cancel", response_model=schemas.OrderSchema)
@@ -3640,8 +3697,119 @@ def admin_get_shipping_label(
         raise HTTPException(status_code=404, detail="Order not found")
     if not order.shiprocket_shipment_id:
         raise HTTPException(status_code=400, detail="Shipment has not been created for this order")
-    label_res = shiprocket_service.generate_label(order.shiprocket_shipment_id)
+    label_res = shiprocket_service.generate_shipping_label(order.shiprocket_shipment_id)
+    if label_res.get("label_url"):
+        if not order.tracking_data:
+            order.tracking_data = {}
+        order.tracking_data["label_url"] = label_res["label_url"]
+        db.commit()
     return label_res
+
+@app.get("/api/admin/orders/{order_id}/invoice")
+def admin_get_order_invoice(
+    order_id: str,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not order.shiprocket_order_id:
+        raise HTTPException(status_code=400, detail="Shipment has not been generated for this order in Shiprocket")
+    invoice_res = shiprocket_service.generate_order_invoice(order.shiprocket_order_id)
+    if invoice_res.get("invoice_url"):
+        if not order.tracking_data:
+            order.tracking_data = {}
+        order.tracking_data["invoice_url"] = invoice_res["invoice_url"]
+        db.commit()
+    return invoice_res
+
+@app.post("/api/admin/orders/{order_id}/pickup")
+def admin_schedule_pickup(
+    order_id: str,
+    payload: Optional[schemas.AdminSchedulePickupRequest] = None,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not order.shiprocket_shipment_id:
+        raise HTTPException(status_code=400, detail="Cannot schedule pickup: Order has no Shiprocket shipment ID")
+    
+    pickup_date = payload.pickup_date if payload else None
+    pickup_res = shiprocket_service.schedule_courier_pickup(order.shiprocket_shipment_id, pickup_date)
+    
+    if pickup_res.get("success"):
+        if not order.tracking_data:
+            order.tracking_data = {}
+        order.tracking_data["pickup_scheduled"] = True
+        order.tracking_data["pickup_status"] = "SCHEDULED"
+        if pickup_date:
+            order.tracking_data["pickup_scheduled_date"] = pickup_date
+        if pickup_res.get("pickup_token"):
+            order.tracking_data["pickup_token"] = pickup_res.get("pickup_token")
+        
+        if order.shipping_status in ("UNFULFILLED", "MANIFEST_GENERATED"):
+            order.shipping_status = "PICKUP_SCHEDULED"
+        db.commit()
+    
+    return pickup_res
+
+@app.post("/api/admin/orders/{order_id}/cancel-shipment", response_model=schemas.AdminOrderSchema)
+def admin_cancel_shipment(
+    order_id: str,
+    payload: Optional[schemas.AdminCancelShipmentRequest] = None,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status == "CANCELLED":
+        raise HTTPException(status_code=400, detail="Order is already cancelled")
+    
+    reason = (payload.reason if payload else None) or "Shipment cancelled by administrator"
+    
+    # 1. Cancel in Shiprocket if shipment/AWB exists
+    if order.shiprocket_order_id or order.shiprocket_awb:
+        shiprocket_service.cancel_shipment(
+            shiprocket_order_id=order.shiprocket_order_id,
+            awb_code=order.shiprocket_awb
+        )
+    
+    # 2. Update order status
+    order.status = "CANCELLED"
+    order.shipping_status = "CANCELLED"
+    order.cancellation_reason = reason
+    
+    # 3. Restock items to inventory
+    for item in (order.items or []):
+        if item.variant_id:
+            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+            if var:
+                var.inventory_quantity += item.quantity
+    
+    # 4. If prepaid and not yet refunded, trigger Razorpay refund
+    if order.payment_status == "PAID" and order.razorpay_payment_id and order.refund_status != "REFUNDED":
+        try:
+            rfnd_res = razorpay_service.initiate_refund(
+                payment_id=order.razorpay_payment_id,
+                amount_in_inr=order.total_amount,
+                reason_note=f"Admin cancelled shipment: {reason}"
+            )
+            order.refund_status = "REFUNDED"
+            order.refund_amount = order.total_amount
+            order.refund_note = reason
+            order.refunded_at = datetime.utcnow()
+            order.razorpay_refund_id = rfnd_res.get("id")
+        except Exception as e:
+            logger.error(f"Error processing automatic refund on admin shipment cancel: {e}")
+            order.refund_note = f"Cancellation processed. Manual refund review required: {e}"
+
+    db.commit()
+    db.refresh(order)
+    return _admin_order_detail(order)
 
 @app.post("/api/admin/orders/{order_id}/refund")
 def admin_refund_order(

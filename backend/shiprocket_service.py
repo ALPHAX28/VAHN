@@ -526,36 +526,206 @@ def create_reverse_pickup(
             raise ValueError(f"Shiprocket reverse pickup failed: {res.text}")
 
 
-def generate_shipping_label(shipment_id: str) -> str:
-    """Retrieves a downloadable shipping label URL."""
+def generate_shipping_label(shipment_id: Any) -> Dict[str, Any]:
+    """Retrieves a downloadable shipping label URL from Shiprocket."""
     token = get_auth_token()
-    if token:
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                res = client.post(
-                    f"{BASE_URL}/courier/generate/label",
-                    json={"shipment_id": [shipment_id]},
-                    headers={"Authorization": f"Bearer {token}"}
-                )
-                if res.status_code == 200:
-                    return res.json().get("label_url", "")
-        except Exception as e:
-            logger.warning(f"Failed to fetch live label: {e}")
-    return ""
+    if not token:
+        raise ValueError("Shiprocket authentication failed.")
+
+    clean_id = int(str(shipment_id).strip()) if str(shipment_id).isdigit() else shipment_id
+    try:
+        with httpx.Client(timeout=12.0) as client:
+            res = client.post(
+                f"{BASE_URL}/courier/generate/label",
+                json={"shipment_id": [clean_id]},
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            if res.status_code == 200:
+                data = res.json()
+                label_url = data.get("label_url", "")
+                return {
+                    "success": True,
+                    "label_url": label_url,
+                    "label_created": data.get("label_created", 1),
+                    "message": data.get("message") or "Label generated successfully"
+                }
+            else:
+                return {
+                    "success": False,
+                    "label_url": "",
+                    "message": f"Failed to generate label ({res.status_code}): {res.text}"
+                }
+    except Exception as e:
+        logger.warning(f"Failed to fetch live label for shipment {shipment_id}: {e}")
+        return {"success": False, "label_url": "", "message": str(e)}
 
 
-def cancel_shipment(awb_code: Optional[str] = None, order_id: Optional[str] = None) -> bool:
-    """Cancels courier pickup for an order in Shiprocket."""
+def generate_label(shipment_id: Any) -> Dict[str, Any]:
+    """Alias for generate_shipping_label."""
+    return generate_shipping_label(shipment_id)
+
+
+def generate_order_invoice(order_id: Any) -> Dict[str, Any]:
+    """Generates and retrieves official downloadable Tax Invoice URL from Shiprocket."""
     token = get_auth_token()
-    if token and (awb_code or order_id):
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                client.post(
-                    f"{BASE_URL}/orders/cancel",
-                    json={"ids": [order_id] if order_id else [], "awbs": [awb_code] if awb_code else []},
-                    headers={"Authorization": f"Bearer {token}"}
-                )
-                return True
-        except Exception as e:
-            logger.warning(f"Error cancelling shipment in Shiprocket: {e}")
-    return False
+    if not token:
+        raise ValueError("Shiprocket authentication failed.")
+
+    clean_id = int(str(order_id).strip()) if str(order_id).isdigit() else order_id
+    try:
+        with httpx.Client(timeout=12.0) as client:
+            res = client.post(
+                f"{BASE_URL}/orders/print/invoice",
+                json={"ids": [clean_id]},
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            if res.status_code == 200:
+                data = res.json()
+                invoice_url = data.get("invoice_url", "")
+                if invoice_url:
+                    return {
+                        "success": True,
+                        "invoice_url": invoice_url,
+                        "is_invoice_created": True,
+                        "message": "Invoice generated successfully"
+                    }
+
+            # Fallback: check orders/show details for existing invoice_link
+            show_res = client.get(
+                f"{BASE_URL}/orders/show/{clean_id}",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            if show_res.status_code == 200:
+                show_data = show_res.json().get("data", {})
+                shipments = show_data.get("shipments") or {}
+                if isinstance(shipments, dict) and shipments.get("invoice_link"):
+                    return {
+                        "success": True,
+                        "invoice_url": shipments.get("invoice_link"),
+                        "is_invoice_created": True,
+                        "message": "Invoice retrieved from shipment"
+                    }
+
+            return {
+                "success": False,
+                "invoice_url": "",
+                "message": "Invoice is pending generation in Shiprocket."
+            }
+    except Exception as e:
+        logger.warning(f"Failed to fetch live invoice for order {order_id}: {e}")
+        return {"success": False, "invoice_url": "", "message": str(e)}
+
+
+def schedule_courier_pickup(
+    shipment_id: Any,
+    pickup_date: Optional[str] = None
+) -> Dict[str, Any]:
+    """Schedules courier doorstep collection in Shiprocket."""
+    token = get_auth_token()
+    if not token:
+        raise ValueError("Shiprocket authentication failed.")
+
+    clean_id = int(str(shipment_id).strip()) if str(shipment_id).isdigit() else shipment_id
+    payload: Dict[str, Any] = {"shipment_id": [clean_id]}
+    if pickup_date and pickup_date.strip():
+        payload["pickup_date"] = [pickup_date.strip()]
+
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            res = client.post(
+                f"{BASE_URL}/courier/generate/pickup",
+                json=payload,
+                headers={"Authorization": f"Bearer {token}"}
+            )
+
+            # 400 with "Already in Pickup Queue" is considered an active success state
+            if res.status_code == 400 and "Already in Pickup Queue" in res.text:
+                return {
+                    "success": True,
+                    "pickup_status": 1,
+                    "message": "Shipment is already scheduled in the courier pickup queue.",
+                    "already_queued": True
+                }
+
+            if res.status_code == 200:
+                data = res.json()
+                pickup_status = data.get("pickup_status", 0)
+                resp_info = data.get("response") or {}
+                raw_msg = ""
+                if isinstance(resp_info, dict):
+                    raw_msg = resp_info.get("data") or ""
+                elif isinstance(resp_info, str):
+                    raw_msg = resp_info
+
+                return {
+                    "success": True,
+                    "pickup_status": pickup_status,
+                    "courier_name": resp_info.get("base_courier_company_name") if isinstance(resp_info, dict) else "Assigned Courier",
+                    "message": raw_msg or data.get("message") or "Pickup scheduled with courier partner successfully.",
+                    "data": data
+                }
+            else:
+                try:
+                    err_msg = res.json().get("message") or res.text
+                except Exception:
+                    err_msg = res.text
+                return {
+                    "success": False,
+                    "pickup_status": 0,
+                    "message": f"Failed to schedule pickup ({res.status_code}): {err_msg}"
+                }
+    except Exception as e:
+        logger.warning(f"Failed to schedule pickup for shipment {shipment_id}: {e}")
+        return {"success": False, "pickup_status": 0, "message": str(e)}
+
+
+def cancel_shipment(
+    shiprocket_order_id: Optional[Any] = None,
+    awb_code: Optional[str] = None
+) -> Dict[str, Any]:
+    """Cancels courier order and shipment in Shiprocket."""
+    token = get_auth_token()
+    if not token:
+        return {"success": False, "message": "Shiprocket authentication failed."}
+
+    ids_list: List[int] = []
+    if shiprocket_order_id:
+        s_id = str(shiprocket_order_id).strip()
+        if s_id.isdigit():
+            ids_list.append(int(s_id))
+
+    awbs_list = [str(awb_code).strip()] if awb_code else []
+
+    if not ids_list and not awbs_list:
+        return {"success": False, "message": "No Shiprocket order ID or AWB provided for cancellation."}
+
+    try:
+        with httpx.Client(timeout=12.0) as client:
+            res = client.post(
+                f"{BASE_URL}/orders/cancel",
+                json={"ids": ids_list, "awbs": awbs_list},
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            try:
+                data = res.json()
+            except Exception:
+                data = {}
+
+            if res.status_code in (200, 201):
+                return {
+                    "success": True,
+                    "status_code": res.status_code,
+                    "message": data.get("message") or "Shipment cancelled successfully in Shiprocket.",
+                    "data": data
+                }
+            else:
+                return {
+                    "success": False,
+                    "status_code": res.status_code,
+                    "message": data.get("message") or f"Shiprocket cancellation returned status {res.status_code}.",
+                    "data": data
+                }
+    except Exception as e:
+        logger.warning(f"Error cancelling shipment in Shiprocket: {e}")
+        return {"success": False, "message": str(e)}
+

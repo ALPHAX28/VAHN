@@ -638,6 +638,12 @@ class AdminDispatchReplacementRequest(BaseModel):
     courier_name: Optional[str] = None
     tracking_url: Optional[str] = None
 
+class AdminSchedulePickupRequest(BaseModel):
+    pickup_date: Optional[str] = None  # YYYY-MM-DD format
+
+class AdminCancelShipmentRequest(BaseModel):
+    reason: Optional[str] = "Shipment cancelled by administrator"
+
 class RazorpayRecordFailureRequest(BaseModel):
     cart_id: Optional[str] = None
     order_id: Optional[str] = None
@@ -701,6 +707,10 @@ class OrderTrackingResponse(BaseModel):
     payment_method: Optional[str] = None
     cancellation_reason: Optional[str] = None
     is_guest: Optional[bool] = False
+    invoice_url: Optional[str] = None
+    label_url: Optional[str] = None
+    pickup_status: Optional[str] = None
+    pickup_scheduled_date: Optional[str] = None
 
 class OrderItemSchema(BaseModel):
     id: str

@@ -352,6 +352,25 @@ export async function getOrderTracking(orderId: string, token?: string): Promise
   });
 }
 
+export async function getCustomerOrderInvoice(
+  orderId: string,
+  token?: string
+): Promise<{ invoice_url?: string; is_invoice_created?: boolean; message?: string }> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<{ invoice_url?: string; is_invoice_created?: boolean; message?: string }>(`/orders/${orderId}/invoice`, {
+    headers,
+  });
+}
+
+export async function getPublicOrderInvoice(
+  query: string
+): Promise<{ invoice_url?: string; is_invoice_created?: boolean; message?: string }> {
+  return fetchAPI<{ invoice_url?: string; is_invoice_created?: boolean; message?: string }>(
+    `/shipping/invoice/${encodeURIComponent(query.trim())}`
+  );
+}
+
 export async function cancelOrder(orderId: string, reason?: string, token?: string): Promise<{ message: string; order_id: string; refund_id?: string; status: string }> {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;

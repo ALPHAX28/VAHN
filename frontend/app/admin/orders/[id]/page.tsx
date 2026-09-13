@@ -9,6 +9,9 @@ import {
   updateOrderStatus,
   shipAdminOrder,
   getAdminOrderShippingLabel,
+  getAdminOrderInvoice,
+  scheduleAdminOrderPickup,
+  cancelAdminOrderShipment,
   refundAdminOrder,
   dispatchAdminOrderReplacement,
   type AdminOrder,
@@ -39,6 +42,18 @@ export default function AdminOrderDetailPage() {
   // Logistics & Refund Actions
   const [dispatching, setDispatching] = useState(false);
   const [downloadingLabel, setDownloadingLabel] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [downloadingBoth, setDownloadingBoth] = useState(false);
+  const [showPickupModal, setShowPickupModal] = useState(false);
+  const [pickupDate, setPickupDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split("T")[0];
+  });
+  const [schedulingPickup, setSchedulingPickup] = useState(false);
+  const [showCancelShipmentModal, setShowCancelShipmentModal] = useState(false);
+  const [cancelShipmentReason, setCancelShipmentReason] = useState("");
+  const [cancellingShipment, setCancellingShipment] = useState(false);
   const [refreshingTracking, setRefreshingTracking] = useState(false);
   const [showForwardScans, setShowForwardScans] = useState(true);
   const [showReverseScans, setShowReverseScans] = useState(true);
@@ -150,6 +165,91 @@ export default function AdminOrderDetailPage() {
       window.print();
     } finally {
       setDownloadingLabel(false);
+    }
+  }
+
+  async function handleDownloadInvoice() {
+    if (!adminToken || !order) return;
+    setDownloadingInvoice(true);
+    setError("");
+    try {
+      const res = await getAdminOrderInvoice(adminToken, order.id);
+      if (res.invoice_url) {
+        window.open(res.invoice_url, "_blank");
+      } else {
+        setError(res.message || "Invoice is pending generation in Shiprocket.");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to download invoice.");
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  }
+
+  async function handleDownloadBoth() {
+    if (!adminToken || !order) return;
+    setDownloadingBoth(true);
+    setError("");
+    try {
+      const [labelRes, invoiceRes] = await Promise.all([
+        getAdminOrderShippingLabel(adminToken, order.id).catch(() => ({ label_url: "" })),
+        getAdminOrderInvoice(adminToken, order.id).catch(() => ({ invoice_url: "" })),
+      ]);
+      let opened = false;
+      if (labelRes.label_url) {
+        window.open(labelRes.label_url, "_blank");
+        opened = true;
+      }
+      if (invoiceRes.invoice_url) {
+        window.open(invoiceRes.invoice_url, "_blank");
+        opened = true;
+      }
+      if (!opened) {
+        window.print();
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to download label and invoice.");
+    } finally {
+      setDownloadingBoth(false);
+    }
+  }
+
+  async function handleSchedulePickup() {
+    if (!adminToken || !order) return;
+    setSchedulingPickup(true);
+    setError("");
+    try {
+      const res = await scheduleAdminOrderPickup(adminToken, order.id, { pickup_date: pickupDate });
+      if (res.success) {
+        setSuccess(res.message || "Pickup scheduled successfully with courier partner!");
+        setShowPickupModal(false);
+        const updated = await getAdminOrder(adminToken, order.id);
+        setOrder(updated);
+        setTimeout(() => setSuccess(""), 5000);
+      } else {
+        setError(res.message || "Failed to schedule courier pickup.");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Error contacting Shiprocket pickup scheduler.");
+    } finally {
+      setSchedulingPickup(false);
+    }
+  }
+
+  async function handleCancelShipment() {
+    if (!adminToken || !order) return;
+    setCancellingShipment(true);
+    setError("");
+    try {
+      const updated = await cancelAdminOrderShipment(adminToken, order.id, { reason: cancelShipmentReason });
+      setOrder(updated);
+      setShowCancelShipmentModal(false);
+      setSuccess("Shipment and order cancelled successfully in Shiprocket!");
+      setTimeout(() => setSuccess(""), 5000);
+    } catch (e: any) {
+      setError(e?.message || "Failed to cancel shipment in Shiprocket.");
+    } finally {
+      setCancellingShipment(false);
     }
   }
 
@@ -524,24 +624,112 @@ export default function AdminOrderDetailPage() {
                       {dispatching ? "Contacting Shiprocket..." : "Dispatch Shipment & Generate AWB →"}
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={handleDownloadLabel}
-                      disabled={downloadingLabel}
-                      style={{
-                        background: "#000",
-                        color: "#fff",
-                        border: "none",
-                        padding: "8px 18px",
-                        fontWeight: 800,
-                        fontSize: "0.8rem",
-                        cursor: "pointer",
-                        textTransform: "uppercase",
-                        borderRadius: "0px",
-                      }}
-                    >
-                      Print Official Shipping Label
-                    </button>
+                    <>
+                      {/* Schedule Pickup Action */}
+                      <button
+                        type="button"
+                        onClick={() => setShowPickupModal(true)}
+                        disabled={order.status === "CANCELLED" || order.status === "REFUNDED"}
+                        style={{
+                          background: (order as any).tracking_data?.pickup_scheduled ? "#059669" : "#4232d9",
+                          color: "#fff",
+                          border: "none",
+                          padding: "8px 18px",
+                          fontWeight: 800,
+                          fontSize: "0.8rem",
+                          cursor: "pointer",
+                          textTransform: "uppercase",
+                          borderRadius: "0px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        {(order as any).tracking_data?.pickup_scheduled ? "Pickup Scheduled ✓" : "Schedule Pickup →"}
+                      </button>
+
+                      {/* Download Label Action */}
+                      <button
+                        type="button"
+                        onClick={handleDownloadLabel}
+                        disabled={downloadingLabel}
+                        style={{
+                          background: "#000",
+                          color: "#fff",
+                          border: "none",
+                          padding: "8px 18px",
+                          fontWeight: 800,
+                          fontSize: "0.8rem",
+                          cursor: downloadingLabel ? "not-allowed" : "pointer",
+                          textTransform: "uppercase",
+                          borderRadius: "0px",
+                        }}
+                      >
+                        {downloadingLabel ? "Fetching Label..." : "Download Label"}
+                      </button>
+
+                      {/* Download Invoice Action */}
+                      <button
+                        type="button"
+                        onClick={handleDownloadInvoice}
+                        disabled={downloadingInvoice}
+                        style={{
+                          background: "#000",
+                          color: "#fff",
+                          border: "none",
+                          padding: "8px 18px",
+                          fontWeight: 800,
+                          fontSize: "0.8rem",
+                          cursor: downloadingInvoice ? "not-allowed" : "pointer",
+                          textTransform: "uppercase",
+                          borderRadius: "0px",
+                        }}
+                      >
+                        {downloadingInvoice ? "Fetching Invoice..." : "Download Invoice"}
+                      </button>
+
+                      {/* Download Both Action */}
+                      <button
+                        type="button"
+                        onClick={handleDownloadBoth}
+                        disabled={downloadingBoth}
+                        style={{
+                          background: "#f3f4f6",
+                          color: "#000",
+                          border: "1px solid #d1d5db",
+                          padding: "8px 16px",
+                          fontWeight: 800,
+                          fontSize: "0.8rem",
+                          cursor: downloadingBoth ? "not-allowed" : "pointer",
+                          textTransform: "uppercase",
+                          borderRadius: "0px",
+                        }}
+                      >
+                        {downloadingBoth ? "Opening PDFs..." : "Download Label + Invoice"}
+                      </button>
+
+                      {/* Cancel Shipment Action */}
+                      {order.status !== "CANCELLED" && (
+                        <button
+                          type="button"
+                          onClick={() => setShowCancelShipmentModal(true)}
+                          style={{
+                            background: "#fff",
+                            color: "#dc2626",
+                            border: "1px solid #dc2626",
+                            padding: "8px 16px",
+                            fontWeight: 800,
+                            fontSize: "0.8rem",
+                            cursor: "pointer",
+                            textTransform: "uppercase",
+                            borderRadius: "0px",
+                            marginLeft: "auto",
+                          }}
+                        >
+                          Cancel Shipment
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1277,6 +1465,251 @@ export default function AdminOrderDetailPage() {
                 }}
               >
                 {processingRefund ? "Processing Refund..." : `Refund ₹${refundAmount.toLocaleString("en-IN")} →`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SCHEDULE PICKUP MODAL */}
+      {showPickupModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.65)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              width: "100%",
+              maxWidth: "520px",
+              padding: "28px",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 900, textTransform: "uppercase" }}>
+                Schedule Courier Pickup
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowPickupModal(false)}
+                style={{ background: "none", border: "none", fontSize: "1.3rem", cursor: "pointer", color: "#666" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: "14px 16px", marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: "0.82rem" }}>
+                <span style={{ color: "#64748b", fontWeight: 600 }}>Order ID:</span>
+                <strong style={{ color: "#0f172a" }}>#{order.id}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: "0.82rem" }}>
+                <span style={{ color: "#64748b", fontWeight: 600 }}>Courier Partner:</span>
+                <strong style={{ color: "#0f172a" }}>{order.shiprocket_courier_name || "Express Courier"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem" }}>
+                <span style={{ color: "#64748b", fontWeight: 600 }}>AWB Tracking Number:</span>
+                <strong style={{ fontFamily: "monospace", color: "#4232d9" }}>{order.shiprocket_awb}</strong>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase", marginBottom: 8 }}>
+                Select Pickup Date
+              </label>
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                {(() => {
+                  const today = new Date().toISOString().split("T")[0];
+                  const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+                  const dayAfter = new Date(Date.now() + 172800000).toISOString().split("T")[0];
+                  return [
+                    { label: "Today", val: today },
+                    { label: "Tomorrow", val: tomorrow },
+                    { label: "Day After", val: dayAfter },
+                  ].map((p) => (
+                    <button
+                      key={p.val}
+                      type="button"
+                      onClick={() => setPickupDate(p.val)}
+                      style={{
+                        flex: 1,
+                        padding: "8px",
+                        fontSize: "0.78rem",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        border: pickupDate === p.val ? "2px solid #4232d9" : "1px solid #d1d5db",
+                        background: pickupDate === p.val ? "#eef2ff" : "#fff",
+                        color: pickupDate === p.val ? "#4232d9" : "#374151",
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  ));
+                })()}
+              </div>
+              <input
+                type="date"
+                value={pickupDate}
+                onChange={(e) => setPickupDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  fontSize: "0.88rem",
+                  border: "1px solid #d1d5db",
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+
+            <div style={{ fontSize: "0.78rem", color: "#64748b", marginBottom: 24, lineHeight: 1.4 }}>
+              💡 Courier pickup agent will be assigned by Shiprocket to collect this parcel from the registered warehouse location.
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowPickupModal(false)}
+                style={{
+                  background: "#fff",
+                  border: "1px solid #d1d5db",
+                  padding: "10px 18px",
+                  fontSize: "0.82rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  textTransform: "uppercase",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSchedulePickup}
+                disabled={schedulingPickup}
+                style={{
+                  background: "#4232d9",
+                  color: "#fff",
+                  border: "none",
+                  padding: "10px 22px",
+                  fontSize: "0.82rem",
+                  fontWeight: 800,
+                  cursor: schedulingPickup ? "not-allowed" : "pointer",
+                  textTransform: "uppercase",
+                }}
+              >
+                {schedulingPickup ? "Scheduling..." : "Confirm & Schedule Pickup →"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CANCEL SHIPMENT MODAL */}
+      {showCancelShipmentModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.65)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              width: "100%",
+              maxWidth: "500px",
+              padding: "28px",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 900, textTransform: "uppercase", color: "#dc2626" }}>
+                Cancel Shipment & Order
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCancelShipmentModal(false)}
+                style={{ background: "none", border: "none", fontSize: "1.3rem", cursor: "pointer", color: "#666" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: "14px", marginBottom: 20, color: "#991b1b", fontSize: "0.85rem", lineHeight: 1.5 }}>
+              ⚠️ <strong>Warning:</strong> This will cancel the courier shipment in Shiprocket. If this was a prepaid order, a 100% instant refund will be initiated via Razorpay, and items will be restocked to inventory.
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 800, textTransform: "uppercase", marginBottom: 6 }}>
+                Reason for Cancellation
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Customer requested cancellation before dispatch"
+                value={cancelShipmentReason}
+                onChange={(e) => setCancelShipmentReason(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  fontSize: "0.88rem",
+                  border: "1px solid #d1d5db",
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowCancelShipmentModal(false)}
+                style={{
+                  background: "#fff",
+                  border: "1px solid #d1d5db",
+                  padding: "10px 18px",
+                  fontSize: "0.82rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  textTransform: "uppercase",
+                }}
+              >
+                Keep Shipment
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelShipment}
+                disabled={cancellingShipment}
+                style={{
+                  background: "#dc2626",
+                  color: "#fff",
+                  border: "none",
+                  padding: "10px 22px",
+                  fontSize: "0.82rem",
+                  fontWeight: 800,
+                  cursor: cancellingShipment ? "not-allowed" : "pointer",
+                  textTransform: "uppercase",
+                }}
+              >
+                {cancellingShipment ? "Cancelling in Shiprocket..." : "Confirm Cancellation →"}
               </button>
             </div>
           </div>

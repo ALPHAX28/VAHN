@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { getPublicTracking } from "@/lib/api";
+import { getPublicTracking, getPublicOrderInvoice } from "@/lib/api";
 import type { TrackingInfo } from "@/lib/api/types";
 import {
   TruckIcon,
@@ -14,6 +14,7 @@ import {
   PackageIcon,
   ShieldCheckIcon,
   XIcon,
+  PrinterIcon,
 } from "@/components/icons/Icons";
 
 function TrackingContent() {
@@ -26,6 +27,7 @@ function TrackingContent() {
   const [error, setError] = useState("");
   const [tracking, setTracking] = useState<TrackingInfo | null>(null);
   const [copied, setCopied] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   useEffect(() => {
     if (initialQuery) {
@@ -62,6 +64,28 @@ function TrackingContent() {
     navigator.clipboard.writeText(awb);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleDownloadInvoice() {
+    const code = tracking?.order_id || tracking?.orderId || query.trim();
+    if (!code) return;
+    setDownloadingInvoice(true);
+    try {
+      const res = await getPublicOrderInvoice(code);
+      if (res.invoice_url) {
+        window.open(res.invoice_url, "_blank");
+        return;
+      }
+      if (res.message) {
+        alert(res.message);
+      } else {
+        alert("Official invoice is currently generating. Please try again in a few moments.");
+      }
+    } catch (err: any) {
+      alert(err?.message || "Failed to retrieve invoice. Please try again later.");
+    } finally {
+      setDownloadingInvoice(false);
+    }
   }
 
   // Milestone mapping (Clean, concise step titles without confusing premature sub-labels)
@@ -476,7 +500,7 @@ function TrackingContent() {
               </div>
             </div>
 
-            <div style={{ textAlign: "right" }}>
+            <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
               <span
                 style={{
                   display: "inline-block",
@@ -498,9 +522,34 @@ function TrackingContent() {
                 {statusBadgeLabel}
               </span>
               {tracking.estimatedDelivery && (
-                <div style={{ fontSize: "0.78rem", color: "#666" }}>
+                <div style={{ fontSize: "0.78rem", color: "#666", marginBottom: "6px" }}>
                   Est. Delivery: <strong style={{ color: "#000" }}>{tracking.estimatedDelivery}</strong>
                 </div>
+              )}
+              {(tracking.awb_code || tracking.awbCode || tracking.status === "SHIPPED" || tracking.status === "DELIVERED" || tracking.shipping_status === "SHIPPED" || tracking.shipping_status === "DELIVERED") && (
+                <button
+                  type="button"
+                  onClick={handleDownloadInvoice}
+                  disabled={downloadingInvoice}
+                  style={{
+                    background: "#000",
+                    color: "#fff",
+                    border: "1px solid #000",
+                    padding: "6px 14px",
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    cursor: downloadingInvoice ? "not-allowed" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginTop: 4,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  <PrinterIcon size={13} color="#fff" />
+                  {downloadingInvoice ? "Fetching..." : "Download Invoice"}
+                </button>
               )}
             </div>
           </div>

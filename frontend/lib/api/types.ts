@@ -322,6 +322,10 @@ export interface TrackingInfo {
   payment_status?: string | null;
   payment_method?: string | null;
   cancellation_reason?: string | null;
+  invoice_url?: string | null;
+  label_url?: string | null;
+  pickup_status?: string | null;
+  pickup_scheduled_date?: string | null;
 }
 
 export interface RetryPaymentResponse {

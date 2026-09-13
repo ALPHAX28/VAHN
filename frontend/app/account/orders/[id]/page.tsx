@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getOrderDetail, cancelOrder, requestOrderReturn, getOrderTracking, getOrderExchangeOptions } from "@/lib/api";
+import { getOrderDetail, cancelOrder, requestOrderReturn, getOrderTracking, getOrderExchangeOptions, getCustomerOrderInvoice } from "@/lib/api";
 import type { OrderDetail, TrackingInfo, OrderExchangeOptionsResponse, ExchangeItemOption, ExchangeVariantOption } from "@/lib/api/types";
 import Image from "next/image";
 import Link from "next/link";
@@ -62,6 +62,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
   const [loadingTrackingModal, setLoadingTrackingModal] = useState(false);
   const [activeTrackingTab, setActiveTrackingTab] = useState<"forward" | "reverse">("forward");
   const [copiedAwb, setCopiedAwb] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   useEffect(() => {
     if (orderId === "undefined" || !orderId) {
@@ -105,6 +106,23 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     navigator.clipboard.writeText(code);
     setCopiedAwb(true);
     setTimeout(() => setCopiedAwb(false), 2000);
+  }
+
+  async function handleDownloadInvoice() {
+    if (!order) return;
+    setDownloadingInvoice(true);
+    try {
+      const res = await getCustomerOrderInvoice(order.id, token || undefined);
+      if (res.invoice_url) {
+        window.open(res.invoice_url, "_blank");
+        return;
+      }
+    } catch (err) {
+      console.warn("Failed to fetch official invoice link, falling back to print", err);
+    } finally {
+      setDownloadingInvoice(false);
+    }
+    window.print();
   }
 
   useEffect(() => {
@@ -510,7 +528,8 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
             )}
 
             <button
-              onClick={() => window.print()}
+              onClick={handleDownloadInvoice}
+              disabled={downloadingInvoice}
               style={{
                 background: "#fff",
                 border: "2px solid #000",
@@ -518,23 +537,24 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 padding: "10px 20px",
                 fontSize: "0.8rem",
                 fontWeight: 900,
-                cursor: "pointer",
+                cursor: downloadingInvoice ? "not-allowed" : "pointer",
                 textTransform: "uppercase",
                 letterSpacing: "-0.025em",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
                 flexShrink: 0,
+                opacity: downloadingInvoice ? 0.7 : 1,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#f3f4f6";
+                if (!downloadingInvoice) e.currentTarget.style.background = "#f3f4f6";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = "#fff";
+                if (!downloadingInvoice) e.currentTarget.style.background = "#fff";
               }}
             >
               <PrinterIcon size={15} color="#000" />
-              Print Receipt
+              {downloadingInvoice ? "Fetching Invoice..." : (isShipped ? "Download Tax Invoice" : "Print Receipt")}
             </button>
           </div>
         </div>
@@ -1438,6 +1458,34 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       </div>
                       <div style={{ fontSize: "0.95rem", fontWeight: 900, color: "#000", marginTop: 2 }}>
                         3–5 Business Days
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "0.7rem", color: "#666", textTransform: "uppercase", fontWeight: 800 }}>
+                        Official Invoice
+                      </div>
+                      <div style={{ marginTop: 4 }}>
+                        <button
+                          type="button"
+                          onClick={handleDownloadInvoice}
+                          disabled={downloadingInvoice}
+                          style={{
+                            background: "#000",
+                            color: "#fff",
+                            border: "1px solid #000",
+                            padding: "4px 10px",
+                            fontSize: "0.7rem",
+                            fontWeight: 800,
+                            cursor: downloadingInvoice ? "not-allowed" : "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          <PrinterIcon size={12} color="#fff" />
+                          {downloadingInvoice ? "Loading..." : "Download PDF"}
+                        </button>
                       </div>
                     </div>
                   </div>
