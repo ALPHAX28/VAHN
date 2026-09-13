@@ -72,11 +72,23 @@ def get_primary_warehouse(db: Optional[Session] = None) -> Dict[str, Any]:
         close_db = True
 
     try:
-        wh = db.query(models.WarehouseLocation).filter_by(is_primary=True).first()
+        # Prioritize active, phone-verified warehouse (Home), never unverified location without phone
+        wh = db.query(models.WarehouseLocation).filter(
+            models.WarehouseLocation.is_primary == True,
+            models.WarehouseLocation.pickup_location != "Primary",
+            models.WarehouseLocation.phone != ""
+        ).first()
+        if not wh:
+            wh = db.query(models.WarehouseLocation).filter(
+                models.WarehouseLocation.pickup_location != "Primary",
+                models.WarehouseLocation.phone != ""
+            ).first()
+        if not wh:
+            wh = db.query(models.WarehouseLocation).filter_by(is_primary=True).first()
         if not wh:
             wh = db.query(models.WarehouseLocation).first()
 
-        if wh:
+        if wh and wh.pickup_location != "Primary" and str(wh.phone).strip():
             return {
                 "id": wh.id,
                 "pickup_location": wh.pickup_location,
@@ -104,19 +116,28 @@ def get_primary_warehouse(db: Optional[Session] = None) -> Dict[str, Any]:
                     if res.status_code == 200:
                         addresses = res.json().get("data", {}).get("shipping_address", [])
                         if addresses:
-                            primary_addr = next((a for a in addresses if a.get("is_primary_location")), addresses[0])
-                            loc_name = primary_addr.get("pickup_location", "Primary")
-                            pin = str(primary_addr.get("pin_code", SHIPROCKET_PICKUP_PINCODE or "400001"))
+                            valid_addrs = [
+                                a for a in addresses
+                                if str(a.get("phone", "")).strip()
+                                and a.get("status") == 1
+                                and a.get("pickup_location") != "Primary"
+                            ]
+                            if valid_addrs:
+                                primary_addr = next((a for a in valid_addrs if a.get("pickup_location") == "Home"), valid_addrs[0])
+                            else:
+                                primary_addr = addresses[0]
+                            loc_name = primary_addr.get("pickup_location", "Home")
+                            pin = str(primary_addr.get("pin_code", SHIPROCKET_PICKUP_PINCODE or "110019"))
 
                             # Auto-seed into DB so admin can view and manage
                             new_wh = models.WarehouseLocation(
                                 pickup_location=loc_name,
-                                name=primary_addr.get("name") or "VAHN Warehouse Manager",
-                                email=primary_addr.get("email") or SHIPROCKET_EMAIL or "logistics@vahnsports.com",
-                                phone=primary_addr.get("phone") or "9876543210",
-                                address=primary_addr.get("address") or "VAHN Logistics Hub",
-                                address_2=primary_addr.get("address_2") or "",
-                                city=primary_addr.get("city") or "New Delhi",
+                                name=primary_addr.get("name") or "Abhinandan Mitra",
+                                email=primary_addr.get("email") or SHIPROCKET_EMAIL or "abhinandan.mitra@vahnsports.com",
+                                phone=primary_addr.get("phone") or "8013340567",
+                                address=primary_addr.get("address") or "1931/19a, Vishwakarma Mandir Marg, Govindpuri Extension, Kalkaji",
+                                address_2=primary_addr.get("address_2") or "Near Vishwakarma mandir",
+                                city=primary_addr.get("city") or "Delhi",
                                 state=primary_addr.get("state") or "Delhi",
                                 country="India",
                                 pin_code=pin,
@@ -331,8 +352,11 @@ def create_forward_shipment(
     if not token:
         raise ValueError("Cannot dispatch shipment: Shiprocket API authentication is not active.")
 
-    addr = order.shipping_address or {}
-    pickup = pickup_location or get_primary_pickup_location(db)
+    raw_pickup = pickup_location or get_primary_pickup_location(db)
+    if not raw_pickup or str(raw_pickup).strip().lower() == "primary":
+        pickup = "Home"
+    else:
+        pickup = str(raw_pickup).strip()
 
     if items is None:
         items = getattr(order, "items", []) or []
