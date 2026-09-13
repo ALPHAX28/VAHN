@@ -51,19 +51,17 @@ function CheckoutFailedContent() {
     }
   }, []);
 
-  // Dynamically load correct Razorpay SDK based on ORDER type (source of truth)
-  // - Guest order (order.is_guest=true OR no user) → magic-checkout.js
-  // - Logged-in order (order.is_guest=false AND user exists) → checkout.js
-  // Wait for auth to finish loading before deciding — prevents race condition
+  // Load correct Razorpay SDK based on CURRENT AUTH STATE:
+  // - Logged-in user (!user === false) → checkout.js → standard modal
+  // - Guest (user === null) → magic-checkout.js → Magic Checkout
+  // Wait for auth to resolve first (prevents race condition where user=null during load)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // If auth is still loading, wait — don't load wrong SDK
-    if (isAuthLoading) return;
+    if (isAuthLoading) return; // wait for auth to resolve before deciding
 
-    // Source of truth: order.is_guest from backend, fallback to !user
-    const isGuest = order
-      ? Boolean(order.is_guest)
-      : !user;
+    // Source of truth: is the user currently logged in?
+    // Do NOT use order.is_guest — it reflects how order was created, not current login state
+    const isGuest = !user;
 
     const targetSrc = isGuest
       ? "https://checkout.razorpay.com/v1/magic-checkout.js"
@@ -73,12 +71,14 @@ function CheckoutFailedContent() {
     const existingFileName = existingScript?.src.split("/").pop();
     const targetFileName = targetSrc.split("/").pop();
 
-    // IMPORTANT: use exact match, NOT includes() —
-    // "magic-checkout.js".includes("checkout.js") === true (false positive)
+    // Exact match only — "magic-checkout.js" !== "checkout.js"
     if (existingScript && existingFileName === targetFileName && window.Razorpay) {
       return; // correct SDK already loaded
     }
 
+    // Remove wrong SDK — NOTE: deleting window.Razorpay alone is not enough
+    // since executed JS cannot be unloaded, but re-loading the correct script
+    // will overwrite window.Razorpay with the correct constructor
     if (existingScript) {
       existingScript.remove();
       try { delete (window as any).Razorpay; } catch { (window as any).Razorpay = undefined; }
@@ -89,7 +89,6 @@ function CheckoutFailedContent() {
     script.src = targetSrc;
     script.async = true;
     script.onerror = () => {
-      // Fallback to standard checkout on error
       const fallback = document.createElement("script");
       fallback.id = "rzp-retry-script";
       fallback.src = "https://checkout.razorpay.com/v1/checkout.js";
@@ -97,7 +96,7 @@ function CheckoutFailedContent() {
       document.body.appendChild(fallback);
     };
     document.body.appendChild(script);
-  }, [user, order, isAuthLoading]);
+  }, [user, isAuthLoading]);
 
   // Fetch order summary if orderId is present
   useEffect(() => {
@@ -188,10 +187,9 @@ function CheckoutFailedContent() {
       if (orderId) {
         const retryData = await retryOrderPayment(orderId, token || undefined);
 
-        // Source of truth: order.is_guest from backend, fallback to !user
-        const isGuest = order
-          ? Boolean(order.is_guest)
-          : !user;
+        // Source of truth: current auth state, NOT order.is_guest
+        // A logged-in user always gets standard checkout regardless of how order was created
+        const isGuest = !user;
 
         const options: any = {
           key: retryData.key_id,
