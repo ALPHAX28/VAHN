@@ -814,7 +814,7 @@ export default function CheckoutPage() {
                     <TruckIcon size={16} />
                     <span>
                       {serviceability.serviceable
-                        ? `✓ Delivery available by ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_delivery_days || 3}–${Number(serviceability.estimated_delivery_days || 3) + 2} days)`
+                        ? `Delivery available by ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_delivery_days || 3}–${Number(serviceability.estimated_delivery_days || 3) + 2} days)`
                         : "Delivery may require extra transit days to this PIN code"}
                     </span>
                   </div>
@@ -920,7 +920,7 @@ export default function CheckoutPage() {
                   <div>
                     <span style={{ fontWeight: 700 }}>
                       {serviceability.serviceable
-                        ? `✓ Delivery available to PIN ${serviceability.pincode} via ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_delivery_days || 3}–${Number(serviceability.estimated_delivery_days || 3) + 2} days)`
+                        ? `Delivery available to PIN ${serviceability.pincode} via ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_delivery_days || 3}–${Number(serviceability.estimated_delivery_days || 3) + 2} days)`
                         : `Delivery to PIN ${serviceability.pincode} may require extra transit days`}
                     </span>
                   </div>
