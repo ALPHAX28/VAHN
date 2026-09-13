@@ -340,6 +340,31 @@ export default function AdminOrderDetailPage() {
       {error && <div className="admin-alert admin-alert--error">{error}</div>}
       {success && <div className="admin-alert admin-alert--success">{success}</div>}
 
+      {order.payment_status === "FAILED" && (
+        <div
+          style={{
+            background: "#fef2f2",
+            border: "1px solid #fca5a5",
+            borderLeft: "6px solid #dc2626",
+            padding: "16px 20px",
+            marginBottom: "20px",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "14px",
+          }}
+        >
+          <span style={{ fontSize: "1.4rem", lineHeight: 1 }}>⚠️</span>
+          <div>
+            <div style={{ fontSize: "0.95rem", fontWeight: 900, color: "#991b1b", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+              Payment Failed — Transaction Incomplete
+            </div>
+            <div style={{ fontSize: "0.84rem", color: "#7f1d1d", marginTop: 4, lineHeight: 1.45 }}>
+              The customer&apos;s online payment was not captured or failed at Razorpay checkout. Because no funds were received, <strong>this order cannot be fulfilled, dispatched, or refunded</strong>.
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="admin-order-layout">
         {/* Left Main Content */}
         <div className="admin-order-main">
@@ -408,29 +433,46 @@ export default function AdminOrderDetailPage() {
 
           {/* 1. Forward Logistics Command Card (Shiprocket) */}
           {(() => {
+            const isPaymentFailed = order.payment_status === "FAILED";
             const isCancelled = order.status === "CANCELLED" || order.shipping_status === "CANCELLED";
             const forwardTracking = order.tracking_data;
             const forwardScans: Array<{ date?: string; activity: string; location?: string }> =
               Array.isArray(forwardTracking?.scans) ? forwardTracking.scans : [];
-            const forwardCurrentLocation = isCancelled
+            const forwardCurrentLocation = isPaymentFailed
+              ? "Fulfillment Blocked (Payment Failed)"
+              : isCancelled
               ? "Shipment Revoked & Cancelled"
               : forwardTracking?.current_location ||
                 (forwardScans.length > 0 ? forwardScans[forwardScans.length - 1]?.location : null) ||
-                (order.shipping_status === "DELIVERED" ? "Delivered to Customer" : "In Transit");
+                (order.shipping_status === "DELIVERED"
+                  ? "Delivered to Customer"
+                  : order.shiprocket_awb
+                  ? "In Transit"
+                  : "Awaiting Dispatch");
             const latestForwardScan =
               forwardScans.length > 0 ? forwardScans[forwardScans.length - 1] : null;
 
             return (
-              <div className="admin-card" style={{ borderLeft: isCancelled ? "4px solid #dc2626" : "4px solid #4232d9", position: "relative" }}>
+              <div
+                className="admin-card"
+                style={{
+                  borderLeft: isPaymentFailed
+                    ? "4px solid #dc2626"
+                    : isCancelled
+                    ? "4px solid #dc2626"
+                    : "4px solid #4232d9",
+                  position: "relative",
+                }}
+              >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <TruckIcon size={20} color={isCancelled ? "#dc2626" : "#4232d9"} />
+                    <TruckIcon size={20} color={isPaymentFailed || isCancelled ? "#dc2626" : "#4232d9"} />
                     <h2 className="admin-card-title" style={{ margin: 0, textTransform: "uppercase" }}>
                       Forward Logistics (Shiprocket)
                     </h2>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    {order.shiprocket_awb && !isCancelled && (
+                    {order.shiprocket_awb && !isCancelled && !isPaymentFailed && (
                       <button
                         type="button"
                         onClick={handleRefreshTracking}
@@ -454,16 +496,24 @@ export default function AdminOrderDetailPage() {
                     )}
                     <span
                       style={{
-                        background: isCancelled ? "#fef2f2" : (order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#f6ffed" : "#fffbe6"),
-                        color: isCancelled ? "#dc2626" : (order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#389e0d" : "#d48806"),
-                        border: `1px solid ${isCancelled ? "#fca5a5" : (order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#b7eb8f" : "#ffe58f")}`,
+                        background: isPaymentFailed
+                          ? "#fef2f2"
+                          : isCancelled
+                          ? "#fef2f2"
+                          : (order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#f6ffed" : "#fffbe6"),
+                        color: isPaymentFailed
+                          ? "#dc2626"
+                          : isCancelled
+                          ? "#dc2626"
+                          : (order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#389e0d" : "#d48806"),
+                        border: `1px solid ${isPaymentFailed ? "#fca5a5" : isCancelled ? "#fca5a5" : (order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#b7eb8f" : "#ffe58f")}`,
                         padding: "5px 12px",
                         fontSize: "0.72rem",
                         fontWeight: 800,
                         textTransform: "uppercase",
                       }}
                     >
-                      {isCancelled ? "CANCELLED" : (order.shipping_status || "UNFULFILLED")}
+                      {isPaymentFailed ? "BLOCKED (PAYMENT FAILED)" : isCancelled ? "CANCELLED" : (order.shipping_status || "UNFULFILLED")}
                     </span>
                   </div>
                 </div>
@@ -473,8 +523,8 @@ export default function AdminOrderDetailPage() {
                     <span style={{ color: "#777", fontSize: "0.72rem", display: "block", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.03em" }}>
                       Courier Partner
                     </span>
-                    <strong style={{ fontSize: "0.9rem", color: "#111" }}>
-                      {order.shiprocket_courier_name || "Assigned on Dispatch"}
+                    <strong style={{ fontSize: "0.9rem", color: isPaymentFailed ? "#888" : "#111" }}>
+                      {isPaymentFailed ? "None (Payment Incomplete)" : (order.shiprocket_courier_name || "Assigned on Dispatch")}
                     </strong>
                   </div>
 
@@ -498,7 +548,9 @@ export default function AdminOrderDetailPage() {
                         {order.shiprocket_awb}
                       </a>
                     ) : (
-                      <span style={{ color: "#999", fontSize: "0.85rem" }}>Not Assigned</span>
+                      <span style={{ color: isPaymentFailed ? "#dc2626" : "#999", fontSize: "0.85rem", fontWeight: isPaymentFailed ? 600 : 400 }}>
+                        {isPaymentFailed ? "Blocked" : "Not Assigned"}
+                      </span>
                     )}
                   </div>
 
@@ -506,8 +558,8 @@ export default function AdminOrderDetailPage() {
                     <span style={{ color: "#777", fontSize: "0.72rem", display: "block", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.03em" }}>
                       Shipment ID
                     </span>
-                    <span style={{ fontFamily: "monospace", fontSize: "0.88rem", color: "#333" }}>
-                      {order.shiprocket_shipment_id || "Pending"}
+                    <span style={{ fontFamily: "monospace", fontSize: "0.88rem", color: isPaymentFailed ? "#dc2626" : "#333" }}>
+                      {order.shiprocket_shipment_id || (isPaymentFailed ? "Blocked" : "Pending")}
                     </span>
                   </div>
 
@@ -516,8 +568,8 @@ export default function AdminOrderDetailPage() {
                       Current Location
                     </span>
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <MapPinIcon size={14} color={isCancelled ? "#dc2626" : "#4232d9"} />
-                      <strong style={{ fontSize: "0.88rem", color: isCancelled ? "#dc2626" : "#111" }}>
+                      <MapPinIcon size={14} color={isPaymentFailed || isCancelled ? "#dc2626" : "#4232d9"} />
+                      <strong style={{ fontSize: "0.88rem", color: isPaymentFailed || isCancelled ? "#dc2626" : "#111" }}>
                         {forwardCurrentLocation}
                       </strong>
                     </div>
@@ -532,8 +584,8 @@ export default function AdminOrderDetailPage() {
                     <span style={{ color: "#777", fontSize: "0.72rem", display: "block", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.03em" }}>
                       Estimated Delivery
                     </span>
-                    <span style={{ fontSize: "0.88rem", color: "#333", fontWeight: 600 }}>
-                      {isCancelled ? "Cancelled" : (order.delivered_at || "3-5 Business Days")}
+                    <span style={{ fontSize: "0.88rem", color: isPaymentFailed ? "#dc2626" : "#333", fontWeight: 600 }}>
+                      {isPaymentFailed ? "Blocked (Unpaid)" : isCancelled ? "Cancelled" : (order.delivered_at || "3-5 Business Days")}
                     </span>
                   </div>
                 </div>
@@ -646,7 +698,17 @@ export default function AdminOrderDetailPage() {
                 )}
 
                 <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", borderTop: "1px solid #eee", paddingTop: 14, alignItems: "center" }}>
-                  {isCancelled ? (
+                  {isPaymentFailed ? (
+                    <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", padding: "12px 16px", fontSize: "0.82rem", fontWeight: 700, width: "100%", display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: "1.1rem" }}>⛔</span>
+                      <div>
+                        <div>Dispatch Blocked: Customer payment failed.</div>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "#7f1d1d" }}>
+                          Cannot fulfill, generate AWB, or print shipping labels for unpaid orders.
+                        </span>
+                      </div>
+                    </div>
+                  ) : isCancelled ? (
                     <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
                       <button
                         type="button"
@@ -1277,21 +1339,42 @@ export default function AdminOrderDetailPage() {
         <div className="admin-order-sidebar">
           {/* Payment & Refund Audit Card */}
           {(() => {
+            const isPaymentFailed = order.payment_status === "FAILED";
             const isRefunded = order.refund_status === "REFUNDED" || order.payment_status === "REFUNDED";
             const isCancelled = order.status === "CANCELLED" || order.shipping_status === "CANCELLED";
 
             return (
               <>
-                <div className="admin-card" style={{ borderLeft: isRefunded ? "4px solid #16a34a" : "4px solid #52c41a" }}>
+                <div
+                  className="admin-card"
+                  style={{
+                    borderLeft: isPaymentFailed
+                      ? "4px solid #dc2626"
+                      : isRefunded
+                      ? "4px solid #16a34a"
+                      : "4px solid #52c41a",
+                  }}
+                >
                   <h2 className="admin-card-title">Prepaid Payment Audit</h2>
                   <div style={{ fontSize: "0.82rem", display: "flex", flexDirection: "column", gap: 10 }}>
                     <div>
                       <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Method</span>
-                      <strong style={{ color: "#15803d" }}>100% PREPAID (ONLINE)</strong>
+                      {isPaymentFailed ? (
+                        <strong style={{ color: "#dc2626" }}>PAYMENT FAILED (UNCAPTURED)</strong>
+                      ) : (
+                        <strong style={{ color: "#15803d" }}>100% PREPAID (ONLINE)</strong>
+                      )}
                     </div>
                     <div>
                       <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Payment Status</span>
-                      {isRefunded ? (
+                      {isPaymentFailed ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <strong style={{ color: "#dc2626", fontSize: "0.92rem", fontWeight: 900 }}>FAILED</strong>
+                          <span style={{ background: "#fee2e2", color: "#b91c1c", fontSize: "0.68rem", fontWeight: 800, padding: "2px 6px", textTransform: "uppercase" }}>
+                            Uncaptured
+                          </span>
+                        </div>
+                      ) : isRefunded ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <strong style={{ color: "#16a34a", fontSize: "0.92rem", fontWeight: 900 }}>100% REFUNDED</strong>
                           <span style={{ background: "#dcfce7", color: "#15803d", fontSize: "0.68rem", fontWeight: 800, padding: "2px 6px", textTransform: "uppercase" }}>Settled</span>
@@ -1302,9 +1385,14 @@ export default function AdminOrderDetailPage() {
                     </div>
                     <div>
                       <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Razorpay Payment ID</span>
-                      <span style={{ fontFamily: "monospace", fontSize: "0.75rem", background: "#f3f4f6", padding: "2px 6px" }}>
-                        {order.razorpay_payment_id || "rzp_test_sandbox_verified"}
+                      <span style={{ fontFamily: "monospace", fontSize: "0.75rem", background: isPaymentFailed ? "#fee2e2" : "#f3f4f6", color: isPaymentFailed ? "#991b1b" : "inherit", padding: "2px 6px" }}>
+                        {order.razorpay_payment_id || (isPaymentFailed ? "None (Checkout Failed)" : "rzp_test_sandbox_verified")}
                       </span>
+                      {isPaymentFailed && order.razorpay_payment_id && (
+                        <span style={{ fontSize: "0.7rem", color: "#dc2626", display: "block", marginTop: 2 }}>
+                          Failed attempt: {order.razorpay_payment_id}
+                        </span>
+                      )}
                     </div>
                     <div>
                       <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Razorpay Order ID</span>
@@ -1335,7 +1423,11 @@ export default function AdminOrderDetailPage() {
                     ) : null}
                   </div>
 
-                  {!isRefunded && !isCancelled && (
+                  {isPaymentFailed ? (
+                    <div style={{ marginTop: 14, padding: "10px 12px", background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b", fontSize: "0.76rem", lineHeight: 1.4 }}>
+                      ✕ <strong>Refund Not Applicable:</strong> Customer payment failed at checkout. No funds were debited or captured, so no refund can be issued.
+                    </div>
+                  ) : !isRefunded && !isCancelled ? (
                     <button
                       type="button"
                       onClick={() => setShowRefundModal(true)}
@@ -1355,12 +1447,17 @@ export default function AdminOrderDetailPage() {
                     >
                       Issue Manual Refund →
                     </button>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* Status Management Card */}
                 <div className="admin-card">
                   <h2 className="admin-card-title">Order Status Controls</h2>
+                  {isPaymentFailed && (
+                    <div style={{ background: "#fff1f2", border: "1px solid #fecdd3", padding: "8px 10px", fontSize: "0.75rem", color: "#9f1239", marginBottom: 12, lineHeight: 1.4 }}>
+                      ⚠️ <strong>Payment Failed:</strong> Order cannot be fulfilled. Recommended status is <strong>CANCELLED</strong>.
+                    </div>
+                  )}
                   <div className="admin-form-group">
                     <label className="admin-form-label">Order Fulfillment Status</label>
                     <select
@@ -1369,8 +1466,12 @@ export default function AdminOrderDetailPage() {
                       onChange={(e) => setStatus(e.target.value)}
                     >
                       {ORDER_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
+                        <option
+                          key={s}
+                          value={s}
+                          disabled={isPaymentFailed && (s === "SHIPPED" || s === "DELIVERED")}
+                        >
+                          {s} {isPaymentFailed && (s === "SHIPPED" || s === "DELIVERED") ? "(Blocked - Payment Failed)" : ""}
                         </option>
                       ))}
                     </select>
@@ -1378,17 +1479,23 @@ export default function AdminOrderDetailPage() {
 
                   <div className="admin-form-group">
                     <label className="admin-form-label">Refund Status</label>
-                    <select
-                      className="admin-form-select"
-                      value={refundStatus}
-                      onChange={(e) => setRefundStatus(e.target.value)}
-                    >
-                      {REFUND_STATUSES.map((s) => (
-                        <option key={s || "none"} value={s}>
-                          {s || "No refund"}
-                        </option>
-                      ))}
-                    </select>
+                    {isPaymentFailed ? (
+                      <div style={{ padding: "8px 12px", background: "#f3f4f6", border: "1px solid #e5e7eb", fontSize: "0.78rem", color: "#6b7280", fontStyle: "italic" }}>
+                        Not Applicable (Payment Failed)
+                      </div>
+                    ) : (
+                      <select
+                        className="admin-form-select"
+                        value={refundStatus}
+                        onChange={(e) => setRefundStatus(e.target.value)}
+                      >
+                        {REFUND_STATUSES.map((s) => (
+                          <option key={s || "none"} value={s}>
+                            {s || "No refund"}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   {refundStatus && (

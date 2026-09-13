@@ -3652,7 +3652,7 @@ def admin_update_order_status(
                     var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
                     if var:
                         var.inventory_quantity += item.quantity
-            if order.razorpay_payment_id and order.refund_status != "REFUNDED":
+            if order.razorpay_payment_id and order.refund_status != "REFUNDED" and order.payment_status == "CAPTURED":
                 try:
                     rfnd_res = razorpay_service.initiate_refund(
                         payment_id=order.razorpay_payment_id,
@@ -3666,26 +3666,28 @@ def admin_update_order_status(
                     order.razorpay_refund_id = rfnd_res.get("id")
                 except Exception as e:
                     logger.error(f"Error triggering refund on status change to CANCELLED: {e}")
-        # If admin changes status to SHIPPED or IN_TRANSIT, automatically trigger dynamic Shiprocket dispatch if not already generated!
-        elif payload.status in ["SHIPPED", "IN_TRANSIT"] and not order.shiprocket_awb:
-            try:
-                sr_res = shiprocket_service.create_forward_shipment(order, order.items or [], db=db)
-                if sr_res:
-                    order.shiprocket_order_id = sr_res.get("shiprocket_order_id") or sr_res.get("order_id")
-                    order.shiprocket_shipment_id = sr_res.get("shiprocket_shipment_id") or sr_res.get("shipment_id")
-                    order.shiprocket_awb = sr_res.get("shiprocket_awb") or sr_res.get("awb_code")
-                    order.shiprocket_courier_name = sr_res.get("shiprocket_courier_name") or sr_res.get("courier_name")
-                    order.shipping_status = "SHIPPED"
-                    order.tracking_url = f"/track?q={order.shiprocket_awb}" if order.shiprocket_awb else None
-            except Exception as e:
-                logger.error(f"Shiprocket forward shipment error during status update to {payload.status}: {e}")
-                # Revert status so customer doesn't see SHIPPED with no AWB / broken tracking
-                order.status = previous_status
-                db.commit()
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Shiprocket dispatch failed: {str(e)}. Order status reverted. Use 'Ship via Shiprocket' button to retry."
-                )
+        elif payload.status in ["SHIPPED", "IN_TRANSIT"]:
+            if order.payment_status == "FAILED":
+                raise HTTPException(status_code=400, detail="Cannot dispatch order: Customer payment has failed.")
+            if not order.shiprocket_awb:
+                try:
+                    sr_res = shiprocket_service.create_forward_shipment(order, order.items or [], db=db)
+                    if sr_res:
+                        order.shiprocket_order_id = sr_res.get("shiprocket_order_id") or sr_res.get("order_id")
+                        order.shiprocket_shipment_id = sr_res.get("shiprocket_shipment_id") or sr_res.get("shipment_id")
+                        order.shiprocket_awb = sr_res.get("shiprocket_awb") or sr_res.get("awb_code")
+                        order.shiprocket_courier_name = sr_res.get("shiprocket_courier_name") or sr_res.get("courier_name")
+                        order.shipping_status = "SHIPPED"
+                        order.tracking_url = f"/track?q={order.shiprocket_awb}" if order.shiprocket_awb else None
+                except Exception as e:
+                    logger.error(f"Shiprocket forward shipment error during status update to {payload.status}: {e}")
+                    # Revert status so customer doesn't see SHIPPED with no AWB / broken tracking
+                    order.status = previous_status
+                    db.commit()
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Shiprocket dispatch failed: {str(e)}. Order status reverted. Use 'Ship via Shiprocket' button to retry."
+                    )
 
     if payload.refund_status is not None:
         order.refund_status = payload.refund_status
@@ -3715,6 +3717,8 @@ def admin_ship_order(
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status in ["CANCELLED", "REFUNDED"]:
         raise HTTPException(status_code=400, detail=f"Cannot ship order with status {order.status}")
+    if order.payment_status == "FAILED":
+        raise HTTPException(status_code=400, detail="Cannot ship order: Payment has failed and funds were not captured.")
     
     # Check if shipment already created in Shiprocket
     if not order.shiprocket_shipment_id or not order.shiprocket_awb or order.shipping_status == "CANCELLED":
@@ -3791,6 +3795,8 @@ def admin_schedule_pickup(
         raise HTTPException(status_code=404, detail="Order not found")
     if not order.shiprocket_shipment_id:
         raise HTTPException(status_code=400, detail="Cannot schedule pickup: Order has no Shiprocket shipment ID")
+    if order.payment_status == "FAILED":
+        raise HTTPException(status_code=400, detail="Cannot schedule pickup: Order payment has failed.")
     
     pickup_date = payload.pickup_date if payload else None
     pickup_res = shiprocket_service.schedule_courier_pickup(order.shiprocket_shipment_id, pickup_date)
@@ -3884,6 +3890,8 @@ def admin_refund_order(
         raise HTTPException(status_code=404, detail="Order not found")
     if order.refund_status == "REFUNDED":
         raise HTTPException(status_code=400, detail="Order is already fully refunded")
+    if order.payment_status == "FAILED" or not order.razorpay_payment_id:
+        raise HTTPException(status_code=400, detail="Cannot refund order: Payment was not captured or failed at checkout.")
     
     refund_amount = payload.amount if payload.amount is not None else order.total_amount
     refund_res = razorpay_service.refund_payment(
