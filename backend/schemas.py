@@ -699,6 +699,7 @@ class OrderTrackingResponse(BaseModel):
     payment_status: Optional[str] = None
     payment_method: Optional[str] = None
     cancellation_reason: Optional[str] = None
+    is_guest: Optional[bool] = False
 
 class OrderItemSchema(BaseModel):
     id: str

@@ -2070,7 +2070,8 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         created_at=order.created_at.strftime("%b %d, %Y") if order.created_at else "",
         payment_status=order.payment_status or "PENDING",
         payment_method=order.payment_method or "ONLINE",
-        cancellation_reason=order.cancellation_reason
+        cancellation_reason=order.cancellation_reason,
+        is_guest=bool(order.is_guest)
     )
 
 # 6. Authenticated Tracking for Customer Account View

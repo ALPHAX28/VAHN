@@ -312,6 +312,7 @@ export interface TrackingInfo {
   isReturn?: boolean;
   return_status?: string | null;
   is_picked_up?: boolean;
+  is_guest?: boolean;
   total_amount?: number;
   currency?: string;
   shipping_address?: any;
