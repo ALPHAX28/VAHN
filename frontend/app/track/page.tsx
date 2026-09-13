@@ -82,19 +82,129 @@ function TrackingContent() {
     { key: "REFUNDED", label: "Refund Completed", desc: "Credited to Customer" },
   ];
 
-  const activeSteps = tracking?.isReturn ? returnSteps : forwardSteps;
-  // Backend returns snake_case: current_status, order_id, awb_code, courier_name, current_location
-  // Also accept camelCase fallbacks for forward-compatibility
-  const currentStatusUpper = (
-    tracking?.current_status ||
-    tracking?.currentStatus ||
-    tracking?.shipping_status ||
-    tracking?.status ||
-    ""
-  ).toUpperCase();
-  const currentStepIndex = activeSteps.findIndex(
-    (s) => s.key === currentStatusUpper || currentStatusUpper.includes(s.key)
+  function resolveForwardMilestone(t: TrackingInfo | null): {
+    index: number;
+    badgeLabel: string;
+    isCancelled: boolean;
+  } {
+    if (!t) return { index: -1, badgeLabel: "UNKNOWN", isCancelled: false };
+
+    const rawStatus = (t.status || "").toUpperCase().trim();
+    const rawShipping = (t.shipping_status || "").toUpperCase().trim();
+    const rawCurrent = (t.current_status || t.currentStatus || "").toUpperCase().trim();
+    const rawMilestone = (t.currentMilestone || "").toUpperCase().trim();
+    const combined = `${rawStatus} ${rawShipping} ${rawCurrent} ${rawMilestone}`.replace(/[-_]/g, " ");
+
+    // 1. Cancelled
+    if (rawStatus === "CANCELLED" || rawShipping === "CANCELLED" || combined.includes("CANCELLED")) {
+      return { index: 0, badgeLabel: "CANCELLED", isCancelled: true };
+    }
+
+    // 2. Delivered
+    if (Boolean(t.delivered_at) || combined.includes("DELIVERED") || combined.includes("COMPLETED")) {
+      return { index: 5, badgeLabel: "DELIVERED", isCancelled: false };
+    }
+
+    // 3. Out for delivery
+    if (
+      combined.includes("OUT FOR DELIVERY") ||
+      combined.includes("OUT FOR DISPATCH") ||
+      combined.includes("OUT FOR PICKUP")
+    ) {
+      return { index: 4, badgeLabel: "OUT FOR DELIVERY", isCancelled: false };
+    }
+
+    // 4. In transit / reached hub
+    if (
+      combined.includes("IN TRANSIT") ||
+      combined.includes("TRANSIT") ||
+      combined.includes("REACHED DESTINATION") ||
+      combined.includes("REACHED HUB") ||
+      combined.includes("AT HUB") ||
+      combined.includes("CONNECTED")
+    ) {
+      return { index: 3, badgeLabel: "IN TRANSIT", isCancelled: false };
+    }
+
+    // 5. Shipped / Handed to courier
+    if (
+      t.is_picked_up ||
+      combined.includes("PICKED UP") ||
+      combined.includes("SHIPPED") ||
+      combined.includes("DISPATCHED") ||
+      combined.includes("HANDED OVER") ||
+      combined.includes("IN FLIGHT")
+    ) {
+      return { index: 2, badgeLabel: "SHIPPED", isCancelled: false };
+    }
+
+    // 6. Packed / Ready for pickup / Manifest generated / AWB assigned
+    if (
+      combined.includes("MANIFEST GENERATED") ||
+      combined.includes("MANIFESTED") ||
+      combined.includes("READY TO SHIP") ||
+      combined.includes("AWB ASSIGNED") ||
+      combined.includes("PICKUP SCHEDULED") ||
+      combined.includes("PICKUP GENERATED") ||
+      combined.includes("LABEL GENERATED") ||
+      combined.includes("PACKED") ||
+      Boolean(t.awb_code && t.awb_code.trim().length > 0)
+    ) {
+      return { index: 1, badgeLabel: "PACKED / READY FOR PICKUP", isCancelled: false };
+    }
+
+    // 7. Ordered / Placed / Unfulfilled (Default for any existing placed order)
+    return { index: 0, badgeLabel: "ORDER CONFIRMED", isCancelled: false };
+  }
+
+  function resolveReturnMilestone(t: TrackingInfo | null): {
+    index: number;
+    badgeLabel: string;
+  } {
+    if (!t) return { index: -1, badgeLabel: "UNKNOWN" };
+
+    const rawStatus = (t.status || "").toUpperCase().trim();
+    const rawReturn = (t.return_status || "").toUpperCase().trim();
+    const rawCurrent = (t.current_status || t.currentStatus || "").toUpperCase().trim();
+    const combined = `${rawStatus} ${rawReturn} ${rawCurrent}`.replace(/[-_]/g, " ");
+
+    if (combined.includes("REFUNDED") || combined.includes("REFUND COMPLETED")) {
+      return { index: 4, badgeLabel: "REFUND COMPLETED" };
+    }
+    if (combined.includes("REFUND INITIATED") || combined.includes("REFUND DISPATCHED")) {
+      return { index: 3, badgeLabel: "REFUND INITIATED" };
+    }
+    if (
+      combined.includes("RETURN IN TRANSIT") ||
+      combined.includes("RETURNING TO HUB") ||
+      (combined.includes("IN TRANSIT") && Boolean(t.reverse_awb))
+    ) {
+      return { index: 2, badgeLabel: "RETURN IN TRANSIT" };
+    }
+    if (
+      combined.includes("RETURN PICKED UP") ||
+      combined.includes("PICKED UP") ||
+      combined.includes("DOORSTEP COLLECTION")
+    ) {
+      return { index: 1, badgeLabel: "RETURN PICKED UP" };
+    }
+    return { index: 0, badgeLabel: "RETURN INITIATED" };
+  }
+
+  const isReturn = Boolean(
+    tracking?.isReturn ||
+    (tracking?.return_status && tracking.return_status !== "NONE") ||
+    tracking?.reverse_awb
   );
+  const activeSteps = isReturn ? returnSteps : forwardSteps;
+
+  const {
+    index: currentStepIndex,
+    badgeLabel: statusBadgeLabel,
+    isCancelled,
+  } = isReturn
+    ? { ...resolveReturnMilestone(tracking), isCancelled: false }
+    : resolveForwardMilestone(tracking);
 
   return (
     <div
@@ -361,9 +471,9 @@ function TrackingContent() {
                 style={{
                   display: "inline-block",
                   background:
-                    (tracking.current_status || tracking.currentStatus) === "DELIVERED" || (tracking.current_status || tracking.currentStatus) === "REFUNDED"
+                    statusBadgeLabel === "DELIVERED" || statusBadgeLabel === "REFUND COMPLETED"
                       ? "#16a34a"
-                      : (tracking.current_status || tracking.currentStatus) === "CANCELLED"
+                      : isCancelled
                       ? "#dc2626"
                       : "#000",
                   color: "#fff",
@@ -375,7 +485,7 @@ function TrackingContent() {
                   marginBottom: "6px",
                 }}
               >
-                {tracking.currentMilestone || tracking.current_status || tracking.currentStatus}
+                {statusBadgeLabel}
               </span>
               {tracking.estimatedDelivery && (
                 <div style={{ fontSize: "0.78rem", color: "#666" }}>
@@ -384,6 +494,30 @@ function TrackingContent() {
               )}
             </div>
           </div>
+
+          {/* Cancelled Notice Banner */}
+          {isCancelled && (
+            <div
+              style={{
+                background: "#fef2f2",
+                border: "1px solid #fca5a5",
+                padding: "14px 18px",
+                marginBottom: "24px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                color: "#991b1b",
+                fontSize: "0.85rem",
+                fontWeight: 700,
+              }}
+            >
+              <AlertCircleIcon size={18} color="#dc2626" />
+              <span>
+                This order has been cancelled. {tracking.cancellation_reason ? `Reason: ${tracking.cancellation_reason}. ` : ""}
+                Prepaid payments are refunded to your original payment method.
+              </span>
+            </div>
+          )}
 
           {/* Backend returns current_location (snake_case) */}
           {(tracking.current_location || tracking.currentLocation) && (
@@ -420,30 +554,32 @@ function TrackingContent() {
                 style={{
                   position: "absolute",
                   top: "14px",
-                  left: "6%",
-                  right: "6%",
+                  left: `calc(100% / (${activeSteps.length} * 2))`,
+                  right: `calc(100% / (${activeSteps.length} * 2))`,
                   height: "2px",
                   background: "#e5e7eb",
                   zIndex: 0,
                 }}
               />
-              {/* Active line */}
+              {/* Active connecting line */}
               <div
                 style={{
                   position: "absolute",
                   top: "14px",
-                  left: "6%",
-                  width: `${Math.max(0, Math.min(88, ((currentStepIndex >= 0 ? currentStepIndex : 0) / (activeSteps.length - 1)) * 88))}%`,
+                  left: `calc(100% / (${activeSteps.length} * 2))`,
+                  width: `calc((100% - 100% / ${activeSteps.length}) * ${
+                    !isCancelled && currentStepIndex >= 0 ? currentStepIndex / (activeSteps.length - 1) : 0
+                  })`,
                   height: "2px",
-                  background: "#000",
+                  background: isCancelled ? "#dc2626" : "#000",
                   zIndex: 0,
                   transition: "width 0.4s ease",
                 }}
               />
 
               {activeSteps.map((step, idx) => {
-                const isPassed = currentStepIndex >= idx;
-                const isCurrent = currentStepIndex === idx;
+                const isPassed = !isCancelled && currentStepIndex >= idx;
+                const isCurrent = !isCancelled && currentStepIndex === idx;
 
                 return (
                   <div
@@ -461,9 +597,15 @@ function TrackingContent() {
                       style={{
                         width: 28,
                         height: 28,
-                        background: isPassed ? "#000" : "#fff",
-                        border: isPassed ? "2px solid #000" : "2px solid #d1d5db",
-                        color: isPassed ? "#fff" : "#9ca3af",
+                        background: isCancelled
+                          ? idx === 0 ? "#dc2626" : "#fff"
+                          : isPassed ? "#000" : "#fff",
+                        border: isCancelled
+                          ? idx === 0 ? "2px solid #dc2626" : "2px solid #d1d5db"
+                          : isPassed ? "2px solid #000" : "2px solid #d1d5db",
+                        color: isCancelled
+                          ? idx === 0 ? "#fff" : "#9ca3af"
+                          : isPassed ? "#fff" : "#9ca3af",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -471,15 +613,16 @@ function TrackingContent() {
                         fontWeight: 900,
                         marginBottom: "8px",
                         boxShadow: isCurrent ? "0 0 0 4px rgba(0,0,0,0.12)" : "none",
+                        transition: "all 0.3s ease",
                       }}
                     >
-                      {isPassed ? "✓" : idx + 1}
+                      {isCancelled && idx === 0 ? "✕" : isPassed ? "✓" : idx + 1}
                     </div>
                     <div
                       style={{
                         fontSize: "0.78rem",
                         fontWeight: isCurrent ? 900 : 700,
-                        color: isPassed ? "#000" : "#9ca3af",
+                        color: isCancelled && idx === 0 ? "#dc2626" : isPassed ? "#000" : "#9ca3af",
                         textTransform: "uppercase",
                       }}
                     >
@@ -509,55 +652,149 @@ function TrackingContent() {
               Checkpoint Scans & Transit History
             </h3>
 
-            {tracking.milestones && tracking.milestones.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                {tracking.milestones.map((m, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "14px",
-                      paddingBottom: "14px",
-                      borderBottom: i < (tracking.milestones?.length || 0) - 1 ? "1px solid #f8f8f8" : "none",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 8,
-                        height: 8,
-                        background: i === 0 ? "#16a34a" : "#cbd5e1",
-                        borderRadius: "50%",
-                        marginTop: "5px",
-                        flexShrink: 0,
-                      }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6 }}>
-                        <div style={{ fontWeight: 800, fontSize: "0.88rem", textTransform: "uppercase", color: "#000" }}>
-                          {m.title}
-                        </div>
-                        <div style={{ fontSize: "0.75rem", color: "#888" }}>{m.timestamp}</div>
-                      </div>
-                      {m.description && (
-                        <div style={{ fontSize: "0.82rem", color: "#555", marginTop: "2px" }}>
-                          {m.description}
-                        </div>
-                      )}
-                      {m.location && (
-                        <div style={{ fontSize: "0.75rem", color: "#888", marginTop: "2px" }}>
-                          📍 {m.location}
-                        </div>
-                      )}
-                    </div>
+            {(() => {
+              // Construct unified checkpoints from live scans, milestones, or synthesized order milestones
+              const checkpoints: Array<{
+                title: string;
+                description?: string | null;
+                location?: string | null;
+                timestamp?: string | null;
+              }> = [];
+
+              const rawScans = isReturn
+                ? (tracking?.reverse_scans && tracking.reverse_scans.length > 0 ? tracking.reverse_scans : tracking?.scans || [])
+                : (tracking?.scans && tracking.scans.length > 0 ? tracking.scans : []);
+
+              if (tracking?.milestones && tracking.milestones.length > 0) {
+                tracking.milestones.forEach((m) => {
+                  checkpoints.push({
+                    title: m.title,
+                    description: m.description,
+                    location: m.location,
+                    timestamp: m.timestamp,
+                  });
+                });
+              } else if (rawScans.length > 0) {
+                const reversedScans = [...rawScans].reverse();
+                reversedScans.forEach((s) => {
+                  checkpoints.push({
+                    title: s.activity || "Shipment Scan",
+                    location: s.location || undefined,
+                    timestamp: s.date || undefined,
+                  });
+                });
+              } else if (tracking) {
+                if (isCancelled) {
+                  checkpoints.push({
+                    title: "Order Cancelled",
+                    description: tracking.cancellation_reason
+                      ? `Cancellation Reason: ${tracking.cancellation_reason}`
+                      : "Order was cancelled. Any prepaid payment has been refunded.",
+                    timestamp: tracking.created_at || "Recent",
+                  });
+                } else {
+                  if (currentStepIndex >= 5) {
+                    checkpoints.push({
+                      title: "Package Delivered",
+                      description: "Shipment was delivered successfully.",
+                      timestamp: tracking.delivered_at || "Delivered",
+                    });
+                  }
+                  if (currentStepIndex >= 4) {
+                    checkpoints.push({
+                      title: "Out for Delivery",
+                      description: "Package is with courier delivery agent and arriving today.",
+                      timestamp: "In Progress",
+                    });
+                  }
+                  if (currentStepIndex >= 3) {
+                    checkpoints.push({
+                      title: "In Transit",
+                      description: `Package on the way${tracking.current_location ? ` near ${tracking.current_location}` : ""}.`,
+                      timestamp: "In Progress",
+                    });
+                  }
+                  if (currentStepIndex >= 2) {
+                    checkpoints.push({
+                      title: "Handed Over to Courier",
+                      description: `Package picked up by ${tracking.courier_name || tracking.courierName || "Courier Partner"}.`,
+                      timestamp: "Dispatched",
+                    });
+                  }
+                  if (currentStepIndex >= 1) {
+                    checkpoints.push({
+                      title: "Packed & Ready for Pickup",
+                      description: tracking.awb_code
+                        ? `Assigned to ${tracking.courier_name || tracking.courierName || "Express Delivery"} (AWB: ${tracking.awb_code})`
+                        : "Order is packed and awaiting courier pickup at fulfillment facility.",
+                      timestamp: "Packed",
+                    });
+                  }
+                  checkpoints.push({
+                    title: "Order Placed & Payment Confirmed",
+                    description: `Order #${tracking.order_id || tracking.orderId} placed successfully. Prepaid payment confirmed.`,
+                    timestamp: tracking.created_at || "Recent",
+                  });
+                }
+              }
+
+              if (checkpoints.length === 0) {
+                return (
+                  <div style={{ color: "#666", fontSize: "0.85rem", padding: "12px 0" }}>
+                    Shipment is registered. Live checkpoints will update automatically once scanned at the dispatch hub.
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ color: "#666", fontSize: "0.85rem", padding: "12px 0" }}>
-                Shipment is registered. Live checkpoints will update automatically once scanned at the dispatch hub.
-              </div>
-            )}
+                );
+              }
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  {checkpoints.map((cp, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "14px",
+                        paddingBottom: "14px",
+                        borderBottom: i < checkpoints.length - 1 ? "1px solid #f8f8f8" : "none",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 8,
+                          height: 8,
+                          background: i === 0 ? (isCancelled ? "#dc2626" : "#16a34a") : "#cbd5e1",
+                          borderRadius: "50%",
+                          marginTop: "5px",
+                          flexShrink: 0,
+                          boxShadow: i === 0 ? `0 0 0 3px ${isCancelled ? "rgba(220,38,38,0.2)" : "rgba(22,163,74,0.2)"}` : "none",
+                        }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6 }}>
+                          <div style={{ fontWeight: 800, fontSize: "0.88rem", textTransform: "uppercase", color: i === 0 ? "#000" : "#444" }}>
+                            {cp.title}
+                          </div>
+                          {cp.timestamp && (
+                            <div style={{ fontSize: "0.75rem", color: "#888" }}>{cp.timestamp}</div>
+                          )}
+                        </div>
+                        {cp.description && (
+                          <div style={{ fontSize: "0.82rem", color: "#555", marginTop: "2px" }}>
+                            {cp.description}
+                          </div>
+                        )}
+                        {cp.location && (
+                          <div style={{ fontSize: "0.75rem", color: "#888", marginTop: "2px" }}>
+                            📍 {cp.location}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </div>
       ) : (

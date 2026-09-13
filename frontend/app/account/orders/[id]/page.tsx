@@ -277,8 +277,13 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
   // Order is considered shipped ONLY when admin has dispatched via Shiprocket API
   const isShipped = Boolean(
     order.status !== "CANCELLED" &&
-    order.status !== "PROCESSING" &&
-    (order.status === "SHIPPED" || order.status === "DELIVERED" || order.shippingStatus === "SHIPPED" || order.shippingStatus === "IN_TRANSIT" || order.shippingStatus === "DELIVERED") &&
+    (order.status === "SHIPPED" ||
+      order.status === "DELIVERED" ||
+      order.shippingStatus === "SHIPPED" ||
+      order.shippingStatus === "IN_TRANSIT" ||
+      order.shippingStatus === "PICKED_UP" ||
+      order.shippingStatus === "MANIFEST_GENERATED" ||
+      order.shippingStatus === "DELIVERED") &&
     Boolean(order.shiprocketAwb || order.trackingData?.awb)
   );
 

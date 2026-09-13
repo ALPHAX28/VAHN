@@ -318,6 +318,7 @@ export interface TrackingInfo {
   shipping_address?: any;
   items?: any[];
   created_at?: string;
+  delivered_at?: string | null;
   payment_status?: string | null;
   payment_method?: string | null;
   cancellation_reason?: string | null;
