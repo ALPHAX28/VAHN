@@ -792,14 +792,15 @@ class AdminLoginRequest(BaseModel):
 # ============================================================
 
 class RecentOrderItem(BaseModel):
-    id: str
-    user_email: str
-    user_name: str
-    status: str
-    total_amount: float
-    currency: str
-    created_at: str
-    items_count: int
+    id: Optional[str] = None
+    user_email: Optional[str] = None
+    user_name: Optional[str] = None
+    status: Optional[str] = None
+    total_amount: Optional[float] = None
+    currency: Optional[str] = None
+    created_at: Optional[str] = None
+    items_count: Optional[int] = None
+    is_guest: Optional[bool] = False
 
 class TopProductItem(BaseModel):
     product_id: int

@@ -2740,13 +2740,20 @@ def admin_dashboard_stats(admin: models.User = Depends(get_current_admin), db: S
     recent_orders = [
         schemas.RecentOrderItem(
             id=o.id,
-            user_email=o.user.email if o.user else "",
-            user_name=o.user.full_name if o.user else "",
+            user_email=(
+                (o.user.email or None) if o.user
+                else (o.guest_email or None)
+            ),
+            user_name=(
+                (o.user.full_name or None) if o.user
+                else (o.guest_name or "Guest")
+            ),
             status=o.status,
             total_amount=o.total_amount,
-            currency=o.currency,
-            created_at=o.created_at.strftime("%b %d, %Y"),
-            items_count=len(o.items)
+            currency=o.currency or "INR",
+            created_at=o.created_at.strftime("%b %d, %Y") if o.created_at else "",
+            items_count=len(o.items or []),
+            is_guest=bool(o.is_guest)
         ) for o in recent_db_orders
     ]
 
