@@ -121,6 +121,18 @@ async def add_cache_control_header(request, call_next):
             response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 
+# Global exception handler ensures unhandled 500 exceptions return proper JSON and CORS headers
+# so the browser console reports the actual error instead of masking it as a CORS failure
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled server error on {request.method} {request.url.path}: {exc}")
+    origin = request.headers.get("origin") or "*"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc)},
+        headers={"Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true"}
+    )
+
 # Helper function to convert DB model to schemas.ProductSchema
 def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
     # Convert variants
@@ -3524,9 +3536,9 @@ def admin_list_orders(
             currency=o.currency,
             created_at=o.created_at.strftime("%b %d, %Y") if o.created_at else "",
             is_guest=bool(o.is_guest),
-            user_email=o.guest_email if o.is_guest else (o.user.email if o.user else ""),
-            user_name=o.guest_name if o.is_guest else (o.user.full_name if o.user else ""),
-            user_phone=o.guest_phone if o.is_guest else ((o.shipping_address or {}).get("phone") if isinstance(o.shipping_address, dict) else ""),
+            user_email=(o.guest_email if o.is_guest else (o.user.email if o.user else "")) or (o.user.email if o.user else "") or "",
+            user_name=(o.guest_name if o.is_guest else (o.user.full_name if o.user else "")) or (o.user.full_name if o.user else "") or "",
+            user_phone=(o.guest_phone if o.is_guest else ((o.shipping_address or {}).get("phone") if isinstance(o.shipping_address, dict) else "")) or "",
             payment_method=o.payment_method or "ONLINE",
             payment_status=o.payment_status or "PENDING",
             shipping_status=o.shipping_status or "UNFULFILLED",
@@ -3935,8 +3947,8 @@ def admin_refund_order(
     }
 
 def _admin_order_detail(order: models.Order) -> schemas.AdminOrderSchema:
-    user_email = order.guest_email if order.is_guest else (order.user.email if order.user else "")
-    user_name = order.guest_name if order.is_guest else (order.user.full_name if order.user else "")
+    user_email = (order.guest_email if order.is_guest else (order.user.email if order.user else "")) or (order.user.email if order.user else "") or ""
+    user_name = (order.guest_name if order.is_guest else (order.user.full_name if order.user else "")) or (order.user.full_name if order.user else "") or ""
     return schemas.AdminOrderSchema(
         id=order.id,
         status=order.status,

@@ -1080,10 +1080,10 @@ class AdminOrderSchema(BaseModel):
     guest_email: Optional[str] = None
     guest_phone: Optional[str] = None
     user_id: Optional[int] = None
-    user_email: str = ""
-    user_name: str = ""
-    payment_method: str = "ONLINE"
-    payment_status: str = "PENDING"
+    user_email: Optional[str] = ""
+    user_name: Optional[str] = ""
+    payment_method: Optional[str] = "ONLINE"
+    payment_status: Optional[str] = "PENDING"
     razorpay_order_id: Optional[str] = None
     razorpay_payment_id: Optional[str] = None
     razorpay_refund_id: Optional[str] = None
@@ -1091,11 +1091,11 @@ class AdminOrderSchema(BaseModel):
     shiprocket_shipment_id: Optional[str] = None
     shiprocket_awb: Optional[str] = None
     shiprocket_courier_name: Optional[str] = None
-    shipping_status: str = "UNFULFILLED"
+    shipping_status: Optional[str] = "UNFULFILLED"
     tracking_url: Optional[str] = None
     tracking_data: Optional[dict] = None
     delivered_at: Optional[str] = None
-    return_status: str = "NONE"
+    return_status: Optional[str] = "NONE"
     return_type: Optional[str] = "RETURN"
     return_reason: Optional[str] = None
     return_notes: Optional[str] = None
@@ -1106,12 +1106,12 @@ class AdminOrderSchema(BaseModel):
     reverse_tracking_data: Optional[dict] = None
     replacement_variant_id: Optional[str] = None
     replacement_variant_title: Optional[str] = None
-    replacement_status: str = "NONE"
+    replacement_status: Optional[str] = "NONE"
     replacement_shipment_id: Optional[str] = None
     replacement_awb: Optional[str] = None
     replacement_courier_name: Optional[str] = None
     replacement_tracking_url: Optional[str] = None
-    items: List[AdminOrderItemSchema]
+    items: List[AdminOrderItemSchema] = []
 
 class AdminOrderSummary(BaseModel):
     id: str
@@ -1121,14 +1121,14 @@ class AdminOrderSummary(BaseModel):
     currency: str = "INR"
     created_at: str
     is_guest: bool = False
-    user_email: str = ""
-    user_name: str = ""
+    user_email: Optional[str] = ""
+    user_name: Optional[str] = ""
     user_phone: Optional[str] = ""
-    payment_method: str = "ONLINE"
-    payment_status: str = "PENDING"
-    shipping_status: str = "UNFULFILLED"
+    payment_method: Optional[str] = "ONLINE"
+    payment_status: Optional[str] = "PENDING"
+    shipping_status: Optional[str] = "UNFULFILLED"
     shiprocket_awb: Optional[str] = None
-    return_status: str = "NONE"
+    return_status: Optional[str] = "NONE"
     return_type: Optional[str] = "RETURN"
     replacement_status: Optional[str] = "NONE"
     replacement_variant_title: Optional[str] = None
