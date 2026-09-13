@@ -91,7 +91,19 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 # Enable CORS for Next.js frontend and Razorpay Magic Checkout
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://.*",
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://localhost:8000",
+        "https://vahnsports.com",
+        "https://www.vahnsports.com",
+        "https://dev.vahnsports.com",
+        "https://checkout.razorpay.com",
+        "https://api.razorpay.com",
+    ],
+    allow_origin_regex=r"https?://(.*\.)?vahnsports\.com(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
