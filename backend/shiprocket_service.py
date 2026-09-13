@@ -148,23 +148,23 @@ def get_primary_warehouse(db: Optional[Session] = None) -> Dict[str, Any]:
             db.close()
 
     return {
-        "pickup_location": SHIPROCKET_PICKUP_LOCATION or "Primary",
+        "pickup_location": SHIPROCKET_PICKUP_LOCATION or "Home",
         "name": "VAHN Warehouse",
         "email": SHIPROCKET_EMAIL or "logistics@vahnsports.com",
-        "phone": "9876543210",
-        "address": "VAHN Central Fulfillment",
-        "address_2": "",
-        "city": "Mumbai",
-        "state": "Maharashtra",
+        "phone": "8013340567",
+        "address": "1931/19a, Vishwakarma Mandir Marg, Govindpuri Extension, Kalkaji",
+        "address_2": "Near Vishwakarma mandir",
+        "city": "Delhi",
+        "state": "Delhi",
         "country": "India",
-        "pin_code": str(SHIPROCKET_PICKUP_PINCODE or "400001"),
+        "pin_code": str(SHIPROCKET_PICKUP_PINCODE or "110019"),
         "is_primary": True
     }
 
 
 def get_primary_pickup_location(db: Optional[Session] = None) -> str:
     """Returns the primary pickup location nickname."""
-    return get_primary_warehouse(db).get("pickup_location", SHIPROCKET_PICKUP_LOCATION or "Primary")
+    return get_primary_warehouse(db).get("pickup_location", SHIPROCKET_PICKUP_LOCATION or "Home")
 
 
 def check_serviceability(delivery_pincode: str, weight: float = 0.5, db: Optional[Session] = None) -> Dict[str, Any]:
