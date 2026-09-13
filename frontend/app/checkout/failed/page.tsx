@@ -70,8 +70,12 @@ function CheckoutFailedContent() {
       : "https://checkout.razorpay.com/v1/checkout.js";
 
     const existingScript = document.getElementById("rzp-retry-script") as HTMLScriptElement | null;
+    const existingFileName = existingScript?.src.split("/").pop();
+    const targetFileName = targetSrc.split("/").pop();
 
-    if (existingScript && existingScript.src.includes(targetSrc.split("/").pop()!) && window.Razorpay) {
+    // IMPORTANT: use exact match, NOT includes() —
+    // "magic-checkout.js".includes("checkout.js") === true (false positive)
+    if (existingScript && existingFileName === targetFileName && window.Razorpay) {
       return; // correct SDK already loaded
     }
 
