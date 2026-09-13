@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import logging
 from typing import Optional, Dict, Any, List
@@ -526,6 +527,34 @@ def create_reverse_pickup(
             raise ValueError(f"Shiprocket reverse pickup failed: {res.text}")
 
 
+def sanitize_shiprocket_url(url: Optional[str]) -> str:
+    """
+    Converts raw/internal AWS S3 bucket URLs from Shiprocket to public CDN URLs.
+    Shiprocket's direct S3 bucket (shiprocket-db-mum.s3.ap-south-1.amazonaws.com) blocks direct HTTP access
+    with AccessDenied (XML error). Public downloads are routed via Shiprocket's CDN (sr-core-cdn.shiprocket.in).
+    """
+    if not url:
+        return ""
+    clean = str(url).strip()
+
+    # 1. Invoice S3 URL -> Public CDN
+    # E.g.: https://shiprocket-db-mum.s3.ap-south-1.amazonaws.com/9748130/invoices/Retail00004b3753e9e-3e58-4d65-8df0-3ce2b67762e8.pdf
+    # -> https://sr-core-cdn.shiprocket.in/multichannel-api-invoice/invoices/9748130/Retail00004b3753e9e-3e58-4d65-8df0-3ce2b67762e8.pdf
+    if ("s3" in clean or "shiprocket-db-mum" in clean) and "/invoices/" in clean:
+        match = re.search(r"/(\d+)/invoices/([^?#]+)", clean)
+        if match:
+            return f"https://sr-core-cdn.shiprocket.in/multichannel-api-invoice/invoices/{match.group(1)}/{match.group(2)}"
+
+    # 2. Shipping Label S3 URL -> Public CDN
+    # E.g.: https://.../label/s/9748130/01a099ab-0c8f-74c8-aff0-31a235442011.pdf
+    if ("s3" in clean or "shiprocket-db-mum" in clean) and ("/label/" in clean or "/labels/" in clean):
+        match = re.search(r"/(?:label/s|labels)/(\d+)/([^?#]+)", clean)
+        if match:
+            return f"https://sr-core-cdn.shiprocket.in/label/s/{match.group(1)}/{match.group(2)}"
+
+    return clean
+
+
 def generate_shipping_label(shipment_id: Any) -> Dict[str, Any]:
     """Retrieves a downloadable shipping label URL from Shiprocket."""
     token = get_auth_token()
@@ -542,7 +571,7 @@ def generate_shipping_label(shipment_id: Any) -> Dict[str, Any]:
             )
             if res.status_code == 200:
                 data = res.json()
-                label_url = data.get("label_url", "")
+                label_url = sanitize_shiprocket_url(data.get("label_url", ""))
                 return {
                     "success": True,
                     "label_url": label_url,
@@ -581,7 +610,7 @@ def generate_order_invoice(order_id: Any) -> Dict[str, Any]:
             )
             if res.status_code == 200:
                 data = res.json()
-                invoice_url = data.get("invoice_url", "")
+                invoice_url = sanitize_shiprocket_url(data.get("invoice_url", ""))
                 if invoice_url:
                     return {
                         "success": True,
@@ -601,7 +630,7 @@ def generate_order_invoice(order_id: Any) -> Dict[str, Any]:
                 if isinstance(shipments, dict) and shipments.get("invoice_link"):
                     return {
                         "success": True,
-                        "invoice_url": shipments.get("invoice_link"),
+                        "invoice_url": sanitize_shiprocket_url(shipments.get("invoice_link")),
                         "is_invoice_created": True,
                         "message": "Invoice retrieved from shipment"
                     }

@@ -2054,8 +2054,8 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
     is_picked_up_status = any("pick" in str(s.activity).lower() for s in (reverse_scans or forward_scans))
 
     t_data = order.tracking_data if isinstance(order.tracking_data, dict) else {}
-    invoice_url = t_data.get("invoice_url")
-    label_url = t_data.get("label_url")
+    invoice_url = shiprocket_service.sanitize_shiprocket_url(t_data.get("invoice_url")) if t_data.get("invoice_url") else None
+    label_url = shiprocket_service.sanitize_shiprocket_url(t_data.get("label_url")) if t_data.get("label_url") else None
     pickup_status = t_data.get("pickup_status")
     pickup_scheduled_date = t_data.get("pickup_scheduled_date")
 
@@ -2124,9 +2124,11 @@ def get_customer_order_invoice(
     
     invoice_res = shiprocket_service.generate_order_invoice(order.shiprocket_order_id)
     if invoice_res.get("invoice_url"):
-        if not order.tracking_data:
-            order.tracking_data = {}
-        order.tracking_data["invoice_url"] = invoice_res["invoice_url"]
+        clean_inv_url = shiprocket_service.sanitize_shiprocket_url(invoice_res["invoice_url"])
+        invoice_res["invoice_url"] = clean_inv_url
+        t_data = dict(order.tracking_data or {})
+        t_data["invoice_url"] = clean_inv_url
+        order.tracking_data = t_data
         db.commit()
     return invoice_res
 
@@ -2148,9 +2150,11 @@ def get_public_order_invoice(
     
     invoice_res = shiprocket_service.generate_order_invoice(order.shiprocket_order_id)
     if invoice_res.get("invoice_url"):
-        if not order.tracking_data:
-            order.tracking_data = {}
-        order.tracking_data["invoice_url"] = invoice_res["invoice_url"]
+        clean_inv_url = shiprocket_service.sanitize_shiprocket_url(invoice_res["invoice_url"])
+        invoice_res["invoice_url"] = clean_inv_url
+        t_data = dict(order.tracking_data or {})
+        t_data["invoice_url"] = clean_inv_url
+        order.tracking_data = t_data
         db.commit()
     return invoice_res
 
@@ -3699,9 +3703,11 @@ def admin_get_shipping_label(
         raise HTTPException(status_code=400, detail="Shipment has not been created for this order")
     label_res = shiprocket_service.generate_shipping_label(order.shiprocket_shipment_id)
     if label_res.get("label_url"):
-        if not order.tracking_data:
-            order.tracking_data = {}
-        order.tracking_data["label_url"] = label_res["label_url"]
+        clean_lbl_url = shiprocket_service.sanitize_shiprocket_url(label_res["label_url"])
+        label_res["label_url"] = clean_lbl_url
+        t_data = dict(order.tracking_data or {})
+        t_data["label_url"] = clean_lbl_url
+        order.tracking_data = t_data
         db.commit()
     return label_res
 
@@ -3718,9 +3724,11 @@ def admin_get_order_invoice(
         raise HTTPException(status_code=400, detail="Shipment has not been generated for this order in Shiprocket")
     invoice_res = shiprocket_service.generate_order_invoice(order.shiprocket_order_id)
     if invoice_res.get("invoice_url"):
-        if not order.tracking_data:
-            order.tracking_data = {}
-        order.tracking_data["invoice_url"] = invoice_res["invoice_url"]
+        clean_inv_url = shiprocket_service.sanitize_shiprocket_url(invoice_res["invoice_url"])
+        invoice_res["invoice_url"] = clean_inv_url
+        t_data = dict(order.tracking_data or {})
+        t_data["invoice_url"] = clean_inv_url
+        order.tracking_data = t_data
         db.commit()
     return invoice_res
 
@@ -3741,14 +3749,14 @@ def admin_schedule_pickup(
     pickup_res = shiprocket_service.schedule_courier_pickup(order.shiprocket_shipment_id, pickup_date)
     
     if pickup_res.get("success"):
-        if not order.tracking_data:
-            order.tracking_data = {}
-        order.tracking_data["pickup_scheduled"] = True
-        order.tracking_data["pickup_status"] = "SCHEDULED"
+        t_data = dict(order.tracking_data or {})
+        t_data["pickup_scheduled"] = True
+        t_data["pickup_status"] = "SCHEDULED"
         if pickup_date:
-            order.tracking_data["pickup_scheduled_date"] = pickup_date
+            t_data["pickup_scheduled_date"] = pickup_date
         if pickup_res.get("pickup_token"):
-            order.tracking_data["pickup_token"] = pickup_res.get("pickup_token")
+            t_data["pickup_token"] = pickup_res.get("pickup_token")
+        order.tracking_data = t_data
         
         if order.shipping_status in ("UNFULFILLED", "MANIFEST_GENERATED"):
             order.shipping_status = "PICKUP_SCHEDULED"
