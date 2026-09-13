@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 SHIPROCKET_EMAIL = os.getenv("SHIPROCKET_EMAIL") or "api@vahnsports.com"
 SHIPROCKET_PASSWORD = os.getenv("SHIPROCKET_PASSWORD") or "r2IuvPC2KkDnzl@&6Xx!uK3DOpL6rUbZ"
-SHIPROCKET_PICKUP_LOCATION = os.getenv("SHIPROCKET_PICKUP_LOCATION") or "Primary"
-SHIPROCKET_PICKUP_PINCODE = os.getenv("SHIPROCKET_PICKUP_PINCODE") or "110016"
+SHIPROCKET_PICKUP_LOCATION = os.getenv("SHIPROCKET_PICKUP_LOCATION") or "Home"
+SHIPROCKET_PICKUP_PINCODE = os.getenv("SHIPROCKET_PICKUP_PINCODE") or "110019"
 BASE_URL = "https://apiv2.shiprocket.in/v1/external"
 
 _cached_token: Optional[str] = None
@@ -710,16 +710,18 @@ def schedule_courier_pickup(
 
 def cancel_shipment(
     shiprocket_order_id: Optional[Any] = None,
-    awb_code: Optional[str] = None
+    awb_code: Optional[str] = None,
+    order_id: Optional[Any] = None
 ) -> Dict[str, Any]:
     """Cancels courier order and shipment in Shiprocket."""
     token = get_auth_token()
     if not token:
         return {"success": False, "message": "Shiprocket authentication failed."}
 
+    target_sr_id = shiprocket_order_id or order_id
     ids_list: List[int] = []
-    if shiprocket_order_id:
-        s_id = str(shiprocket_order_id).strip()
+    if target_sr_id:
+        s_id = str(target_sr_id).strip()
         if s_id.isdigit():
             ids_list.append(int(s_id))
 

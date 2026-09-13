@@ -158,11 +158,10 @@ export default function AdminOrderDetailPage() {
       if (res.label_url) {
         window.open(res.label_url, "_blank");
       } else {
-        // Fallback to built-in browser print
-        window.print();
+        setError(res.message || "Shipping label is pending courier generation in Shiprocket.");
       }
-    } catch {
-      window.print();
+    } catch (e: any) {
+      setError(e?.message || "Failed to fetch official Shiprocket label.");
     } finally {
       setDownloadingLabel(false);
     }
@@ -192,20 +191,29 @@ export default function AdminOrderDetailPage() {
     setError("");
     try {
       const [labelRes, invoiceRes] = await Promise.all([
-        getAdminOrderShippingLabel(adminToken, order.id).catch(() => ({ label_url: "" })),
-        getAdminOrderInvoice(adminToken, order.id).catch(() => ({ invoice_url: "" })),
+        getAdminOrderShippingLabel(adminToken, order.id).catch((err) => ({ label_url: "", message: err?.message })),
+        getAdminOrderInvoice(adminToken, order.id).catch((err) => ({ invoice_url: "", message: err?.message })),
       ]);
-      let opened = false;
+      let openedCount = 0;
       if (labelRes.label_url) {
         window.open(labelRes.label_url, "_blank");
-        opened = true;
+        openedCount++;
       }
       if (invoiceRes.invoice_url) {
-        window.open(invoiceRes.invoice_url, "_blank");
-        opened = true;
+        setTimeout(() => {
+          window.open(invoiceRes.invoice_url, "_blank");
+        }, 400);
+        openedCount++;
       }
-      if (!opened) {
-        window.print();
+      if (openedCount === 0) {
+        setError(labelRes.message || invoiceRes.message || "Label and Invoice are pending generation in Shiprocket.");
+      } else if (!labelRes.label_url) {
+        setError("Invoice opened, but Shipping Label is still generating in Shiprocket. Click 'Download Label' to retry.");
+      } else if (!invoiceRes.invoice_url) {
+        setError("Shipping Label opened, but Tax Invoice is still generating in Shiprocket. Click 'Download Invoice' to retry.");
+      } else {
+        setSuccess("Opened Official Shiprocket Label and Tax Invoice in new tabs.");
+        setTimeout(() => setSuccess(""), 4000);
       }
     } catch (e: any) {
       setError(e?.message || "Failed to download label and invoice.");
@@ -1716,121 +1724,6 @@ export default function AdminOrderDetailPage() {
         </div>
       )}
 
-      {/* Printable Courier Shipping Label */}
-      <div className="vahn-printable-shipping-label">
-        <div
-          style={{
-            width: "100%",
-            maxWidth: "560px",
-            margin: "0 auto",
-            border: "4px solid #000",
-            padding: "24px",
-            background: "#fff",
-            color: "#000",
-            fontFamily: "Arial, sans-serif",
-          }}
-        >
-          <div
-            style={{
-              borderBottom: "3px solid #000",
-              paddingBottom: 14,
-              marginBottom: 14,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div>
-              <h1
-                style={{
-                  fontSize: "2.2rem",
-                  fontWeight: 900,
-                  margin: 0,
-                  letterSpacing: "-0.025em",
-                  textTransform: "uppercase",
-                }}
-              >
-                VAHN
-              </h1>
-              <div
-                style={{
-                  fontSize: "0.72rem",
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  letterSpacing: "-0.025em",
-                  color: "#333",
-                }}
-              >
-                EXPRESS PRIORITY SHIPPING
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <span
-                style={{
-                  background: "#000",
-                  color: "#fff",
-                  padding: "5px 14px",
-                  fontSize: "0.82rem",
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  letterSpacing: "-0.025em",
-                }}
-              >
-                PREPAID
-              </span>
-              <div style={{ fontSize: "0.72rem", fontWeight: 800, marginTop: 6, color: "#444" }}>
-                COURIER: {order.shiprocket_courier_name || "ASSIGNED ON DISPATCH"}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ borderBottom: "2px solid #000", paddingBottom: 14, marginBottom: 14, textAlign: "center" }}>
-            <div style={{ fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", color: "#666", marginBottom: 4 }}>
-              WAYBILL / AWB NUMBER
-            </div>
-            <div
-              style={{
-                fontFamily: "'Courier New', monospace",
-                fontSize: "2.2rem",
-                fontWeight: 700,
-                letterSpacing: "-0.025em",
-                lineHeight: 1,
-                margin: "4px 0",
-              }}
-            >
-              {order.shiprocket_awb || "AWB-PENDING-DISPATCH"}
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, borderBottom: "2px solid #000", paddingBottom: 14, marginBottom: 14 }}>
-            <div>
-              <div style={{ fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", color: "#666" }}>
-                SHIPPED FROM
-              </div>
-              <div style={{ fontSize: "0.85rem", fontWeight: 800, marginTop: 2 }}>VAHN SPORTSWEAR INDIA</div>
-              <div style={{ fontSize: "0.75rem", color: "#444" }}>502 Airport Towers, Mumbai, MH 400001</div>
-            </div>
-            <div>
-              <div style={{ fontSize: "0.68rem", fontWeight: 900, textTransform: "uppercase", color: "#666" }}>
-                DELIVER TO
-              </div>
-              <div style={{ fontSize: "0.85rem", fontWeight: 900, marginTop: 2 }}>
-                {addr.name || order.user_name || "Athlete"}
-              </div>
-              <div style={{ fontSize: "0.75rem", color: "#444" }}>
-                {addr.address || "Standard Address"}<br />
-                {addr.city}, {addr.state} — <strong>{addr.pincode || addr.postalCode}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ fontSize: "0.75rem", color: "#555", display: "flex", justifyContent: "space-between" }}>
-            <span>Order #{order.id}</span>
-            <span>Total Items: {order.items.length}</span>
-            <span>Prepaid: ₹{order.total_amount.toLocaleString("en-IN")}</span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

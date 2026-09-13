@@ -2059,36 +2059,37 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
     pickup_status = t_data.get("pickup_status")
     pickup_scheduled_date = t_data.get("pickup_scheduled_date")
 
-    return schemas.OrderTrackingResponse(
-        order_id=order.id,
-        status=order.status,
-        shipping_status=order.shipping_status or "UNFULFILLED",
-        courier_name=order.shiprocket_courier_name,
-        awb_code=order.shiprocket_awb,
-        tracking_url=order.tracking_url,
-        scans=forward_scans,
-        delivered_at=order.delivered_at.strftime("%b %d, %Y") if order.delivered_at else None,
-        return_status=order.return_status or "NONE",
-        reverse_awb=order.reverse_awb,
-        reverse_courier_name=order.reverse_courier_name,
-        reverse_scans=reverse_scans,
-        items=items_list,
-        current_location=curr_location,
-        current_status=order.shipping_status or "UNFULFILLED",
-        is_picked_up=is_picked_up_status,
-        total_amount=order.total_amount,
-        currency=order.currency or "INR",
-        shipping_address=order.shipping_address,
-        created_at=order.created_at.strftime("%b %d, %Y") if order.created_at else "",
-        payment_status=order.payment_status or "PENDING",
-        payment_method=order.payment_method or "ONLINE",
-        cancellation_reason=order.cancellation_reason,
-        is_guest=bool(order.is_guest),
-        invoice_url=invoice_url,
-        label_url=label_url,
-        pickup_status=pickup_status,
-        pickup_scheduled_date=pickup_scheduled_date
-    )
+    tracking_payload = {
+        "order_id": order.id,
+        "status": order.status,
+        "shipping_status": order.shipping_status or "UNFULFILLED",
+        "courier_name": order.shiprocket_courier_name,
+        "awb_code": order.shiprocket_awb,
+        "tracking_url": order.tracking_url,
+        "scans": forward_scans,
+        "delivered_at": order.delivered_at.strftime("%b %d, %Y") if order.delivered_at else None,
+        "return_status": order.return_status or "NONE",
+        "reverse_awb": order.reverse_awb,
+        "reverse_courier_name": order.reverse_courier_name,
+        "reverse_scans": reverse_scans,
+        "items": items_list,
+        "current_location": curr_location,
+        "current_status": order.shipping_status or "UNFULFILLED",
+        "is_picked_up": is_picked_up_status,
+        "total_amount": order.total_amount,
+        "currency": order.currency or "INR",
+        "shipping_address": order.shipping_address,
+        "created_at": order.created_at.strftime("%b %d, %Y") if order.created_at else "",
+        "payment_status": order.payment_status or "PENDING",
+        "payment_method": order.payment_method or "ONLINE",
+        "cancellation_reason": order.cancellation_reason,
+        "is_guest": bool(order.is_guest),
+        "invoice_url": invoice_url,
+        "label_url": label_url,
+        "pickup_status": pickup_status,
+        "pickup_scheduled_date": pickup_scheduled_date,
+    }
+    return schemas.OrderTrackingResponse.model_validate(tracking_payload)
 
 # 6. Authenticated Tracking for Customer Account View
 @app.get("/api/orders/{order_id}/tracking", response_model=schemas.OrderTrackingResponse)
@@ -2177,7 +2178,10 @@ def cancel_order(
         raise HTTPException(status_code=400, detail="Order has already been dispatched with courier and cannot be self-cancelled. You may request a return or exchange within 10 days of delivery.")
 
     # Cancel courier shipment in Shiprocket
-    shiprocket_service.cancel_shipment(awb_code=order.shiprocket_awb, order_id=order.shiprocket_order_id)
+    shiprocket_service.cancel_shipment(
+        shiprocket_order_id=order.shiprocket_order_id,
+        awb_code=order.shiprocket_awb
+    )
 
     # Disburse 100% instant refund via Razorpay API
     rfnd_id = None
