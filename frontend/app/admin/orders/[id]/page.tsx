@@ -384,15 +384,6 @@ export default function AdminOrderDetailPage() {
                     Public Tracking Portal →
                   </Link>
                 )}
-                <button
-                  onClick={handleDownloadLabel}
-                  disabled={downloadingLabel}
-                  className="admin-btn admin-btn--secondary"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                >
-                  <PrinterIcon size={14} color="#000" />
-                  {downloadingLabel ? "Generating..." : "Download Label"}
-                </button>
               </div>
             </div>
           </div>
