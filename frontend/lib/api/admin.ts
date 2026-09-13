@@ -522,6 +522,11 @@ export const dispatchAdminOrderReplacement = (
 export const getAdminWarehouses = (token: string) =>
   adminFetch<WarehouseLocation[]>("/admin/logistics/warehouses", token);
 
+export const syncAdminWarehouses = (token: string) =>
+  adminFetch<WarehouseLocation[]>("/admin/logistics/warehouses/sync", token, {
+    method: "POST",
+  });
+
 export const createAdminWarehouse = (
   token: string,
   data: {

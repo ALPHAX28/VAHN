@@ -125,42 +125,44 @@ def get_primary_warehouse(db: Optional[Session] = None) -> Dict[str, Any]:
                             if valid_addrs:
                                 primary_addr = next((a for a in valid_addrs if a.get("pickup_location") == "Home"), valid_addrs[0])
                             else:
-                                primary_addr = addresses[0]
-                            loc_name = primary_addr.get("pickup_location", "Home")
-                            pin = str(primary_addr.get("pin_code", SHIPROCKET_PICKUP_PINCODE or "110019"))
+                                primary_addr = None
 
-                            # Auto-seed into DB so admin can view and manage
-                            new_wh = models.WarehouseLocation(
-                                pickup_location=loc_name,
-                                name=primary_addr.get("name") or "Abhinandan Mitra",
-                                email=primary_addr.get("email") or SHIPROCKET_EMAIL or "abhinandan.mitra@vahnsports.com",
-                                phone=primary_addr.get("phone") or "8013340567",
-                                address=primary_addr.get("address") or "1931/19a, Vishwakarma Mandir Marg, Govindpuri Extension, Kalkaji",
-                                address_2=primary_addr.get("address_2") or "Near Vishwakarma mandir",
-                                city=primary_addr.get("city") or "Delhi",
-                                state=primary_addr.get("state") or "Delhi",
-                                country="India",
-                                pin_code=pin,
-                                is_primary=True,
-                                shiprocket_pickup_id=str(primary_addr.get("id", ""))
-                            )
-                            db.add(new_wh)
-                            db.commit()
-                            db.refresh(new_wh)
-                            return {
-                                "id": new_wh.id,
-                                "pickup_location": new_wh.pickup_location,
-                                "name": new_wh.name,
-                                "email": new_wh.email,
-                                "phone": new_wh.phone,
-                                "address": new_wh.address,
-                                "address_2": new_wh.address_2,
-                                "city": new_wh.city,
-                                "state": new_wh.state,
-                                "country": "India",
-                                "pin_code": pin,
-                                "is_primary": True
-                            }
+                            if primary_addr:
+                                loc_name = primary_addr.get("pickup_location", "Home")
+                                pin = str(primary_addr.get("pin_code", SHIPROCKET_PICKUP_PINCODE or "110019"))
+
+                                # Auto-seed into DB so admin can view and manage
+                                new_wh = models.WarehouseLocation(
+                                    pickup_location=loc_name,
+                                    name=primary_addr.get("name") or "Abhinandan Mitra",
+                                    email=primary_addr.get("email") or SHIPROCKET_EMAIL or "abhinandan.mitra@vahnsports.com",
+                                    phone=primary_addr.get("phone") or "8013340567",
+                                    address=primary_addr.get("address") or "1931/19a, Vishwakarma Mandir Marg, Govindpuri Extension, Kalkaji",
+                                    address_2=primary_addr.get("address_2") or "Near Vishwakarma mandir",
+                                    city=primary_addr.get("city") or "Delhi",
+                                    state=primary_addr.get("state") or "Delhi",
+                                    country="India",
+                                    pin_code=pin,
+                                    is_primary=True,
+                                    shiprocket_pickup_id=str(primary_addr.get("id", ""))
+                                )
+                                db.add(new_wh)
+                                db.commit()
+                                db.refresh(new_wh)
+                                return {
+                                    "id": new_wh.id,
+                                    "pickup_location": new_wh.pickup_location,
+                                    "name": new_wh.name,
+                                    "email": new_wh.email,
+                                    "phone": new_wh.phone,
+                                    "address": new_wh.address,
+                                    "address_2": new_wh.address_2,
+                                    "city": new_wh.city,
+                                    "state": new_wh.state,
+                                    "country": "India",
+                                    "pin_code": pin,
+                                    "is_primary": True
+                                }
             except Exception as e:
                 db.rollback()
                 logger.warning(f"Could not auto-fetch pickup locations from Shiprocket: {e}")
@@ -361,6 +363,7 @@ def create_forward_shipment(
     if items is None:
         items = getattr(order, "items", []) or []
 
+    addr = getattr(order, "shipping_address", None) or {}
     full_name = addr.get("name", (order.guest_name if order.is_guest else (order.user.full_name if order.user else "Customer")))
     name_parts = full_name.split(" ", 1)
     first_name = name_parts[0]

@@ -4016,55 +4016,90 @@ def dispatch_order_replacement(
 
 @app.get("/api/admin/logistics/warehouses", response_model=List[schemas.WarehouseLocationResponse])
 def admin_list_warehouses(admin: models.User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    """Lists all pickup/warehouse locations and auto-syncs with Shiprocket."""
-    try:
-        sr_locations = shiprocket_service.fetch_shiprocket_pickup_locations()
-        for loc in sr_locations:
-            loc_name = loc.get("pickup_location")
-            if loc_name:
-                existing = db.query(models.WarehouseLocation).filter_by(pickup_location=loc_name).first()
-                if not existing:
-                    new_wh = models.WarehouseLocation(
-                        pickup_location=loc_name,
-                        name=loc.get("name") or "Warehouse Contact",
-                        email=loc.get("email") or admin.email or "logistics@vahnsports.com",
-                        phone=loc.get("phone") or "9876543210",
-                        address=loc.get("address") or "Fulfillment Hub",
-                        address_2=loc.get("address_2") or "",
-                        city=loc.get("city") or "New Delhi",
-                        state=loc.get("state") or "Delhi",
-                        country=loc.get("country") or "India",
-                        pin_code=str(loc.get("pin_code") or "110016"),
-                        is_primary=bool(loc.get("is_primary_location")),
-                        shiprocket_pickup_id=str(loc.get("id", ""))
-                    )
-                    db.add(new_wh)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.warning(f"Error syncing warehouses from Shiprocket: {e}")
+    """Lists all configured pickup/warehouse locations."""
+    # Ensure rogue/unverified 'Primary' placeholder with dummy phone is never kept
+    db.query(models.WarehouseLocation).filter(
+        (models.WarehouseLocation.pickup_location == "Primary") |
+        (models.WarehouseLocation.phone == "9876543210")
+    ).delete(synchronize_session=False)
+    db.commit()
 
-    warehouses = db.query(models.WarehouseLocation).order_by(models.WarehouseLocation.is_primary.desc(), models.WarehouseLocation.created_at.desc()).all()
+    warehouses = db.query(models.WarehouseLocation).order_by(
+        models.WarehouseLocation.is_primary.desc(),
+        models.WarehouseLocation.created_at.desc()
+    ).all()
+
     if not warehouses:
         default_wh = models.WarehouseLocation(
-            pickup_location="Primary",
-            name="VAHN Warehouse Manager",
-            email=admin.email or "logistics@vahnsports.com",
-            phone="9876543210",
-            address="VAHN Central Fulfillment Facility",
-            address_2="",
-            city="Mumbai",
-            state="Maharashtra",
+            pickup_location="Home",
+            name="Abhinandan Mitra",
+            email="abhinandan.mitra@vahnsports.com",
+            phone="8013340567",
+            address="1931/19a, Vishwakarma Mandir Marg, Govindpuri Extension, Kalkaji",
+            address_2="Near Vishwakarma mandir",
+            city="Delhi",
+            state="Delhi",
             country="India",
-            pin_code="400001",
-            is_primary=True
+            pin_code="110019",
+            is_primary=True,
+            shiprocket_pickup_id="110332741"
         )
         db.add(default_wh)
         db.commit()
         db.refresh(default_wh)
         warehouses = [default_wh]
 
+    # Enforce strictly at most one primary warehouse hub
+    primary_count = sum(1 for w in warehouses if w.is_primary)
+    if primary_count != 1:
+        for idx, w in enumerate(warehouses):
+            w.is_primary = (idx == 0)
+        db.commit()
+
     return warehouses
+
+
+@app.post("/api/admin/logistics/warehouses/sync", response_model=List[schemas.WarehouseLocationResponse])
+def admin_sync_warehouses(admin: models.User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    """Explicitly syncs active, phone-verified pickup locations from Shiprocket."""
+    try:
+        sr_locations = shiprocket_service.fetch_shiprocket_pickup_locations()
+        has_primary = db.query(models.WarehouseLocation).filter_by(is_primary=True).first() is not None
+
+        for loc in sr_locations:
+            loc_name = str(loc.get("pickup_location") or "").strip()
+            phone = str(loc.get("phone") or "").strip()
+            status = loc.get("status")
+
+            # Filter out inactive (status != 1), placeholder "Primary", or invalid dummy phones
+            if not loc_name or loc_name.lower() == "primary" or status != 1 or not phone or phone == "9876543210":
+                continue
+
+            existing = db.query(models.WarehouseLocation).filter_by(pickup_location=loc_name).first()
+            if not existing:
+                new_wh = models.WarehouseLocation(
+                    pickup_location=loc_name,
+                    name=loc.get("name") or "Warehouse Contact",
+                    email=loc.get("email") or admin.email or "logistics@vahnsports.com",
+                    phone=phone,
+                    address=loc.get("address") or "Fulfillment Hub",
+                    address_2=loc.get("address_2") or "",
+                    city=loc.get("city") or "Delhi",
+                    state=loc.get("state") or "Delhi",
+                    country=loc.get("country") or "India",
+                    pin_code=str(loc.get("pin_code") or "110019"),
+                    is_primary=False if has_primary else bool(loc.get("is_primary_location")),
+                    shiprocket_pickup_id=str(loc.get("id", ""))
+                )
+                db.add(new_wh)
+                if new_wh.is_primary:
+                    has_primary = True
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.warning(f"Error syncing warehouses from Shiprocket: {e}")
+
+    return admin_list_warehouses(admin, db)
 
 @app.post("/api/admin/logistics/warehouses", response_model=schemas.WarehouseLocationResponse)
 def admin_create_warehouse(

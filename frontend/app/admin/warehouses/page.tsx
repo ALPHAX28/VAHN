@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import {
   getAdminWarehouses,
+  syncAdminWarehouses,
   createAdminWarehouse,
   setPrimaryAdminWarehouse,
   deleteAdminWarehouse
@@ -50,6 +51,23 @@ export default function AdminWarehousesPage() {
       setWarehouses(data);
     } catch (e: any) {
       setError(e?.message || "Failed to load warehouse locations");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSync() {
+    if (!adminToken) return;
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const data = await syncAdminWarehouses(adminToken);
+      setWarehouses(data);
+      setSuccess("Synchronized verified pickup locations from Shiprocket.");
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (e: any) {
+      setError(e?.message || "Failed to sync from Shiprocket");
     } finally {
       setLoading(false);
     }
@@ -191,7 +209,7 @@ export default function AdminWarehousesPage() {
         </div>
 
         <button
-          onClick={loadWarehouses}
+          onClick={handleSync}
           disabled={loading}
           style={{
             background: "#fff",
