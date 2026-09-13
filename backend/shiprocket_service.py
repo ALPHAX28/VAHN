@@ -705,13 +705,42 @@ def schedule_courier_pickup(
                 resp_info = data.get("response") or {}
                 raw_msg = ""
                 if isinstance(resp_info, dict):
-                    raw_msg = resp_info.get("data") or ""
+                    raw_msg = str(resp_info.get("data") or resp_info.get("message") or "")
                 elif isinstance(resp_info, str):
                     raw_msg = resp_info
 
+                is_ok = bool(
+                    pickup_status == 1
+                    or data.get("pickup_token_number")
+                    or (isinstance(resp_info, dict) and resp_info.get("pickup_token_number"))
+                    or (isinstance(resp_info, dict) and resp_info.get("status") == 1)
+                )
+
+                if not is_ok:
+                    clean_err = raw_msg or data.get("message") or "Courier rejected pickup scheduling."
+                    logger.warning(f"Shiprocket courier rejected pickup for shipment {shipment_id}: {clean_err}")
+                    return {
+                        "success": False,
+                        "pickup_status": 0,
+                        "message": clean_err,
+                        "data": data
+                    }
+
+                pickup_token = (
+                    (resp_info.get("pickup_token_number") if isinstance(resp_info, dict) else None)
+                    or data.get("pickup_token_number")
+                    or (f"ID: {resp_info.get('pickup_id')}" if isinstance(resp_info, dict) and resp_info.get("pickup_id") else None)
+                )
+                pickup_sched_date = (
+                    (resp_info.get("pickup_scheduled_date") if isinstance(resp_info, dict) else None)
+                    or data.get("pickup_scheduled_date")
+                )
+
                 return {
                     "success": True,
-                    "pickup_status": pickup_status,
+                    "pickup_status": 1,
+                    "pickup_token": pickup_token,
+                    "pickup_scheduled_date": pickup_sched_date,
                     "courier_name": resp_info.get("base_courier_company_name") if isinstance(resp_info, dict) else "Assigned Courier",
                     "message": raw_msg or data.get("message") or "Pickup scheduled with courier partner successfully.",
                     "data": data

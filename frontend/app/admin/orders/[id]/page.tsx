@@ -228,7 +228,7 @@ export default function AdminOrderDetailPage() {
     setError("");
     try {
       const res = await scheduleAdminOrderPickup(adminToken, order.id, { pickup_date: pickupDate });
-      if (res.success) {
+      if (res.success && res.pickup_status === 1) {
         setSuccess(res.message || "Pickup scheduled successfully with courier partner!");
         setShowPickupModal(false);
         const updated = await getAdminOrder(adminToken, order.id);
@@ -238,7 +238,7 @@ export default function AdminOrderDetailPage() {
         setError(res.message || "Failed to schedule courier pickup.");
       }
     } catch (e: any) {
-      setError(e?.message || "Error contacting Shiprocket pickup scheduler.");
+      setError(e?.message || "Courier partner rejected pickup scheduling.");
     } finally {
       setSchedulingPickup(false);
     }
@@ -317,6 +317,12 @@ export default function AdminOrderDetailPage() {
     );
 
   const addr = order.shipping_address || {};
+
+  const isPickupScheduled = Boolean(
+    (order as any).tracking_data?.pickup_scheduled ||
+    (order as any).tracking_data?.pickup_token ||
+    order.shipping_status === "PICKUP_SCHEDULED"
+  );
 
   return (
     <div className="admin-page">
@@ -693,10 +699,13 @@ export default function AdminOrderDetailPage() {
                       {/* Schedule Pickup Action */}
                       <button
                         type="button"
-                        onClick={() => setShowPickupModal(true)}
+                        onClick={() => {
+                          setError("");
+                          setShowPickupModal(true);
+                        }}
                         disabled={order.status === "CANCELLED" || order.status === "REFUNDED"}
                         style={{
-                          background: (order as any).tracking_data?.pickup_scheduled ? "#059669" : "#4232d9",
+                          background: isPickupScheduled ? "#059669" : "#4232d9",
                           color: "#fff",
                           border: "none",
                           padding: "8px 18px",
@@ -710,7 +719,7 @@ export default function AdminOrderDetailPage() {
                           gap: 6,
                         }}
                       >
-                        {(order as any).tracking_data?.pickup_scheduled ? "Pickup Scheduled ✓" : "Schedule Pickup →"}
+                        {isPickupScheduled ? "Pickup Scheduled ✓" : "Schedule Pickup →"}
                       </button>
 
                       {/* Download Label Action */}
@@ -1675,9 +1684,21 @@ export default function AdminOrderDetailPage() {
               />
             </div>
 
-            <div style={{ fontSize: "0.78rem", color: "#64748b", marginBottom: 24, lineHeight: 1.4 }}>
+            <div style={{ fontSize: "0.78rem", color: "#64748b", marginBottom: 16, lineHeight: 1.4 }}>
               💡 Courier pickup agent will be assigned by Shiprocket to collect this parcel from the registered warehouse location.
             </div>
+
+            {isPickupScheduled && (
+              <div style={{ background: "#ecfdf5", border: "1px solid #10b981", color: "#065f46", padding: "10px 14px", fontSize: "0.82rem", marginBottom: 16, lineHeight: 1.4 }}>
+                ✓ <strong>Pickup is confirmed</strong> {(order as any).tracking_data?.pickup_token ? `(Token: ${(order as any).tracking_data.pickup_token})` : ""}. Select a date below to reschedule if needed.
+              </div>
+            )}
+
+            {error && (
+              <div style={{ background: "#fef2f2", border: "1px solid #f87171", color: "#b91c1c", padding: "10px 14px", fontSize: "0.82rem", marginBottom: 16, lineHeight: 1.4 }}>
+                ⚠️ <strong>Pickup Scheduling Error:</strong> {error}
+              </div>
+            )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
               <button

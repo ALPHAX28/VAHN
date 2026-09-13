@@ -2683,7 +2683,9 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
         try:
             live_track = shiprocket_service.track_awb(order.shiprocket_awb)
             if live_track and isinstance(live_track, dict):
-                order.tracking_data = live_track
+                merged_td = dict(order.tracking_data or {})
+                merged_td.update(live_track)
+                order.tracking_data = merged_td
                 curr_st = live_track.get("current_status")
                 if curr_st:
                     order.shipping_status = str(curr_st).upper()
@@ -2695,7 +2697,9 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
         try:
             rev_track = shiprocket_service.track_awb(order.reverse_awb)
             if rev_track and isinstance(rev_track, dict):
-                order.reverse_tracking_data = rev_track
+                merged_rev = dict(order.reverse_tracking_data or {})
+                merged_rev.update(rev_track)
+                order.reverse_tracking_data = merged_rev
                 if rev_track.get("is_picked_up"):
                     if order.return_type == "REPLACEMENT":
                         if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
@@ -3543,7 +3547,9 @@ def admin_get_order(
         try:
             live_track = shiprocket_service.track_awb(order.shiprocket_awb)
             if live_track and isinstance(live_track, dict):
-                order.tracking_data = live_track
+                merged_td = dict(order.tracking_data or {})
+                merged_td.update(live_track)
+                order.tracking_data = merged_td
                 curr_st = live_track.get("current_status")
                 if curr_st:
                     order.shipping_status = str(curr_st).upper()
@@ -3556,7 +3562,9 @@ def admin_get_order(
         try:
             rev_track = shiprocket_service.track_awb(order.reverse_awb)
             if rev_track and isinstance(rev_track, dict):
-                order.reverse_tracking_data = rev_track
+                merged_rev = dict(order.reverse_tracking_data or {})
+                merged_rev.update(rev_track)
+                order.reverse_tracking_data = merged_rev
                 updated = True
         except Exception as e:
             logger.warning(f"Failed to sync reverse tracking for order {order.id}: {e}")
@@ -3587,7 +3595,9 @@ def admin_refresh_order_tracking(
         try:
             live_track = shiprocket_service.track_awb(order.shiprocket_awb)
             if live_track and isinstance(live_track, dict):
-                order.tracking_data = live_track
+                merged_td = dict(order.tracking_data or {})
+                merged_td.update(live_track)
+                order.tracking_data = merged_td
                 if live_track.get("current_status") and order.status != "CANCELLED" and order.shipping_status != "CANCELLED":
                     order.shipping_status = str(live_track["current_status"]).upper()
         except Exception as e:
@@ -3597,7 +3607,9 @@ def admin_refresh_order_tracking(
         try:
             rev_track = shiprocket_service.track_awb(order.reverse_awb)
             if rev_track and isinstance(rev_track, dict):
-                order.reverse_tracking_data = rev_track
+                merged_rev = dict(order.reverse_tracking_data or {})
+                merged_rev.update(rev_track)
+                order.reverse_tracking_data = merged_rev
         except Exception as e:
             logger.warning(f"Error refreshing reverse tracking for order {order.id}: {e}")
 
@@ -3783,19 +3795,24 @@ def admin_schedule_pickup(
     pickup_date = payload.pickup_date if payload else None
     pickup_res = shiprocket_service.schedule_courier_pickup(order.shiprocket_shipment_id, pickup_date)
     
-    if pickup_res.get("success"):
-        t_data = dict(order.tracking_data or {})
-        t_data["pickup_scheduled"] = True
-        t_data["pickup_status"] = "SCHEDULED"
-        if pickup_date:
-            t_data["pickup_scheduled_date"] = pickup_date
-        if pickup_res.get("pickup_token"):
-            t_data["pickup_token"] = pickup_res.get("pickup_token")
-        order.tracking_data = t_data
-        
-        if order.shipping_status in ("UNFULFILLED", "MANIFEST_GENERATED"):
-            order.shipping_status = "PICKUP_SCHEDULED"
-        db.commit()
+    if not pickup_res.get("success") or pickup_res.get("pickup_status") != 1:
+        err_msg = pickup_res.get("message") or "Courier partner rejected pickup scheduling request."
+        raise HTTPException(status_code=400, detail=err_msg)
+
+    t_data = dict(order.tracking_data or {})
+    t_data["pickup_scheduled"] = True
+    t_data["pickup_status"] = "SCHEDULED"
+    if pickup_date:
+        t_data["pickup_scheduled_date"] = pickup_date
+    if pickup_res.get("pickup_token"):
+        t_data["pickup_token"] = pickup_res.get("pickup_token")
+    if pickup_res.get("pickup_scheduled_date"):
+        t_data["pickup_scheduled_date"] = pickup_res.get("pickup_scheduled_date")
+    order.tracking_data = t_data
+    
+    if order.shipping_status in ("UNFULFILLED", "MANIFEST_GENERATED"):
+        order.shipping_status = "PICKUP_SCHEDULED"
+    db.commit()
     
     return pickup_res
 
