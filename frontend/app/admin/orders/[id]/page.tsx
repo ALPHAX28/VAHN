@@ -413,8 +413,8 @@ export default function AdminOrderDetailPage() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <TruckIcon size={20} color={isCancelled ? "#dc2626" : "#4232d9"} />
-                    <h2 className="admin-card-title" style={{ margin: 0, textTransform: "uppercase", color: isCancelled ? "#dc2626" : "inherit" }}>
-                      Forward Logistics (Shiprocket) {isCancelled ? "— CANCELLED" : ""}
+                    <h2 className="admin-card-title" style={{ margin: 0, textTransform: "uppercase" }}>
+                      Forward Logistics (Shiprocket)
                     </h2>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -475,56 +475,75 @@ export default function AdminOrderDetailPage() {
                   </div>
                 </div>
 
-                {/* Live Current Location & Status Banner */}
+                {/* Live Current Location / Cancellation Notice */}
                 {order.shiprocket_awb && (
-                  <div
-                    style={{
-                      background: isCancelled ? "#fef2f2" : "#f8f9ff",
-                      border: `1px solid ${isCancelled ? "#fecaca" : "#d9d6fe"}`,
-                      padding: "16px 20px",
-                      marginBottom: "18px",
-                      borderRadius: "0px",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", fontWeight: 800, color: isCancelled ? "#dc2626" : "#4232d9", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-                          <span style={{ width: 8, height: 8, background: isCancelled ? "#dc2626" : "#4232d9", borderRadius: "50%", display: "inline-block" }} />
-                          {isCancelled ? "Shipment Cancelled & Revoked" : "Current Parcel Location"}
-                        </div>
-                        <div style={{ fontSize: "1.1rem", fontWeight: 900, color: isCancelled ? "#991b1b" : "#111", display: "flex", alignItems: "center", gap: 6 }}>
-                          <MapPinIcon size={18} color={isCancelled ? "#dc2626" : "#4232d9"} />
-                          <span>{forwardCurrentLocation}</span>
-                        </div>
-                        {isCancelled ? (
-                          <div style={{ fontSize: "0.82rem", color: "#b91c1c", marginTop: 4 }}>
-                            {order.cancellation_reason || "Shipment was cancelled by administrator. Courier dispatch was halted in Shiprocket and inventory restocked."}
+                  isCancelled ? (
+                    <div
+                      style={{
+                        background: "#fef2f2",
+                        border: "1px solid #fecaca",
+                        padding: "12px 18px",
+                        marginBottom: "16px",
+                        borderRadius: "0px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 8, height: 8, background: "#dc2626", borderRadius: "50%", display: "inline-block" }} />
+                        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#991b1b" }}>
+                          Cancelled: <span style={{ fontWeight: 500, color: "#7f1d1d" }}>{order.cancellation_reason || "Shipment was cancelled by administrator."}</span>
+                        </span>
+                      </div>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", textTransform: "uppercase", background: "#fee2e2", padding: "3px 8px" }}>
+                        Dispatch Halted • Restocked
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        background: "#f8f9ff",
+                        border: "1px solid #d9d6fe",
+                        padding: "16px 20px",
+                        marginBottom: "18px",
+                        borderRadius: "0px",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", fontWeight: 800, color: "#4232d9", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+                            <span style={{ width: 8, height: 8, background: "#4232d9", borderRadius: "50%", display: "inline-block" }} />
+                            Current Parcel Location
                           </div>
-                        ) : (
-                          latestForwardScan && (
+                          <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#111", display: "flex", alignItems: "center", gap: 6 }}>
+                            <MapPinIcon size={18} color="#4232d9" />
+                            <span>{forwardCurrentLocation}</span>
+                          </div>
+                          {latestForwardScan && (
                             <div style={{ fontSize: "0.82rem", color: "#555", marginTop: 4 }}>
                               <strong>Latest Activity:</strong> {latestForwardScan.activity}
                               {latestForwardScan.date && <span style={{ color: "#888", marginLeft: 8 }}>({latestForwardScan.date})</span>}
                             </div>
-                          )
-                        )}
-                      </div>
+                          )}
+                        </div>
 
-                      <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                        <span
-                          style={{
-                            background: isCancelled ? "#dc2626" : "#000",
-                            color: "#fff",
-                            fontSize: "0.72rem",
-                            fontWeight: 800,
-                            textTransform: "uppercase",
-                            padding: "4px 10px",
-                            borderRadius: "0px",
-                          }}
-                        >
-                          Status: {isCancelled ? "CANCELLED" : (order.shipping_status || "IN_TRANSIT")}
-                        </span>
-                        {!isCancelled && (
+                        <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                          <span
+                            style={{
+                              background: "#000",
+                              color: "#fff",
+                              fontSize: "0.72rem",
+                              fontWeight: 800,
+                              textTransform: "uppercase",
+                              padding: "4px 10px",
+                              borderRadius: "0px",
+                            }}
+                          >
+                            Status: {order.shipping_status || "IN_TRANSIT"}
+                          </span>
                           <Link
                             href={`/track?q=${order.shiprocket_awb}`}
                             target="_blank"
@@ -537,16 +556,16 @@ export default function AdminOrderDetailPage() {
                           >
                             Open Public Tracking Portal ↗
                           </Link>
-                        )}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )
                 )}
 
-                {/* Complete Checkpoints Scans Timeline */}
-                {order.shiprocket_awb && (
-                  <div style={{ borderTop: "1px solid #eee", paddingTop: 16, marginBottom: 16 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                {/* Complete Checkpoints Scans Timeline (only if active or scans exist) */}
+                {order.shiprocket_awb && (!isCancelled || forwardScans.length > 0) && (
+                  <div style={{ borderTop: "1px solid #eee", paddingTop: 14, marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                       <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#333", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                         Checkpoint Transit History ({forwardScans.length} Checkpoints)
                       </span>
@@ -613,7 +632,7 @@ export default function AdminOrderDetailPage() {
                           })}
                         </div>
                       ) : (
-                        <div style={{ fontSize: "0.82rem", color: "#666", padding: "12px", background: "#f9fafb" }}>
+                        <div style={{ fontSize: "0.82rem", color: "#666", padding: "10px 14px", background: "#f9fafb" }}>
                           Awaiting initial physical courier scan at pickup hub. Click &ldquo;Refresh Live Tracking&rdquo; to fetch the latest courier milestones.
                         </div>
                       )
@@ -623,58 +642,26 @@ export default function AdminOrderDetailPage() {
 
                 <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", borderTop: "1px solid #eee", paddingTop: 14, alignItems: "center" }}>
                   {isCancelled ? (
-                    <>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 260 }}>
-                        <span style={{ color: "#dc2626", fontWeight: 800, fontSize: "0.82rem", textTransform: "uppercase" }}>
-                          Shipment Cancelled & Inventory Restocked
-                        </span>
-                        {order.razorpay_refund_id && (
-                          <span style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "4px 8px", fontSize: "0.72rem", fontWeight: 800 }}>
-                            100% Refunded ({order.razorpay_refund_id})
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginLeft: "auto" }}>
-                        <button
-                          type="button"
-                          onClick={handleDownloadInvoice}
-                          disabled={downloadingInvoice}
-                          style={{
-                            background: "#000",
-                            color: "#fff",
-                            border: "none",
-                            padding: "8px 16px",
-                            fontWeight: 800,
-                            fontSize: "0.78rem",
-                            cursor: downloadingInvoice ? "not-allowed" : "pointer",
-                            textTransform: "uppercase",
-                            borderRadius: "0px",
-                          }}
-                        >
-                          {downloadingInvoice ? "Fetching Invoice..." : "Download Tax Invoice"}
-                        </button>
-                        {order.shiprocket_awb && (
-                          <button
-                            type="button"
-                            onClick={handleDownloadLabel}
-                            disabled={downloadingLabel}
-                            style={{
-                              background: "#f3f4f6",
-                              color: "#000",
-                              border: "1px solid #d1d5db",
-                              padding: "8px 16px",
-                              fontWeight: 800,
-                              fontSize: "0.78rem",
-                              cursor: downloadingLabel ? "not-allowed" : "pointer",
-                              textTransform: "uppercase",
-                              borderRadius: "0px",
-                            }}
-                          >
-                            {downloadingLabel ? "Fetching Label..." : "Download Label"}
-                          </button>
-                        )}
-                      </div>
-                    </>
+                    <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
+                      <button
+                        type="button"
+                        onClick={handleDownloadInvoice}
+                        disabled={downloadingInvoice}
+                        style={{
+                          background: "#000",
+                          color: "#fff",
+                          border: "none",
+                          padding: "8px 18px",
+                          fontWeight: 800,
+                          fontSize: "0.78rem",
+                          cursor: downloadingInvoice ? "not-allowed" : "pointer",
+                          textTransform: "uppercase",
+                          borderRadius: "0px",
+                        }}
+                      >
+                        {downloadingInvoice ? "Fetching Invoice..." : "Download Tax Invoice"}
+                      </button>
+                    </div>
                   ) : !order.shiprocket_awb ? (
                     <button
                       type="button"
@@ -1336,16 +1323,18 @@ export default function AdminOrderDetailPage() {
                       </span>
                     </div>
                     {order.razorpay_refund_id && (
-                      <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px" }}>
-                        <span style={{ color: "#166534", display: "block", fontSize: "0.72rem", fontWeight: 800, textTransform: "uppercase" }}>
-                          Razorpay Refund ID (100% Disbursed)
-                        </span>
-                        <span style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "#15803d", fontWeight: 800 }}>
+                      <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px 12px", marginTop: 4 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                          <span style={{ color: "#166534", fontSize: "0.7rem", fontWeight: 800, textTransform: "uppercase" }}>
+                            Refund Reference
+                          </span>
+                          <span style={{ color: "#15803d", fontSize: "0.78rem", fontWeight: 800 }}>
+                            ₹{(order.refund_amount || order.total_amount).toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                        <span style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "#15803d", fontWeight: 700 }}>
                           {order.razorpay_refund_id}
                         </span>
-                        <div style={{ fontSize: "0.75rem", color: "#166534", marginTop: 4 }}>
-                          Amount: <strong>₹{(order.refund_amount || order.total_amount).toLocaleString("en-IN")} (Full Refund)</strong>
-                        </div>
                       </div>
                     )}
                     {order.refund_amount && !order.razorpay_refund_id ? (
@@ -1377,26 +1366,11 @@ export default function AdminOrderDetailPage() {
                       Issue Manual Refund →
                     </button>
                   )}
-                  {isRefunded && (
-                    <div style={{ marginTop: 14, padding: "10px", background: "#f0fdf4", border: "1px solid #86efac", color: "#166534", fontSize: "0.75rem", fontWeight: 700, textAlign: "center" }}>
-                      ✓ 100% Refund Successfully Processed via Razorpay
-                    </div>
-                  )}
                 </div>
 
                 {/* Status Management Card */}
                 <div className="admin-card">
                   <h2 className="admin-card-title">Order Status Controls</h2>
-                  {isCancelled && (
-                    <div style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: "10px 12px", marginBottom: 14 }}>
-                      <div style={{ color: "#dc2626", fontWeight: 800, fontSize: "0.78rem", textTransform: "uppercase", marginBottom: 4 }}>
-                        Order Cancelled & Restocked
-                      </div>
-                      <div style={{ color: "#7f1d1d", fontSize: "0.75rem", lineHeight: 1.4 }}>
-                        {order.cancellation_reason || "Shipment revoked in Shiprocket, inventory returned to stock, and 100% refund disbursed to customer."}
-                      </div>
-                    </div>
-                  )}
                   <div className="admin-form-group">
                     <label className="admin-form-label">Order Fulfillment Status</label>
                     <select
