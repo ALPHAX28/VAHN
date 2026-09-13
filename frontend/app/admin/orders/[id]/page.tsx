@@ -56,8 +56,8 @@ export default function AdminOrderDetailPage() {
   const [cancelShipmentReason, setCancelShipmentReason] = useState("");
   const [cancellingShipment, setCancellingShipment] = useState(false);
   const [refreshingTracking, setRefreshingTracking] = useState(false);
-  const [showForwardScans, setShowForwardScans] = useState(true);
-  const [showReverseScans, setShowReverseScans] = useState(true);
+  const [showForwardScans, setShowForwardScans] = useState(false);
+  const [showReverseScans, setShowReverseScans] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundAmount, setRefundAmount] = useState<number>(0);
   const [refundReason, setRefundReason] = useState("");
@@ -458,119 +458,109 @@ export default function AdminOrderDetailPage() {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, fontSize: "0.85rem", marginBottom: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16, fontSize: "0.85rem", marginBottom: 16 }}>
                   <div>
-                    <span style={{ color: "#666", fontSize: "0.75rem", display: "block", textTransform: "uppercase" }}>Courier Partner</span>
-                    <strong>{order.shiprocket_courier_name || "Assigned on Dispatch"}</strong>
+                    <span style={{ color: "#777", fontSize: "0.72rem", display: "block", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.03em" }}>
+                      Courier Partner
+                    </span>
+                    <strong style={{ fontSize: "0.9rem", color: "#111" }}>
+                      {order.shiprocket_courier_name || "Assigned on Dispatch"}
+                    </strong>
                   </div>
+
                   <div>
-                    <span style={{ color: "#666", fontSize: "0.75rem", display: "block", textTransform: "uppercase" }}>AWB Code</span>
-                    <strong style={{ fontFamily: "monospace", color: isCancelled ? "#dc2626" : "#4232d9" }}>{order.shiprocket_awb || "Not Assigned"}</strong>
+                    <span style={{ color: "#777", fontSize: "0.72rem", display: "block", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.03em" }}>
+                      AWB Code
+                    </span>
+                    {order.shiprocket_awb ? (
+                      <a
+                        href={getPublicTrackingUrl(order.shiprocket_awb)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          fontFamily: "monospace",
+                          fontWeight: 800,
+                          fontSize: "0.9rem",
+                          color: isCancelled ? "#dc2626" : "#4232d9",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        {order.shiprocket_awb}
+                      </a>
+                    ) : (
+                      <span style={{ color: "#999", fontSize: "0.85rem" }}>Not Assigned</span>
+                    )}
                   </div>
+
                   <div>
-                    <span style={{ color: "#666", fontSize: "0.75rem", display: "block", textTransform: "uppercase" }}>Shipment ID</span>
-                    <span style={{ fontFamily: "monospace" }}>{order.shiprocket_shipment_id || "Pending"}</span>
+                    <span style={{ color: "#777", fontSize: "0.72rem", display: "block", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.03em" }}>
+                      Shipment ID
+                    </span>
+                    <span style={{ fontFamily: "monospace", fontSize: "0.88rem", color: "#333" }}>
+                      {order.shiprocket_shipment_id || "Pending"}
+                    </span>
                   </div>
+
                   <div>
-                    <span style={{ color: "#666", fontSize: "0.75rem", display: "block", textTransform: "uppercase" }}>Estimated / Delivered At</span>
-                    <span>{isCancelled ? "Shipment Cancelled" : (order.delivered_at || "3-5 Business Days")}</span>
+                    <span style={{ color: "#777", fontSize: "0.72rem", display: "block", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.03em" }}>
+                      Current Location
+                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <MapPinIcon size={14} color={isCancelled ? "#dc2626" : "#4232d9"} />
+                      <strong style={{ fontSize: "0.88rem", color: isCancelled ? "#dc2626" : "#111" }}>
+                        {forwardCurrentLocation}
+                      </strong>
+                    </div>
+                    {latestForwardScan && latestForwardScan.activity && (
+                      <span style={{ fontSize: "0.72rem", color: "#777", display: "block", marginTop: 2 }}>
+                        {latestForwardScan.activity}
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <span style={{ color: "#777", fontSize: "0.72rem", display: "block", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.03em" }}>
+                      Estimated Delivery
+                    </span>
+                    <span style={{ fontSize: "0.88rem", color: "#333", fontWeight: 600 }}>
+                      {isCancelled ? "Cancelled" : (order.delivered_at || "3-5 Business Days")}
+                    </span>
                   </div>
                 </div>
 
-                {/* Live Current Location / Cancellation Notice */}
-                {order.shiprocket_awb && (
-                  isCancelled ? (
-                    <div
-                      style={{
-                        background: "#fef2f2",
-                        border: "1px solid #fecaca",
-                        padding: "12px 18px",
-                        marginBottom: "16px",
-                        borderRadius: "0px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: 10,
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ width: 8, height: 8, background: "#dc2626", borderRadius: "50%", display: "inline-block" }} />
-                        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#991b1b" }}>
-                          Cancelled: <span style={{ fontWeight: 500, color: "#7f1d1d" }}>{order.cancellation_reason || "Shipment was cancelled by administrator."}</span>
-                        </span>
-                      </div>
-                      <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", textTransform: "uppercase", background: "#fee2e2", padding: "3px 8px" }}>
-                        Dispatch Halted • Restocked
+                {/* Cancellation Notice (only if cancelled) */}
+                {order.shiprocket_awb && isCancelled && (
+                  <div
+                    style={{
+                      background: "#fef2f2",
+                      border: "1px solid #fecaca",
+                      padding: "10px 16px",
+                      marginBottom: "16px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      flexWrap: "wrap",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ width: 8, height: 8, background: "#dc2626", borderRadius: "50%", display: "inline-block" }} />
+                      <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#991b1b" }}>
+                        Cancelled: <span style={{ fontWeight: 500, color: "#7f1d1d" }}>{order.cancellation_reason || "Shipment was cancelled by administrator."}</span>
                       </span>
                     </div>
-                  ) : (
-                    <div
-                      style={{
-                        background: "#f8f9ff",
-                        border: "1px solid #d9d6fe",
-                        padding: "16px 20px",
-                        marginBottom: "18px",
-                        borderRadius: "0px",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", fontWeight: 800, color: "#4232d9", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-                            <span style={{ width: 8, height: 8, background: "#4232d9", borderRadius: "50%", display: "inline-block" }} />
-                            Current Parcel Location
-                          </div>
-                          <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#111", display: "flex", alignItems: "center", gap: 6 }}>
-                            <MapPinIcon size={18} color="#4232d9" />
-                            <span>{forwardCurrentLocation}</span>
-                          </div>
-                          {latestForwardScan && (
-                            <div style={{ fontSize: "0.82rem", color: "#555", marginTop: 4 }}>
-                              <strong>Latest Activity:</strong> {latestForwardScan.activity}
-                              {latestForwardScan.date && <span style={{ color: "#888", marginLeft: 8 }}>({latestForwardScan.date})</span>}
-                            </div>
-                          )}
-                        </div>
-
-                        <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                          <span
-                            style={{
-                              background: "#000",
-                              color: "#fff",
-                              fontSize: "0.72rem",
-                              fontWeight: 800,
-                              textTransform: "uppercase",
-                              padding: "4px 10px",
-                              borderRadius: "0px",
-                            }}
-                          >
-                            Status: {order.shipping_status || "IN_TRANSIT"}
-                          </span>
-                          <a
-                            href={getPublicTrackingUrl(order.shiprocket_awb)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              fontSize: "0.78rem",
-                              color: "#4232d9",
-                              fontWeight: 700,
-                              textDecoration: "underline",
-                            }}
-                          >
-                            Open Public Tracking Portal ↗
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  )
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#dc2626", textTransform: "uppercase", background: "#fee2e2", padding: "2px 8px" }}>
+                      Dispatch Halted • Restocked
+                    </span>
+                  </div>
                 )}
 
-                {/* Complete Checkpoints Scans Timeline (only if active or scans exist) */}
+                {/* Transit History Timeline (collapsible) */}
                 {order.shiprocket_awb && (!isCancelled || forwardScans.length > 0) && (
-                  <div style={{ borderTop: "1px solid #eee", paddingTop: 14, marginBottom: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#333", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                        Checkpoint Transit History ({forwardScans.length} Checkpoints)
+                  <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 12, marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "#666", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        Transit Checkpoints ({forwardScans.length})
                       </span>
                       <button
                         type="button"
@@ -585,60 +575,62 @@ export default function AdminOrderDetailPage() {
                           textDecoration: "underline",
                         }}
                       >
-                        {showForwardScans ? "Collapse History ▲" : "Expand All Checkpoints ▼"}
+                        {showForwardScans ? "Hide Checkpoints ▲" : "View Checkpoints ▼"}
                       </button>
                     </div>
 
                     {showForwardScans && (
-                      forwardScans.length > 0 ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 0, paddingLeft: 12, borderLeft: "2px solid #e5e7eb" }}>
-                          {forwardScans.slice().reverse().map((scan, idx) => {
-                            const isLatest = idx === 0;
-                            return (
-                              <div
-                                key={idx}
-                                style={{
-                                  position: "relative",
-                                  paddingBottom: idx < forwardScans.length - 1 ? 16 : 4,
-                                  paddingLeft: 16,
-                                }}
-                              >
-                                <span
+                      <div style={{ marginTop: 12 }}>
+                        {forwardScans.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 0, paddingLeft: 12, borderLeft: "2px solid #e5e7eb" }}>
+                            {forwardScans.slice().reverse().map((scan, idx) => {
+                              const isLatest = idx === 0;
+                              return (
+                                <div
+                                  key={idx}
                                   style={{
-                                    position: "absolute",
-                                    left: -19,
-                                    top: 3,
-                                    width: 12,
-                                    height: 12,
-                                    background: isLatest ? "#4232d9" : "#fff",
-                                    border: isLatest ? "2px solid #4232d9" : "2px solid #9ca3af",
-                                    borderRadius: "0px",
-                                    display: "block",
+                                    position: "relative",
+                                    paddingBottom: idx < forwardScans.length - 1 ? 14 : 4,
+                                    paddingLeft: 16,
                                   }}
-                                />
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-                                  <div style={{ fontWeight: isLatest ? 800 : 600, fontSize: "0.85rem", color: isLatest ? "#000" : "#374151" }}>
-                                    {scan.activity}
+                                >
+                                  <span
+                                    style={{
+                                      position: "absolute",
+                                      left: -19,
+                                      top: 3,
+                                      width: 10,
+                                      height: 10,
+                                      background: isLatest ? "#4232d9" : "#fff",
+                                      border: isLatest ? "2px solid #4232d9" : "2px solid #9ca3af",
+                                      borderRadius: "0px",
+                                      display: "block",
+                                    }}
+                                  />
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+                                    <div style={{ fontWeight: isLatest ? 800 : 600, fontSize: "0.82rem", color: isLatest ? "#000" : "#374151" }}>
+                                      {scan.activity}
+                                    </div>
+                                    <div style={{ fontSize: "0.72rem", color: "#6b7280", fontFamily: "monospace" }}>
+                                      {scan.date || "—"}
+                                    </div>
                                   </div>
-                                  <div style={{ fontSize: "0.75rem", color: "#6b7280", fontFamily: "monospace" }}>
-                                    {scan.date || "—"}
-                                  </div>
+                                  {scan.location && (
+                                    <div style={{ fontSize: "0.72rem", color: "#4b5563", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                                      <MapPinIcon size={12} color="#6b7280" />
+                                      <span>Facility / Hub: <strong>{scan.location}</strong></span>
+                                    </div>
+                                  )}
                                 </div>
-                                {scan.location && (
-                                  <div style={{ fontSize: "0.75rem", color: "#4b5563", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
-                                    <MapPinIcon size={12} color="#6b7280" />
-                                    <span>Facility / Hub: <strong>{scan.location}</strong></span>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div style={{ fontSize: "0.82rem", color: "#666", padding: "10px 14px", background: "#f9fafb" }}>
-                          Awaiting initial physical courier scan at pickup hub. Click &ldquo;Refresh Live Tracking&rdquo; to fetch the latest courier milestones.
-                        </div>
-                      )
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: "0.8rem", color: "#777", padding: "8px 12px", background: "#fafafa" }}>
+                            Awaiting initial courier scan at pickup hub. Click &ldquo;Refresh Live Tracking&rdquo; to fetch the latest courier milestones.
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
@@ -738,9 +730,9 @@ export default function AdminOrderDetailPage() {
                         onClick={handleDownloadInvoice}
                         disabled={downloadingInvoice}
                         style={{
-                          background: "#000",
-                          color: "#fff",
-                          border: "none",
+                          background: "#fff",
+                          color: "#000",
+                          border: "1px solid #d1d5db",
                           padding: "8px 18px",
                           fontWeight: 800,
                           fontSize: "0.8rem",
@@ -750,26 +742,6 @@ export default function AdminOrderDetailPage() {
                         }}
                       >
                         {downloadingInvoice ? "Fetching Invoice..." : "Download Invoice"}
-                      </button>
-
-                      {/* Download Both Action */}
-                      <button
-                        type="button"
-                        onClick={handleDownloadBoth}
-                        disabled={downloadingBoth}
-                        style={{
-                          background: "#f3f4f6",
-                          color: "#000",
-                          border: "1px solid #d1d5db",
-                          padding: "8px 16px",
-                          fontWeight: 800,
-                          fontSize: "0.8rem",
-                          cursor: downloadingBoth ? "not-allowed" : "pointer",
-                          textTransform: "uppercase",
-                          borderRadius: "0px",
-                        }}
-                      >
-                        {downloadingBoth ? "Opening PDFs..." : "Download Label + Invoice"}
                       </button>
 
                       {/* Cancel Shipment Action */}
