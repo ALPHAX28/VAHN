@@ -442,7 +442,15 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
                         }
                         for s in scans
                     ]
-                    latest_loc = scans_list[-1].get("location") if scans_list else "In Transit"
+                    latest_loc = None
+                    if scans_list:
+                        raw_loc = (scans_list[-1].get("location") or "").strip()
+                        if raw_loc and raw_loc.lower() not in (
+                            "in transit", "transit", "unfulfilled", "processing",
+                            "manifest generated", "origin facility", "pending", "unknown", "n/a"
+                        ):
+                            latest_loc = raw_loc
+
                     is_picked_up = (
                         any("pick" in str(s.get("activity", "")).lower() for s in scans_list)
                         or current_status in ("PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED")
@@ -463,7 +471,7 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
         "awb": clean_awb,
         "current_status": "MANIFEST_GENERATED",
         "courier_name": "Assigned Courier",
-        "current_location": "Origin Facility",
+        "current_location": None,
         "is_picked_up": False,
         "scans": []
     }

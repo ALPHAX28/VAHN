@@ -64,22 +64,22 @@ function TrackingContent() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // Milestone mapping
+  // Milestone mapping (Clean, concise step titles without confusing premature sub-labels)
   const forwardSteps = [
-    { key: "PLACED", label: "Ordered", desc: "Payment Confirmed" },
-    { key: "PROCESSING", label: "Packed", desc: "Ready for Pickup" },
-    { key: "SHIPPED", label: "Shipped", desc: "Handed to Courier" },
-    { key: "IN_TRANSIT", label: "In Transit", desc: "On the Way" },
-    { key: "OUT_FOR_DELIVERY", label: "Out for Delivery", desc: "Arriving Today" },
-    { key: "DELIVERED", label: "Delivered", desc: "Package Received" },
+    { key: "PLACED", label: "Ordered" },
+    { key: "PROCESSING", label: "Packed" },
+    { key: "SHIPPED", label: "Shipped" },
+    { key: "IN_TRANSIT", label: "In Transit" },
+    { key: "OUT_FOR_DELIVERY", label: "Out for Delivery" },
+    { key: "DELIVERED", label: "Delivered" },
   ];
 
   const returnSteps = [
-    { key: "RETURN_REQUESTED", label: "Return Initiated", desc: "Reverse AWB Created" },
-    { key: "RETURN_PICKED_UP", label: "Picked Up", desc: "Doorstep Collection" },
-    { key: "RETURN_IN_TRANSIT", label: "In Transit", desc: "Returning to Hub" },
-    { key: "REFUND_INITIATED", label: "Refund Initiated", desc: "Dispatched via Razorpay" },
-    { key: "REFUNDED", label: "Refund Completed", desc: "Credited to Customer" },
+    { key: "RETURN_REQUESTED", label: "Return Initiated" },
+    { key: "RETURN_PICKED_UP", label: "Picked Up" },
+    { key: "RETURN_IN_TRANSIT", label: "In Transit" },
+    { key: "REFUND_INITIATED", label: "Refund Initiated" },
+    { key: "REFUNDED", label: "Refund Completed" },
   ];
 
   function resolveForwardMilestone(t: TrackingInfo | null): {
@@ -205,6 +205,16 @@ function TrackingContent() {
   } = isReturn
     ? { ...resolveReturnMilestone(tracking), isCancelled: false }
     : resolveForwardMilestone(tracking);
+
+  const rawLocation = (tracking?.current_location || tracking?.currentLocation || "").trim();
+  const isValidLocation = Boolean(
+    rawLocation &&
+    !["in transit", "transit", "unfulfilled", "processing", "manifest generated", "origin facility", "pending", "unknown", "n/a"].includes(rawLocation.toLowerCase()) &&
+    !rawLocation.toLowerCase().includes("transit") &&
+    !rawLocation.toLowerCase().includes("unfulfilled") &&
+    !rawLocation.toLowerCase().includes("processing") &&
+    !rawLocation.toLowerCase().includes("manifest")
+  );
 
   return (
     <div
@@ -519,8 +529,8 @@ function TrackingContent() {
             </div>
           )}
 
-          {/* Backend returns current_location (snake_case) */}
-          {(tracking.current_location || tracking.currentLocation) && (
+          {/* Real physical location banner */}
+          {isValidLocation && (
             <div
               style={{
                 background: "#f8fafc",
@@ -535,7 +545,7 @@ function TrackingContent() {
             >
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#2563eb", display: "inline-block" }} />
               <span style={{ fontWeight: 800, color: "#1e293b" }}>Current Location:</span>
-              <span style={{ color: "#334155" }}>{tracking.current_location || tracking.currentLocation}</span>
+              <span style={{ color: "#334155" }}>{rawLocation}</span>
             </div>
           )}
 
@@ -628,9 +638,6 @@ function TrackingContent() {
                     >
                       {step.label}
                     </div>
-                    <div style={{ fontSize: "0.68rem", color: "#888", marginTop: "2px" }}>
-                      {step.desc}
-                    </div>
                   </div>
                 );
               })}
@@ -703,14 +710,16 @@ function TrackingContent() {
                   if (currentStepIndex >= 4) {
                     checkpoints.push({
                       title: "Out for Delivery",
-                      description: "Package is with courier delivery agent and arriving today.",
+                      description: "Package is out for delivery with the courier agent.",
                       timestamp: "In Progress",
                     });
                   }
                   if (currentStepIndex >= 3) {
                     checkpoints.push({
                       title: "In Transit",
-                      description: `Package on the way${tracking.current_location ? ` near ${tracking.current_location}` : ""}.`,
+                      description: isValidLocation
+                        ? `Package is in transit to destination facility near ${rawLocation}.`
+                        : "Package is in transit to destination facility.",
                       timestamp: "In Progress",
                     });
                   }

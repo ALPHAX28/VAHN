@@ -2045,6 +2045,12 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
     if not curr_location and order.tracking_data and isinstance(order.tracking_data, dict):
         curr_location = order.tracking_data.get("current_location")
 
+    if curr_location and str(curr_location).strip().lower() in (
+        "in transit", "transit", "unfulfilled", "processing",
+        "manifest generated", "origin facility", "pending", "unknown", "n/a"
+    ):
+        curr_location = None
+
     is_picked_up_status = any("pick" in str(s.activity).lower() for s in (reverse_scans or forward_scans))
 
     return schemas.OrderTrackingResponse(
