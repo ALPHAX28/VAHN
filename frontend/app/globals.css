@@ -6982,7 +6982,7 @@ input, textarea, select {
 .vahn-tracker-surface {
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 20px;
+  border-radius: 0;
   padding: 32px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 }
@@ -6990,7 +6990,7 @@ input, textarea, select {
 .vahn-step-circle {
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border-radius: 0;
   background: #141418;
   color: #777788;
   border: 2px solid rgba(255, 255, 255, 0.18);

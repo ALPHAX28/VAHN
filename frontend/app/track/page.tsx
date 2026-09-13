@@ -423,7 +423,7 @@ function TrackingContent() {
           font-weight: 900;
           margin-bottom: 8px;
           transition: all 0.3s ease;
-          border-radius: 50%;
+          border-radius: 0;
         }
         .tracking-step-label {
           font-size: 0.78rem;
@@ -479,6 +479,7 @@ function TrackingContent() {
             height: 22px !important;
             font-size: 0.65rem !important;
             margin-bottom: 4px !important;
+            border-radius: 0 !important;
           }
           .tracking-step-label {
             font-size: 0.58rem !important;
@@ -830,7 +831,7 @@ function TrackingContent() {
                 fontSize: "0.85rem",
               }}
             >
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#2563eb", display: "inline-block" }} />
+              <span style={{ width: 8, height: 8, borderRadius: "0px", background: "#2563eb", display: "inline-block" }} />
               <span style={{ fontWeight: 800, color: "#1e293b" }}>Current Location:</span>
               <span style={{ color: "#334155" }}>{rawLocation}</span>
             </div>
@@ -918,6 +919,7 @@ function TrackingContent() {
                         background: circleBg,
                         border: circleBorder,
                         color: circleColor,
+                        borderRadius: "0px",
                         boxShadow: isCurrent ? "0 0 0 4px rgba(0,0,0,0.12)" : isFailedStep ? "0 0 0 4px rgba(220,38,38,0.15)" : "none",
                       }}
                     >
@@ -1113,7 +1115,7 @@ function TrackingContent() {
                                 ? "#d97706"
                                 : "#16a34a"
                               : "#cbd5e1",
-                          borderRadius: "50%",
+                          borderRadius: "0px",
                           marginTop: "5px",
                           flexShrink: 0,
                           boxShadow:
