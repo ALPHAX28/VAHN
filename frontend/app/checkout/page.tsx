@@ -30,6 +30,7 @@ import {
   LockIcon,
   SparklesIcon,
   PackageIcon,
+  UserIcon,
 } from "@/components/icons/Icons";
 
 declare global {
@@ -50,8 +51,8 @@ export default function CheckoutPage() {
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
 
-  // Guest address is collected by Razorpay Magic Checkout — no local form state needed
-
+  // Guest checkout state
+  const [guestPincodeInput, setGuestPincodeInput] = useState("");
 
   // Serviceability check state
   const [serviceability, setServiceability] = useState<ServiceabilityResponse | null>(null);
@@ -507,28 +508,9 @@ export default function CheckoutPage() {
             Secure Checkout
           </h1>
           <p style={{ color: "#666", fontSize: "0.85rem", margin: "4px 0 0" }}>
-            100% Secure Prepaid Payment • Shiprocket Automated Logistics
+            100% Secure Prepaid Payment
           </p>
         </div>
-        {!user && (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem" }}>
-            <span style={{ color: "#666" }}>Returning Athlete?</span>
-            <button
-              onClick={() => openAuthModal()}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#4232d9",
-                fontWeight: 700,
-                cursor: "pointer",
-                textDecoration: "underline",
-                padding: 0,
-              }}
-            >
-              Sign In for Saved Addresses
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Error Alert */}
@@ -565,55 +547,62 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      {/* Main Grid: Two-col for logged-in (address + summary), single-col for guests (summary only) */}
+      {/* Responsive Styles */}
+      <style>{`
+        @media (max-width: 980px) {
+          .checkout-main-grid {
+            grid-template-columns: 1fr !important;
+            gap: 28px !important;
+          }
+        }
+      `}</style>
+
+      {/* Main Grid: Responsive 2-column layout on desktop (1fr 420px), single-column on mobile */}
       <div
+        className="checkout-main-grid"
         style={{
           display: "grid",
-          gridTemplateColumns: user
-            ? "repeat(auto-fit, minmax(320px, 1fr))"
-            : "minmax(0, 520px)",
-          gap: "40px",
+          gridTemplateColumns: "1fr 420px",
+          gap: "36px",
           alignItems: "start",
-          justifyContent: user ? undefined : "center",
         }}
       >
-        {/* Left Column: Delivery Address — only for logged-in athletes */}
-        {user && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
-          {/* 1. Delivery Details Section */}
-          <div
-            style={{
-              border: "1px solid #e0e0e0",
-              borderRadius: "0px",
-              padding: "24px",
-              background: "#fff",
-            }}
-          >
+        {/* Left Column: Logged-in Address Manager OR Revamped Guest Checkout Hub */}
+        {user ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            {/* 1. Delivery Details Section */}
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "20px",
-                borderBottom: "1px solid #f0f0f0",
-                paddingBottom: "12px",
+                border: "1px solid #e0e0e0",
+                borderRadius: "0px",
+                padding: "24px",
+                background: "#fff",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <MapPinIcon size={20} color="#000" />
-                <h2
-                  style={{
-                    fontSize: "1.1rem",
-                    fontWeight: 900,
-                    textTransform: "uppercase",
-                    letterSpacing: "-0.02em",
-                    margin: 0,
-                  }}
-                >
-                  Delivery Address
-                </h2>
-              </div>
-              {user && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "20px",
+                  borderBottom: "1px solid #f0f0f0",
+                  paddingBottom: "12px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <MapPinIcon size={20} color="#000" />
+                  <h2
+                    style={{
+                      fontSize: "1.1rem",
+                      fontWeight: 900,
+                      textTransform: "uppercase",
+                      letterSpacing: "-0.02em",
+                      margin: 0,
+                    }}
+                  >
+                    Delivery Address
+                  </h2>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
@@ -634,12 +623,10 @@ export default function CheckoutPage() {
                 >
                   + Add New Address
                 </button>
-              )}
-            </div>
+              </div>
 
-            {/* If Logged In: Show Address Selector */}
-            {user ? (
-              loadingAddresses ? (
+              {/* Saved Address Selector */}
+              {loadingAddresses ? (
                 <div style={{ padding: "20px", textAlign: "center", color: "#666" }}>
                   Loading saved addresses...
                 </div>
@@ -768,78 +755,176 @@ export default function CheckoutPage() {
                     );
                   })}
                 </div>
-              )
-            ) : (
-              /* Guest: Magic Checkout collects all details — no form needed */
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "28px 24px",
-                  background: "linear-gradient(135deg, #f0f4ff 0%, #ede8ff 100%)",
-                  border: "1px solid #c9d4ff",
-                  borderRadius: "4px",
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ fontSize: "2.2rem" }}>⚡</div>
-                <div style={{ fontWeight: 800, fontSize: "1rem", color: "#4232d9", letterSpacing: "0.02em" }}>
-                  1-Click Magic Checkout
-                </div>
-                <div style={{ fontSize: "0.85rem", color: "#555", lineHeight: 1.5, maxWidth: "320px" }}>
-                  Your <strong>name, phone, email &amp; delivery address</strong> will be collected
-                  securely by Razorpay when you click the button below.
-                </div>
-                <div
+              )}
+
+              {/* Logged-In Pincode Serviceability Indicator */}
+              <div style={{ marginTop: "16px" }}>
+                {checkingPincode ? (
+                  <div style={{ fontSize: "0.8rem", color: "#666" }}>
+                    Verifying courier serviceability with Shiprocket...
+                  </div>
+                ) : serviceability ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "8px 12px",
+                      background: serviceability.serviceable ? "#f6ffed" : "#fffbe6",
+                      border: `1px solid ${serviceability.serviceable ? "#b7eb8f" : "#ffe58f"}`,
+                      fontSize: "0.8rem",
+                      color: serviceability.serviceable ? "#389e0d" : "#d48806",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <TruckIcon size={16} />
+                    <span>
+                      {serviceability.serviceable
+                        ? `✓ Delivery available by ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_delivery_days || 3}–${Number(serviceability.estimated_delivery_days || 3) + 2} days)`
+                        : "Delivery may require extra transit days to this PIN code"}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Simple & Elegant Guest Checkout Details */
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            {/* Interactive Delivery Speed & PIN Code Estimator */}
+            <div
+              style={{
+                border: "1px solid #e0e0e0",
+                borderRadius: "0px",
+                padding: "24px",
+                background: "#fff",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+                <TruckIcon size={18} color="#000" />
+                <h3
                   style={{
-                    display: "flex",
-                    gap: "20px",
-                    marginTop: "4px",
-                    fontSize: "0.75rem",
-                    color: "#888",
-                    fontWeight: 600,
+                    fontSize: "1.05rem",
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    letterSpacing: "-0.02em",
+                    margin: 0,
                   }}
                 >
-                  <span>🔒 Secured by Razorpay</span>
-                  <span>📦 Ships via Shiprocket</span>
-                  <span>📲 SMS + Email Updates</span>
-                </div>
+                  Estimated Delivery Timeline
+                </h3>
               </div>
-            )}
+              <p style={{ fontSize: "0.82rem", color: "#666", margin: "0 0 14px" }}>
+                Check courier transit days and serviceability for your postal PIN code:
+              </p>
 
-            {/* Pincode Serviceability Indicator */}
-            <div style={{ marginTop: "16px" }}>
+              <div style={{ display: "flex", gap: "10px", maxWidth: "420px", marginBottom: "12px" }}>
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="Enter 6-digit PIN code"
+                  value={guestPincodeInput}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    setGuestPincodeInput(val);
+                    if (val.length === 6) {
+                      handleCheckPincode(val);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    border: "1px solid #ccc",
+                    fontSize: "0.9rem",
+                    outline: "none",
+                    borderRadius: "0px",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCheckPincode(guestPincodeInput)}
+                  disabled={checkingPincode || guestPincodeInput.length !== 6}
+                  style={{
+                    background: guestPincodeInput.length === 6 ? "#000" : "#999",
+                    color: "#fff",
+                    border: "none",
+                    padding: "10px 20px",
+                    fontSize: "0.8rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.02em",
+                    cursor: guestPincodeInput.length === 6 ? "pointer" : "not-allowed",
+                    borderRadius: "0px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {checkingPincode ? "Checking..." : "Check Delivery"}
+                </button>
+              </div>
+
+              {/* Serviceability Result */}
               {checkingPincode ? (
-                <div style={{ fontSize: "0.8rem", color: "#666" }}>
-                  Verifying courier serviceability with Shiprocket...
+                <div style={{ fontSize: "0.82rem", color: "#666", fontStyle: "italic" }}>
+                  Checking Shiprocket courier coverage...
                 </div>
               ) : serviceability ? (
                 <div
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "8px 12px",
+                    padding: "12px 14px",
                     background: serviceability.serviceable ? "#f6ffed" : "#fffbe6",
                     border: `1px solid ${serviceability.serviceable ? "#b7eb8f" : "#ffe58f"}`,
-                    fontSize: "0.8rem",
-                    color: serviceability.serviceable ? "#389e0d" : "#d48806",
-                    fontWeight: 600,
+                    fontSize: "0.82rem",
+                    color: serviceability.serviceable ? "#237804" : "#d48806",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
                   }}
                 >
-                  <TruckIcon size={16} />
-                  <span>
-                    {serviceability.serviceable
-                      ? `✓ Delivery available by ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_delivery_days || 3-5} days)`
-                      : "Delivery may require extra transit days to this PIN code"}
-                  </span>
+                  <CheckIcon size={16} color={serviceability.serviceable ? "#52c41a" : "#d48806"} />
+                  <div>
+                    <span style={{ fontWeight: 700 }}>
+                      {serviceability.serviceable
+                        ? `✓ Delivery available to PIN ${serviceability.pincode} via ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_delivery_days || 3}–${Number(serviceability.estimated_delivery_days || 3) + 2} days)`
+                        : `Delivery to PIN ${serviceability.pincode} may require extra transit days`}
+                    </span>
+                  </div>
                 </div>
               ) : null}
             </div>
+
+            {/* 3. Returning Athlete Sign-In Strip */}
+            <div
+              style={{
+                border: "1px solid #e0e0e0",
+                background: "#fafafa",
+                padding: "14px 20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+              }}
+            >
+              <span style={{ fontSize: "0.82rem", color: "#555" }}>
+                Already have a VAHN Athlete account?
+              </span>
+              <button
+                type="button"
+                onClick={() => openAuthModal()}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#4232d9",
+                  fontWeight: 700,
+                  fontSize: "0.82rem",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  padding: 0,
+                }}
+              >
+                Sign In for Saved Addresses →
+              </button>
+            </div>
           </div>
-        </div>
         )}
 
         {/* Right Column: Order Summary & Pay CTA */}
@@ -993,21 +1078,60 @@ export default function CheckoutPage() {
               <span style={{ color: "#4232d9" }}>₹{grandTotal.toLocaleString("en-IN")}</span>
             </div>
 
-            {/* Free Shipping Progress */}
-            {subtotal < 1999 && (
+            {/* Free Shipping Progress Bar */}
+            <div
+              style={{
+                background: subtotal >= 1999 ? "#f6ffed" : "#fbfbfe",
+                border: `1px solid ${subtotal >= 1999 ? "#b7eb8f" : "#ecebf8"}`,
+                padding: "14px",
+                marginBottom: "20px",
+              }}
+            >
               <div
                 style={{
-                  background: "#f9f9f9",
-                  padding: "10px",
-                  fontSize: "0.75rem",
-                  color: "#666",
-                  marginBottom: "20px",
-                  textAlign: "center",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  marginBottom: "8px",
+                  color: subtotal >= 1999 ? "#237804" : "#333",
                 }}
               >
-                Add ₹{(1999 - subtotal).toLocaleString("en-IN")} more to unlock <strong>FREE SHIPPING</strong>
+                <span>{subtotal >= 1999 ? "✓ Free Express Shipping Unlocked" : "Free Express Shipping"}</span>
+                <span style={{ color: "#4232d9" }}>
+                  {subtotal >= 1999 ? "FREE" : `₹${subtotal.toLocaleString("en-IN")} / ₹1,999`}
+                </span>
               </div>
-            )}
+              <div
+                style={{
+                  height: "6px",
+                  width: "100%",
+                  background: "#e8e7f2",
+                  borderRadius: "3px",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${Math.min(100, Math.round((subtotal / 1999) * 100))}%`,
+                    background: subtotal >= 1999 ? "#52c41a" : "#4232d9",
+                    transition: "width 0.3s ease",
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: "0.73rem", color: "#666", marginTop: "7px", textAlign: "center" }}>
+                {subtotal >= 1999 ? (
+                  <span style={{ color: "#237804", fontWeight: 700 }}>
+                    Your order qualifies for complimentary priority express shipping!
+                  </span>
+                ) : (
+                  <>
+                    Add <strong>₹{(1999 - subtotal).toLocaleString("en-IN")}</strong> more to unlock <strong>FREE SHIPPING</strong>
+                  </>
+                )}
+              </div>
+            </div>
 
             {/* Pay Button */}
             <button
@@ -1019,18 +1143,19 @@ export default function CheckoutPage() {
                 background: placingOrder ? "#666" : "#4232d9",
                 color: "#fff",
                 border: "none",
-                padding: "16px",
+                padding: "16px 20px",
                 fontSize: "0.95rem",
                 fontWeight: 900,
                 textTransform: "uppercase",
-                letterSpacing: "-0.02em",
+                letterSpacing: "0.02em",
                 cursor: placingOrder ? "not-allowed" : "pointer",
                 borderRadius: "0px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "8px",
-                transition: "background 0.2s ease",
+                gap: "10px",
+                boxShadow: "0 4px 14px rgba(66, 50, 217, 0.25)",
+                transition: "all 0.2s ease",
               }}
             >
               {placingOrder ? (
@@ -1039,7 +1164,7 @@ export default function CheckoutPage() {
                 <span>Pay ₹{grandTotal.toLocaleString("en-IN")} via Razorpay →</span>
               ) : (
                 <>
-                  <SparklesIcon size={16} color="#fff" />
+                  <SparklesIcon size={18} color="#fff" />
                   <span>Pay ₹{grandTotal.toLocaleString("en-IN")} with Magic Checkout</span>
                 </>
               )}

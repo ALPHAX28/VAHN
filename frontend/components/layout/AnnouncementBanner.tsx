@@ -106,6 +106,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
 
   return (
     <div
+      className="announcement-banner-root"
       style={{
         position: 'relative',
         backgroundColor: bg,
@@ -118,7 +119,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
         textTransform: 'uppercase',
         transition: 'background-color 0.45s ease, color 0.45s ease',
         overflow: 'hidden',
-        height: '36px',
+        minHeight: '38px',
         width: '100%',
         display: 'flex',
         alignItems: 'center',
@@ -127,15 +128,57 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Responsive mobile overrides */}
+      <style>{`
+        .announcement-banner-root {
+          min-height: 38px;
+        }
+        @media (max-width: 640px) {
+          .announcement-banner-root {
+            min-height: 44px !important;
+          }
+          .announcement-banner-slide {
+            padding-left: 28px !important;
+            padding-right: ${currentBanner?.is_closable ? '50px' : '28px'} !important;
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+            min-height: 44px !important;
+          }
+          .announcement-banner-arrow-left {
+            left: 2px !important;
+            padding: 4px !important;
+          }
+          .announcement-banner-arrow-right {
+            right: ${currentBanner?.is_closable ? '26px' : '2px'} !important;
+            padding: 4px !important;
+          }
+          .announcement-banner-close {
+            right: 4px !important;
+            padding: 4px !important;
+          }
+          .announcement-banner-text {
+            font-size: 0.6875rem !important;
+            line-height: 1.35 !important;
+            letter-spacing: -0.015em !important;
+          }
+          .announcement-banner-link {
+            font-size: 0.625rem !important;
+            padding: 1.5px 6px !important;
+            margin-left: 2px !important;
+          }
+        }
+      `}</style>
+
       {/* Left Arrow Button for multiple banners */}
       {visibleBanners.length > 1 && (
         <button
           type="button"
           onClick={handlePrev}
           aria-label="Previous banner"
+          className="announcement-banner-arrow-left"
           style={{
             position: 'absolute',
-            left: '10px',
+            left: '8px',
             top: '50%',
             transform: 'translateY(-50%)',
             background: 'none',
@@ -170,7 +213,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
         style={{
           display: 'flex',
           width: '100%',
-          height: '100%',
+          alignItems: 'center',
           transform: `translateX(-${currentIndex * 100}%)`,
           transition: 'transform 0.55s cubic-bezier(0.25, 1, 0.5, 1)',
           willChange: 'transform',
@@ -183,13 +226,19 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '10px',
+                gap: '8px',
                 flexWrap: 'wrap',
+                lineHeight: 1.35,
+                maxWidth: '100%',
+                textAlign: 'center',
               }}
             >
-              <span style={{ fontWeight: 700, letterSpacing: '-0.025em' }}>{banner.message}</span>
+              <span className="announcement-banner-text" style={{ fontWeight: 700, letterSpacing: '-0.025em', display: 'inline' }}>
+                {banner.message}
+              </span>
               {banner.link_text && (
                 <span
+                  className="announcement-banner-link"
                   style={{
                     fontSize: '0.6875rem',
                     fontWeight: 800,
@@ -201,6 +250,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '3px',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {banner.link_text}
@@ -213,14 +263,15 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
           return (
             <div
               key={banner.id}
+              className="announcement-banner-slide"
               style={{
                 flex: '0 0 100%',
                 width: '100%',
-                height: '100%',
+                minHeight: '38px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: visibleBanners.length > 1 ? '0 52px' : '0 32px',
+                padding: visibleBanners.length > 1 ? '6px 44px' : '6px 24px',
                 textAlign: 'center',
                 boxSizing: 'border-box',
               }}
@@ -231,7 +282,10 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
                   style={{
                     color: 'inherit',
                     textDecoration: 'none',
-                    display: 'inline-block',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    maxWidth: '100%',
                   }}
                 >
                   {content}
@@ -250,9 +304,10 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
           type="button"
           onClick={handleNext}
           aria-label="Next banner"
+          className="announcement-banner-arrow-right"
           style={{
             position: 'absolute',
-            right: currentBanner?.is_closable ? '36px' : '10px',
+            right: currentBanner?.is_closable ? '36px' : '8px',
             top: '50%',
             transform: 'translateY(-50%)',
             background: 'none',
@@ -289,6 +344,7 @@ export default function AnnouncementBanner({ initialBanners = [] }: Props) {
           onClick={(e) => handleDismiss(e, currentBanner.id)}
           aria-label="Dismiss banner"
           title="Dismiss banner"
+          className="announcement-banner-close"
           style={{
             position: 'absolute',
             right: '10px',
