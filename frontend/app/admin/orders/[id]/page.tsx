@@ -251,8 +251,11 @@ export default function AdminOrderDetailPage() {
     try {
       const updated = await cancelAdminOrderShipment(adminToken, order.id, { reason: cancelShipmentReason });
       setOrder(updated);
+      setStatus(updated.status);
+      setRefundStatus(updated.refund_status || "");
       setShowCancelShipmentModal(false);
-      setSuccess("Shipment and order cancelled successfully in Shiprocket!");
+      setSuccess("Shipment cancelled, inventory restocked, and 100% refund initiated via Razorpay!");
+      await load();
       setTimeout(() => setSuccess(""), 5000);
     } catch (e: any) {
       setError(e?.message || "Failed to cancel shipment in Shiprocket.");
@@ -396,27 +399,29 @@ export default function AdminOrderDetailPage() {
 
           {/* 1. Forward Logistics Command Card (Shiprocket) */}
           {(() => {
+            const isCancelled = order.status === "CANCELLED" || order.shipping_status === "CANCELLED";
             const forwardTracking = order.tracking_data;
             const forwardScans: Array<{ date?: string; activity: string; location?: string }> =
               Array.isArray(forwardTracking?.scans) ? forwardTracking.scans : [];
-            const forwardCurrentLocation =
-              forwardTracking?.current_location ||
-              (forwardScans.length > 0 ? forwardScans[forwardScans.length - 1]?.location : null) ||
-              (order.shipping_status === "DELIVERED" ? "Delivered to Customer" : "In Transit");
+            const forwardCurrentLocation = isCancelled
+              ? "Shipment Revoked & Cancelled"
+              : forwardTracking?.current_location ||
+                (forwardScans.length > 0 ? forwardScans[forwardScans.length - 1]?.location : null) ||
+                (order.shipping_status === "DELIVERED" ? "Delivered to Customer" : "In Transit");
             const latestForwardScan =
               forwardScans.length > 0 ? forwardScans[forwardScans.length - 1] : null;
 
             return (
-              <div className="admin-card" style={{ borderLeft: "4px solid #4232d9", position: "relative" }}>
+              <div className="admin-card" style={{ borderLeft: isCancelled ? "4px solid #dc2626" : "4px solid #4232d9", position: "relative" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <TruckIcon size={20} color="#4232d9" />
-                    <h2 className="admin-card-title" style={{ margin: 0, textTransform: "uppercase" }}>
-                      Forward Logistics (Shiprocket)
+                    <TruckIcon size={20} color={isCancelled ? "#dc2626" : "#4232d9"} />
+                    <h2 className="admin-card-title" style={{ margin: 0, textTransform: "uppercase", color: isCancelled ? "#dc2626" : "inherit" }}>
+                      Forward Logistics (Shiprocket) {isCancelled ? "— CANCELLED" : ""}
                     </h2>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    {order.shiprocket_awb && (
+                    {order.shiprocket_awb && !isCancelled && (
                       <button
                         type="button"
                         onClick={handleRefreshTracking}
@@ -440,16 +445,16 @@ export default function AdminOrderDetailPage() {
                     )}
                     <span
                       style={{
-                        background: order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#f6ffed" : "#fffbe6",
-                        color: order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#389e0d" : "#d48806",
-                        border: `1px solid ${order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#b7eb8f" : "#ffe58f"}`,
+                        background: isCancelled ? "#fef2f2" : (order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#f6ffed" : "#fffbe6"),
+                        color: isCancelled ? "#dc2626" : (order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#389e0d" : "#d48806"),
+                        border: `1px solid ${isCancelled ? "#fca5a5" : (order.shipping_status === "SHIPPED" || order.shipping_status === "DELIVERED" || order.shipping_status === "OUT_FOR_DELIVERY" ? "#b7eb8f" : "#ffe58f")}`,
                         padding: "5px 12px",
                         fontSize: "0.72rem",
                         fontWeight: 800,
                         textTransform: "uppercase",
                       }}
                     >
-                      {order.shipping_status || "UNFULFILLED"}
+                      {isCancelled ? "CANCELLED" : (order.shipping_status || "UNFULFILLED")}
                     </span>
                   </div>
                 </div>
@@ -461,7 +466,7 @@ export default function AdminOrderDetailPage() {
                   </div>
                   <div>
                     <span style={{ color: "#666", fontSize: "0.75rem", display: "block", textTransform: "uppercase" }}>AWB Code</span>
-                    <strong style={{ fontFamily: "monospace", color: "#4232d9" }}>{order.shiprocket_awb || "Not Assigned"}</strong>
+                    <strong style={{ fontFamily: "monospace", color: isCancelled ? "#dc2626" : "#4232d9" }}>{order.shiprocket_awb || "Not Assigned"}</strong>
                   </div>
                   <div>
                     <span style={{ color: "#666", fontSize: "0.75rem", display: "block", textTransform: "uppercase" }}>Shipment ID</span>
@@ -469,7 +474,7 @@ export default function AdminOrderDetailPage() {
                   </div>
                   <div>
                     <span style={{ color: "#666", fontSize: "0.75rem", display: "block", textTransform: "uppercase" }}>Estimated / Delivered At</span>
-                    <span>{order.delivered_at || "3-5 Business Days"}</span>
+                    <span>{isCancelled ? "Shipment Cancelled" : (order.delivered_at || "3-5 Business Days")}</span>
                   </div>
                 </div>
 
@@ -477,8 +482,8 @@ export default function AdminOrderDetailPage() {
                 {order.shiprocket_awb && (
                   <div
                     style={{
-                      background: "#f8f9ff",
-                      border: "1px solid #d9d6fe",
+                      background: isCancelled ? "#fef2f2" : "#f8f9ff",
+                      border: `1px solid ${isCancelled ? "#fecaca" : "#d9d6fe"}`,
                       padding: "16px 20px",
                       marginBottom: "18px",
                       borderRadius: "0px",
@@ -486,26 +491,32 @@ export default function AdminOrderDetailPage() {
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
                       <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", fontWeight: 800, color: "#4232d9", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-                          <span style={{ width: 8, height: 8, background: "#4232d9", borderRadius: "50%", display: "inline-block" }} />
-                          Current Parcel Location
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", fontWeight: 800, color: isCancelled ? "#dc2626" : "#4232d9", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+                          <span style={{ width: 8, height: 8, background: isCancelled ? "#dc2626" : "#4232d9", borderRadius: "50%", display: "inline-block" }} />
+                          {isCancelled ? "Shipment Cancelled & Revoked" : "Current Parcel Location"}
                         </div>
-                        <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#111", display: "flex", alignItems: "center", gap: 6 }}>
-                          <MapPinIcon size={18} color="#4232d9" />
+                        <div style={{ fontSize: "1.1rem", fontWeight: 900, color: isCancelled ? "#991b1b" : "#111", display: "flex", alignItems: "center", gap: 6 }}>
+                          <MapPinIcon size={18} color={isCancelled ? "#dc2626" : "#4232d9"} />
                           <span>{forwardCurrentLocation}</span>
                         </div>
-                        {latestForwardScan && (
-                          <div style={{ fontSize: "0.82rem", color: "#555", marginTop: 4 }}>
-                            <strong>Latest Activity:</strong> {latestForwardScan.activity}
-                            {latestForwardScan.date && <span style={{ color: "#888", marginLeft: 8 }}>({latestForwardScan.date})</span>}
+                        {isCancelled ? (
+                          <div style={{ fontSize: "0.82rem", color: "#b91c1c", marginTop: 4 }}>
+                            {order.cancellation_reason || "Shipment was cancelled by administrator. Courier dispatch was halted in Shiprocket and inventory restocked."}
                           </div>
+                        ) : (
+                          latestForwardScan && (
+                            <div style={{ fontSize: "0.82rem", color: "#555", marginTop: 4 }}>
+                              <strong>Latest Activity:</strong> {latestForwardScan.activity}
+                              {latestForwardScan.date && <span style={{ color: "#888", marginLeft: 8 }}>({latestForwardScan.date})</span>}
+                            </div>
+                          )
                         )}
                       </div>
 
                       <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                         <span
                           style={{
-                            background: "#000",
+                            background: isCancelled ? "#dc2626" : "#000",
                             color: "#fff",
                             fontSize: "0.72rem",
                             fontWeight: 800,
@@ -514,20 +525,22 @@ export default function AdminOrderDetailPage() {
                             borderRadius: "0px",
                           }}
                         >
-                          Status: {order.shipping_status || "IN_TRANSIT"}
+                          Status: {isCancelled ? "CANCELLED" : (order.shipping_status || "IN_TRANSIT")}
                         </span>
-                        <Link
-                          href={`/track?q=${order.shiprocket_awb}`}
-                          target="_blank"
-                          style={{
-                            fontSize: "0.78rem",
-                            color: "#4232d9",
-                            fontWeight: 700,
-                            textDecoration: "underline",
-                          }}
-                        >
-                          Open Public Tracking Portal ↗
-                        </Link>
+                        {!isCancelled && (
+                          <Link
+                            href={`/track?q=${order.shiprocket_awb}`}
+                            target="_blank"
+                            style={{
+                              fontSize: "0.78rem",
+                              color: "#4232d9",
+                              fontWeight: 700,
+                              textDecoration: "underline",
+                            }}
+                          >
+                            Open Public Tracking Portal ↗
+                          </Link>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -611,8 +624,61 @@ export default function AdminOrderDetailPage() {
                   </div>
                 )}
 
-                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", borderTop: "1px solid #eee", paddingTop: 14 }}>
-                  {!order.shiprocket_awb ? (
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", borderTop: "1px solid #eee", paddingTop: 14, alignItems: "center" }}>
+                  {isCancelled ? (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 260 }}>
+                        <span style={{ color: "#dc2626", fontWeight: 800, fontSize: "0.82rem", textTransform: "uppercase" }}>
+                          Shipment Cancelled & Inventory Restocked
+                        </span>
+                        {order.razorpay_refund_id && (
+                          <span style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", padding: "4px 8px", fontSize: "0.72rem", fontWeight: 800 }}>
+                            100% Refunded ({order.razorpay_refund_id})
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginLeft: "auto" }}>
+                        <button
+                          type="button"
+                          onClick={handleDownloadInvoice}
+                          disabled={downloadingInvoice}
+                          style={{
+                            background: "#000",
+                            color: "#fff",
+                            border: "none",
+                            padding: "8px 16px",
+                            fontWeight: 800,
+                            fontSize: "0.78rem",
+                            cursor: downloadingInvoice ? "not-allowed" : "pointer",
+                            textTransform: "uppercase",
+                            borderRadius: "0px",
+                          }}
+                        >
+                          {downloadingInvoice ? "Fetching Invoice..." : "Download Tax Invoice"}
+                        </button>
+                        {order.shiprocket_awb && (
+                          <button
+                            type="button"
+                            onClick={handleDownloadLabel}
+                            disabled={downloadingLabel}
+                            style={{
+                              background: "#f3f4f6",
+                              color: "#000",
+                              border: "1px solid #d1d5db",
+                              padding: "8px 16px",
+                              fontWeight: 800,
+                              fontSize: "0.78rem",
+                              cursor: downloadingLabel ? "not-allowed" : "pointer",
+                              textTransform: "uppercase",
+                              borderRadius: "0px",
+                            }}
+                          >
+                            {downloadingLabel ? "Fetching Label..." : "Download Label"}
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  ) : !order.shiprocket_awb ? (
                     <button
                       type="button"
                       onClick={handleDispatchShipment}
@@ -1233,123 +1299,159 @@ export default function AdminOrderDetailPage() {
         {/* Right Sidebar: Status & Payment Control */}
         <div className="admin-order-sidebar">
           {/* Payment & Refund Audit Card */}
-          <div className="admin-card" style={{ borderLeft: "4px solid #52c41a" }}>
-            <h2 className="admin-card-title">Prepaid Payment Audit</h2>
-            <div style={{ fontSize: "0.82rem", display: "flex", flexDirection: "column", gap: 10 }}>
-              <div>
-                <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Method</span>
-                <strong style={{ color: "#15803d" }}>100% PREPAID (ONLINE)</strong>
-              </div>
-              <div>
-                <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Payment Status</span>
-                <strong>{order.payment_status || "PAID"}</strong>
-              </div>
-              <div>
-                <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Razorpay Payment ID</span>
-                <span style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
-                  {order.razorpay_payment_id || "rzp_test_sandbox_verified"}
-                </span>
-              </div>
-              <div>
-                <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Razorpay Order ID</span>
-                <span style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
-                  {order.razorpay_order_id || "—"}
-                </span>
-              </div>
-              {order.razorpay_refund_id && (
-                <div>
-                  <span style={{ color: "#cf1322", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Razorpay Refund ID</span>
-                  <span style={{ fontFamily: "monospace", fontSize: "0.75rem", color: "#cf1322", fontWeight: 700 }}>
-                    {order.razorpay_refund_id}
-                  </span>
+          {(() => {
+            const isRefunded = order.refund_status === "REFUNDED" || order.payment_status === "REFUNDED";
+            const isCancelled = order.status === "CANCELLED" || order.shipping_status === "CANCELLED";
+
+            return (
+              <>
+                <div className="admin-card" style={{ borderLeft: isRefunded ? "4px solid #16a34a" : "4px solid #52c41a" }}>
+                  <h2 className="admin-card-title">Prepaid Payment Audit</h2>
+                  <div style={{ fontSize: "0.82rem", display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div>
+                      <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Method</span>
+                      <strong style={{ color: "#15803d" }}>100% PREPAID (ONLINE)</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Payment Status</span>
+                      {isRefunded ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <strong style={{ color: "#16a34a", fontSize: "0.92rem", fontWeight: 900 }}>100% REFUNDED</strong>
+                          <span style={{ background: "#dcfce7", color: "#15803d", fontSize: "0.68rem", fontWeight: 800, padding: "2px 6px", textTransform: "uppercase" }}>Settled</span>
+                        </div>
+                      ) : (
+                        <strong>{order.payment_status || "PAID"}</strong>
+                      )}
+                    </div>
+                    <div>
+                      <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Razorpay Payment ID</span>
+                      <span style={{ fontFamily: "monospace", fontSize: "0.75rem", background: "#f3f4f6", padding: "2px 6px" }}>
+                        {order.razorpay_payment_id || "rzp_test_sandbox_verified"}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Razorpay Order ID</span>
+                      <span style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
+                        {order.razorpay_order_id || "—"}
+                      </span>
+                    </div>
+                    {order.razorpay_refund_id && (
+                      <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px" }}>
+                        <span style={{ color: "#166534", display: "block", fontSize: "0.72rem", fontWeight: 800, textTransform: "uppercase" }}>
+                          Razorpay Refund ID (100% Disbursed)
+                        </span>
+                        <span style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "#15803d", fontWeight: 800 }}>
+                          {order.razorpay_refund_id}
+                        </span>
+                        <div style={{ fontSize: "0.75rem", color: "#166534", marginTop: 4 }}>
+                          Amount: <strong>₹{(order.refund_amount || order.total_amount).toLocaleString("en-IN")} (Full Refund)</strong>
+                        </div>
+                      </div>
+                    )}
+                    {order.refund_amount && !order.razorpay_refund_id ? (
+                      <div>
+                        <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Amount Refunded</span>
+                        <strong style={{ color: "#cf1322" }}>₹{order.refund_amount.toLocaleString("en-IN")}</strong>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {!isRefunded && !isCancelled && (
+                    <button
+                      type="button"
+                      onClick={() => setShowRefundModal(true)}
+                      style={{
+                        width: "100%",
+                        marginTop: 16,
+                        background: "#fff",
+                        border: "2px solid #dc2626",
+                        color: "#dc2626",
+                        padding: "10px",
+                        fontSize: "0.78rem",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        cursor: "pointer",
+                        borderRadius: "0px",
+                      }}
+                    >
+                      Issue Manual Refund →
+                    </button>
+                  )}
+                  {isRefunded && (
+                    <div style={{ marginTop: 14, padding: "10px", background: "#f0fdf4", border: "1px solid #86efac", color: "#166534", fontSize: "0.75rem", fontWeight: 700, textAlign: "center" }}>
+                      ✓ 100% Refund Successfully Processed via Razorpay
+                    </div>
+                  )}
                 </div>
-              )}
-              {order.refund_amount ? (
-                <div>
-                  <span style={{ color: "#666", display: "block", fontSize: "0.72rem", textTransform: "uppercase" }}>Amount Refunded</span>
-                  <strong style={{ color: "#cf1322" }}>₹{order.refund_amount.toLocaleString("en-IN")}</strong>
+
+                {/* Status Management Card */}
+                <div className="admin-card">
+                  <h2 className="admin-card-title">Order Status Controls</h2>
+                  {isCancelled && (
+                    <div style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: "10px 12px", marginBottom: 14 }}>
+                      <div style={{ color: "#dc2626", fontWeight: 800, fontSize: "0.78rem", textTransform: "uppercase", marginBottom: 4 }}>
+                        Order Cancelled & Restocked
+                      </div>
+                      <div style={{ color: "#7f1d1d", fontSize: "0.75rem", lineHeight: 1.4 }}>
+                        {order.cancellation_reason || "Shipment revoked in Shiprocket, inventory returned to stock, and 100% refund disbursed to customer."}
+                      </div>
+                    </div>
+                  )}
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Order Fulfillment Status</label>
+                    <select
+                      className="admin-form-select"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                    >
+                      {ORDER_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="admin-form-group">
+                    <label className="admin-form-label">Refund Status</label>
+                    <select
+                      className="admin-form-select"
+                      value={refundStatus}
+                      onChange={(e) => setRefundStatus(e.target.value)}
+                    >
+                      {REFUND_STATUSES.map((s) => (
+                        <option key={s || "none"} value={s}>
+                          {s || "No refund"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {refundStatus && (
+                    <div className="admin-form-group">
+                      <label className="admin-form-label">Refund Note / Audit Log</label>
+                      <textarea
+                        className="admin-form-textarea"
+                        rows={3}
+                        value={refundNote}
+                        onChange={(e) => setRefundNote(e.target.value)}
+                        placeholder="Reason or reference for refund..."
+                      />
+                    </div>
+                  )}
+
+                  <button
+                    className="admin-btn admin-btn--primary admin-btn--full"
+                    onClick={handleSave}
+                    disabled={saving}
+                    style={{ padding: "12px", fontSize: "0.85rem", fontWeight: 800, textTransform: "uppercase" }}
+                  >
+                    {saving ? <span className="admin-btn-spinner" /> : "Save Status Changes"}
+                  </button>
                 </div>
-              ) : null}
-            </div>
-
-            {order.refund_status !== "REFUNDED" && order.status !== "CANCELLED" && (
-              <button
-                type="button"
-                onClick={() => setShowRefundModal(true)}
-                style={{
-                  width: "100%",
-                  marginTop: 16,
-                  background: "#fff",
-                  border: "2px solid #dc2626",
-                  color: "#dc2626",
-                  padding: "10px",
-                  fontSize: "0.78rem",
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  borderRadius: "0px",
-                }}
-              >
-                Issue Manual Refund →
-              </button>
-            )}
-          </div>
-
-          {/* Status Management Card */}
-          <div className="admin-card">
-            <h2 className="admin-card-title">Order Status Controls</h2>
-            <div className="admin-form-group">
-              <label className="admin-form-label">Order Fulfillment Status</label>
-              <select
-                className="admin-form-select"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                {ORDER_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="admin-form-group">
-              <label className="admin-form-label">Refund Status</label>
-              <select
-                className="admin-form-select"
-                value={refundStatus}
-                onChange={(e) => setRefundStatus(e.target.value)}
-              >
-                {REFUND_STATUSES.map((s) => (
-                  <option key={s || "none"} value={s}>
-                    {s || "No refund"}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {refundStatus && (
-              <div className="admin-form-group">
-                <label className="admin-form-label">Refund Note / Audit Log</label>
-                <textarea
-                  className="admin-form-textarea"
-                  rows={3}
-                  value={refundNote}
-                  onChange={(e) => setRefundNote(e.target.value)}
-                  placeholder="Reason or reference for refund..."
-                />
-              </div>
-            )}
-
-            <button
-              className="admin-btn admin-btn--primary admin-btn--full"
-              onClick={handleSave}
-              disabled={saving}
-              style={{ padding: "12px", fontSize: "0.85rem", fontWeight: 800, textTransform: "uppercase" }}
-            >
-              {saving ? <span className="admin-btn-spinner" /> : "Save Status Changes"}
-            </button>
-          </div>
+              </>
+            );
+          })()}
         </div>
       </div>
 

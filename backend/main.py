@@ -2602,6 +2602,8 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
         # Check forward shipment
         order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_awb=awb).first()
         if order:
+            if order.status == "CANCELLED":
+                return {"status": "ignored_cancelled_order"}
             order.shipping_status = current_status
             if current_status == "DELIVERED":
                 order.status = "DELIVERED"
@@ -3586,7 +3588,7 @@ def admin_refresh_order_tracking(
             live_track = shiprocket_service.track_awb(order.shiprocket_awb)
             if live_track and isinstance(live_track, dict):
                 order.tracking_data = live_track
-                if live_track.get("current_status"):
+                if live_track.get("current_status") and order.status != "CANCELLED" and order.shipping_status != "CANCELLED":
                     order.shipping_status = str(live_track["current_status"]).upper()
         except Exception as e:
             logger.warning(f"Error refreshing tracking for order {order.id}: {e}")
@@ -3623,8 +3625,37 @@ def admin_update_order_status(
 
     if payload.status:
         order.status = payload.status
+        if payload.status == "CANCELLED":
+            order.shipping_status = "CANCELLED"
+            if order.shiprocket_order_id or order.shiprocket_awb:
+                try:
+                    shiprocket_service.cancel_shipment(
+                        shiprocket_order_id=order.shiprocket_order_id,
+                        awb_code=order.shiprocket_awb
+                    )
+                except Exception as e:
+                    logger.warning(f"Error cancelling in Shiprocket during status update: {e}")
+            for item in (order.items or []):
+                if item.variant_id:
+                    var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+                    if var:
+                        var.inventory_quantity += item.quantity
+            if order.razorpay_payment_id and order.refund_status != "REFUNDED":
+                try:
+                    rfnd_res = razorpay_service.initiate_refund(
+                        payment_id=order.razorpay_payment_id,
+                        amount_in_inr=order.total_amount,
+                        reason_note=payload.refund_note or "Admin cancelled order"
+                    )
+                    order.refund_status = "REFUNDED"
+                    order.refund_amount = order.total_amount
+                    order.payment_status = "REFUNDED"
+                    order.refunded_at = datetime.utcnow()
+                    order.razorpay_refund_id = rfnd_res.get("id")
+                except Exception as e:
+                    logger.error(f"Error triggering refund on status change to CANCELLED: {e}")
         # If admin changes status to SHIPPED or IN_TRANSIT, automatically trigger dynamic Shiprocket dispatch if not already generated!
-        if payload.status in ["SHIPPED", "IN_TRANSIT"] and not order.shiprocket_awb:
+        elif payload.status in ["SHIPPED", "IN_TRANSIT"] and not order.shiprocket_awb:
             try:
                 sr_res = shiprocket_service.create_forward_shipment(order, order.items or [], db=db)
                 if sr_res:
@@ -3803,7 +3834,7 @@ def admin_cancel_shipment(
                 var.inventory_quantity += item.quantity
     
     # 4. If prepaid and not yet refunded, trigger Razorpay refund
-    if order.payment_status == "PAID" and order.razorpay_payment_id and order.refund_status != "REFUNDED":
+    if order.razorpay_payment_id and order.refund_status != "REFUNDED":
         try:
             rfnd_res = razorpay_service.initiate_refund(
                 payment_id=order.razorpay_payment_id,
@@ -3812,6 +3843,7 @@ def admin_cancel_shipment(
             )
             order.refund_status = "REFUNDED"
             order.refund_amount = order.total_amount
+            order.payment_status = "REFUNDED"
             order.refund_note = reason
             order.refunded_at = datetime.utcnow()
             order.razorpay_refund_id = rfnd_res.get("id")
