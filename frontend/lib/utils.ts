@@ -51,3 +51,36 @@ export function shopifyUrlToPath(url: string): string {
 export function truncate(str: string, length: number) {
   return str.length > length ? str.slice(0, length) + '...' : str;
 }
+
+/**
+ * Resolves an absolute storefront URL when called from the admin dashboard,
+ * or a relative path when in localhost/storefront.
+ * E.g., on dev-admin.vahnsports.com -> https://dev.vahnsports.com/track?q=...
+ *       on admin.vahnsports.com     -> https://vahnsports.com/track?q=...
+ *       on localhost:3000           -> /track?q=...
+ */
+export function getStorefrontUrl(path: string): string {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname.toLowerCase();
+    if (
+      hostname.includes('dev-admin') ||
+      hostname.includes('admin-dev') ||
+      hostname.includes('10.8.')
+    ) {
+      return `https://dev.vahnsports.com${cleanPath}`;
+    }
+    if (hostname.startsWith('admin.') || hostname === 'admin.vahnsports.com') {
+      return `https://vahnsports.com${cleanPath}`;
+    }
+  }
+  return cleanPath;
+}
+
+/**
+ * Resolves the public customer tracking URL for an AWB code.
+ */
+export function getPublicTrackingUrl(awb?: string | null): string {
+  const query = awb ? `?q=${encodeURIComponent(awb.trim())}` : '';
+  return getStorefrontUrl(`/track${query}`);
+}

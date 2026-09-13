@@ -20,6 +20,7 @@ import AdminBadge from "@/components/admin/AdminBadge";
 import { PrinterIcon, TruckIcon, MapPinIcon, CheckIcon, PackageIcon } from "@/components/icons/Icons";
 import Image from "next/image";
 import Link from "next/link";
+import { getPublicTrackingUrl } from "@/lib/utils";
 
 const ORDER_STATUSES = ["PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"];
 const REFUND_STATUSES = ["", "PENDING", "REFUNDED"];
@@ -380,15 +381,16 @@ export default function AdminOrderDetailPage() {
 
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 {order.shiprocket_awb && (
-                  <Link
-                    href={`/track?q=${order.shiprocket_awb}`}
+                  <a
+                    href={getPublicTrackingUrl(order.shiprocket_awb)}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="admin-btn admin-btn--secondary"
                     style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
                   >
                     <TruckIcon size={14} color="#000" />
                     Public Tracking Portal →
-                  </Link>
+                  </a>
                 )}
               </div>
             </div>
@@ -544,9 +546,10 @@ export default function AdminOrderDetailPage() {
                           >
                             Status: {order.shipping_status || "IN_TRANSIT"}
                           </span>
-                          <Link
-                            href={`/track?q=${order.shiprocket_awb}`}
+                          <a
+                            href={getPublicTrackingUrl(order.shiprocket_awb)}
                             target="_blank"
+                            rel="noopener noreferrer"
                             style={{
                               fontSize: "0.78rem",
                               color: "#4232d9",
@@ -555,7 +558,7 @@ export default function AdminOrderDetailPage() {
                             }}
                           >
                             Open Public Tracking Portal ↗
-                          </Link>
+                          </a>
                         </div>
                       </div>
                     </div>

@@ -13,6 +13,7 @@ import AdminImageUploader, { type UploadedImage, uploadPendingImages } from "@/c
 import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 import Image from "next/image";
+import { getStorefrontUrl } from "@/lib/utils";
 import { adminListSizeGuide, type SizeGuideType } from "@/lib/api/sizeGuide";
 import AdminLookbookManager, { type LookbookItem, uploadPendingLookbookImages } from "@/components/admin/AdminLookbookManager";
 
@@ -848,7 +849,7 @@ export default function AdminProductDetailPage() {
           </p>
         </div>
         <div className="admin-header-actions">
-          <Link href={`/products/${product.handle}`} target="_blank" className="admin-btn admin-btn--ghost">View on store ↗</Link>
+          <a href={getStorefrontUrl(`/products/${product.handle}`)} target="_blank" rel="noopener noreferrer" className="admin-btn admin-btn--ghost">View on store ↗</a>
           <button
             type="button"
             className="admin-btn admin-btn--secondary"

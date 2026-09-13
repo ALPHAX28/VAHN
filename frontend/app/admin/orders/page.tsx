@@ -6,6 +6,7 @@ import { getAdminOrders, type AdminOrderSummary, type PaginatedResponse } from "
 import AdminBadge from "@/components/admin/AdminBadge";
 import Link from "next/link";
 import { clientCache } from "@/lib/api/cache";
+import { getPublicTrackingUrl } from "@/lib/utils";
 
 const STATUS_FILTERS = [
   { label: "All Orders", status: "", returnStatus: "" },
@@ -194,9 +195,10 @@ export default function AdminOrdersPage() {
                         {order.shipping_status || "UNFULFILLED"}
                       </div>
                       {order.shiprocket_awb ? (
-                        <Link
-                          href={`/track?q=${order.shiprocket_awb}`}
+                        <a
+                          href={getPublicTrackingUrl(order.shiprocket_awb)}
                           target="_blank"
+                          rel="noopener noreferrer"
                           style={{
                             fontSize: "0.72rem",
                             color: "#4232d9",
@@ -205,7 +207,7 @@ export default function AdminOrdersPage() {
                           }}
                         >
                           AWB: {order.shiprocket_awb}
-                        </Link>
+                        </a>
                       ) : (
                         <span style={{ fontSize: "0.72rem", color: "#999" }}>Awaiting Dispatch</span>
                       )}

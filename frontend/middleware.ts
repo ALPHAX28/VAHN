@@ -37,6 +37,20 @@ export function middleware(req: NextRequest) {
 
   // 3. CASE: Admin Subdomains (admin.vahnsports.com & dev-admin.vahnsports.com)
   if (isAdminSubdomain) {
+    // If accessing storefront tracking page from admin domain, redirect to storefront
+    if (pathname === '/track' || pathname.startsWith('/track/')) {
+      const isDev =
+        hostname.includes('dev-admin') ||
+        hostname.includes('admin-dev') ||
+        hostname.includes('10.8.');
+      const storefrontHost = isDev ? 'dev.vahnsports.com' : 'vahnsports.com';
+      const redirectUrl = new URL(
+        req.nextUrl.pathname + req.nextUrl.search,
+        `https://${storefrontHost}`
+      );
+      return NextResponse.redirect(redirectUrl);
+    }
+
     // If accessing root, rewrite to /admin
     if (pathname === '/') {
       const url = req.nextUrl.clone();
