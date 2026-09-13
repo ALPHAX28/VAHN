@@ -1274,11 +1274,23 @@ def razorpay_create_order(
                 "quantity": item.quantity,
                 "name": item_title[:255]
             })
-        line_items_total = int(round(subtotal * 100))
+        # Add shipping as an explicit line item so Razorpay shows a clean breakdown.
+        # Without this, Razorpay sees a gap between line_items prices and line_items_total
+        # and displays a confusing "--₹99 surcharge" in the order summary.
+        if shipping_fee > 0:
+            line_items.append({
+                "sku": "SHIPPING_FEE",
+                "variant_id": "SHIPPING",
+                "price": int(round(shipping_fee * 100)),
+                "offer_price": int(round(shipping_fee * 100)),
+                "quantity": 1,
+                "name": "Shipping Fee"
+            })
+        line_items_total = int(round(total_amount * 100))  # items + shipping
 
-        # For Razorpay Magic Checkout, base order amount matches line_items_total
+        # Order amount = total_amount (items + shipping). Razorpay dashboard slab must be ₹0/Free.
         rzp_order = razorpay_service.create_order(
-            amount_in_inr=subtotal,
+            amount_in_inr=total_amount,
             receipt_id=receipt_id,
             notes=notes,
             line_items=line_items,
