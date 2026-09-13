@@ -344,6 +344,35 @@ def create_forward_shipment(
     phone = addr.get("phone", (order.guest_phone if order.is_guest else (order.user.phone if order.user else "9876543210")))
     email = order.guest_email if order.is_guest else (order.user.email if order.user else "order@vahnsports.com")
 
+    order_items_payload = []
+    for i in items:
+        # Include product title and variant details (size / colour)
+        item_name = f"{i.product_title} - {i.variant_title}" if getattr(i, "variant_title", None) else i.product_title
+        
+        # Clean SKU representation
+        raw_sku = getattr(i, "sku", None) or getattr(i, "variant_id", None) or f"VAHN-{i.id[:8]}"
+        clean_sku = str(raw_sku).upper().replace(" ", "-")
+
+        # Standard Indian GST HSN Code for activewear / jerseys / apparel (Chapter 61: 610910)
+        item_hsn = getattr(i, "hsn", None) or "610910"
+
+        # Standard 12% GST on apparel so Taxable Value and CGST/SGST/IGST compute accurately
+        item_tax = 12.0
+        if getattr(order, "tax_amount", 0) and getattr(order, "subtotal_amount", 0):
+            base_taxable = order.subtotal_amount - order.tax_amount
+            if base_taxable > 0:
+                item_tax = round((order.tax_amount / base_taxable) * 100, 1)
+
+        order_items_payload.append({
+            "name": item_name,
+            "sku": clean_sku,
+            "units": i.quantity,
+            "selling_price": float(i.price_amount),
+            "discount": 0.0,
+            "tax": item_tax,
+            "hsn": item_hsn,
+        })
+
     payload = {
         "order_id": order.id,
         "order_date": order.created_at.strftime("%Y-%m-%d %H:%M"),
@@ -358,17 +387,11 @@ def create_forward_shipment(
         "billing_email": email or "support@vahnsports.com",
         "billing_phone": phone.replace("+91", "").replace(" ", "")[-10:] if phone else "9876543210",
         "shipping_is_billing": True,
-        "order_items": [
-            {
-                "name": i.product_title,
-                "sku": i.variant_id or f"VAHN-{i.id[:8]}",
-                "units": i.quantity,
-                "selling_price": i.price_amount
-            }
-            for i in items
-        ],
+        "order_items": order_items_payload,
         "payment_method": "Prepaid",
-        "sub_total": order.total_amount,
+        "shipping_charges": float(getattr(order, "shipping_amount", 0.0) or 0.0),
+        "total_discount": float(getattr(order, "discount_amount", 0.0) or 0.0),
+        "sub_total": float(getattr(order, "subtotal_amount", 0.0) or (order.total_amount - (getattr(order, "shipping_amount", 0.0) or 0.0))),
         "length": 15,
         "breadth": 15,
         "height": 5,
