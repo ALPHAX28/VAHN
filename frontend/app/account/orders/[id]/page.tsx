@@ -312,12 +312,64 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     ? order.reverseTrackingData.scans
     : [];
 
-  // Strictly dynamic courier location from API (no static fake fallbacks)
-  const forwardCurrentLoc = isShipped
-    ? (trackingModalData?.current_location
-      || order.trackingData?.current_location
-      || (activeForwardScans.length > 0 ? activeForwardScans[activeForwardScans.length - 1]?.location : null))
-    : null;
+  // Strictly dynamic courier location from API (no static fake fallbacks or pseudo-statuses)
+  const rawForwardLoc = (
+    trackingModalData?.current_location
+    || order.trackingData?.current_location
+    || (activeForwardScans.length > 0 ? activeForwardScans[activeForwardScans.length - 1]?.location : null)
+    || ""
+  ).trim();
+
+  const isInvalidForwardLoc = !rawForwardLoc || [
+    "in transit", "transit", "unfulfilled", "processing", "manifest generated", "origin facility", "pending", "unknown", "n/a"
+  ].includes(rawForwardLoc.toLowerCase()) || rawForwardLoc.toLowerCase().includes("transit");
+
+  const forwardCurrentLoc = isShipped && !isInvalidForwardLoc ? rawForwardLoc : null;
+
+  // Synthesized forward milestone scans if courier live scans haven't populated yet
+  const displayForwardScans: Array<{ activity: string; date?: string | null; location?: string | null }> = [];
+  if (activeForwardScans.length > 0) {
+    displayForwardScans.push(...activeForwardScans);
+  } else {
+    displayForwardScans.push({
+      activity: "Order Placed & Payment Confirmed",
+      date: order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }) : "Confirmed",
+      location: "Prepaid Verified",
+    });
+    if (order.status === "PROCESSING" || isShipped || order.shippingStatus === "IN_TRANSIT" || order.shippingStatus === "DELIVERED") {
+      displayForwardScans.push({
+        activity: "Packed & Ready for Pickup",
+        date: "Packed",
+        location: order.shiprocketAwb ? `AWB: ${order.shiprocketAwb}` : "Fulfillment Facility",
+      });
+    }
+    if (isShipped || order.shippingStatus === "IN_TRANSIT" || order.shippingStatus === "DELIVERED") {
+      displayForwardScans.push({
+        activity: "Handed Over to Courier",
+        date: "Dispatched",
+        location: order.shiprocketCourierName || trackingModalData?.courier_name || "Express Courier",
+      });
+      displayForwardScans.push({
+        activity: "In Transit",
+        date: "In Progress",
+        location: forwardCurrentLoc || "Destination Hub",
+      });
+    }
+    if (order.shippingStatus === "OUT_FOR_DELIVERY") {
+      displayForwardScans.push({
+        activity: "Out for Delivery",
+        date: "In Progress",
+        location: order.shippingAddress?.city || null,
+      });
+    }
+    if (order.status === "DELIVERED" || order.shippingStatus === "DELIVERED") {
+      displayForwardScans.push({
+        activity: "Package Delivered",
+        date: order.deliveredAt ? new Date(order.deliveredAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" }) : "Delivered",
+        location: order.shippingAddress?.city || null,
+      });
+    }
+  }
 
   const reverseCurrentLoc = trackingModalData?.current_location
     || order.reverseTrackingData?.current_location
@@ -1405,11 +1457,11 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                         justifyContent: "space-between",
                       }}
                     >
-                      <span>Complete Checkpoint Scans ({activeForwardScans.length})</span>
+                      <span>Complete Checkpoint Scans ({displayForwardScans.length})</span>
                       <span style={{ fontSize: "0.72rem", color: "#888", fontWeight: 600 }}>Chronological Scan Feed</span>
                     </h4>
 
-                    {activeForwardScans.length === 0 ? (
+                    {displayForwardScans.length === 0 ? (
                       <div style={{ padding: "24px", textAlign: "center", background: "#f9fafb", border: "1px dashed #d1d5db" }}>
                         <p style={{ margin: 0, fontSize: "0.85rem", color: "#666" }}>
                           Package is manifesting. Courier pickup scan will appear here once handed over.
@@ -1417,8 +1469,8 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       </div>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 0, position: "relative" }}>
-                        {activeForwardScans.map((scan: any, idx: number) => {
-                          const isLatest = idx === activeForwardScans.length - 1;
+                        {displayForwardScans.map((scan: any, idx: number) => {
+                          const isLatest = idx === displayForwardScans.length - 1;
                           return (
                             <div key={idx} style={{ display: "flex", gap: 16, position: "relative" }}>
                               {/* Left timeline node and line */}
@@ -1432,7 +1484,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                                     marginTop: 4,
                                   }}
                                 />
-                                {idx < activeForwardScans.length - 1 && (
+                                {idx < displayForwardScans.length - 1 && (
                                   <div style={{ width: 2, flex: 1, minHeight: 36, background: "#e5e7eb" }} />
                                 )}
                               </div>

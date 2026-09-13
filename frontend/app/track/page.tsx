@@ -690,6 +690,11 @@ function TrackingContent() {
                     timestamp: s.date || undefined,
                   });
                 });
+                checkpoints.push({
+                  title: "Order Placed & Payment Confirmed",
+                  description: `Order #${tracking.order_id || tracking.orderId} placed successfully. Prepaid payment confirmed.`,
+                  timestamp: tracking.created_at || "Recent",
+                });
               } else if (tracking) {
                 if (isCancelled) {
                   checkpoints.push({
