@@ -333,6 +333,7 @@ export interface RetryPaymentResponse {
   customer_name?: string | null;
   customer_email?: string | null;
   customer_phone?: string | null;
+  is_guest?: boolean;
 }
 
 export interface ServiceabilityResponse {

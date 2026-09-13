@@ -661,6 +661,7 @@ class OrderRetryPaymentResponse(BaseModel):
     customer_name: Optional[str] = None
     customer_email: Optional[str] = None
     customer_phone: Optional[str] = None
+    is_guest: bool = False
 
 class OrderConfirmRetryPaymentRequest(BaseModel):
     razorpay_order_id: str

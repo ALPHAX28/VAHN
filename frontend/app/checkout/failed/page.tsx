@@ -51,51 +51,58 @@ function CheckoutFailedContent() {
     }
   }, []);
 
-  // Load correct Razorpay SDK based on CURRENT AUTH STATE:
-  // - Logged-in user (!user === false) → checkout.js → standard modal
-  // - Guest (user === null) → magic-checkout.js → Magic Checkout
-  // Wait for auth to resolve first (prevents race condition where user=null during load)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (isAuthLoading) return; // wait for auth to resolve before deciding
+// Helper to safely load the required Razorpay SDK and purge conflicting scripts
+async function ensureRazorpaySdk(isGuest: boolean): Promise<void> {
+  if (typeof window === "undefined") return;
 
-    // Source of truth: is the user currently logged in?
-    // Do NOT use order.is_guest — it reflects how order was created, not current login state
-    const isGuest = !user;
+  const targetFile = isGuest ? "magic-checkout.js" : "checkout.js";
+  const targetSrc = isGuest
+    ? "https://checkout.razorpay.com/v1/magic-checkout.js"
+    : "https://checkout.razorpay.com/v1/checkout.js";
 
-    const targetSrc = isGuest
-      ? "https://checkout.razorpay.com/v1/magic-checkout.js"
-      : "https://checkout.razorpay.com/v1/checkout.js";
+  const allScripts = Array.from(document.querySelectorAll<HTMLScriptElement>("script[src*='checkout.razorpay.com']"));
+  const currentScript = allScripts.find((s) => s.src.includes(targetFile));
 
-    const existingScript = document.getElementById("rzp-retry-script") as HTMLScriptElement | null;
-    const existingFileName = existingScript?.src.split("/").pop();
-    const targetFileName = targetSrc.split("/").pop();
+  if (currentScript && (window as any).Razorpay) {
+    return;
+  }
 
-    // Exact match only — "magic-checkout.js" !== "checkout.js"
-    if (existingScript && existingFileName === targetFileName && window.Razorpay) {
-      return; // correct SDK already loaded
-    }
+  // Remove ALL existing razorpay scripts and overlay containers
+  allScripts.forEach((s) => s.remove());
+  document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
+  try {
+    delete (window as any).Razorpay;
+  } catch {
+    (window as any).Razorpay = undefined;
+  }
 
-    // Remove wrong SDK — NOTE: deleting window.Razorpay alone is not enough
-    // since executed JS cannot be unloaded, but re-loading the correct script
-    // will overwrite window.Razorpay with the correct constructor
-    if (existingScript) {
-      existingScript.remove();
-      try { delete (window as any).Razorpay; } catch { (window as any).Razorpay = undefined; }
-    }
-
+  return new Promise((resolve) => {
     const script = document.createElement("script");
-    script.id = "rzp-retry-script";
+    script.id = isGuest ? "rzp-magic-script" : "rzp-retry-script";
     script.src = targetSrc;
     script.async = true;
+    script.onload = () => resolve();
     script.onerror = () => {
       const fallback = document.createElement("script");
       fallback.id = "rzp-retry-script";
       fallback.src = "https://checkout.razorpay.com/v1/checkout.js";
       fallback.async = true;
+      fallback.onload = () => resolve();
       document.body.appendChild(fallback);
     };
     document.body.appendChild(script);
+  });
+}
+
+  // Pre-load correct Razorpay SDK based on CURRENT AUTH STATE:
+  // - Logged-in user (!user === false) → checkout.js → standard modal
+  // - Guest (user === null) → magic-checkout.js → Magic Checkout
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isAuthLoading) return; // wait for auth to resolve before deciding
+
+    const isGuest = !user;
+    ensureRazorpaySdk(isGuest);
   }, [user, isAuthLoading]);
 
   // Fetch order summary if orderId is present
@@ -176,8 +183,8 @@ function CheckoutFailedContent() {
       return;
     }
 
-    if (typeof window === "undefined" || !window.Razorpay) {
-      setActionError("Payment gateway is initializing. Please retry in a few moments.");
+    if (isAuthLoading) {
+      setActionError("Authenticating... please retry in a few moments.");
       return;
     }
 
@@ -187,9 +194,17 @@ function CheckoutFailedContent() {
       if (orderId) {
         const retryData = await retryOrderPayment(orderId, token || undefined);
 
-        // Source of truth: current auth state, NOT order.is_guest
-        // A logged-in user always gets standard checkout regardless of how order was created
-        const isGuest = !user;
+        // Source of truth: backend returns is_guest, or fall back to current auth state (!user)
+        // Logged in user: isGuest = false -> standard Razorpay modal (checkout.js)
+        // Guest user: isGuest = true -> Magic Checkout (magic-checkout.js)
+        const isGuest = retryData.is_guest !== undefined ? retryData.is_guest : !user;
+
+        // Ensure the correct SDK is loaded and active
+        await ensureRazorpaySdk(isGuest);
+
+        if (typeof window === "undefined" || !(window as any).Razorpay) {
+          throw new Error("Payment gateway could not be loaded. Please check your connection and retry.");
+        }
 
         const options: any = {
           key: retryData.key_id,

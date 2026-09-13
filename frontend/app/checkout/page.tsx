@@ -36,7 +36,7 @@ declare global {
 }
 
 export default function CheckoutPage() {
-  const { user, token, openAuthModal } = useAuth();
+  const { user, token, openAuthModal, loading: isAuthLoading } = useAuth();
   const { cart, clearCart } = useCart();
   const router = useRouter();
 
@@ -95,26 +95,26 @@ const PIN_PREFIX_STATE: Record<string, string> = {
   // Load appropriate Razorpay SDK (magic-checkout.js for guests, checkout.js for logged in athletes)
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (isAuthLoading) return; // Wait for auth resolution to prevent loading guest SDK for logged-in users
 
     const isGuest = !user;
     const targetScriptSrc = isGuest
       ? "https://checkout.razorpay.com/v1/magic-checkout.js"
       : "https://checkout.razorpay.com/v1/checkout.js";
 
-    const currentScript = document.getElementById("rzp-checkout-script") as HTMLScriptElement | null;
+    const allScripts = Array.from(document.querySelectorAll<HTMLScriptElement>("script[src*='checkout.razorpay.com']"));
+    const currentScript = allScripts.find((s) => s.src === targetScriptSrc);
 
-    if (currentScript && currentScript.src === targetScriptSrc && window.Razorpay) {
+    if (currentScript && window.Razorpay) {
       setRzpLoaded(true);
       return;
     }
 
-    if (currentScript) {
-      currentScript.remove();
-      try {
-        delete (window as any).Razorpay;
-      } catch {
-        (window as any).Razorpay = undefined;
-      }
+    allScripts.forEach((s) => s.remove());
+    try {
+      delete (window as any).Razorpay;
+    } catch {
+      (window as any).Razorpay = undefined;
     }
 
     setRzpLoaded(false);
@@ -135,7 +135,7 @@ const PIN_PREFIX_STATE: Record<string, string> = {
       document.body.appendChild(fallbackScript);
     };
     document.body.appendChild(script);
-  }, [user]);
+  }, [user, isAuthLoading]);
 
   // Load addresses if logged in
   useEffect(() => {

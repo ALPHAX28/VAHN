@@ -2177,34 +2177,50 @@ def retry_order_payment(
                     detail=f"Cannot retry payment: '{var.title}' is currently out of stock (only {var.inventory_quantity} remaining)."
                 )
 
-    # Initialize a fresh Razorpay order for this retry
+    # Determine whether this order is for a logged-in athlete or a guest
+    # A registered user's order MUST use the standard Razorpay Payment Gateway (checkout.js),
+    # which requires creating the Razorpay order WITHOUT line_items or line_items_total.
+    # Passing line_items/line_items_total activates Razorpay Magic Checkout (OPC) on Razorpay's servers.
+    is_guest = not bool(current_user or order.user_id)
+
     receipt_id = f"REC-RETRY-{secrets.randbelow(899999) + 100000}"
     notes = {
         "order_id": order.id,
         "is_retry": "true",
-        "user_email": order.guest_email or (current_user.email if current_user else ""),
+        "is_guest": "true" if is_guest else "false",
+        "user_email": (current_user.email if current_user else "") or order.guest_email or "",
     }
 
-    retry_line_items = []
-    for itm in (order.items or []):
-        unit_price = float(itm.price_amount) if itm.price_amount is not None else 0.0
-        retry_line_items.append({
-            "sku": str(itm.variant_id or itm.id),
-            "variant_id": str(itm.variant_id or itm.id),
-            "price": int(round(unit_price * 100)),
-            "offer_price": int(round(unit_price * 100)),
-            "quantity": itm.quantity,
-            "name": (itm.product_title or "VAHN Gear")[:255]
-        })
-    retry_line_items_total = int(round((order.subtotal_amount or order.total_amount) * 100))
+    if not is_guest:
+        # Standard Razorpay Payment Gateway Order for Logged-In User
+        # Must NOT include line_items or line_items_total, which activates Razorpay Magic Checkout
+        rzp_order = razorpay_service.create_order(
+            amount_in_inr=order.total_amount,
+            receipt_id=receipt_id,
+            notes=notes
+        )
+    else:
+        # Line items for Razorpay Magic Checkout (Guest 1-Click OPC)
+        retry_line_items = []
+        for itm in (order.items or []):
+            unit_price = float(itm.price_amount) if itm.price_amount is not None else 0.0
+            retry_line_items.append({
+                "sku": str(itm.variant_id or itm.id),
+                "variant_id": str(itm.variant_id or itm.id),
+                "price": int(round(unit_price * 100)),
+                "offer_price": int(round(unit_price * 100)),
+                "quantity": itm.quantity,
+                "name": (itm.product_title or "VAHN Gear")[:255]
+            })
+        retry_line_items_total = int(round((order.subtotal_amount or order.total_amount) * 100))
 
-    rzp_order = razorpay_service.create_order(
-        amount_in_inr=order.total_amount,
-        receipt_id=receipt_id,
-        notes=notes,
-        line_items=retry_line_items,
-        line_items_total=retry_line_items_total
-    )
+        rzp_order = razorpay_service.create_order(
+            amount_in_inr=order.total_amount,
+            receipt_id=receipt_id,
+            notes=notes,
+            line_items=retry_line_items,
+            line_items_total=retry_line_items_total
+        )
 
     order.razorpay_order_id = rzp_order["id"]
     db.commit()
@@ -2223,7 +2239,8 @@ def retry_order_payment(
         total_amount=order.total_amount,
         customer_name=cust_name,
         customer_email=cust_email,
-        customer_phone=cust_phone
+        customer_phone=cust_phone,
+        is_guest=is_guest
     )
 
 # 7c. Confirm Retry Payment
