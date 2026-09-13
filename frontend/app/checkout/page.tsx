@@ -475,6 +475,7 @@ export default function CheckoutPage() {
 
   return (
     <div
+      className="checkout-container"
       style={{
         maxWidth: 1200,
         margin: "40px auto 100px",
@@ -555,6 +556,38 @@ export default function CheckoutPage() {
             gap: 28px !important;
           }
         }
+        @media (max-width: 640px) {
+          .checkout-container {
+            margin: 20px auto 60px !important;
+            padding: 0 14px !important;
+          }
+          .checkout-card {
+            padding: 18px 14px !important;
+          }
+          .checkout-pincode-form {
+            flex-direction: column !important;
+            max-width: 100% !important;
+          }
+          .checkout-pincode-btn {
+            width: 100% !important;
+            padding: 12px !important;
+          }
+          .checkout-signin-strip {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 10px !important;
+            padding: 14px !important;
+          }
+          .checkout-summary-card {
+            position: static !important;
+            top: auto !important;
+            padding: 18px 14px !important;
+          }
+          .checkout-pay-btn {
+            padding: 16px 14px !important;
+            font-size: 0.88rem !important;
+          }
+        }
       `}</style>
 
       {/* Main Grid: Responsive 2-column layout on desktop (1fr 420px), single-column on mobile */}
@@ -572,6 +605,7 @@ export default function CheckoutPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
             {/* 1. Delivery Details Section */}
             <div
+              className="checkout-card"
               style={{
                 border: "1px solid #e0e0e0",
                 borderRadius: "0px",
@@ -793,6 +827,7 @@ export default function CheckoutPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
             {/* Interactive Delivery Speed & PIN Code Estimator */}
             <div
+              className="checkout-card"
               style={{
                 border: "1px solid #e0e0e0",
                 borderRadius: "0px",
@@ -818,7 +853,7 @@ export default function CheckoutPage() {
                 Check courier transit days and serviceability for your postal PIN code:
               </p>
 
-              <div style={{ display: "flex", gap: "10px", maxWidth: "420px", marginBottom: "12px" }}>
+              <div className="checkout-pincode-form" style={{ display: "flex", gap: "10px", maxWidth: "420px", marginBottom: "12px" }}>
                 <input
                   type="text"
                   maxLength={6}
@@ -844,6 +879,7 @@ export default function CheckoutPage() {
                   type="button"
                   onClick={() => handleCheckPincode(guestPincodeInput)}
                   disabled={checkingPincode || guestPincodeInput.length !== 6}
+                  className="checkout-pincode-btn"
                   style={{
                     background: guestPincodeInput.length === 6 ? "#000" : "#999",
                     color: "#fff",
@@ -894,6 +930,7 @@ export default function CheckoutPage() {
 
             {/* 3. Returning Athlete Sign-In Strip */}
             <div
+              className="checkout-signin-strip"
               style={{
                 border: "1px solid #e0e0e0",
                 background: "#fafafa",
@@ -930,6 +967,7 @@ export default function CheckoutPage() {
         {/* Right Column: Order Summary & Pay CTA */}
         <div>
           <div
+            className="checkout-card checkout-summary-card"
             style={{
               border: "1px solid #e0e0e0",
               borderRadius: "0px",
@@ -1138,6 +1176,7 @@ export default function CheckoutPage() {
               type="button"
               onClick={handleInitiatePayment}
               disabled={placingOrder}
+              className="checkout-pay-btn"
               style={{
                 width: "100%",
                 background: placingOrder ? "#666" : "#4232d9",

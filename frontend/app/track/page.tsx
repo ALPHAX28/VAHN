@@ -88,57 +88,52 @@ function TrackingContent() {
     }
   }
 
-  // Milestone mapping (Clean, concise step titles without confusing premature sub-labels)
-  const forwardSteps = [
-    { key: "PLACED", label: "Ordered" },
-    { key: "PROCESSING", label: "Packed" },
-    { key: "SHIPPED", label: "Shipped" },
-    { key: "IN_TRANSIT", label: "In Transit" },
-    { key: "OUT_FOR_DELIVERY", label: "Out for Delivery" },
-    { key: "DELIVERED", label: "Delivered" },
-  ];
-
-  const returnSteps = [
-    { key: "RETURN_REQUESTED", label: "Return Initiated" },
-    { key: "RETURN_PICKED_UP", label: "Picked Up" },
-    { key: "RETURN_IN_TRANSIT", label: "In Transit" },
-    { key: "REFUND_INITIATED", label: "Refund Initiated" },
-    { key: "REFUNDED", label: "Refund Completed" },
-  ];
-
   function resolveForwardMilestone(t: TrackingInfo | null): {
     index: number;
     badgeLabel: string;
     isCancelled: boolean;
+    isPaymentFailed: boolean;
+    isPaymentPending: boolean;
   } {
-    if (!t) return { index: -1, badgeLabel: "UNKNOWN", isCancelled: false };
+    if (!t) return { index: -1, badgeLabel: "UNKNOWN", isCancelled: false, isPaymentFailed: false, isPaymentPending: false };
 
     const rawStatus = (t.status || "").toUpperCase().trim();
+    const rawPayment = (t.payment_status || "").toUpperCase().trim();
     const rawShipping = (t.shipping_status || "").toUpperCase().trim();
     const rawCurrent = (t.current_status || t.currentStatus || "").toUpperCase().trim();
     const rawMilestone = (t.currentMilestone || "").toUpperCase().trim();
-    const combined = `${rawStatus} ${rawShipping} ${rawCurrent} ${rawMilestone}`.replace(/[-_]/g, " ");
+    const combined = `${rawStatus} ${rawPayment} ${rawShipping} ${rawCurrent} ${rawMilestone}`.replace(/[-_]/g, " ");
 
     // 1. Cancelled
     if (rawStatus === "CANCELLED" || rawShipping === "CANCELLED" || combined.includes("CANCELLED")) {
-      return { index: 0, badgeLabel: "CANCELLED", isCancelled: true };
+      return { index: 0, badgeLabel: "CANCELLED", isCancelled: true, isPaymentFailed: false, isPaymentPending: false };
     }
 
-    // 2. Delivered
+    // 2. Payment Failed (Uncaptured or failed Razorpay session)
+    if (rawPayment === "FAILED" || rawStatus === "PAYMENT_FAILED" || combined.includes("PAYMENT FAILED")) {
+      return { index: 0, badgeLabel: "PAYMENT FAILED", isCancelled: false, isPaymentFailed: true, isPaymentPending: false };
+    }
+
+    // 3. Payment Pending (Awaiting confirmation)
+    if (rawStatus === "PENDING_PAYMENT" || rawPayment === "PENDING") {
+      return { index: 0, badgeLabel: "PAYMENT PENDING", isCancelled: false, isPaymentFailed: false, isPaymentPending: true };
+    }
+
+    // 4. Delivered
     if (Boolean(t.delivered_at) || combined.includes("DELIVERED") || combined.includes("COMPLETED")) {
-      return { index: 5, badgeLabel: "DELIVERED", isCancelled: false };
+      return { index: 5, badgeLabel: "DELIVERED", isCancelled: false, isPaymentFailed: false, isPaymentPending: false };
     }
 
-    // 3. Out for delivery
+    // 5. Out for delivery
     if (
       combined.includes("OUT FOR DELIVERY") ||
       combined.includes("OUT FOR DISPATCH") ||
       combined.includes("OUT FOR PICKUP")
     ) {
-      return { index: 4, badgeLabel: "OUT FOR DELIVERY", isCancelled: false };
+      return { index: 4, badgeLabel: "OUT FOR DELIVERY", isCancelled: false, isPaymentFailed: false, isPaymentPending: false };
     }
 
-    // 4. In transit / reached hub
+    // 6. In transit / reached hub
     if (
       combined.includes("IN TRANSIT") ||
       combined.includes("TRANSIT") ||
@@ -147,10 +142,10 @@ function TrackingContent() {
       combined.includes("AT HUB") ||
       combined.includes("CONNECTED")
     ) {
-      return { index: 3, badgeLabel: "IN TRANSIT", isCancelled: false };
+      return { index: 3, badgeLabel: "IN TRANSIT", isCancelled: false, isPaymentFailed: false, isPaymentPending: false };
     }
 
-    // 5. Shipped / Handed to courier
+    // 7. Shipped / Handed to courier
     if (
       t.is_picked_up ||
       combined.includes("PICKED UP") ||
@@ -159,10 +154,10 @@ function TrackingContent() {
       combined.includes("HANDED OVER") ||
       combined.includes("IN FLIGHT")
     ) {
-      return { index: 2, badgeLabel: "SHIPPED", isCancelled: false };
+      return { index: 2, badgeLabel: "SHIPPED", isCancelled: false, isPaymentFailed: false, isPaymentPending: false };
     }
 
-    // 6. Packed / Ready for pickup / Manifest generated / AWB assigned
+    // 8. Packed / Ready for pickup / Manifest generated / AWB assigned
     if (
       combined.includes("MANIFEST GENERATED") ||
       combined.includes("MANIFESTED") ||
@@ -174,11 +169,11 @@ function TrackingContent() {
       combined.includes("PACKED") ||
       Boolean(t.awb_code && t.awb_code.trim().length > 0)
     ) {
-      return { index: 1, badgeLabel: "PACKED / READY FOR PICKUP", isCancelled: false };
+      return { index: 1, badgeLabel: "PACKED / READY FOR PICKUP", isCancelled: false, isPaymentFailed: false, isPaymentPending: false };
     }
 
-    // 7. Ordered / Placed / Unfulfilled (Default for any existing placed order)
-    return { index: 0, badgeLabel: "ORDER CONFIRMED", isCancelled: false };
+    // 9. Ordered / Placed / Verified
+    return { index: 0, badgeLabel: "ORDER CONFIRMED", isCancelled: false, isPaymentFailed: false, isPaymentPending: false };
   }
 
   function resolveReturnMilestone(t: TrackingInfo | null): {
@@ -220,15 +215,53 @@ function TrackingContent() {
     (tracking?.return_status && tracking.return_status !== "NONE") ||
     tracking?.reverse_awb
   );
-  const activeSteps = isReturn ? returnSteps : forwardSteps;
 
   const {
     index: currentStepIndex,
     badgeLabel: statusBadgeLabel,
     isCancelled,
+    isPaymentFailed,
+    isPaymentPending,
   } = isReturn
-    ? { ...resolveReturnMilestone(tracking), isCancelled: false }
+    ? { ...resolveReturnMilestone(tracking), isCancelled: false, isPaymentFailed: false, isPaymentPending: false }
     : resolveForwardMilestone(tracking);
+
+  const forwardSteps = [
+    {
+      key: "PLACED",
+      label: isCancelled
+        ? "Cancelled"
+        : isPaymentFailed
+        ? "Payment Failed"
+        : isPaymentPending
+        ? "Payment Pending"
+        : "Ordered",
+    },
+    { key: "PROCESSING", label: "Packed" },
+    { key: "SHIPPED", label: "Shipped" },
+    { key: "IN_TRANSIT", label: "In Transit" },
+    { key: "OUT_FOR_DELIVERY", label: "Out for Delivery" },
+    { key: "DELIVERED", label: "Delivered" },
+  ];
+
+  const returnSteps = [
+    { key: "RETURN_REQUESTED", label: "Return Initiated" },
+    { key: "RETURN_PICKED_UP", label: "Picked Up" },
+    { key: "RETURN_IN_TRANSIT", label: "In Transit" },
+    { key: "REFUND_INITIATED", label: "Refund Initiated" },
+    { key: "REFUNDED", label: "Refund Completed" },
+  ];
+
+  const activeSteps = isReturn ? returnSteps : forwardSteps;
+
+  const badgeBg =
+    statusBadgeLabel === "DELIVERED" || statusBadgeLabel === "REFUND COMPLETED"
+      ? "#16a34a"
+      : isCancelled || isPaymentFailed
+      ? "#dc2626"
+      : isPaymentPending
+      ? "#d97706"
+      : "#000";
 
   const rawLocation = (tracking?.current_location || tracking?.currentLocation || "").trim();
   const isValidLocation = Boolean(
@@ -242,6 +275,7 @@ function TrackingContent() {
 
   return (
     <div
+      className="tracking-page-container"
       style={{
         maxWidth: 880,
         margin: "48px auto 100px",
@@ -249,8 +283,221 @@ function TrackingContent() {
         fontFamily: "var(--font-ui)",
       }}
     >
-      {/* Checkout Success Banner */}
-      {isSuccessRedirect && (
+      {/* Responsive Styles */}
+      <style>{`
+        .tracking-card {
+          border: 1px solid #000;
+          background: #fff;
+          padding: 28px 32px;
+          box-shadow: 0 6px 24px rgba(0,0,0,0.06);
+        }
+        .tracking-card-header {
+          border-bottom: 1px solid #f0f0f0;
+          padding-bottom: 22px;
+          margin-bottom: 28px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .tracking-card-header-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 16px;
+          flex-wrap: wrap;
+        }
+        .tracking-shipment-type {
+          font-size: 0.72rem;
+          font-weight: 800;
+          color: #666;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          display: block;
+          margin-bottom: 4px;
+        }
+        .tracking-order-id {
+          font-size: 1.45rem;
+          font-weight: 900;
+          margin: 0;
+          letter-spacing: -0.02em;
+          line-height: 1.2;
+        }
+        .tracking-badge-container {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 4px;
+        }
+        .tracking-status-badge {
+          display: inline-block;
+          font-size: 0.75rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          padding: 6px 14px;
+          border-radius: 2px;
+          white-space: nowrap;
+        }
+        .tracking-est-delivery {
+          font-size: 0.78rem;
+          color: #666;
+          margin-top: 2px;
+        }
+        .tracking-meta-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        .tracking-meta-pills {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .tracking-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          padding: 5px 10px;
+          font-size: 0.8rem;
+          color: #475569;
+          border-radius: 3px;
+        }
+        .tracking-pill strong {
+          color: #0f172a;
+        }
+        .tracking-copy-btn {
+          background: #fff;
+          border: 1px solid #cbd5e1;
+          font-size: 0.68rem;
+          padding: 2px 6px;
+          cursor: pointer;
+          font-weight: 700;
+          text-transform: uppercase;
+          border-radius: 2px;
+        }
+        .tracking-invoice-btn {
+          background: #000;
+          color: #fff;
+          border: 1px solid #000;
+          padding: 7px 16px;
+          font-size: 0.75rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          border-radius: 2px;
+          letter-spacing: -0.01em;
+          transition: all 0.2s ease;
+        }
+        .tracking-stepper-container {
+          margin: 24px 0 36px;
+          overflow-x: auto;
+          padding-bottom: 10px;
+          -webkit-overflow-scrolling: touch;
+        }
+        .tracking-stepper-grid {
+          display: grid;
+          position: relative;
+          min-width: 520px;
+        }
+        .tracking-stepper-line {
+          position: absolute;
+          top: 14px;
+          height: 2px;
+          z-index: 0;
+        }
+        .tracking-step-circle {
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.72rem;
+          font-weight: 900;
+          margin-bottom: 8px;
+          transition: all 0.3s ease;
+          border-radius: 50%;
+        }
+        .tracking-step-label {
+          font-size: 0.78rem;
+          text-transform: uppercase;
+          line-height: 1.25;
+        }
+
+        @media (max-width: 640px) {
+          .tracking-page-container {
+            margin: 24px auto 60px !important;
+            padding: 0 14px !important;
+          }
+          .tracking-card {
+            padding: 20px 16px !important;
+          }
+          .tracking-card-header-top {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 10px !important;
+          }
+          .tracking-badge-container {
+            align-items: flex-start !important;
+            width: 100% !important;
+          }
+          .tracking-meta-row {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 12px !important;
+          }
+          .tracking-meta-pills {
+            width: 100% !important;
+          }
+          .tracking-pill {
+            font-size: 0.75rem !important;
+            padding: 4px 8px !important;
+          }
+          .tracking-invoice-btn {
+            width: 100% !important;
+            justify-content: center !important;
+            padding: 10px !important;
+          }
+          .tracking-stepper-container {
+            margin: 18px 0 28px !important;
+            overflow-x: visible !important;
+            padding-bottom: 0 !important;
+          }
+          .tracking-stepper-grid {
+            min-width: 0 !important;
+            width: 100% !important;
+          }
+          .tracking-step-circle {
+            width: 22px !important;
+            height: 22px !important;
+            font-size: 0.65rem !important;
+            margin-bottom: 4px !important;
+          }
+          .tracking-step-label {
+            font-size: 0.58rem !important;
+            letter-spacing: -0.02em !important;
+            line-height: 1.15 !important;
+            padding: 0 1px !important;
+            word-break: break-word !important;
+          }
+          .tracking-stepper-line {
+            top: 11px !important;
+          }
+          .tracking-search-form {
+            margin-bottom: 24px !important;
+          }
+        }
+      `}</style>
+
+      {/* Checkout Success Banner (Shown only for actual successful prepaid orders) */}
+      {isSuccessRedirect && !isPaymentFailed && !isCancelled && (
         <div
           style={{
             background: "#f0fdf4",
@@ -324,6 +571,7 @@ function TrackingContent() {
       {/* Search Bar */}
       <form
         onSubmit={handleSubmit}
+        className="tracking-search-form"
         style={{
           display: "flex",
           border: "2px solid #000",
@@ -426,126 +674,63 @@ function TrackingContent() {
 
       {/* Tracking Result View */}
       {tracking ? (
-        <div
-          style={{
-            border: "1px solid #000",
-            background: "#fff",
-            padding: "28px 32px",
-            boxShadow: "0 6px 24px rgba(0,0,0,0.06)",
-          }}
-        >
+        <div className="tracking-card">
           {/* Header Summary */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              flexWrap: "wrap",
-              gap: "18px",
-              borderBottom: "1px solid #f0f0f0",
-              paddingBottom: "22px",
-              marginBottom: "30px",
-            }}
-          >
-            <div>
-              <span
-                style={{
-                  fontSize: "0.72rem",
-                  fontWeight: 800,
-                  color: "#666",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  display: "block",
-                  marginBottom: "4px",
-                }}
-              >
-                {tracking.isReturn ? "Return Shipment" : "Order Shipment"}
-              </span>
-              <h2
-                style={{
-                  fontSize: "1.4rem",
-                  fontWeight: 900,
-                  margin: "0 0 6px",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {/* Backend returns order_id (snake_case) */}
-                {tracking.order_id || tracking.orderId}
-              </h2>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "0.82rem", color: "#555", flexWrap: "wrap" }}>
-                <span>
-                  Courier: <strong style={{ color: "#000" }}>{tracking.courier_name || tracking.courierName || "Express Delivery"}</strong>
+          <div className="tracking-card-header">
+            <div className="tracking-card-header-top">
+              <div>
+                <span className="tracking-shipment-type">
+                  {tracking.isReturn ? "Return Shipment" : "Order Shipment"}
                 </span>
-                {/* Backend returns awb_code (snake_case) */}
+                <h2 className="tracking-order-id">
+                  {tracking.order_id || tracking.orderId}
+                </h2>
+              </div>
+
+              <div className="tracking-badge-container">
+                <span
+                  className="tracking-status-badge"
+                  style={{
+                    background: badgeBg,
+                    color: "#fff",
+                  }}
+                >
+                  {statusBadgeLabel}
+                </span>
+                {tracking.estimatedDelivery && (
+                  <div className="tracking-est-delivery">
+                    Est. Delivery: <strong>{tracking.estimatedDelivery}</strong>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Courier & AWB Meta Row */}
+            <div className="tracking-meta-row">
+              <div className="tracking-meta-pills">
+                <span className="tracking-pill">
+                  Courier: <strong>{tracking.courier_name || tracking.courierName || (isPaymentFailed ? "None (Payment Failed)" : "Express Delivery")}</strong>
+                </span>
                 {(tracking.awb_code || tracking.awbCode) && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    AWB: <strong style={{ fontFamily: "monospace", color: "#000" }}>{tracking.awb_code || tracking.awbCode}</strong>
+                  <span className="tracking-pill">
+                    AWB: <strong style={{ fontFamily: "monospace" }}>{tracking.awb_code || tracking.awbCode}</strong>
                     <button
                       type="button"
                       onClick={() => handleCopyAwb(tracking.awb_code || tracking.awbCode || "")}
-                      style={{
-                        background: "#f3f4f6",
-                        border: "1px solid #e5e7eb",
-                        fontSize: "0.7rem",
-                        padding: "2px 6px",
-                        cursor: "pointer",
-                        fontWeight: 700,
-                        textTransform: "uppercase",
-                      }}
+                      className="tracking-copy-btn"
                     >
                       {copied ? "Copied!" : "Copy"}
                     </button>
                   </span>
                 )}
               </div>
-            </div>
 
-            <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-              <span
-                style={{
-                  display: "inline-block",
-                  background:
-                    statusBadgeLabel === "DELIVERED" || statusBadgeLabel === "REFUND COMPLETED"
-                      ? "#16a34a"
-                      : isCancelled
-                      ? "#dc2626"
-                      : "#000",
-                  color: "#fff",
-                  fontSize: "0.75rem",
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.02em",
-                  padding: "6px 14px",
-                  marginBottom: "6px",
-                }}
-              >
-                {statusBadgeLabel}
-              </span>
-              {tracking.estimatedDelivery && (
-                <div style={{ fontSize: "0.78rem", color: "#666", marginBottom: "6px" }}>
-                  Est. Delivery: <strong style={{ color: "#000" }}>{tracking.estimatedDelivery}</strong>
-                </div>
-              )}
-              {(tracking.awb_code || tracking.awbCode || tracking.status === "SHIPPED" || tracking.status === "DELIVERED" || tracking.shipping_status === "SHIPPED" || tracking.shipping_status === "DELIVERED") && (
+              {(tracking.awb_code || tracking.awbCode || tracking.status === "SHIPPED" || tracking.status === "DELIVERED" || tracking.shipping_status === "SHIPPED" || tracking.shipping_status === "DELIVERED") && !isPaymentFailed && (
                 <button
                   type="button"
                   onClick={handleDownloadInvoice}
                   disabled={downloadingInvoice}
-                  style={{
-                    background: "#000",
-                    color: "#fff",
-                    border: "1px solid #000",
-                    padding: "6px 14px",
-                    fontSize: "0.75rem",
-                    fontWeight: 800,
-                    textTransform: "uppercase",
-                    cursor: downloadingInvoice ? "not-allowed" : "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginTop: 4,
-                    letterSpacing: "-0.01em",
-                  }}
+                  className="tracking-invoice-btn"
                 >
                   <PrinterIcon size={13} color="#fff" />
                   {downloadingInvoice ? "Fetching..." : "Download Invoice"}
@@ -553,6 +738,59 @@ function TrackingContent() {
               )}
             </div>
           </div>
+
+          {/* Payment Failed Notice Banner */}
+          {isPaymentFailed && (
+            <div
+              style={{
+                background: "#fef2f2",
+                border: "1px solid #fca5a5",
+                padding: "16px 20px",
+                marginBottom: "24px",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "12px",
+                color: "#991b1b",
+              }}
+            >
+              <AlertCircleIcon size={20} color="#dc2626" style={{ flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: "0.9rem", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                  Payment Failed — Order Incomplete
+                </div>
+                <div style={{ fontSize: "0.84rem", lineHeight: 1.5, color: "#7f1d1d" }}>
+                  {tracking.cancellation_reason ? `${tracking.cancellation_reason} ` : "The online payment for this order was not completed or failed at checkout. "}
+                  Because no funds were captured, this order cannot be fulfilled, dispatched, or shipped.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Payment Pending Notice Banner */}
+          {isPaymentPending && (
+            <div
+              style={{
+                background: "#fffbeb",
+                border: "1px solid #fcd34d",
+                padding: "16px 20px",
+                marginBottom: "24px",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "12px",
+                color: "#92400e",
+              }}
+            >
+              <AlertCircleIcon size={20} color="#d97706" style={{ flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: "0.9rem", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                  Payment Pending Confirmation
+                </div>
+                <div style={{ fontSize: "0.84rem", lineHeight: 1.5, color: "#78350f" }}>
+                  We are waiting for payment verification from your bank or payment gateway. Once verified, order fulfillment will begin immediately.
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Cancelled Notice Banner */}
           {isCancelled && (
@@ -599,46 +837,68 @@ function TrackingContent() {
           )}
 
           {/* Stepper Progress */}
-          <div style={{ margin: "24px 0 36px", overflowX: "auto", paddingBottom: "10px" }}>
+          <div className="tracking-stepper-container">
             <div
+              className="tracking-stepper-grid"
               style={{
-                display: "grid",
                 gridTemplateColumns: `repeat(${activeSteps.length}, 1fr)`,
-                position: "relative",
-                minWidth: 540,
               }}
             >
               {/* Background connecting line */}
               <div
+                className="tracking-stepper-line"
                 style={{
-                  position: "absolute",
-                  top: "14px",
                   left: `calc(100% / (${activeSteps.length} * 2))`,
                   right: `calc(100% / (${activeSteps.length} * 2))`,
-                  height: "2px",
                   background: "#e5e7eb",
-                  zIndex: 0,
                 }}
               />
               {/* Active connecting line */}
               <div
+                className="tracking-stepper-line"
                 style={{
-                  position: "absolute",
-                  top: "14px",
                   left: `calc(100% / (${activeSteps.length} * 2))`,
                   width: `calc((100% - 100% / ${activeSteps.length}) * ${
-                    !isCancelled && currentStepIndex >= 0 ? currentStepIndex / (activeSteps.length - 1) : 0
+                    !isCancelled && !isPaymentFailed && currentStepIndex >= 0 ? currentStepIndex / (activeSteps.length - 1) : 0
                   })`,
-                  height: "2px",
-                  background: isCancelled ? "#dc2626" : "#000",
-                  zIndex: 0,
+                  background: isCancelled || isPaymentFailed ? "#dc2626" : isPaymentPending ? "#d97706" : "#000",
                   transition: "width 0.4s ease",
                 }}
               />
 
               {activeSteps.map((step, idx) => {
-                const isPassed = !isCancelled && currentStepIndex >= idx;
-                const isCurrent = !isCancelled && currentStepIndex === idx;
+                const isFailedStep = (isCancelled || isPaymentFailed) && idx === 0;
+                const isPendingStep = isPaymentPending && idx === 0;
+                const isPassed = !isCancelled && !isPaymentFailed && currentStepIndex >= idx;
+                const isCurrent = !isCancelled && !isPaymentFailed && currentStepIndex === idx;
+
+                const circleBg = isFailedStep
+                  ? "#dc2626"
+                  : isPendingStep
+                  ? "#d97706"
+                  : isPassed
+                  ? "#000"
+                  : "#fff";
+
+                const circleBorder = isFailedStep
+                  ? "2px solid #dc2626"
+                  : isPendingStep
+                  ? "2px solid #d97706"
+                  : isPassed
+                  ? "2px solid #000"
+                  : "2px solid #d1d5db";
+
+                const circleColor = isFailedStep || isPendingStep || isPassed ? "#fff" : "#9ca3af";
+
+                const labelColor = isFailedStep
+                  ? "#dc2626"
+                  : isPendingStep
+                  ? "#d97706"
+                  : isPassed
+                  ? "#000"
+                  : "#9ca3af";
+
+                const circleContent = isFailedStep ? "✕" : isPendingStep ? "⏳" : isPassed ? "✓" : idx + 1;
 
                 return (
                   <div
@@ -653,36 +913,21 @@ function TrackingContent() {
                     }}
                   >
                     <div
+                      className="tracking-step-circle"
                       style={{
-                        width: 28,
-                        height: 28,
-                        background: isCancelled
-                          ? idx === 0 ? "#dc2626" : "#fff"
-                          : isPassed ? "#000" : "#fff",
-                        border: isCancelled
-                          ? idx === 0 ? "2px solid #dc2626" : "2px solid #d1d5db"
-                          : isPassed ? "2px solid #000" : "2px solid #d1d5db",
-                        color: isCancelled
-                          ? idx === 0 ? "#fff" : "#9ca3af"
-                          : isPassed ? "#fff" : "#9ca3af",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "0.72rem",
-                        fontWeight: 900,
-                        marginBottom: "8px",
-                        boxShadow: isCurrent ? "0 0 0 4px rgba(0,0,0,0.12)" : "none",
-                        transition: "all 0.3s ease",
+                        background: circleBg,
+                        border: circleBorder,
+                        color: circleColor,
+                        boxShadow: isCurrent ? "0 0 0 4px rgba(0,0,0,0.12)" : isFailedStep ? "0 0 0 4px rgba(220,38,38,0.15)" : "none",
                       }}
                     >
-                      {isCancelled && idx === 0 ? "✕" : isPassed ? "✓" : idx + 1}
+                      {circleContent}
                     </div>
                     <div
+                      className="tracking-step-label"
                       style={{
-                        fontSize: "0.78rem",
-                        fontWeight: isCurrent ? 900 : 700,
-                        color: isCancelled && idx === 0 ? "#dc2626" : isPassed ? "#000" : "#9ca3af",
-                        textTransform: "uppercase",
+                        fontWeight: isCurrent || isFailedStep || isPendingStep ? 900 : 700,
+                        color: labelColor,
                       }}
                     >
                       {step.label}
@@ -739,11 +984,31 @@ function TrackingContent() {
                     timestamp: s.date || undefined,
                   });
                 });
-                checkpoints.push({
-                  title: "Order Placed & Payment Confirmed",
-                  description: `Order #${tracking.order_id || tracking.orderId} placed successfully. Prepaid payment confirmed.`,
-                  timestamp: tracking.created_at || "Recent",
-                });
+                if (isPaymentFailed) {
+                  checkpoints.push({
+                    title: "Payment Failed — Order Incomplete",
+                    description: tracking.cancellation_reason || "Online payment was not captured or failed at checkout.",
+                    timestamp: tracking.created_at || "Recent",
+                  });
+                } else if (isPaymentPending) {
+                  checkpoints.push({
+                    title: "Order Received — Awaiting Payment",
+                    description: "Order is registered. Awaiting payment verification.",
+                    timestamp: tracking.created_at || "Recent",
+                  });
+                } else if (isCancelled) {
+                  checkpoints.push({
+                    title: "Order Cancelled",
+                    description: tracking.cancellation_reason || "Order was cancelled.",
+                    timestamp: tracking.created_at || "Recent",
+                  });
+                } else {
+                  checkpoints.push({
+                    title: "Order Placed & Payment Confirmed",
+                    description: `Order #${tracking.order_id || tracking.orderId} placed successfully. Prepaid payment confirmed.`,
+                    timestamp: tracking.created_at || "Recent",
+                  });
+                }
               } else if (tracking) {
                 if (isCancelled) {
                   checkpoints.push({
@@ -751,6 +1016,20 @@ function TrackingContent() {
                     description: tracking.cancellation_reason
                       ? `Cancellation Reason: ${tracking.cancellation_reason}`
                       : "Order was cancelled. Any prepaid payment has been refunded.",
+                    timestamp: tracking.created_at || "Recent",
+                  });
+                } else if (isPaymentFailed) {
+                  checkpoints.push({
+                    title: "Payment Failed — Order Incomplete",
+                    description: tracking.cancellation_reason
+                      ? `Reason: ${tracking.cancellation_reason}`
+                      : "Online payment was not captured or was declined by the bank. Order cannot be fulfilled.",
+                    timestamp: tracking.created_at || "Recent",
+                  });
+                } else if (isPaymentPending) {
+                  checkpoints.push({
+                    title: "Order Received — Awaiting Payment",
+                    description: "Order is registered and awaiting payment verification from payment gateway.",
                     timestamp: tracking.created_at || "Recent",
                   });
                 } else {
@@ -826,11 +1105,27 @@ function TrackingContent() {
                         style={{
                           width: 8,
                           height: 8,
-                          background: i === 0 ? (isCancelled ? "#dc2626" : "#16a34a") : "#cbd5e1",
+                          background:
+                            i === 0
+                              ? isCancelled || isPaymentFailed
+                                ? "#dc2626"
+                                : isPaymentPending
+                                ? "#d97706"
+                                : "#16a34a"
+                              : "#cbd5e1",
                           borderRadius: "50%",
                           marginTop: "5px",
                           flexShrink: 0,
-                          boxShadow: i === 0 ? `0 0 0 3px ${isCancelled ? "rgba(220,38,38,0.2)" : "rgba(22,163,74,0.2)"}` : "none",
+                          boxShadow:
+                            i === 0
+                              ? `0 0 0 3px ${
+                                  isCancelled || isPaymentFailed
+                                    ? "rgba(220,38,38,0.2)"
+                                    : isPaymentPending
+                                    ? "rgba(217,119,6,0.2)"
+                                    : "rgba(22,163,74,0.2)"
+                                }`
+                              : "none",
                         }}
                       />
                       <div style={{ flex: 1 }}>
