@@ -41,33 +41,39 @@ function CheckoutFailedContent() {
   const [isCancelled, setIsCancelled] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string>("");
 
-  // Clean up any lingering Razorpay lock and guarantee scrolling
+  // Clean up any lingering body overflow lock and guarantee scrolling
   useEffect(() => {
     if (typeof document !== "undefined") {
       document.body.style.overflow = "auto";
       document.body.style.pointerEvents = "auto";
       document.documentElement.style.overflow = "auto";
-      document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
+      // Note: We do NOT remove .razorpay-container here without purging the script.
+      // Forcefully deleting the container without reloading the script detaches the iframe
+      // and causes "This browser is not supported" on retry.
     }
   }, []);
 
 // Helper to safely load the required Razorpay SDK and purge conflicting scripts
-async function ensureRazorpaySdk(isGuest: boolean): Promise<void> {
-  if (typeof window === "undefined") return;
+async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
+  if (typeof window === "undefined") return null;
 
   const targetFile = isGuest ? "magic-checkout.js" : "checkout.js";
   const targetSrc = isGuest
     ? "https://checkout.razorpay.com/v1/magic-checkout.js"
     : "https://checkout.razorpay.com/v1/checkout.js";
 
+  // Check if an existing iframe in .razorpay-container is detached or corrupted (contentWindow is null)
+  const existingIframe = document.querySelector(".razorpay-container iframe") as HTMLIFrameElement | null;
+  const hasCorruptedIframe = existingIframe && !existingIframe.contentWindow;
+
   const allScripts = Array.from(document.querySelectorAll<HTMLScriptElement>("script[src*='checkout.razorpay.com']"));
   const currentScript = allScripts.find((s) => s.src.includes(targetFile));
 
-  if (currentScript && (window as any).Razorpay) {
-    return;
+  if (currentScript && (window as any).Razorpay && !hasCorruptedIframe) {
+    return (window as any).Razorpay;
   }
 
-  // Remove ALL existing razorpay scripts and overlay containers
+  // Remove ALL existing razorpay scripts and overlay containers to guarantee a fresh instance
   allScripts.forEach((s) => s.remove());
   document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
   try {
@@ -81,13 +87,13 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<void> {
     script.id = isGuest ? "rzp-magic-script" : "rzp-retry-script";
     script.src = targetSrc;
     script.async = true;
-    script.onload = () => resolve();
+    script.onload = () => resolve((window as any).Razorpay);
     script.onerror = () => {
       const fallback = document.createElement("script");
       fallback.id = "rzp-retry-script";
       fallback.src = "https://checkout.razorpay.com/v1/checkout.js";
       fallback.async = true;
-      fallback.onload = () => resolve();
+      fallback.onload = () => resolve((window as any).Razorpay);
       document.body.appendChild(fallback);
     };
     document.body.appendChild(script);
@@ -199,10 +205,10 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<void> {
         // Guest user: isGuest = true -> Magic Checkout (magic-checkout.js)
         const isGuest = retryData.is_guest !== undefined ? retryData.is_guest : !user;
 
-        // Ensure the correct SDK is loaded and active
-        await ensureRazorpaySdk(isGuest);
+        // Ensure the correct SDK is loaded and active with a valid iframe
+        const RazorpayClass = (await ensureRazorpaySdk(isGuest)) || (window as any).Razorpay;
 
-        if (typeof window === "undefined" || !(window as any).Razorpay) {
+        if (typeof window === "undefined" || !RazorpayClass) {
           throw new Error("Payment gateway could not be loaded. Please check your connection and retry.");
         }
 
@@ -244,18 +250,18 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<void> {
             color: "#4232d9",
           },
           modal: {
+            confirm_close: true,
             ondismiss: function () {
               setRetrying(false);
               if (typeof document !== "undefined") {
                 document.body.style.overflow = "auto";
                 document.documentElement.style.overflow = "auto";
-                document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
               }
             },
           },
         };
 
-        const rzp = new window.Razorpay(options);
+        const rzp = new RazorpayClass(options);
         rzp.on("payment.failed", function (failRes: any) {
           try {
             rzp.close();
@@ -263,14 +269,19 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<void> {
           if (typeof document !== "undefined") {
             document.body.style.overflow = "auto";
             document.documentElement.style.overflow = "auto";
-            document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
           }
           const newDesc = failRes?.error?.description || "Payment attempt declined.";
           setReason(newDesc);
           setActionError(`Payment declined: ${newDesc}`);
           setRetrying(false);
         });
-        rzp.open();
+        try {
+          rzp.open();
+        } catch (openErr: any) {
+          console.error("Razorpay retry open error:", openErr);
+          setRetrying(false);
+          setActionError("Unable to open payment gateway. Please try again.");
+        }
       } else {
         router.push("/checkout");
       }
