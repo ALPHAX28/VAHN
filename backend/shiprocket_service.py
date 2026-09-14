@@ -195,9 +195,19 @@ def check_serviceability(delivery_pincode: str, weight: float = 0.5, db: Optiona
     Checks delivery PIN code serviceability and estimates transit days dynamically from Shiprocket.
     """
     clean_pincode = str(delivery_pincode).strip()
+    if not clean_pincode or len(clean_pincode) != 6 or not clean_pincode.isdigit() or clean_pincode.startswith("0"):
+        return {
+            "serviceable": False,
+            "estimated_days": "N/A",
+            "courier_name": None,
+            "message": "Invalid PIN code. Indian postal codes must be 6 digits and cannot start with 0.",
+            "pincode": clean_pincode,
+            "is_cod": False
+        }
+
     token = get_auth_token()
     wh = get_primary_warehouse(db)
-    pickup_pin = wh.get("pin_code", "400001")
+    pickup_pin = wh.get("pin_code", SHIPROCKET_PICKUP_PINCODE or "110019")
 
     if token:
         try:
@@ -213,7 +223,8 @@ def check_serviceability(delivery_pincode: str, weight: float = 0.5, db: Optiona
                     headers={"Authorization": f"Bearer {token}"}
                 )
                 if res.status_code == 200:
-                    data = res.json().get("data", {})
+                    res_data = res.json()
+                    data = res_data.get("data", {})
                     companies = data.get("available_courier_companies", [])
                     if companies:
                         # Sort by estimated delivery days (fastest first), then by rate
@@ -230,6 +241,8 @@ def check_serviceability(delivery_pincode: str, weight: float = 0.5, db: Optiona
                         courier_name = best.get("courier_name", "Express Courier")
                         rate = float(best.get("rate", 0))
                         etd = best.get("etd")
+                        city = best.get("city")
+                        state = best.get("state")
 
                         return {
                             "serviceable": True,
@@ -237,49 +250,51 @@ def check_serviceability(delivery_pincode: str, weight: float = 0.5, db: Optiona
                             "courier_name": courier_name,
                             "shipping_rate": rate,
                             "etd": etd,
+                            "city": city,
+                            "state": state,
                             "pincode": clean_pincode,
                             "is_cod": False
                         }
                     else:
+                        api_msg = res_data.get("message")
                         return {
                             "serviceable": False,
                             "estimated_days": "N/A",
                             "courier_name": None,
-                            "message": "Delivery is not serviceable by courier partners to this PIN code.",
+                            "message": api_msg or "Delivery is not serviceable by courier partners to this PIN code.",
                             "pincode": clean_pincode,
                             "is_cod": False
                         }
                 else:
-                    err_msg = res.json().get("message", "Serviceability check error from courier partner.")
+                    err_msg = res.json().get("message", "Delivery is not available for this PIN code.")
                     logger.warning(f"Shiprocket serviceability warning ({res.status_code}): {err_msg}")
                     return {
-                        "serviceable": True,
-                        "estimated_days": "3-5 business days",
-                        "courier_name": "Standard Delivery",
-                        "shipping_rate": 99.0,
-                        "message": err_msg,
+                        "serviceable": False,
+                        "estimated_days": "N/A",
+                        "courier_name": None,
+                        "message": err_msg or "Delivery is not available for this PIN code.",
                         "pincode": clean_pincode,
                         "is_cod": False
                     }
         except Exception as e:
             logger.warning(f"Shiprocket live serviceability check failed: {e}")
             return {
-                "serviceable": True,
-                "estimated_days": "3-5 business days",
-                "courier_name": "Standard Delivery",
-                "shipping_rate": 99.0,
-                "message": f"Logistics network fallback: {str(e)}",
+                "serviceable": False,
+                "estimated_days": "N/A",
+                "courier_name": None,
+                "shipping_rate": 0,
+                "message": f"Logistics network error: {str(e)}",
                 "pincode": clean_pincode,
                 "is_cod": False
             }
 
-    # When Shiprocket credentials are not yet authenticated or pending
+    # When Shiprocket credentials are not authenticated
     return {
-        "serviceable": True,
-        "estimated_days": "3-5 business days",
-        "courier_name": "Standard Delivery",
-        "shipping_rate": 99.0,
-        "message": "Standard delivery available across India.",
+        "serviceable": False,
+        "estimated_days": "N/A",
+        "courier_name": None,
+        "shipping_rate": 0,
+        "message": "Logistics verification service is currently offline.",
         "pincode": clean_pincode,
         "is_cod": False
     }

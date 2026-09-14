@@ -567,6 +567,8 @@ class ShiprocketServiceabilityResponse(BaseModel):
     shipping_rate: Optional[float] = None
     etd: Optional[str] = None
     message: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
 
 class WarehouseLocationCreate(BaseModel):
     pickup_location: str

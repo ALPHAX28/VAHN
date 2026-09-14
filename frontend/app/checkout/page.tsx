@@ -142,6 +142,14 @@ export default function CheckoutPage() {
       setServiceability(null);
       return;
     }
+    if (!/^[1-9]\d{5}$/.test(cleanPin)) {
+      setServiceability({
+        pincode: cleanPin,
+        serviceable: false,
+        message: "Invalid PIN code format. Indian PIN codes must be 6 digits and cannot start with 0.",
+      });
+      return;
+    }
     setCheckingPincode(true);
     try {
       const res = await checkShippingServiceability(cleanPin);
@@ -149,11 +157,8 @@ export default function CheckoutPage() {
     } catch {
       setServiceability({
         pincode: cleanPin,
-        serviceable: true,
-        courier_name: "Standard Express Delivery",
-        estimated_delivery_days: 4,
-        shipping_rate: 0,
-        cod_available: false,
+        serviceable: false,
+        message: "Unable to verify courier coverage for this PIN code.",
       });
     } finally {
       setCheckingPincode(false);
@@ -804,18 +809,23 @@ export default function CheckoutPage() {
                       alignItems: "center",
                       gap: "8px",
                       padding: "8px 12px",
-                      background: serviceability.serviceable ? "#f6ffed" : "#fffbe6",
-                      border: `1px solid ${serviceability.serviceable ? "#b7eb8f" : "#ffe58f"}`,
+                      background: serviceability.serviceable ? "#f6ffed" : "#fff2f0",
+                      border: `1px solid ${serviceability.serviceable ? "#b7eb8f" : "#ffccc7"}`,
                       fontSize: "0.8rem",
-                      color: serviceability.serviceable ? "#389e0d" : "#d48806",
+                      color: serviceability.serviceable ? "#389e0d" : "#cf1322",
                       fontWeight: 600,
+                      borderRadius: "0px",
                     }}
                   >
-                    <TruckIcon size={16} />
+                    {serviceability.serviceable ? (
+                      <TruckIcon size={16} />
+                    ) : (
+                      <AlertCircleIcon size={16} color="#cf1322" />
+                    )}
                     <span>
                       {serviceability.serviceable
-                        ? `Delivery available by ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_delivery_days || 3}–${Number(serviceability.estimated_delivery_days || 3) + 2} days)`
-                        : "Delivery may require extra transit days to this PIN code"}
+                        ? `Delivery available${serviceability.city ? ` to ${serviceability.city}, ${serviceability.state}` : ""} via ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_days || `${serviceability.estimated_delivery_days || 3} business days`})`
+                        : (serviceability.message || `Delivery is not serviceable to PIN ${serviceability.pincode}`)}
                     </span>
                   </div>
                 ) : null}
@@ -907,21 +917,26 @@ export default function CheckoutPage() {
                 <div
                   style={{
                     padding: "12px 14px",
-                    background: serviceability.serviceable ? "#f6ffed" : "#fffbe6",
-                    border: `1px solid ${serviceability.serviceable ? "#b7eb8f" : "#ffe58f"}`,
+                    background: serviceability.serviceable ? "#f6ffed" : "#fff2f0",
+                    border: `1px solid ${serviceability.serviceable ? "#b7eb8f" : "#ffccc7"}`,
                     fontSize: "0.82rem",
-                    color: serviceability.serviceable ? "#237804" : "#d48806",
+                    color: serviceability.serviceable ? "#237804" : "#cf1322",
                     display: "flex",
                     alignItems: "center",
                     gap: "10px",
+                    borderRadius: "0px",
                   }}
                 >
-                  <CheckIcon size={16} color={serviceability.serviceable ? "#52c41a" : "#d48806"} />
+                  {serviceability.serviceable ? (
+                    <CheckIcon size={16} color="#52c41a" />
+                  ) : (
+                    <AlertCircleIcon size={16} color="#cf1322" />
+                  )}
                   <div>
                     <span style={{ fontWeight: 700 }}>
                       {serviceability.serviceable
-                        ? `Delivery available to PIN ${serviceability.pincode} via ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_delivery_days || 3}–${Number(serviceability.estimated_delivery_days || 3) + 2} days)`
-                        : `Delivery to PIN ${serviceability.pincode} may require extra transit days`}
+                        ? `Delivery available to ${serviceability.city ? `${serviceability.city}, ${serviceability.state} (PIN ${serviceability.pincode})` : `PIN ${serviceability.pincode}`} via ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_days || `${serviceability.estimated_delivery_days || 3} business days`})`
+                        : (serviceability.message || `Delivery is not serviceable to PIN ${serviceability.pincode}`)}
                     </span>
                   </div>
                 </div>

@@ -351,6 +351,8 @@ export interface ServiceabilityResponse {
   shipping_rate?: number;
   cod_available?: boolean;
   message?: string;
+  city?: string;
+  state?: string;
 }
 
 export interface WarehouseLocation {

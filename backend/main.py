@@ -1229,7 +1229,9 @@ def check_pincode_serviceability(payload: schemas.ShiprocketServiceabilityReques
         is_cod=False,
         shipping_rate=result.get("shipping_rate"),
         etd=result.get("etd"),
-        message=result.get("message")
+        message=result.get("message"),
+        city=result.get("city"),
+        state=result.get("state")
     )
 
 # 2. Create Razorpay Order for Logged-In User
