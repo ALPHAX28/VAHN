@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -65,25 +65,29 @@ export default function CheckoutPage() {
 
 
 
-  // Load appropriate Razorpay SDK (magic-checkout.js for guests, checkout.js for logged in athletes)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (isAuthLoading) return; // Wait for auth resolution to prevent loading guest SDK for logged-in users
+  // Ensure clean, valid Razorpay SDK instance and detect detached iframes
+  const ensureFreshRazorpaySdk = useCallback(async (isGuestUser: boolean): Promise<any> => {
+    if (typeof window === "undefined") return null;
 
-    const isGuest = !user;
-    const targetScriptSrc = isGuest
+    const targetScriptSrc = isGuestUser
       ? "https://checkout.razorpay.com/v1/magic-checkout.js"
       : "https://checkout.razorpay.com/v1/checkout.js";
+
+    // Check if an existing iframe was detached or corrupted (contentWindow is null)
+    const existingIframe = document.querySelector(".razorpay-container iframe") as HTMLIFrameElement | null;
+    const hasCorruptedIframe = existingIframe && !existingIframe.contentWindow;
 
     const allScripts = Array.from(document.querySelectorAll<HTMLScriptElement>("script[src*='checkout.razorpay.com']"));
     const currentScript = allScripts.find((s) => s.src === targetScriptSrc);
 
-    if (currentScript && window.Razorpay) {
+    if (currentScript && (window as any).Razorpay && !hasCorruptedIframe) {
       setRzpLoaded(true);
-      return;
+      return (window as any).Razorpay;
     }
 
+    // Cleanly purge corrupted scripts and detached containers
     allScripts.forEach((s) => s.remove());
+    document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
     try {
       delete (window as any).Razorpay;
     } catch {
@@ -91,24 +95,36 @@ export default function CheckoutPage() {
     }
 
     setRzpLoaded(false);
-    const script = document.createElement("script");
-    script.id = "rzp-checkout-script";
-    script.src = targetScriptSrc;
-    script.async = true;
-    script.onload = () => {
-      setRzpLoaded(true);
-    };
-    script.onerror = () => {
-      console.warn("Primary SDK load failed, falling back to standard checkout.js");
-      const fallbackScript = document.createElement("script");
-      fallbackScript.id = "rzp-checkout-script";
-      fallbackScript.src = "https://checkout.razorpay.com/v1/checkout.js";
-      fallbackScript.async = true;
-      fallbackScript.onload = () => setRzpLoaded(true);
-      document.body.appendChild(fallbackScript);
-    };
-    document.body.appendChild(script);
-  }, [user, isAuthLoading]);
+    return new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.id = "rzp-checkout-script";
+      script.src = targetScriptSrc;
+      script.async = true;
+      script.onload = () => {
+        setRzpLoaded(true);
+        resolve((window as any).Razorpay);
+      };
+      script.onerror = () => {
+        console.warn("Primary SDK load failed, falling back to standard checkout.js");
+        const fallbackScript = document.createElement("script");
+        fallbackScript.id = "rzp-checkout-script";
+        fallbackScript.src = "https://checkout.razorpay.com/v1/checkout.js";
+        fallbackScript.async = true;
+        fallbackScript.onload = () => {
+          setRzpLoaded(true);
+          resolve((window as any).Razorpay);
+        };
+        document.body.appendChild(fallbackScript);
+      };
+      document.body.appendChild(script);
+    });
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    if (typeof window === "undefined" || isAuthLoading) return;
+    ensureFreshRazorpaySdk(!user);
+  }, [user, isAuthLoading, ensureFreshRazorpaySdk]);
 
   // Load addresses if logged in
   useEffect(() => {
@@ -251,12 +267,14 @@ export default function CheckoutPage() {
         token || undefined
       );
 
-      // Check if window.Razorpay is loaded
-      if (typeof window.Razorpay === "undefined") {
+      const isGuest = !user;
+
+      // Ensure fresh, uncorrupted Razorpay SDK before creating order
+      const RazorpayConstructor = await ensureFreshRazorpaySdk(isGuest);
+      if (!RazorpayConstructor && typeof (window as any).Razorpay === "undefined") {
         throw new Error("Razorpay gateway is initializing. Please try again in a few moments.");
       }
-
-      const isGuest = !user;
+      const RzpClass = RazorpayConstructor || (window as any).Razorpay;
 
       // 2. Open Razorpay modal
       const options: any = {
@@ -310,7 +328,6 @@ export default function CheckoutPage() {
             if (typeof document !== "undefined") {
               document.body.style.overflow = "auto";
               document.documentElement.style.overflow = "auto";
-              document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
             }
             try {
               if (typeof recordRazorpayPaymentFailure === "function") {
@@ -365,16 +382,17 @@ export default function CheckoutPage() {
             if (typeof document !== "undefined") {
               document.body.style.overflow = "auto";
               document.documentElement.style.overflow = "auto";
-              document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
+              // Never forcefully delete .razorpay-container: Razorpay automatically hides the modal.
+              // Deleting the DOM container detaches the iframe and breaks contentWindow on retry.
             }
             setError("Payment was cancelled or closed. You can retry anytime — your cart items are preserved.");
           },
         },
       };
 
-      const rzpInstance = new window.Razorpay(options);
+      const rzpInstance = new RzpClass(options);
       rzpInstance.on("payment.failed", async function (response: any) {
-        // Immediately dismiss and tear down Razorpay's modal so our failure page is visible
+        // Dismiss Razorpay modal cleanly
         try {
           rzpInstance.close();
         } catch {
@@ -383,7 +401,6 @@ export default function CheckoutPage() {
         if (typeof document !== "undefined") {
           document.body.style.overflow = "auto";
           document.documentElement.style.overflow = "auto";
-          document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
         }
 
         const errorDesc =
@@ -418,7 +435,13 @@ export default function CheckoutPage() {
         router.push(`/checkout/failed?reason=${encodeURIComponent(errorDesc)}`);
         setPlacingOrder(false);
       });
-      rzpInstance.open();
+      try {
+        rzpInstance.open();
+      } catch (openErr: any) {
+        console.error("Razorpay open error:", openErr);
+        setPlacingOrder(false);
+        setError("Unable to open payment gateway. Please try again.");
+      }
     } catch (err: any) {
       setError(err?.message || "Failed to initiate payment. Please try again.");
       setPlacingOrder(false);
