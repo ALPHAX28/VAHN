@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+!.env.dev.example
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+**/.venv
+.git
+.gitignore
+*.log

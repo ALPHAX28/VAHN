@@ -11,9 +11,9 @@ from dotenv import load_dotenv
 _backend_dir = os.path.dirname(os.path.abspath(__file__))
 _env_path = os.path.join(_backend_dir, ".env")
 if os.path.exists(_env_path):
-    load_dotenv(_env_path, override=True)
+    load_dotenv(_env_path, override=False)
 else:
-    load_dotenv(override=True)
+    load_dotenv(override=False)
 
 logger = logging.getLogger(__name__)
 
