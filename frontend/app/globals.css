@@ -247,8 +247,8 @@ input, textarea, select {
 .hero-banner-section {
   position: relative;
   width: 100%;
-  margin-top: -60px;
-  padding-top: 60px;
+  margin-top: -61px;
+  padding-top: 61px;
   height: calc(100vh - 36px);
   height: calc(100dvh - 36px);
   min-height: calc(100vh - 36px);
@@ -337,8 +337,8 @@ input, textarea, select {
     min-height: 360px !important;
     max-height: 500px !important;
     padding-bottom: 24px !important;
-    margin-top: -60px !important;
-    padding-top: 60px !important;
+    margin-top: -61px !important;
+    padding-top: 61px !important;
   }
   .hero-banner-img {
     object-position: center 20% !important;
@@ -355,8 +355,8 @@ input, textarea, select {
     min-height: 320px !important;
     max-height: 440px !important;
     padding-bottom: 20px !important;
-    margin-top: -60px !important;
-    padding-top: 60px !important;
+    margin-top: -61px !important;
+    padding-top: 61px !important;
   }
 }
 

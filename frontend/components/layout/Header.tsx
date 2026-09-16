@@ -81,11 +81,7 @@ export default function Header() {
         style={{
           width: '100%',
           backgroundColor: isTransparent ? 'transparent' : '#111111',
-          backdropFilter: isTransparent ? 'blur(12px)' : 'none',
-          WebkitBackdropFilter: isTransparent ? 'blur(12px)' : 'none',
-          borderBottom: isTransparent
-            ? '1px solid rgba(255, 255, 255, 0.22)'
-            : '1px solid rgba(255, 255, 255, 0.15)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
           boxShadow: scrolled ? '0 4px 16px rgba(0, 0, 0, 0.18)' : 'none',
           transition: 'background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
         }}
