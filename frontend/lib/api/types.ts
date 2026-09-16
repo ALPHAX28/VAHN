@@ -157,6 +157,7 @@ export interface CartLine {
       shippingRate?: number | null;
     };
     price: Money;
+    image?: Image | null;
     quantityAvailable?: number;
   };
   cost: {

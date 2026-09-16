@@ -544,7 +544,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
                       {selectedOptions[option.name] || (option.name.toLowerCase() === 'size' ? 'Select Size' : '')}
                     </span>
                     {sizeStockLabel && (
-                      <span style={{ fontWeight: 700, color: '#c62828', marginLeft: '10px', fontSize: '0.68rem', letterSpacing: '-0.025em', textTransform: 'uppercase' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--brand-primary, #3B3BF6)', marginLeft: '10px', fontSize: '0.68rem', letterSpacing: '-0.025em', textTransform: 'uppercase' }}>
                         {sizeStockLabel}
                       </span>
                     )}

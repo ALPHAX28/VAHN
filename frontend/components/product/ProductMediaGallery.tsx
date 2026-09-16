@@ -108,7 +108,7 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
                 onClick={toggleShowMore}
                 aria-expanded={showAllImages}
               >
-                <span>{showAllImages ? 'Show less' : `Show more (+${images.length - 4})`}</span>
+                <span>{showAllImages ? 'Show less' : 'Show more'}</span>
                 <svg
                   viewBox="0 0 24 24"
                   width="18"

@@ -263,7 +263,7 @@ function FaqItem({
       </button>
 
       {isOpen && (
-        <div style={{ paddingBottom: '20px' }}>
+        <div style={{ paddingBottom: '20px', paddingRight: '48px' }}>
           <p
             style={{
               fontFamily: 'var(--font-body)',

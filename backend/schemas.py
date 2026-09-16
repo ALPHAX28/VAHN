@@ -193,6 +193,7 @@ class CartMerchandise(BaseModel):
     price: Money
     selectedOptions: List[SelectedOption]
     product: CartProductMini
+    image: Optional[ImageNode] = None
     quantityAvailable: Optional[int] = None
 
 class CartLineCost(BaseModel):

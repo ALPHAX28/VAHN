@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAdminAuth } from "@/context/AdminAuthContext";
 import {
   getAdminUser,
@@ -28,6 +28,11 @@ export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { adminToken } = useAdminAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams?.get("returnTo");
+  const orderId = searchParams?.get("orderId");
+  const backHref = returnTo || "/admin/users";
+  const backLabel = orderId ? `Back to Order #${orderId}` : returnTo ? "Back" : "Back to Customers";
 
   const [customer, setCustomer] = useState<AdminUserDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,9 +118,9 @@ export default function AdminUserDetailPage() {
     return (
       <div>
         <div style={{ marginBottom: 20 }}>
-          <Link href="/admin/users" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", fontWeight: 700, color: "#666", textDecoration: "none" }}>
+          <Link href={backHref} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", fontWeight: 700, color: "#666", textDecoration: "none" }}>
             <ChevronLeftIcon size={16} />
-            Back to Customers
+            {backLabel}
           </Link>
         </div>
         <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: "#b91c1c", padding: "20px 24px", fontWeight: 700, fontSize: "0.9rem" }}>
@@ -135,9 +140,9 @@ export default function AdminUserDetailPage() {
     <div>
       {/* Top Navigation & Breadcrumb */}
       <div style={{ marginBottom: 24 }}>
-        <Link href="/admin/users" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", fontWeight: 700, color: "#666", textDecoration: "none", textTransform: "uppercase", letterSpacing: '-0.025em', marginBottom: 12 }}>
+        <Link href={backHref} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.82rem", fontWeight: 700, color: "#666", textDecoration: "none", textTransform: "uppercase", letterSpacing: '-0.025em', marginBottom: 12 }}>
           <ChevronLeftIcon size={14} color="#666" />
-          Back to Customers
+          {backLabel}
         </Link>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>

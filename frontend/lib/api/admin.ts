@@ -308,6 +308,15 @@ async function adminFetch<T>(
 
     const data = await res.json();
     if (!res.ok) {
+      if (res.status === 401 && typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("vahn_admin_token");
+          localStorage.removeItem("vahn_admin_user");
+        } catch { /* ignore */ }
+        if (!window.location.pathname.startsWith("/admin/login")) {
+          window.location.href = `/admin/login?expired=1&returnTo=${encodeURIComponent(window.location.pathname)}`;
+        }
+      }
       throw new Error(data.detail || `Request failed: ${res.status}`);
     }
     return data as T;

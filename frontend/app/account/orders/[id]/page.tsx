@@ -122,7 +122,16 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     } finally {
       setDownloadingInvoice(false);
     }
+    const prevTitle = typeof document !== "undefined" ? document.title : "";
+    if (typeof document !== "undefined") {
+      document.title = `VAHN-${order.id}`;
+    }
     window.print();
+    setTimeout(() => {
+      if (typeof document !== "undefined") {
+        document.title = prevTitle;
+      }
+    }, 1500);
   }
 
   useEffect(() => {

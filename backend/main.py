@@ -471,6 +471,29 @@ def build_cart_schema(cart: models.Cart, db: Session) -> schemas.CartSchema:
         subtotal += v.price_amount * item.quantity
         currency = v.price_currency
 
+        # Resolve variant/colour-specific image
+        variant_image_url = v.image_url
+        if not variant_image_url and p:
+            colour_val = None
+            for opt in (v.selected_options or []):
+                if isinstance(opt, dict) and opt.get("name", "").lower() in ("colour", "color"):
+                    colour_val = opt.get("value")
+                    break
+            if colour_val and p.colour_groups:
+                for cg in p.colour_groups:
+                    if cg.colour_value and str(cg.colour_value).strip().lower() == str(colour_val).strip().lower() and cg.images:
+                        if isinstance(cg.images, list) and len(cg.images) > 0:
+                            first_img = cg.images[0]
+                            if isinstance(first_img, dict):
+                                variant_image_url = first_img.get("url")
+                            elif isinstance(first_img, str):
+                                variant_image_url = first_img
+                        break
+
+        final_image_url = variant_image_url or (p.featured_image_url if p else None)
+        alt_text = (p.featured_image_alt if p else None) or (p.title if p else "")
+        image_node = schemas.ImageNode(url=final_image_url, altText=alt_text) if final_image_url else None
+
         line_edges.append(
             schemas.CartLineEdge(
                 node=schemas.CartLine(
@@ -485,10 +508,11 @@ def build_cart_schema(cart: models.Cart, db: Session) -> schemas.CartSchema:
                             id=f"gid://shopify/Product/{p.id}",
                             title=p.title,
                             handle=p.handle,
-                            featuredImage=schemas.ImageNode(url=p.featured_image_url, altText=p.featured_image_alt) if p.featured_image_url else None,
+                            featuredImage=image_node,
                             gstPercent=p.gst_percent if p.gst_percent is not None else 12.0,
                             shippingRate=p.shipping_rate
                         ),
+                        image=image_node,
                         quantityAvailable=v.inventory_quantity
                     ),
                     cost=schemas.CartLineCost(
@@ -578,7 +602,7 @@ def sync_cart(cart_id: str, payload: List[dict] = [], db: Session = Depends(get_
 @app.get("/api/cart/{cart_id}", response_model=schemas.CartSchema)
 def get_cart(cart_id: str, db: Session = Depends(get_db)):
     cart = db.query(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product).selectinload(models.Product.colour_groups)
     ).filter_by(id=cart_id).first()
     if not cart:
         # Create it on demand to prevent UI errors
@@ -617,7 +641,7 @@ def add_to_cart(cart_id: str, payload: schemas.CartAddItemPayload, db: Session =
 
     db.commit()
     cart = db.query(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product).selectinload(models.Product.colour_groups)
     ).filter_by(id=cart_id).first()
     return build_cart_schema(cart, db)
 

@@ -113,10 +113,10 @@ export default function CartDrawer() {
             lines.map((line) => (
               <div key={line.id} className="cart-line-item">
                 {/* Image */}
-                {line.merchandise.product.featuredImage ? (
+                {line.merchandise.image || line.merchandise.product.featuredImage ? (
                   <Image
-                    src={line.merchandise.product.featuredImage.url}
-                    alt={line.merchandise.product.featuredImage.altText ?? line.merchandise.product.title}
+                    src={(line.merchandise.image || line.merchandise.product.featuredImage)!.url}
+                    alt={(line.merchandise.image || line.merchandise.product.featuredImage)!.altText ?? line.merchandise.product.title}
                     width={80}
                     height={80}
                     className="cart-item-image"

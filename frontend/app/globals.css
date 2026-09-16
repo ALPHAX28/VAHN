@@ -3434,7 +3434,7 @@ input, textarea, select {
   text-transform: uppercase;
   color: var(--color-black);
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  box-shadow: none;
   transition: all 0.2s ease;
 }
 

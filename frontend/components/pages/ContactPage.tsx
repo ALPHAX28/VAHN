@@ -110,17 +110,33 @@ export default function ContactPage() {
         if (containsLink(trimmed)) return 'Links and URLs are not permitted in phone number.';
         if (containsEmoji(trimmed)) return 'Emojis are not permitted in phone number.';
         const digitsOnly = trimmed.replace(/\D/g, '');
-        if (digitsOnly.length < 7 || digitsOnly.length > 15) {
-          return 'Please enter a valid phone number (7 to 15 digits).';
+        if (formData.countryCode === '+91') {
+          if (digitsOnly.length !== 10) {
+            return 'Phone number must be exactly 10 digits for India (+91).';
+          }
+          if (!/^[6-9]/.test(digitsOnly)) {
+            return 'Phone number must start with 6, 7, 8, or 9.';
+          }
+        } else {
+          if (digitsOnly.length < 7 || digitsOnly.length > 15) {
+            return 'Please enter a valid phone number (7 to 15 digits).';
+          }
         }
         return undefined;
       }
 
       case 'orderNumber': {
+        const isOrderRelated = formData.subject === 'Order Tracking / Status' || formData.subject === 'Return or Exchange';
+        if (isOrderRelated && !trimmed) {
+          return 'Order number is required for order tracking, returns, and exchanges.';
+        }
         if (!trimmed) return undefined; // Optional
         if (containsLink(trimmed)) return 'Links and URLs are not permitted in order number.';
         if (containsEmoji(trimmed)) return 'Emojis are not permitted in order number.';
-        if (!/^[a-zA-Z0-9#\s-]+$/.test(trimmed)) {
+        if (/\s/.test(trimmed)) {
+          return 'Order number cannot contain spaces.';
+        }
+        if (!/^[a-zA-Z0-9#-]+$/.test(trimmed)) {
           return 'Order number can only contain letters, numbers, hyphens, and #.';
         }
         return undefined;
@@ -146,20 +162,52 @@ export default function ContactPage() {
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Strictly strip any alphabets, emojis, and special characters other than digits, spaces, hyphens
-    const filtered = e.target.value.replace(/[^\d\s-]/g, '');
-    setFormData((prev) => ({ ...prev, phone: filtered }));
+    // SCRUM-76: strictly strip spaces and non-digits; SCRUM-78: character limit
+    let digits = e.target.value.replace(/\D/g, '');
+    if (formData.countryCode === '+91') {
+      digits = digits.slice(0, 10);
+    } else {
+      digits = digits.slice(0, 15);
+    }
+    setFormData((prev) => ({ ...prev, phone: digits }));
     if (errors.phone) {
-      const err = validateField('phone', filtered);
+      const err = validateField('phone', digits);
       setErrors((prev) => ({ ...prev, phone: err }));
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    let cleanVal = value;
+    // SCRUM-76: Disable leading whitespace on all form fields
+    if (cleanVal.startsWith(' ')) {
+      cleanVal = cleanVal.trimStart();
+    }
+    if (name === 'orderNumber') {
+      // SCRUM-76: Disable spaces in order numbers
+      cleanVal = cleanVal.replace(/\s+/g, '');
+    }
+    setFormData((prev) => ({ ...prev, [name]: cleanVal }));
+
+    // SCRUM-79: Revalidate orderNumber when subject changes
+    if (name === 'subject') {
+      if (['Order Tracking / Status', 'Return or Exchange'].includes(cleanVal)) {
+        if (!formData.orderNumber.trim()) {
+          setErrors((prev) => ({
+            ...prev,
+            subject: undefined,
+            orderNumber: 'Order number is required for order tracking, returns, and exchanges.',
+          }));
+          return;
+        }
+      } else {
+        setErrors((prev) => ({ ...prev, subject: undefined, orderNumber: undefined }));
+        return;
+      }
+    }
+
     if (errors[name as ValidatedField]) {
-      const err = validateField(name as keyof FormState, value);
+      const err = validateField(name as keyof FormState, cleanVal);
       setErrors((prev) => ({ ...prev, [name]: err }));
     }
   };
@@ -652,7 +700,8 @@ export default function ContactPage() {
                       type="tel"
                       inputMode="numeric"
                       className="input"
-                      placeholder="98765 43210"
+                      maxLength={formData.countryCode === '+91' ? 10 : 15}
+                      placeholder={formData.countryCode === '+91' ? '9876543210' : 'Phone number'}
                       style={{
                         flex: 1,
                         borderColor: errors.phone ? '#d93025' : undefined,
@@ -674,7 +723,9 @@ export default function ContactPage() {
               {/* Order Number & Subject */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="orderNumber">Order Number (If Applicable)</label>
+                  <label className="form-label" htmlFor="orderNumber">
+                    Order Number {['Order Tracking / Status', 'Return or Exchange'].includes(formData.subject) ? '*' : '(If Applicable)'}
+                  </label>
                   <input
                     id="orderNumber"
                     name="orderNumber"

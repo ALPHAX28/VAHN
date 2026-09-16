@@ -45,15 +45,16 @@ export default function AdminSupportPage() {
     if (!adminToken) return;
     setLoading(true);
     try {
-      const url = new URL(`${getApiBaseUrl()}/admin/contact-messages`);
+      const params = new URLSearchParams();
       if (activeTab !== "ALL") {
-        url.searchParams.set("status", activeTab);
+        params.set("status", activeTab);
       }
       if (searchQuery.trim()) {
-        url.searchParams.set("search", searchQuery.trim());
+        params.set("search", searchQuery.trim());
       }
+      const queryString = params.toString() ? `?${params.toString()}` : "";
 
-      const res = await fetch(url.toString(), {
+      const res = await fetch(`${getApiBaseUrl()}/admin/contact-messages${queryString}`, {
         headers: {
           Authorization: `Bearer ${adminToken}`,
         },

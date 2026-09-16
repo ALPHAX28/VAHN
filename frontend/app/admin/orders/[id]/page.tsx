@@ -1293,7 +1293,7 @@ export default function AdminOrderDetailPage() {
               </h2>
               {order.user_id ? (
                 <Link
-                  href={`/admin/users/${order.user_id}`}
+                  href={`/admin/users/${order.user_id}?returnTo=${encodeURIComponent(`/admin/orders/${order.id}`)}&orderId=${order.id}`}
                   className="admin-btn admin-btn--secondary"
                   style={{ textDecoration: "none", fontSize: "0.75rem", padding: "4px 10px" }}
                 >
