@@ -2014,6 +2014,101 @@ def magic_checkout_order(
 
     return build_order_schema(order)
 
+
+def is_shiprocket_cancelled(status_str: Optional[str], status_code: Optional[Any] = None) -> bool:
+    """Helper to detect cancellation statuses from Shiprocket webhooks or API responses."""
+    if status_code in (5, "5"):
+        return True
+    if not status_str:
+        return False
+    normalized = str(status_str).strip().upper()
+    cancellation_indicators = [
+        "CANCEL",
+        "CANCELED",
+        "CANCELLED",
+        "SHIPMENT CANCELLED",
+        "SHIPMENT CANCELED",
+        "CANCELLED BY SHIPPER",
+        "CANCELED BY SHIPPER",
+        "CANCELLED BEFORE DISPATCH",
+        "CANCELED BEFORE DISPATCH",
+    ]
+    return any(ind in normalized for ind in cancellation_indicators)
+
+
+def execute_order_cancellation(
+    order: models.Order,
+    db: Session,
+    reason: Optional[str] = None,
+    cancel_in_shiprocket: bool = False,
+    refund_note: Optional[str] = None
+) -> models.Order:
+    """
+    Centralized, idempotent order cancellation execution.
+    1. Prevents duplicate execution if order is already CANCELLED.
+    2. Cancels shipment in Shiprocket if cancel_in_shiprocket=True and order has Shiprocket IDs.
+    3. Restocks all item inventory quantities in database.
+    4. Issues 100% instant refund via Razorpay API if payment was captured and not yet refunded.
+    5. Updates order status = "CANCELLED", shipping_status = "CANCELLED", payment_status = "REFUNDED" (if refunded),
+       refund_status = "REFUNDED" (or "NOT_APPLICABLE" if COD/unpaid), cancellation_reason, and refunded_at.
+    6. Commits changes to the database.
+    """
+    if order.status == "CANCELLED":
+        return order
+
+    logger.info(f"[ORDER CANCELLATION] Cancelling order {order.id}. Reason: {reason}")
+
+    # 1. Optionally cancel in Shiprocket (if triggered from our website / admin)
+    if cancel_in_shiprocket and (order.shiprocket_order_id or order.shiprocket_awb):
+        try:
+            shiprocket_service.cancel_shipment(
+                shiprocket_order_id=order.shiprocket_order_id,
+                awb_code=order.shiprocket_awb
+            )
+        except Exception as e:
+            logger.warning(f"Error cancelling shipment in Shiprocket for order {order.id}: {e}")
+
+    # 2. Restock inventory
+    for item in (order.items or []):
+        if item.variant_id:
+            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+            if var:
+                var.inventory_quantity += item.quantity
+                logger.info(f"Restocked variant {var.id} by +{item.quantity} units (new stock: {var.inventory_quantity})")
+
+    # 3. Disburse instant refund via Razorpay API if payment was captured
+    rfnd_id = None
+    note = refund_note or reason or "Order cancelled"
+    if order.razorpay_payment_id and order.refund_status != "REFUNDED" and order.payment_status in ("CAPTURED", "PAID"):
+        try:
+            rfnd_res = razorpay_service.initiate_refund(
+                payment_id=order.razorpay_payment_id,
+                amount_in_inr=order.total_amount,
+                reason_note=note
+            )
+            rfnd_id = rfnd_res.get("id")
+            order.refund_status = "REFUNDED"
+            order.refund_amount = order.total_amount
+            order.refunded_at = datetime.utcnow()
+            order.razorpay_refund_id = rfnd_id
+            order.payment_status = "REFUNDED"
+            logger.info(f"Disbursed refund {rfnd_id} for order {order.id} (amount: ₹{order.total_amount})")
+        except Exception as e:
+            logger.error(f"Refund call error on cancellation of order {order.id}: {e}")
+            order.refund_status = "FAILED"
+            order.refund_note = f"Auto-refund failed: {str(e)}"
+    elif order.payment_status not in ("CAPTURED", "PAID"):
+        order.refund_status = "NOT_APPLICABLE"
+
+    order.status = "CANCELLED"
+    order.shipping_status = "CANCELLED"
+    order.cancellation_reason = reason or "Cancelled in Shiprocket"
+
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 # 5. Single-Input Public Order Tracking (/track)
 @app.get("/api/shipping/track/{query}", response_model=schemas.OrderTrackingResponse)
 def public_track_order(query: str, db: Session = Depends(get_db)):
@@ -2031,6 +2126,15 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
     forward_scans = []
     if order.shiprocket_awb:
         track_info = shiprocket_service.track_awb(order.shiprocket_awb)
+        if order.status != "CANCELLED" and is_shiprocket_cancelled(track_info.get("current_status")):
+            logger.info(f"Order {order.id} cancelled in Shiprocket detected during public tracking. Processing cancellation & refund.")
+            order = execute_order_cancellation(
+                order=order,
+                db=db,
+                reason="Order cancelled in Shiprocket",
+                cancel_in_shiprocket=False,
+                refund_note="Automated refund on Shiprocket order cancellation"
+            )
         raw_scans = track_info.get("scans") if isinstance(track_info, dict) else []
         if isinstance(raw_scans, list):
             forward_scans = [
@@ -2216,6 +2320,7 @@ def get_public_order_invoice(
         db.commit()
     return invoice_res
 
+
 # 7. Customer Instant Cancellation Before Dispatch (Prepaid 100% Instant Refund)
 @app.post("/api/orders/{order_id}/cancel", response_model=schemas.OrderSchema)
 def cancel_order(
@@ -2231,44 +2336,19 @@ def cancel_order(
     if order.user_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Unauthorized.")
 
-    if order.status != "PROCESSING" or order.shipping_status in ("PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"):
+    if order.status == "CANCELLED":
+        return build_order_schema(order)
+
+    if order.status not in ("PROCESSING", "CONFIRMED", "PENDING") or order.shipping_status in ("PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"):
         raise HTTPException(status_code=400, detail="Order has already been dispatched with courier and cannot be self-cancelled. You may request a return or exchange within 10 days of delivery.")
 
-    # Cancel courier shipment in Shiprocket
-    shiprocket_service.cancel_shipment(
-        shiprocket_order_id=order.shiprocket_order_id,
-        awb_code=order.shiprocket_awb
+    order = execute_order_cancellation(
+        order=order,
+        db=db,
+        reason=payload.reason or "Customer self-cancellation before dispatch",
+        cancel_in_shiprocket=True,
+        refund_note=payload.reason or "Customer self-cancellation before dispatch"
     )
-
-    # Disburse 100% instant refund via Razorpay API
-    rfnd_id = None
-    if order.razorpay_payment_id:
-        try:
-            rfnd_res = razorpay_service.initiate_refund(
-                payment_id=order.razorpay_payment_id,
-                amount_in_inr=order.total_amount,
-                reason_note=payload.reason or "Customer self-cancellation before dispatch"
-            )
-            rfnd_id = rfnd_res.get("id")
-        except Exception as e:
-            logger.error(f"Refund call error on cancel: {e}")
-
-    # Restock inventory
-    for item in (order.items or []):
-        if item.variant_id:
-            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
-            if var:
-                var.inventory_quantity += item.quantity
-
-    order.status = "CANCELLED"
-    order.refund_status = "REFUNDED"
-    order.refund_amount = order.total_amount
-    order.refunded_at = datetime.utcnow()
-    order.razorpay_refund_id = rfnd_id
-    order.cancellation_reason = payload.reason
-    order.shipping_status = "CANCELLED"
-    db.commit()
-    db.refresh(order)
 
     return build_order_schema(order)
 
@@ -2650,71 +2730,107 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
 async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
     try:
         data = await request.json()
-        awb = str(data.get("awb", "")).strip()
-        current_status = str(data.get("current_status", "")).upper()
+        logger.info(f"Received Shiprocket webhook payload: {data}")
 
-        if not awb:
-            return {"status": "ignored"}
+        awb = str(data.get("awb") or data.get("awb_code") or "").strip()
+        channel_order_id = str(data.get("channel_order_id") or "").strip()
+        sr_order_id = str(data.get("order_id") or "").strip()
+        sr_shipment_id = str(data.get("shipment_id") or "").strip()
+        current_status = str(data.get("current_status") or data.get("status") or data.get("order_status") or data.get("shipment_status") or "").upper()
+        status_code = data.get("status_code")
+
+        order = None
+        # 1. Match by AWB if provided
+        if awb:
+            order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_awb=awb).first()
+
+        # 2. Match by channel_order_id (e.g. ORD-XXXXXX)
+        if not order and channel_order_id:
+            order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=channel_order_id).first()
+
+        # 3. Match by order_id (can be ORD-XXXXXX or Shiprocket numeric order ID)
+        if not order and sr_order_id:
+            if sr_order_id.startswith("ORD-"):
+                order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=sr_order_id).first()
+            else:
+                order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_order_id=sr_order_id).first()
+
+        # 4. Match by shiprocket_shipment_id
+        if not order and sr_shipment_id:
+            order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_shipment_id=sr_shipment_id).first()
 
         # Check forward shipment
-        order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_awb=awb).first()
         if order:
-            if order.status == "CANCELLED":
-                return {"status": "ignored_cancelled_order"}
-            order.shipping_status = current_status
-            if current_status == "DELIVERED":
-                order.status = "DELIVERED"
-                order.delivered_at = datetime.utcnow()
-            db.commit()
-            return {"status": "forward_updated"}
+            # Check if this status represents an order cancellation
+            if is_shiprocket_cancelled(current_status, status_code):
+                if order.status != "CANCELLED":
+                    logger.info(f"Order {order.id} cancelled in Shiprocket (status={current_status}, code={status_code}). Triggering auto-cancellation and refund.")
+                    execute_order_cancellation(
+                        order=order,
+                        db=db,
+                        reason="Order cancelled in Shiprocket",
+                        cancel_in_shiprocket=False,
+                        refund_note="Automated refund on Shiprocket order cancellation"
+                    )
+                    return {"status": "order_cancelled_and_refunded", "order_id": order.id}
+                return {"status": "already_cancelled", "order_id": order.id}
+
+            if order.status != "CANCELLED":
+                order.shipping_status = current_status
+                if current_status == "DELIVERED":
+                    order.status = "DELIVERED"
+                    order.delivered_at = datetime.utcnow()
+                db.commit()
+                return {"status": "forward_updated", "order_id": order.id}
 
         # Check reverse shipment (AUTOMATED REFUND OR REPLACEMENT TRIGGER ON PICKUP)
-        rev_order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(reverse_awb=awb).first()
-        if rev_order:
-            if current_status in ("PICKED_UP", "IN_TRANSIT"):
-                if rev_order.return_type == "REPLACEMENT":
-                    rev_order.return_status = "PICKED_UP"
-                    if rev_order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                        rev_order.replacement_status = "PICKED_UP"
+        if awb:
+            rev_order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(reverse_awb=awb).first()
+            if rev_order:
+                if current_status in ("PICKED_UP", "IN_TRANSIT"):
+                    if rev_order.return_type == "REPLACEMENT":
+                        rev_order.return_status = "PICKED_UP"
+                        if rev_order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                            rev_order.replacement_status = "PICKED_UP"
 
-                    # Restock returned inventory
-                    for item in (rev_order.items or []):
-                        if item.variant_id:
-                            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
-                            if var:
-                                var.inventory_quantity += item.quantity
+                        # Restock returned inventory
+                        for item in (rev_order.items or []):
+                            if item.variant_id:
+                                var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+                                if var:
+                                    var.inventory_quantity += item.quantity
 
-                    db.commit()
-                    return {"status": "reverse_picked_up_replacement_ready"}
-                elif rev_order.refund_status != "REFUNDED":
-                    # Courier scanned parcel from customer -> Auto disburse refund immediately!
-                    rfnd_id = None
-                    if rev_order.razorpay_payment_id:
-                        try:
-                            rfnd_res = razorpay_service.initiate_refund(
-                                payment_id=rev_order.razorpay_payment_id,
-                                amount_in_inr=rev_order.total_amount,
-                                reason_note="Automated refund upon reverse pickup scan"
-                            )
-                            rfnd_id = rfnd_res.get("id")
-                        except Exception as e:
-                            logger.error(f"Error disbursing auto refund on pickup: {e}")
+                        db.commit()
+                        return {"status": "reverse_picked_up_replacement_ready"}
+                    elif rev_order.refund_status != "REFUNDED":
+                        # Courier scanned parcel from customer -> Auto disburse refund immediately!
+                        rfnd_id = None
+                        if rev_order.razorpay_payment_id:
+                            try:
+                                rfnd_res = razorpay_service.initiate_refund(
+                                    payment_id=rev_order.razorpay_payment_id,
+                                    amount_in_inr=rev_order.total_amount,
+                                    reason_note="Automated refund upon reverse pickup scan"
+                                )
+                                rfnd_id = rfnd_res.get("id")
+                            except Exception as e:
+                                logger.error(f"Error disbursing auto refund on pickup: {e}")
 
-                    rev_order.refund_status = "REFUNDED"
-                    rev_order.refund_amount = rev_order.total_amount
-                    rev_order.refunded_at = datetime.utcnow()
-                    rev_order.razorpay_refund_id = rfnd_id
-                    rev_order.return_status = "REFUND_INITIATED"
+                        rev_order.refund_status = "REFUNDED"
+                        rev_order.refund_amount = rev_order.total_amount
+                        rev_order.refunded_at = datetime.utcnow()
+                        rev_order.razorpay_refund_id = rfnd_id
+                        rev_order.return_status = "REFUND_INITIATED"
 
-                    # Restock returned inventory
-                    for item in (rev_order.items or []):
-                        if item.variant_id:
-                            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
-                            if var:
-                                var.inventory_quantity += item.quantity
+                        # Restock returned inventory
+                        for item in (rev_order.items or []):
+                            if item.variant_id:
+                                var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+                                if var:
+                                    var.inventory_quantity += item.quantity
 
-                    db.commit()
-                    return {"status": "reverse_picked_up_refunded"}
+                        db.commit()
+                        return {"status": "reverse_picked_up_refunded"}
 
     except Exception as e:
         logger.error(f"Error in Shiprocket webhook: {e}")
@@ -2736,6 +2852,27 @@ def get_user_orders(current_user: models.User = Depends(get_current_user), db: S
         (models.Order.user_id == current_user.id) |
         ((models.Order.user_id == None) & (func.lower(models.Order.guest_email) == (current_user.email or "").lower()))
     ).order_by(models.Order.created_at.desc()).all()
+
+    # Automatically sync cancellation status from Shiprocket for active processing orders
+    for o in orders:
+        if o.status == "PROCESSING" and (o.shiprocket_awb or o.shiprocket_order_id):
+            try:
+                sr_check = shiprocket_service.get_order_status(
+                    shiprocket_order_id=o.shiprocket_order_id,
+                    awb_code=o.shiprocket_awb
+                )
+                if sr_check.get("is_cancelled"):
+                    logger.info(f"Order {o.id} detected as cancelled in Shiprocket during customer list fetch. Processing cancellation & refund.")
+                    execute_order_cancellation(
+                        order=o,
+                        db=db,
+                        reason="Order cancelled in Shiprocket",
+                        cancel_in_shiprocket=False,
+                        refund_note="Automated refund on Shiprocket order cancellation"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to sync order {o.id} in list: {e}")
+
     return [build_order_schema(o) for o in orders]
 
 @app.get("/api/orders/{order_id}", response_model=schemas.OrderSchema)
@@ -2746,19 +2883,36 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
     if order.user_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Unauthorized.")
 
-    # Auto-fetch live tracking if AWB exists
+    # Auto-fetch live status / tracking from Shiprocket if order has AWB or Shiprocket Order ID
     updated = False
-    if order.shiprocket_awb and order.status != "CANCELLED":
+    if order.status != "CANCELLED" and (order.shiprocket_awb or order.shiprocket_order_id):
         try:
-            live_track = shiprocket_service.track_awb(order.shiprocket_awb)
-            if live_track and isinstance(live_track, dict):
-                merged_td = dict(order.tracking_data or {})
-                merged_td.update(live_track)
-                order.tracking_data = merged_td
-                curr_st = live_track.get("current_status")
-                if curr_st:
-                    order.shipping_status = str(curr_st).upper()
-                updated = True
+            sr_status = shiprocket_service.get_order_status(
+                shiprocket_order_id=order.shiprocket_order_id,
+                awb_code=order.shiprocket_awb
+            )
+            if sr_status.get("is_cancelled"):
+                logger.info(f"Order {order.id} detected as cancelled in Shiprocket during customer view. Processing cancellation & refund.")
+                order = execute_order_cancellation(
+                    order=order,
+                    db=db,
+                    reason="Order cancelled in Shiprocket",
+                    cancel_in_shiprocket=False,
+                    refund_note="Automated refund on Shiprocket order cancellation"
+                )
+            elif order.shiprocket_awb:
+                live_track = shiprocket_service.track_awb(order.shiprocket_awb)
+                if live_track and isinstance(live_track, dict):
+                    merged_td = dict(order.tracking_data or {})
+                    merged_td.update(live_track)
+                    order.tracking_data = merged_td
+                    curr_st = live_track.get("current_status")
+                    if curr_st:
+                        order.shipping_status = str(curr_st).upper()
+                        if order.shipping_status == "DELIVERED":
+                            order.status = "DELIVERED"
+                            order.delivered_at = datetime.utcnow()
+                    updated = True
         except Exception as e:
             logger.warning(f"Failed to sync forward tracking for order {order.id}: {e}")
 
@@ -3616,13 +3770,23 @@ def admin_get_order(
         try:
             live_track = shiprocket_service.track_awb(order.shiprocket_awb)
             if live_track and isinstance(live_track, dict):
-                merged_td = dict(order.tracking_data or {})
-                merged_td.update(live_track)
-                order.tracking_data = merged_td
                 curr_st = live_track.get("current_status")
-                if curr_st:
-                    order.shipping_status = str(curr_st).upper()
-                updated = True
+                if order.status != "CANCELLED" and is_shiprocket_cancelled(curr_st):
+                    logger.info(f"Order {order.id} cancelled in Shiprocket detected during admin view. Processing cancellation & refund.")
+                    order = execute_order_cancellation(
+                        order=order,
+                        db=db,
+                        reason="Order cancelled in Shiprocket",
+                        cancel_in_shiprocket=False,
+                        refund_note="Automated refund on Shiprocket order cancellation"
+                    )
+                else:
+                    merged_td = dict(order.tracking_data or {})
+                    merged_td.update(live_track)
+                    order.tracking_data = merged_td
+                    if curr_st:
+                        order.shipping_status = str(curr_st).upper()
+                    updated = True
         except Exception as e:
             logger.warning(f"Failed to sync forward tracking for order {order.id}: {e}")
 
@@ -3664,11 +3828,22 @@ def admin_refresh_order_tracking(
         try:
             live_track = shiprocket_service.track_awb(order.shiprocket_awb)
             if live_track and isinstance(live_track, dict):
-                merged_td = dict(order.tracking_data or {})
-                merged_td.update(live_track)
-                order.tracking_data = merged_td
-                if live_track.get("current_status") and order.status != "CANCELLED" and order.shipping_status != "CANCELLED":
-                    order.shipping_status = str(live_track["current_status"]).upper()
+                curr_st = live_track.get("current_status")
+                if order.status != "CANCELLED" and is_shiprocket_cancelled(curr_st):
+                    logger.info(f"Order {order.id} cancelled in Shiprocket detected during admin refresh. Processing cancellation & refund.")
+                    order = execute_order_cancellation(
+                        order=order,
+                        db=db,
+                        reason="Order cancelled in Shiprocket",
+                        cancel_in_shiprocket=False,
+                        refund_note="Automated refund on Shiprocket order cancellation"
+                    )
+                else:
+                    merged_td = dict(order.tracking_data or {})
+                    merged_td.update(live_track)
+                    order.tracking_data = merged_td
+                    if curr_st and order.status != "CANCELLED" and order.shipping_status != "CANCELLED":
+                        order.shipping_status = str(curr_st).upper()
         except Exception as e:
             logger.warning(f"Error refreshing tracking for order {order.id}: {e}")
 
@@ -3705,37 +3880,17 @@ def admin_update_order_status(
     previous_refund_status = order.refund_status
 
     if payload.status:
-        order.status = payload.status
         if payload.status == "CANCELLED":
-            order.shipping_status = "CANCELLED"
-            if order.shiprocket_order_id or order.shiprocket_awb:
-                try:
-                    shiprocket_service.cancel_shipment(
-                        shiprocket_order_id=order.shiprocket_order_id,
-                        awb_code=order.shiprocket_awb
-                    )
-                except Exception as e:
-                    logger.warning(f"Error cancelling in Shiprocket during status update: {e}")
-            for item in (order.items or []):
-                if item.variant_id:
-                    var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
-                    if var:
-                        var.inventory_quantity += item.quantity
-            if order.razorpay_payment_id and order.refund_status != "REFUNDED" and order.payment_status == "CAPTURED":
-                try:
-                    rfnd_res = razorpay_service.initiate_refund(
-                        payment_id=order.razorpay_payment_id,
-                        amount_in_inr=order.total_amount,
-                        reason_note=payload.refund_note or "Admin cancelled order"
-                    )
-                    order.refund_status = "REFUNDED"
-                    order.refund_amount = order.total_amount
-                    order.payment_status = "REFUNDED"
-                    order.refunded_at = datetime.utcnow()
-                    order.razorpay_refund_id = rfnd_res.get("id")
-                except Exception as e:
-                    logger.error(f"Error triggering refund on status change to CANCELLED: {e}")
-        elif payload.status in ["SHIPPED", "IN_TRANSIT"]:
+            order = execute_order_cancellation(
+                order=order,
+                db=db,
+                reason=payload.refund_note or "Admin cancelled order",
+                cancel_in_shiprocket=True,
+                refund_note=payload.refund_note or "Admin cancelled order"
+            )
+        else:
+            order.status = payload.status
+        if payload.status in ["SHIPPED", "IN_TRANSIT"]:
             if order.payment_status == "FAILED":
                 raise HTTPException(status_code=400, detail="Cannot dispatch order: Customer payment has failed.")
             if not order.shiprocket_awb:

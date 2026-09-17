@@ -496,7 +496,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
               </button>
             )}
 
-            {order.status === "PROCESSING" && (
+            {["PROCESSING", "CONFIRMED", "PENDING"].includes(order.status) && !["PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"].includes(order.shippingStatus || "") && (
               <button
                 type="button"
                 onClick={() => setShowCancelModal(true)}

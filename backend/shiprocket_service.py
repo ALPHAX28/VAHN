@@ -543,6 +543,78 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
     }
 
 
+def get_order_status(
+    shiprocket_order_id: Optional[Any] = None,
+    awb_code: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Checks the latest status of an order or shipment directly in Shiprocket.
+    Detects if the order has been cancelled in Shiprocket via AWB tracking or /orders/show API.
+    """
+    token = get_auth_token()
+    if not token:
+        return {"is_cancelled": False, "status": "UNKNOWN", "current_status": "UNKNOWN"}
+
+    # 1. If AWB exists, check live tracking first
+    clean_awb = str(awb_code or "").strip()
+    if clean_awb:
+        try:
+            live = track_awb(clean_awb)
+            curr = str(live.get("current_status") or "").upper()
+            if any(ind in curr for ind in ("CANCEL", "CANCELED", "CANCELLED")):
+                return {
+                    "is_cancelled": True,
+                    "status": "CANCELED",
+                    "current_status": curr,
+                    "cancellation_reason": f"Cancelled in Shiprocket ({curr})",
+                    "raw": live
+                }
+        except Exception as e:
+            logger.warning(f"Failed to check AWB status for {clean_awb}: {e}")
+
+    # 2. Check Shiprocket order details via /orders/show/{id}
+    clean_order_id = str(shiprocket_order_id or "").strip()
+    if clean_order_id and clean_order_id.isdigit():
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                res = client.get(
+                    f"{BASE_URL}/orders/show/{clean_order_id}",
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                if res.status_code == 200:
+                    data = res.json().get("data", {})
+                    st = str(data.get("status") or "").upper()
+                    st_code = data.get("status_code")
+                    is_canc = (
+                        st_code in (5, "5")
+                        or any(ind in st for ind in ("CANCEL", "CANCELED", "CANCELLED"))
+                    )
+
+                    # Also inspect any shipment-level statuses
+                    shipments = data.get("shipments") or []
+                    if isinstance(shipments, list):
+                        for sh in shipments:
+                            sh_st = str(sh.get("status") or "").upper()
+                            if any(ind in sh_st for ind in ("CANCEL", "CANCELED", "CANCELLED")):
+                                is_canc = True
+                    elif isinstance(shipments, dict):
+                        sh_st = str(shipments.get("status") or "").upper()
+                        if any(ind in sh_st for ind in ("CANCEL", "CANCELED", "CANCELLED")):
+                            is_canc = True
+
+                    return {
+                        "is_cancelled": is_canc,
+                        "status": st,
+                        "current_status": st,
+                        "cancellation_reason": "Cancelled in Shiprocket",
+                        "raw": data
+                    }
+        except Exception as e:
+            logger.warning(f"Failed to check Shiprocket order {clean_order_id}: {e}")
+
+    return {"is_cancelled": False, "status": "UNKNOWN", "current_status": "UNKNOWN"}
+
+
 def create_reverse_pickup(
     order: Any,
     return_reason: str,
