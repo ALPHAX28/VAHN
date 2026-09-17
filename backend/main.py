@@ -1,6 +1,7 @@
+import json
 import os
 import re
-import json
+
 from dotenv import load_dotenv
 
 # Ensure environment variables are loaded immediately
@@ -9,41 +10,54 @@ if os.path.exists(_env_path):
     load_dotenv(_env_path)
 load_dotenv()
 
+import logging
 import secrets
 import uuid
 from datetime import datetime
-from typing import List, Optional, Any
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Form, Request, Response
-from fastapi.responses import JSONResponse
+from typing import Any, List, Optional
+
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from sqlalchemy.orm import Session, selectinload
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, or_
+from sqlalchemy.orm import Session, selectinload
 
 import database
-from database import engine, get_db, SessionLocal
 import models
-import schemas
 import razorpay_service
+import schemas
 import shiprocket_service
-import logging
+from database import engine, get_db
 
 logger = logging.getLogger(__name__)
-from email_service import (
-    send_otp_email, send_order_confirmation_email, send_restock_notification_email,
-    send_account_suspended_email, send_account_reactivated_email, send_account_deleted_email,
-    send_contact_inquiry_notification, send_contact_inquiry_receipt
-)
+import asyncio
+from contextlib import asynccontextmanager
+
+import sqlalchemy
 
 from auth_utils import (
-    create_access_token, get_current_user, get_optional_current_user, get_current_admin,
-    create_otp_token, verify_otp_token, check_rate_limit, normalize_phone
+    check_rate_limit,
+    create_access_token,
+    create_otp_token,
+    get_current_admin,
+    get_current_user,
+    get_optional_current_user,
+    normalize_phone,
+    verify_otp_token,
+)
+from email_service import (
+    send_account_deleted_email,
+    send_account_reactivated_email,
+    send_account_suspended_email,
+    send_contact_inquiry_notification,
+    send_contact_inquiry_receipt,
+    send_order_confirmation_email,
+    send_otp_email,
+    send_restock_notification_email,
 )
 from storage import storage
 
-import asyncio
-from contextlib import asynccontextmanager
-import sqlalchemy
 
 async def _db_heartbeat_loop():
     """Background task that runs every 3 minutes (180s) to keep DB connection pool warm while server is running."""
@@ -152,7 +166,7 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
                 )
             )
         )
-    
+
     # Convert options (dynamically extracted from variants so all sizes & colours are always in sync)
     options_map: dict[str, list[str]] = {}
     if prod.variants:
@@ -245,9 +259,9 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
                         url=u,
                         altText=img.get("altText") or img.get("alt_text") or cg.colour_value
                     ))
-            elif hasattr(img, "url") and getattr(img, "url"):
+            elif hasattr(img, "url") and img.url:
                 parsed_imgs.append(schemas.StorefrontColourGroupImageSchema(
-                    url=getattr(img, "url"),
+                    url=img.url,
                     altText=getattr(img, "alt_text", "") or cg.colour_value
                 ))
 
@@ -378,9 +392,9 @@ def create_review(handle: str, review_in: schemas.ReviewCreate, db: Session = De
     prod = db.query(models.Product).filter_by(handle=handle).first()
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
-    
+
     current_date = datetime.now().strftime("%d/%m/%Y")
-    
+
     db_review = models.ProductReview(
         product_id=prod.id,
         rating=review_in.rating,
@@ -393,7 +407,7 @@ def create_review(handle: str, review_in: schemas.ReviewCreate, db: Session = De
     db.add(db_review)
     db.commit()
     db.refresh(db_review)
-    
+
     return schemas.ReviewSchema(
         id=str(db_review.id),
         rating=db_review.rating,
@@ -429,7 +443,7 @@ def get_collection(handle: str, db: Session = Depends(get_db)):
     ).filter_by(handle=handle).first()
     if not coll:
         raise HTTPException(status_code=404, detail="Collection not found")
-    
+
     # Map products — SCRUM-34: return all products in collection; unavailable ones render as Out of Stock
     product_edges = []
     for idx, p in enumerate(coll.products):
@@ -534,7 +548,9 @@ def build_cart_schema(cart: models.Cart, db: Session) -> schemas.CartSchema:
     )
 
 @app.post("/api/cart", response_model=schemas.CartSchema)
-def create_cart(lines: List[dict] = [], db: Session = Depends(get_db)):
+def create_cart(lines: Optional[List[dict]] = None, db: Session = Depends(get_db)):
+    if lines is None:
+        lines = []
     cart_id = str(uuid.uuid4())
     cart = models.Cart(id=cart_id)
     db.add(cart)
@@ -544,7 +560,7 @@ def create_cart(lines: List[dict] = [], db: Session = Depends(get_db)):
     for line in lines:
         variant_id = line.get("merchandiseId")
         qty = line.get("quantity", 1)
-        
+
         variant = db.query(models.ProductVariant).filter_by(id=variant_id).first()
         if variant:
             item = models.CartItem(
@@ -554,7 +570,7 @@ def create_cart(lines: List[dict] = [], db: Session = Depends(get_db)):
                 quantity=qty
             )
             db.add(item)
-    
+
     db.commit()
     cart = db.query(models.Cart).options(
         selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
@@ -562,7 +578,9 @@ def create_cart(lines: List[dict] = [], db: Session = Depends(get_db)):
     return build_cart_schema(cart, db)
 
 @app.put("/api/cart/{cart_id}", response_model=schemas.CartSchema)
-def sync_cart(cart_id: str, payload: List[dict] = [], db: Session = Depends(get_db)):
+def sync_cart(cart_id: str, payload: Optional[List[dict]] = None, db: Session = Depends(get_db)):
+    if payload is None:
+        payload = []
     cart = db.query(models.Cart).filter_by(id=cart_id).first()
     if not cart:
         cart = models.Cart(id=cart_id)
@@ -617,7 +635,7 @@ def add_to_cart(cart_id: str, payload: schemas.CartAddItemPayload, db: Session =
     cart = db.query(models.Cart).filter_by(id=cart_id).first()
     if not cart:
         raise HTTPException(status_code=404, detail="Cart not found")
-    
+
     variant_id = payload.merchandiseId
     qty = payload.quantity
 
@@ -2283,7 +2301,7 @@ def get_customer_order_invoice(
         raise HTTPException(status_code=403, detail="Unauthorized")
     if not order.shiprocket_order_id:
         raise HTTPException(status_code=400, detail="Official invoice is not yet available for this order")
-    
+
     invoice_res = shiprocket_service.generate_order_invoice(order.shiprocket_order_id)
     if invoice_res.get("invoice_url"):
         clean_inv_url = shiprocket_service.sanitize_shiprocket_url(invoice_res["invoice_url"])
@@ -2309,7 +2327,7 @@ def get_public_order_invoice(
         raise HTTPException(status_code=404, detail="Order or tracking number not found")
     if not order.shiprocket_order_id:
         raise HTTPException(status_code=400, detail="Official invoice is not yet available for this order")
-    
+
     invoice_res = shiprocket_service.generate_order_invoice(order.shiprocket_order_id)
     if invoice_res.get("invoice_url"):
         clean_inv_url = shiprocket_service.sanitize_shiprocket_url(invoice_res["invoice_url"])
@@ -3188,7 +3206,7 @@ def admin_create_product(
         featured_image_url=payload.featured_image_url,
         featured_image_alt=payload.featured_image_alt,
         images=payload.images or [],
-        lookbook=[l.dict() for l in payload.lookbook],
+        lookbook=[lb.dict() for lb in payload.lookbook],
         fit=payload.fit,
         kit_type=payload.kit_type,
         activity=payload.activity,
@@ -3557,7 +3575,7 @@ def admin_delete_colour_group(
                 parts = v.title.split("/")
                 if len(parts) > 0 and parts[0].strip().lower() == colour_val:
                     is_match = True
-            
+
             if is_match:
                 if v.image_url:
                     images_to_delete.append(v.image_url)
@@ -3943,7 +3961,7 @@ def admin_ship_order(
         raise HTTPException(status_code=400, detail=f"Cannot ship order with status {order.status}")
     if order.payment_status == "FAILED":
         raise HTTPException(status_code=400, detail="Cannot ship order: Payment has failed and funds were not captured.")
-    
+
     # Check if shipment already created in Shiprocket
     if not order.shiprocket_shipment_id or not order.shiprocket_awb or order.shipping_status == "CANCELLED":
         sr_res = shiprocket_service.create_forward_shipment(order, order.items or [], pickup_location=pickup_location, db=db)
@@ -4021,10 +4039,10 @@ def admin_schedule_pickup(
         raise HTTPException(status_code=400, detail="Cannot schedule pickup: Order has no Shiprocket shipment ID")
     if order.payment_status == "FAILED":
         raise HTTPException(status_code=400, detail="Cannot schedule pickup: Order payment has failed.")
-    
+
     pickup_date = payload.pickup_date if payload else None
     pickup_res = shiprocket_service.schedule_courier_pickup(order.shiprocket_shipment_id, pickup_date)
-    
+
     if not pickup_res.get("success") or pickup_res.get("pickup_status") != 1:
         err_msg = pickup_res.get("message") or "Courier partner rejected pickup scheduling request."
         raise HTTPException(status_code=400, detail=err_msg)
@@ -4039,11 +4057,11 @@ def admin_schedule_pickup(
     if pickup_res.get("pickup_scheduled_date"):
         t_data["pickup_scheduled_date"] = pickup_res.get("pickup_scheduled_date")
     order.tracking_data = t_data
-    
+
     if order.shipping_status in ("UNFULFILLED", "MANIFEST_GENERATED"):
         order.shipping_status = "PICKUP_SCHEDULED"
     db.commit()
-    
+
     return pickup_res
 
 @app.post("/api/admin/orders/{order_id}/cancel-shipment", response_model=schemas.AdminOrderSchema)
@@ -4058,28 +4076,28 @@ def admin_cancel_shipment(
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status == "CANCELLED":
         raise HTTPException(status_code=400, detail="Order is already cancelled")
-    
+
     reason = (payload.reason if payload else None) or "Shipment cancelled by administrator"
-    
+
     # 1. Cancel in Shiprocket if shipment/AWB exists
     if order.shiprocket_order_id or order.shiprocket_awb:
         shiprocket_service.cancel_shipment(
             shiprocket_order_id=order.shiprocket_order_id,
             awb_code=order.shiprocket_awb
         )
-    
+
     # 2. Update order status
     order.status = "CANCELLED"
     order.shipping_status = "CANCELLED"
     order.cancellation_reason = reason
-    
+
     # 3. Restock items to inventory
     for item in (order.items or []):
         if item.variant_id:
             var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
             if var:
                 var.inventory_quantity += item.quantity
-    
+
     # 4. If prepaid and not yet refunded, trigger Razorpay refund
     if order.razorpay_payment_id and order.refund_status != "REFUNDED":
         try:
@@ -4116,7 +4134,7 @@ def admin_refund_order(
         raise HTTPException(status_code=400, detail="Order is already fully refunded")
     if order.payment_status == "FAILED" or not order.razorpay_payment_id:
         raise HTTPException(status_code=400, detail="Cannot refund order: Payment was not captured or failed at checkout.")
-    
+
     refund_amount = payload.amount if payload.amount is not None else order.total_amount
     refund_res = razorpay_service.refund_payment(
         payment_id=order.razorpay_payment_id,
@@ -4777,6 +4795,7 @@ async def admin_upload_media_direct(
         if mime.startswith("image/") and "svg" not in mime and "gif" not in mime:
             try:
                 import io
+
                 from PIL import Image
                 img = Image.open(io.BytesIO(content))
                 max_dim = 2560
@@ -4904,7 +4923,7 @@ def notify_restock_subscribers(db: Session, product_id: int, colour_value: Optio
                 (models.RestockSubscription.colour_value == None) |
                 (models.RestockSubscription.colour_value == "")
             )
-        
+
         subscriptions = q.all()
         if not subscriptions:
             return
@@ -5035,7 +5054,7 @@ def admin_update_size_guide_type(
 
     data = payload.model_dump(exclude_unset=True)
     if "measuring_tips" in data and data["measuring_tips"] is not None:
-        data["measuring_tips"] = [t if isinstance(t, dict) else t.model_dump() for t in payload.measuring_tips]
+        data["measuring_tips"] = [t if isinstance(t, dict) else t.model_dump() for t in (payload.measuring_tips or [])]
     for field, value in data.items():
         setattr(sg, field, value)
     sg.updated_at = datetime.utcnow()
@@ -5091,6 +5110,7 @@ def admin_trigger_database_backup(
     try:
         import gzip
         import json
+
         from sqlalchemy import MetaData, select
 
         timestamp_str = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
@@ -5199,7 +5219,7 @@ def admin_list_database_backups(
                 "last_modified": obj["LastModified"].isoformat(),
                 "url": storage.get_public_url(key)
             })
-        
+
         items.sort(key=lambda x: x["last_modified"], reverse=True)
         return {"backups": items, "total": len(items)}
     except Exception as e:

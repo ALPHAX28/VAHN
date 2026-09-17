@@ -1,0 +1,72 @@
+[project]
+name = "vahn-backend"
+version = "0.1.0"
+description = "VAHN Modern E-Commerce Backend API"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
+    "pg8000>=1.31.0",
+    "psycopg2-binary>=2.9.9",
+    "pydantic>=2.8.0",
+    "python-multipart>=0.0.9",
+    "python-dotenv>=1.0.0",
+    "boto3>=1.34.0",
+    "pillow>=10.4.0",
+    "razorpay>=1.4.1",
+    "httpx>=0.27.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.8",
+    "ty>=0.0.81",
+    "uv>=0.12.15",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "migrations/versions",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501", # line too long (handled by formatter)
+    "E402", # module level import not at top (needed for dotenv bootstrap)
+    "E711", # comparison to None (needed for SQLAlchemy binary expressions)
+    "E712", # comparison to True/False (needed for SQLAlchemy binary expressions)
+    "B008", # do not perform function calls in argument defaults (FastAPI Depends)
+    "B904", # raise ... from err in except clause
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = [
+    "database",
+    "models",
+    "schemas",
+    "auth_utils",
+    "email_service",
+    "sms_service",
+    "storage",
+    "razorpay_service",
+    "shiprocket_service",
+]

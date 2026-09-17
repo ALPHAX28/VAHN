@@ -1,7 +1,8 @@
-import sys
 import os
-import time
 import subprocess
+import sys
+import time
+
 from sqlalchemy import create_engine
 
 # Read DATABASE_URL from environment

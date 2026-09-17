@@ -8,8 +8,8 @@ Set these env vars to activate real SMS sending:
 
 Without those keys, OTPs are printed to console (dev mode).
 """
-import os
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,6 @@ def send_otp_sms(phone: str, otp: str) -> None:
 
     try:
         import boto3
-        from botocore.exceptions import ClientError
 
         client = boto3.client(
             "sns",

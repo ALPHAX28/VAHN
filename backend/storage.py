@@ -3,10 +3,10 @@ AWS S3 Storage Provider — VAHN Media Storage.
 All photos, videos, lookbook cards, and assets upload directly to S3.
 """
 import os
-import uuid
 import re
-import mimetypes
-from typing import Optional, Dict, Any
+import uuid
+from typing import Any, Dict, Optional
+
 from dotenv import load_dotenv
 
 load_dotenv()

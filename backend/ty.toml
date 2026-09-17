@@ -1,0 +1,11 @@
+# ty.toml — Configuration for Astral ty type checker
+
+[environment]
+python = ".venv"
+
+[rules]
+deprecated = "ignore"
+invalid-assignment = "ignore"
+invalid-argument-type = "ignore"
+no-matching-overload = "ignore"
+unresolved-import = "error"

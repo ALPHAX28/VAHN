@@ -1,6 +1,8 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, ForeignKey, Table, JSON
+
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.orm import relationship
+
 from database import Base
 
 # Association table for Collection & Product (Many-to-Many)
@@ -203,7 +205,7 @@ class Order(Base):
 
     id = Column(String, primary_key=True, index=True)  # e.g. ORD-894721
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    
+
     # Guest order identification
     is_guest = Column(Boolean, default=False, nullable=False)
     guest_name = Column(String, nullable=True)

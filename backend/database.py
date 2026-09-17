@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -19,11 +20,9 @@ if DATABASE_URL:
     elif DATABASE_URL.startswith("postgresql://") and "+psycopg2" not in DATABASE_URL and "+pg8000" not in DATABASE_URL:
         DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
     elif "+pg8000" in DATABASE_URL:
-        try:
-            import psycopg2
+        import importlib.util
+        if importlib.util.find_spec("psycopg2"):
             DATABASE_URL = DATABASE_URL.replace("+pg8000", "+psycopg2")
-        except ImportError:
-            pass
 
     if "?" in DATABASE_URL:
         DATABASE_URL = DATABASE_URL.split("?")[0]

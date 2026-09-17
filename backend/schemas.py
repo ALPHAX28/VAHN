@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
-from typing import List, Optional, Generic, TypeVar
+from typing import List, Optional, TypeVar
+
 from pydantic import BaseModel, field_validator
 
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
@@ -771,36 +772,7 @@ class OrderSchema(BaseModel):
     replacementCourierName: Optional[str] = None
     replacementTrackingUrl: Optional[str] = None
 
-# ============================================================
-# Admin Auth Schemas
-# ============================================================
 
-class AdminRegisterRequest(BaseModel):
-    email: str
-    password: str
-    full_name: str
-    admin_secret: str
-
-    @field_validator('email')
-    @classmethod
-    def check_email(cls, v: str) -> str:
-        return validate_email_str(v)
-
-    @field_validator('password')
-    @classmethod
-    def check_password(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters long.")
-        return v
-
-class AdminLoginRequest(BaseModel):
-    email: str
-    password: str
-
-    @field_validator('email')
-    @classmethod
-    def check_email(cls, v: str) -> str:
-        return validate_email_str(v)
 
 # ============================================================
 # Admin Dashboard Schemas

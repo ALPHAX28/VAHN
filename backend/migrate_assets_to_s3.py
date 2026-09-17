@@ -3,18 +3,17 @@ Asset Migration Script: UploadThing & External Media -> AWS S3 (Bucket: vahn, Re
 Scans database for product images, colour groups, lookbooks, size guides, and collections,
 downloads them, uploads to S3, and updates Neon PostgreSQL with the new S3 URLs.
 """
-import os
-import sys
-import json
-import urllib.request
 import mimetypes
+import os
+import urllib.request
+
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
-from database import SessionLocal
 import models
-from storage import storage, sanitize_filename
+from database import SessionLocal
+from storage import storage
 
 db = SessionLocal()
 

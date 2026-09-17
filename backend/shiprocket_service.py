@@ -1,12 +1,14 @@
+import logging
 import os
 import re
 import time
-import logging
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
+
 import httpx
 from sqlalchemy.orm import Session
-import models
+
 import database
+import models
 
 logger = logging.getLogger(__name__)
 
@@ -390,7 +392,7 @@ def create_forward_shipment(
     for i in items:
         # Include product title and variant details (size / colour)
         item_name = f"{i.product_title} - {i.variant_title}" if getattr(i, "variant_title", None) else i.product_title
-        
+
         # Clean SKU representation
         raw_sku = getattr(i, "sku", None) or getattr(i, "variant_id", None) or f"VAHN-{i.id[:8]}"
         clean_sku = str(raw_sku).upper().replace(" ", "-")

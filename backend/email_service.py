@@ -1,8 +1,9 @@
 import os
 import smtplib
-from email.message import EmailMessage
-from typing import Optional, List, Dict, Any
 from datetime import datetime
+from email.message import EmailMessage
+from typing import Optional
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -137,10 +138,10 @@ def send_otp_email(to_email: str, otp_code: str, subject: str = "Your VAHN Verif
     </html>
     """
 
-    print(f"\n==========================================")
+    print("\n==========================================")
     print(f"  [OTP EMAIL RECIPIENT]: {to_email}")
     print(f"  [OTP VERIFICATION CODE]: {otp_code}")
-    print(f"==========================================\n")
+    print("==========================================\n")
 
     return _send_email(
         to_email=to_email,
@@ -150,7 +151,7 @@ def send_otp_email(to_email: str, otp_code: str, subject: str = "Your VAHN Verif
     )
 
 
-def send_order_confirmation_email(to_email: str, order_id: str, total_amount: float, currency: str = "INR", items_summary: list = None) -> bool:
+def send_order_confirmation_email(to_email: str, order_id: str, total_amount: float, currency: str = "INR", items_summary: Optional[list] = None) -> bool:
     """
     Sends an Order Confirmation email asynchronously using Amazon SES.
     """
@@ -184,9 +185,9 @@ def send_order_confirmation_email(to_email: str, order_id: str, total_amount: fl
           <img src="{logo_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; border: 0; outline: none; text-decoration: none; color: #111111; font-size: 20px; font-weight: 800; letter-spacing: 0.2em;" />
         </div>
         <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 32px;">Order Confirmed #{order_id}</p>
-        
+
         <p style="font-size: 15px; color: #444444; line-height: 1.6;">Thank you for shopping with VAHN. We have received your order and are preparing it for dispatch.</p>
-        
+
         <table style="width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 14px; color: #333333;">
           <thead>
             <tr style="border-bottom: 2px solid #111111; text-align: left;">
@@ -210,11 +211,11 @@ def send_order_confirmation_email(to_email: str, order_id: str, total_amount: fl
     </html>
     """
 
-    print(f"\n==========================================")
+    print("\n==========================================")
     print(f"  [ORDER EMAIL RECIPIENT]: {to_email}")
     print(f"  [ORDER ID]: {order_id}")
     print(f"  [TOTAL AMOUNT]: {currency} {total_amount:.2f}")
-    print(f"==========================================\n")
+    print("==========================================\n")
 
     return _send_email(
         to_email=to_email,
@@ -256,7 +257,7 @@ def send_restock_notification_email(to_email: str, product_title: str, product_h
     </head>
     <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f4f5; margin: 0; padding: 40px 20px;">
       <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border: 2px solid #000000; overflow: hidden;">
-        
+
         <!-- Header Banner -->
         <div style="background-color: #000000; padding: 24px; text-align: center;">
           <img src="{logo_white_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; vertical-align: middle; border: 0; outline: none; text-decoration: none; color: #ffffff; font-size: 22px; font-weight: 900; letter-spacing: 0.25em;" />
@@ -264,7 +265,7 @@ def send_restock_notification_email(to_email: str, product_title: str, product_h
 
         <!-- Content Area -->
         <div style="padding: 36px 30px; text-align: center;">
-          
+
           <span style="display: inline-block; background: #d32f2f; color: #ffffff; font-size: 11px; font-weight: 800; letter-spacing: 0.15em; padding: 4px 12px; text-transform: uppercase; margin-bottom: 16px;">
             BACK IN STOCK
           </span>
@@ -348,11 +349,11 @@ def send_account_suspended_email(to_email: str, name: str = "", reason: str = ""
     </html>
     """
 
-    print(f"\n==========================================")
+    print("\n==========================================")
     print(f"  [SUSPENSION EMAIL RECIPIENT]: {to_email}")
     print(f"  [CUSTOMER NAME]: {customer_name}")
     print(f"  [SUSPENSION REASON]: {reason or 'N/A'}")
-    print(f"==========================================\n")
+    print("==========================================\n")
 
     return _send_email(
         to_email=to_email,
@@ -398,10 +399,10 @@ def send_account_reactivated_email(to_email: str, name: str = "") -> bool:
     </html>
     """
 
-    print(f"\n==========================================")
+    print("\n==========================================")
     print(f"  [REACTIVATION EMAIL RECIPIENT]: {to_email}")
     print(f"  [CUSTOMER NAME]: {customer_name}")
-    print(f"==========================================\n")
+    print("==========================================\n")
 
     return _send_email(
         to_email=to_email,
@@ -445,10 +446,10 @@ def send_account_deleted_email(to_email: str, name: str = "") -> bool:
     </html>
     """
 
-    print(f"\n==========================================")
+    print("\n==========================================")
     print(f"  [DELETION EMAIL RECIPIENT]: {to_email}")
     print(f"  [CUSTOMER NAME]: {customer_name}")
-    print(f"==========================================\n")
+    print("==========================================\n")
 
     return _send_email(
         to_email=to_email,
