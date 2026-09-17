@@ -140,37 +140,21 @@ export default function AdminWarehousesPage() {
   }
 
   return (
-    <div style={{ padding: "24px 32px", maxWidth: 1200, margin: "0 auto", fontFamily: "var(--font-ui)" }}>
+    <div className="admin-page">
       {/* Top Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, flexWrap: "wrap", gap: 16 }}>
+      <div className="admin-page-header">
         <div>
-          <h1 style={{ fontSize: "1.8rem", fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.02em", margin: 0 }}>
-            Warehouses & Pickup Locations
-          </h1>
-          <p style={{ color: "#666", fontSize: "0.9rem", margin: "6px 0 0" }}>
-            Origin facilities for all forward courier dispatches and destination hubs for automated reverse returns via Shiprocket.
+          <h1 className="admin-page-title">Warehouses & Pickup Locations</h1>
+          <p className="admin-page-subtitle">
+            {warehouses.length} total registered pickup & dispatch locations
           </p>
         </div>
 
         <button
+          className="admin-btn admin-btn--primary"
           onClick={() => setShowModal(true)}
-          style={{
-            background: "#000",
-            color: "#fff",
-            border: "none",
-            padding: "12px 24px",
-            fontWeight: 800,
-            fontSize: "0.85rem",
-            textTransform: "uppercase",
-            letterSpacing: "-0.01em",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            borderRadius: "0px",
-          }}
         >
-          <span>+</span> Add Warehouse Location
+          + Add Warehouse Location
         </button>
       </div>
 

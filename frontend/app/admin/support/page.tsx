@@ -198,25 +198,15 @@ export default function AdminSupportPage() {
   };
 
   return (
-    <div style={{ padding: "32px 24px", maxWidth: "1400px", margin: "0 auto" }}>
+    <div className="admin-page">
       {/* ── Page Header ── */}
-      <div style={{ marginBottom: "28px" }}>
-        <h1
-          style={{
-            fontFamily: "var(--font-heading)",
-            fontSize: "1.75rem",
-            fontWeight: 800,
-            letterSpacing: "-0.03em",
-            textTransform: "uppercase",
-            margin: "0 0 6px",
-            color: "#111",
-          }}
-        >
-          Customer Inquiries
-        </h1>
-        <p style={{ margin: 0, color: "#666", fontSize: "0.875rem" }}>
-          Inbound messages and support tickets submitted via the VAHN storefront Contact page.
-        </p>
+      <div className="admin-page-header">
+        <div>
+          <h1 className="admin-page-title">Customer Inquiries</h1>
+          <p className="admin-page-subtitle">
+            {counts.all} total customer inquiries & messages
+          </p>
+        </div>
       </div>
 
       {/* ── Filter Tabs & Search Bar ── */}
