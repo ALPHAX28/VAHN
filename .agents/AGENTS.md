@@ -27,3 +27,25 @@ Whenever generating, editing, refactoring, or modifying ANY backend Python file,
 3. **Python `py_compile`**: The assistant MUST ALWAYS compile every modified backend Python file using `python -m py_compile <file_path>` (or `.\backend\.venv\Scripts\python.exe -m py_compile <file_path>`). Must exit cleanly with exit code 0.
 4. **Verify clean module import**: When modifying `main.py` or foundational services, verify that the module imports cleanly without unhandled runtime exceptions (`python -c "import main"`).
 5. **Zero Errors Allowed**: Not a single file is allowed to have any syntax error, indentation issue, undefined token, lint warning, or type violation.
+
+## 6. Mandatory Frontend Quality Gate: TypeScript, Biome, & Build Rule (STRICT RULE)
+Whenever generating, editing, refactoring, or modifying ANY frontend TypeScript/TSX file, component, page, layout, style, or configuration in `frontend/`:
+1. **TypeScript Quality Gate**: Run `npx tsc --noEmit` in `frontend/`. Must exit with code 0 and zero type errors.
+2. **Biome Linter & Formatter**: Run `npm run check:biome` (or `npx biome check .`) in `frontend/`. Must pass with zero unhandled errors.
+3. **Next.js Production Build Validation**: Whenever modifying global layouts (`app/layout.tsx`), root components, routing structure, or `next.config.js`, run `npm run build` in `frontend/` to verify that all static and dynamic routes compile and render cleanly in standalone mode.
+4. **Zero Errors Allowed**: Not a single frontend file is allowed to have any syntax error, unresolved import, undefined prop, or unhandled React runtime error before pushing to `dev`.
+
+## 7. Frontend UI/UX, Image Optimization, & Toast Standards Rule
+1. **Toast Notifications**: ALWAYS use `sonner` (`import { toast } from 'sonner'`) for user feedback (`toast.success(...)`, `toast.error(...)`, `toast.loading(...)`, `toast.promise(...)`). NEVER create one-off `const [toast, setToast] = useState("")` alert blocks in individual pages.
+2. **Client-Side Data Fetching & Caching**: Prefer `swr` (`useApi` from `@/lib/swr`) for real-time cart state, profile syncing, or client-side polling to avoid memory leaks and unhandled promise rejections.
+3. **Next.js Image Optimization**: ALWAYS use Next.js `<Image />` component with configured AVIF and WebP formats (`formats: ['image/avif', 'image/webp']`). NEVER set `unoptimized: true` without explicit architectural approval.
+
+## 8. Container Security & Docker Hardening Rule (STRICT RULE)
+Every container build (backend and frontend) must adhere to unprivileged security and build optimization:
+1. **Unprivileged Non-Root Execution**:
+   - Backend container MUST run under non-root `vahn:10001` (`USER vahn:vahn`).
+   - Frontend container MUST run under non-root `nextjs:1001` (`USER nextjs:nodejs`).
+2. **Docker Context Cleanliness**: Both `backend/.dockerignore` and `frontend/.dockerignore` MUST prevent local artifacts (`node_modules/`, `.next/`, `.venv/`, `*.log`, `.env*.local`) from leaking into Docker daemon build contexts.
+3. **Build Caching**: Dockerfiles MUST utilize BuildKit cache mounts (`RUN --mount=type=cache,target=...`) for dependency installation stages (`uv sync` / `npm ci`).
+4. **Native Container Healthcheck**: Every production container Dockerfile MUST specify a native `HEALTHCHECK` directive (e.g. `curl -f http://localhost:8000/api/health` or `wget -qO- http://localhost:3000/`).
+
