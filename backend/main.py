@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 import database
 from database import engine, get_db, SessionLocal
@@ -705,12 +705,13 @@ def _user_schema(user: models.User) -> schemas.UserSchema:
 @app.post("/api/auth/check-email")
 def check_email(payload: schemas.EmailLookupRequest, db: Session = Depends(get_db)):
     """
-    Probe whether an email address is already registered and verified.
+    Probe whether an email address is already registered and verified or has customer profile details.
     Returns {exists: bool} — no OTP sent, no side effects.
     """
     email = payload.email.strip().lower()
-    user = db.query(models.User).filter(models.User.email == email).first()
-    return {"exists": user is not None and user.is_verified}
+    user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
+    has_profile = bool(user and (user.is_verified or (user.full_name and user.phone)))
+    return {"exists": has_profile}
 
 @app.post("/api/auth/check-phone")
 def check_phone(payload: schemas.PhoneLookupRequest, db: Session = Depends(get_db)):
@@ -722,24 +723,24 @@ def check_phone(payload: schemas.PhoneLookupRequest, db: Session = Depends(get_d
 def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
     """
     Unified register + login: send OTP to Email.
-    - Existing user: OTP sent to registered email immediately.
+    - Existing user (or auto-created via Magic Checkout with profile info): OTP sent to registered email immediately.
     - New user: full_name and phone are REQUIRED; user record created (unverified) then OTP sent to email.
     Rate limited: max 3 per 10 min per email.
     """
     email = payload.email.strip().lower()
     check_rate_limit(email)  # Raises 429 if too many requests
 
-    user = db.query(models.User).filter(models.User.email == email).first()
+    user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
 
-    if user and user.is_verified:
-        # Existing verified user — login flow
+    if user and (user.is_verified or (user.full_name and user.phone)):
+        # Existing verified user OR user auto-created via Magic Checkout with profile info
         if not user.is_active:
             reason_msg = f" Reason: {user.suspension_reason}." if user.suspension_reason else ""
             raise HTTPException(status_code=403, detail=f"Your account has been suspended by administration.{reason_msg} Please contact support for assistance.")
         otp = generate_6digit_otp()
         otp_token = create_otp_token(email, otp)
         send_otp_email(email, otp, subject="Your VAHN Verification Code")
-        return {"otp_token": otp_token, "is_new_user": False}
+        return {"otp_token": otp_token, "is_new_user": not user.is_verified}
 
     else:
         # New user / unverified registration flow: full_name AND phone are REQUIRED
@@ -762,7 +763,7 @@ def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
         # Check if phone is already registered to another verified account
         existing_phone = db.query(models.User).filter(
             models.User.phone == phone,
-            models.User.email != email,
+            func.lower(models.User.email) != email,
             models.User.is_verified == True
         ).first()
         if existing_phone:
@@ -813,14 +814,14 @@ def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db))
     """
     Verify OTP for customer login/registration via Email.
     - Validates HMAC-signed token (5-min expiry, max 5 attempts).
-    - On success: marks user verified, returns JWT access token.
+    - On success: marks user verified, claims unlinked orders, returns JWT access token.
     """
     email = payload.email.strip().lower()
 
     # HMAC token verification (raises HTTPException on failure)
     verify_otp_token(email, payload.otp_code, payload.otp_token)
 
-    user = db.query(models.User).filter(models.User.email == email).first()
+    user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="Account not found. Please start over.")
     if not user.is_active:
@@ -829,6 +830,18 @@ def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db))
 
     user.is_verified = True
     user.email_verified = True
+    if user.phone:
+        user.phone_verified = True
+
+    # Claim & link any unlinked orders placed with this email or phone
+    claim_filters = [func.lower(models.Order.guest_email) == email]
+    if user.phone:
+        claim_filters.append(models.Order.guest_phone == user.phone)
+    db.query(models.Order).filter(
+        models.Order.user_id == None,
+        or_(*claim_filters)
+    ).update({"user_id": user.id, "is_guest": False}, synchronize_session=False)
+
     db.commit()
     db.refresh(user)
 
@@ -1861,13 +1874,9 @@ def magic_checkout_order(
 
     # Automatically save or link customer account in database (models.User)
     user = None
-    if cust_email and cust_phone:
-        user = db.query(models.User).filter(
-            (models.User.email == cust_email) | (models.User.phone == cust_phone)
-        ).first()
-    elif cust_email:
-        user = db.query(models.User).filter(models.User.email == cust_email).first()
-    elif cust_phone:
+    if cust_email:
+        user = db.query(models.User).filter(func.lower(models.User.email) == cust_email.lower()).first()
+    if not user and cust_phone:
         user = db.query(models.User).filter(models.User.phone == cust_phone).first()
 
     if user:
@@ -1875,33 +1884,31 @@ def magic_checkout_order(
         if (not user.full_name or user.full_name in ("Athlete", "Customer", "Guest", "")) and cust_name:
             user.full_name = cust_name
         if not user.email and cust_email:
-            existing_email_user = db.query(models.User).filter(models.User.email == cust_email).first()
+            existing_email_user = db.query(models.User).filter(func.lower(models.User.email) == cust_email.lower()).first()
             if not existing_email_user:
                 user.email = cust_email
-                user.email_verified = True
         if not user.phone and cust_phone:
             existing_phone_user = db.query(models.User).filter(models.User.phone == cust_phone).first()
             if not existing_phone_user:
                 user.phone = cust_phone
-                user.phone_verified = True
         db.flush()
     else:
-        # Auto-create new customer in database (saved with role='customer')
+        # Auto-create new customer in database (saved with role='customer', initially unverified)
         final_email = cust_email
         final_phone = cust_phone
-        if final_email and db.query(models.User).filter(models.User.email == final_email).first():
+        if final_email and db.query(models.User).filter(func.lower(models.User.email) == final_email.lower()).first():
             final_email = None
         if final_phone and db.query(models.User).filter(models.User.phone == final_phone).first():
             final_phone = None
 
         user = models.User(
             email=final_email,
-            email_verified=bool(final_email),
+            email_verified=False,
             phone=final_phone,
-            phone_verified=bool(final_phone),
+            phone_verified=False,
             full_name=cust_name or "Guest Customer",
             role="customer",
-            is_verified=True,
+            is_verified=False,
             is_active=True,
             password_hash=None,
             salt=None
@@ -2716,7 +2723,19 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/api/orders", response_model=List[schemas.OrderSchema])
 def get_user_orders(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    orders = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(user_id=current_user.id).order_by(models.Order.created_at.desc()).all()
+    # Automatically claim any unlinked orders with matching guest_email
+    if current_user.email:
+        unlinked = db.query(models.Order).filter(
+            models.Order.user_id == None,
+            func.lower(models.Order.guest_email) == current_user.email.lower()
+        ).update({"user_id": current_user.id, "is_guest": False}, synchronize_session=False)
+        if unlinked:
+            db.commit()
+
+    orders = db.query(models.Order).options(selectinload(models.Order.items)).filter(
+        (models.Order.user_id == current_user.id) |
+        ((models.Order.user_id == None) & (func.lower(models.Order.guest_email) == (current_user.email or "").lower()))
+    ).order_by(models.Order.created_at.desc()).all()
     return [build_order_schema(o) for o in orders]
 
 @app.get("/api/orders/{order_id}", response_model=schemas.OrderSchema)
@@ -4254,12 +4273,12 @@ def admin_list_users(
     page: int = 1,
     page_size: int = 20,
     search: Optional[str] = None,
-    role: Optional[str] = "customer",
+    role: Optional[str] = None,
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     q = db.query(models.User).options(selectinload(models.User.addresses))
-    if role:
+    if role and role.lower() != "all":
         q = q.filter(models.User.role == role)
     if search:
         search_filter = f"%{search}%"

@@ -14,7 +14,7 @@ export default function AdminUsersPage() {
   const [searchInput, setSearchInput] = useState("");
   const [page, setPage] = useState(1);
 
-  const cachePath = `/admin/users?page=${page}${search ? `&search=${encodeURIComponent(search)}` : ""}&role=customer`;
+  const cachePath = `/admin/users?page=${page}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
   const cacheKey = adminToken ? `admin:${adminToken.slice(0, 10)}:${cachePath}` : "";
   const initialData = cacheKey ? clientCache.get<PaginatedResponse<AdminUser>>(cacheKey) : null;
 
@@ -31,7 +31,7 @@ export default function AdminUsersPage() {
     if (!adminToken) return;
     if (!isSilent && !data) setLoading(true);
     try {
-      const res = await getAdminUsers(adminToken, { page, search: search || undefined, role: "customer" });
+      const res = await getAdminUsers(adminToken, { page, search: search || undefined });
       setData(res);
     } finally { setLoading(false); }
   }
@@ -105,8 +105,24 @@ export default function AdminUsersPage() {
                 {data?.items.map(user => (
                   <tr key={user.id}>
                     <td>
-                      <div className="admin-table-name">
+                      <div className="admin-table-name" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <Link href={`/admin/users/${user.id}`} className="admin-table-link">{user.full_name || "Customer"}</Link>
+                        {user.role === "admin" && (
+                          <span
+                            style={{
+                              fontSize: "0.65rem",
+                              fontWeight: 800,
+                              background: "#f3f4f6",
+                              color: "#374151",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "4px",
+                              padding: "1px 6px",
+                              letterSpacing: "0.05em",
+                            }}
+                          >
+                            ADMIN
+                          </span>
+                        )}
                       </div>
                       <div className="admin-table-sub" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
                         {user.email && <span>{user.email}</span>}
