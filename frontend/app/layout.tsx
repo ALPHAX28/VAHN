@@ -3,6 +3,7 @@ import '@/app/globals.css';
 import { CartProvider } from '@/context/CartContext';
 import { AuthProvider } from '@/context/AuthContext';
 import StoreLayoutShell from '@/components/layout/StoreLayoutShell';
+import { Toaster } from 'sonner';
 
 import ClientWarmup from '@/components/layout/ClientWarmup';
 import ScrollToTop from '@/components/layout/ScrollToTop';
@@ -42,6 +43,7 @@ export default function RootLayout({
             <StoreLayoutShell>{children}</StoreLayoutShell>
           </CartProvider>
         </AuthProvider>
+        <Toaster position="top-center" richColors closeButton />
       </body>
     </html>
   );
