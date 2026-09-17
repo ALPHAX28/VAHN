@@ -273,7 +273,7 @@ export default function AdminSupportPage() {
         <div style={{ width: "300px" }}>
           <input
             type="text"
-            placeholder="Search inquiries..."
+            placeholder="Search by name, email, or inquiry..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="input"

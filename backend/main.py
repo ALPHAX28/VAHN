@@ -5429,12 +5429,15 @@ def list_admin_contact_messages(
         query = query.filter(models.ContactMessage.status == status.upper())
 
     if search:
-        search_pattern = f"%{search.strip()}%"
+        search_clean = search.strip()
+        search_pattern = f"%{search_clean}%"
         query = query.filter(
-            sqlalchemy.or_(
+            or_(
                 models.ContactMessage.first_name.ilike(search_pattern),
                 models.ContactMessage.last_name.ilike(search_pattern),
+                func.concat(models.ContactMessage.first_name, " ", models.ContactMessage.last_name).ilike(search_pattern),
                 models.ContactMessage.email.ilike(search_pattern),
+                models.ContactMessage.phone.ilike(search_pattern),
                 models.ContactMessage.order_number.ilike(search_pattern),
                 models.ContactMessage.subject.ilike(search_pattern),
                 models.ContactMessage.message.ilike(search_pattern),
