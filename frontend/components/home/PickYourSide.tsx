@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useMemo } from 'react';
 import type { Product } from '@/lib/api/types';
 
 interface PickYourSideProps {
@@ -19,11 +19,9 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
   const featuredProduct = useMemo(() => {
     if (!products || products.length === 0) return null;
     return (
-      products.find((p) =>
-        p.tags?.some((t) => t.toLowerCase().trim() === 'pick-your-side')
-      ) ||
-      products.find((p) =>
-        p.handle.toLowerCase().includes('jersey') || p.title.toLowerCase().includes('jersey')
+      products.find((p) => p.tags?.some((t) => t.toLowerCase().trim() === 'pick-your-side')) ||
+      products.find(
+        (p) => p.handle.toLowerCase().includes('jersey') || p.title.toLowerCase().includes('jersey')
       ) ||
       products[0]
     );
@@ -174,10 +172,10 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
         >
           {/* Real Athlete Image Card 01 — White Jersey */}
           <Image
-            src="/assets/pick-your-side-01.webp"
+            src="/assets/pick-your-side-01.png"
             alt="Pick Your Side — White"
             fill
-            sizes="(max-width: 768px) 100vw, 50vw"
+            unoptimized
             className="pick-your-side-img"
           />
 
@@ -229,10 +227,10 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
         >
           {/* Real Athlete Image Card 02 — Black Jersey */}
           <Image
-            src="/assets/pick-your-side-02.webp"
+            src="/assets/pick-your-side-02.png"
             alt="Pick Your Side — Black"
             fill
-            sizes="(max-width: 768px) 100vw, 50vw"
+            unoptimized
             className="pick-your-side-img"
           />
 
