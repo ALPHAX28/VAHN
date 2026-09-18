@@ -1,6 +1,24 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+
 export default function VideoSection() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    // Ensure muted autoplay succeeds seamlessly across mobile Safari and Chromium
+    if (videoRef.current) {
+      videoRef.current.defaultMuted = true;
+      videoRef.current.muted = true;
+      videoRef.current.play().catch(() => {
+        // Suppress autoplay policy rejection if browser pauses media in low-power mode
+      });
+    }
+  }, []);
+
   return (
     <section
+      aria-label="VAHN Brand Film"
       style={{
         position: 'relative',
         width: '100%',
@@ -17,11 +35,13 @@ export default function VideoSection() {
       }}
     >
       <video
+        ref={videoRef}
         autoPlay
         muted
         loop
         playsInline
         preload="auto"
+        poster="/assets/main-banner-poster.webp"
         style={{
           position: 'absolute',
           inset: 0,
@@ -30,6 +50,7 @@ export default function VideoSection() {
           objectFit: 'cover',
         }}
       >
+        <source src="/assets/main-banner-mobile.mp4" type="video/mp4" media="(max-width: 768px)" />
         <source src="/assets/main-banner-desktop.mp4" type="video/mp4" />
       </video>
     </section>

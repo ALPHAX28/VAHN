@@ -37,6 +37,7 @@ next-env.d.ts
 extracted_mockup/
 landing_mockup/
 *.pdf
+*mainfilm*.mp4
 
 # OS & Logs
 .DS_Store

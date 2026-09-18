@@ -1,12 +1,11 @@
 import type { Metadata } from 'next';
 import '@/app/globals.css';
-import { CartProvider } from '@/context/CartContext';
-import { AuthProvider } from '@/context/AuthContext';
-import StoreLayoutShell from '@/components/layout/StoreLayoutShell';
 import { Toaster } from 'sonner';
-
 import ClientWarmup from '@/components/layout/ClientWarmup';
 import ScrollToTop from '@/components/layout/ScrollToTop';
+import StoreLayoutShell from '@/components/layout/StoreLayoutShell';
+import { AuthProvider } from '@/context/AuthContext';
+import { CartProvider } from '@/context/CartContext';
 
 export const metadata: Metadata = {
   title: { default: 'VAHN — Bespoke Teamwear', template: '%s | VAHN' },
@@ -21,18 +20,15 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.ico' },
-      { url: '/assets/logos/VAHN-Symbol-colour-transparent.png', type: 'image/png' },
+      { url: '/icon.png', type: 'image/png' },
+      { url: '/assets/VAHN-Symbol-white-transparent-favicon.png', type: 'image/png' },
     ],
     shortcut: '/favicon.ico',
     apple: '/apple-touch-icon.png',
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
