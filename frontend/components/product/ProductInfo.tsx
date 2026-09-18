@@ -272,9 +272,12 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
 
   const handleOptionSelect = useCallback(
     (optionName: string, value: string) => {
+      const isColour = optionName.toLowerCase() === 'colour' || optionName.toLowerCase() === 'color';
+      if (isColour && onColourChange) {
+        onColourChange(value);
+      }
       setSelectedOptions((prev) => {
         const next = { ...prev, [optionName]: value };
-        const isColour = optionName.toLowerCase() === 'colour' || optionName.toLowerCase() === 'color';
         
         // If Colour changed, check if current selected Size is valid for new Colour
         if (isColour && prev['Size']) {
@@ -290,7 +293,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
         return next;
       });
     },
-    [variants]
+    [variants, onColourChange]
   );
 
   const isValueAvailable = (optionName: string, value: string) => {

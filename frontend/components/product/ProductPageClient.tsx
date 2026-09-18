@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import type { Product, Image as ShopifyImage } from '@/lib/api/types';
-import ProductMediaGallery from '@/components/product/ProductMediaGallery';
-import ProductInfo from '@/components/product/ProductInfo';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import ProductHighlights from '@/components/product/ProductHighlights';
+import ProductInfo from '@/components/product/ProductInfo';
 import ProductLookbook from '@/components/product/ProductLookbook';
+import ProductMediaGallery from '@/components/product/ProductMediaGallery';
+import type { Product, Image as ShopifyImage } from '@/lib/api/types';
 
 interface Props {
   product: Product;
@@ -65,9 +65,39 @@ function ProductPageClientInner({ product, defaultImages }: Props) {
     }
   }, [matchedColourGroup]);
 
+  // Ensure the URL has the initial canonical colour query param if missing
+  useEffect(() => {
+    if (typeof window !== 'undefined' && matchedColourGroup?.colourValue) {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has('colour') && !url.searchParams.has('color')) {
+        url.searchParams.set('colour', matchedColourGroup.colourValue);
+        window.history.replaceState(
+          window.history.state,
+          '',
+          `${url.pathname}?${url.searchParams.toString()}`
+        );
+      }
+    }
+  }, [matchedColourGroup]);
+
   const handleColourChange = useCallback(
     (colourValue: string) => {
       setSelectedColour(colourValue);
+
+      // Synchronize browser address bar URL with selected colour
+      if (typeof window !== 'undefined' && colourValue) {
+        const url = new URL(window.location.href);
+        const currentParam = url.searchParams.get('colour') || url.searchParams.get('color') || '';
+        if (currentParam.trim().toLowerCase() !== colourValue.trim().toLowerCase()) {
+          url.searchParams.set('colour', colourValue);
+          url.searchParams.delete('color');
+          window.history.replaceState(
+            window.history.state,
+            '',
+            `${url.pathname}?${url.searchParams.toString()}`
+          );
+        }
+      }
 
       if (!colourValue) {
         setGalleryImages(defaultImages);
@@ -103,6 +133,20 @@ function ProductPageClientInner({ product, defaultImages }: Props) {
     [product.colourGroups, defaultImages]
   );
 
+  // Synchronize on browser Back/Forward navigation (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window === 'undefined') return;
+      const url = new URL(window.location.href);
+      const colourFromUrl = url.searchParams.get('colour') || url.searchParams.get('color');
+      if (colourFromUrl) {
+        handleColourChange(colourFromUrl);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [handleColourChange]);
+
   // Dynamically resolve Lookbook cards matching the selected colour:
   // If product has colour groups, strictly use that colour's cards (never leak to other colours).
   // Only products with NO colour groups use product.lookbook.
@@ -124,7 +168,9 @@ function ProductPageClientInner({ product, defaultImages }: Props) {
         <ProductMediaGallery images={galleryImages} productTitle={product.title} />
         <ProductInfo
           product={product}
-          initialColour={matchedColourGroup?.colourValue || queryColour || undefined}
+          initialColour={
+            selectedColour || matchedColourGroup?.colourValue || queryColour || undefined
+          }
           onColourChange={handleColourChange}
         />
       </div>
@@ -159,10 +205,7 @@ export default function ProductPageClient(props: Props) {
         <>
           <div className="product-page">
             <ProductMediaGallery images={fallbackImages} productTitle={props.product.title} />
-            <ProductInfo
-              product={props.product}
-              initialColour={fallbackColourGroup?.colourValue}
-            />
+            <ProductInfo product={props.product} initialColour={fallbackColourGroup?.colourValue} />
           </div>
           <ProductHighlights product={props.product} />
           <ProductLookbook lookbook={fallbackLookbook} />
