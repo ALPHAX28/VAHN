@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function HeroSection() {
   return (
@@ -9,11 +9,11 @@ export default function HeroSection() {
       {/* Real Top Banner Hero Image */}
       <div className="hero-banner-image-container">
         <Image
-          src="/assets/top-banner.webp"
+          src="/assets/top-banner.png"
           alt="THIS IS VAHN"
           fill
           priority
-          quality={90}
+          quality={85}
           sizes="100vw"
           className="hero-banner-img"
         />
@@ -24,18 +24,11 @@ export default function HeroSection() {
 
       {/* Hero Text */}
       <div className="hero-banner-content">
-        <h1 className="hero-banner-title">
-          PLAY ON.
-        </h1>
+        <h1 className="hero-banner-title">PLAY ON.</h1>
 
-        <p className="hero-banner-subtitle">
-          Built for the way you play.
-        </p>
+        <p className="hero-banner-subtitle">Built for the way you play.</p>
 
-        <Link
-          href="/products"
-          className="hero-banner-btn"
-        >
+        <Link href="/products" className="hero-banner-btn">
           Shop Now
         </Link>
       </div>
