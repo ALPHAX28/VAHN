@@ -50,8 +50,7 @@ export default function VideoSection() {
           objectFit: 'cover',
         }}
       >
-        <source src="/assets/main-banner-mobile.mp4" type="video/mp4" media="(max-width: 768px)" />
-        <source src="/assets/main-banner-desktop.mp4" type="video/mp4" />
+        <source src="/assets/VAHN-VEGA%2026-mainfilm-01.mp4" type="video/mp4" />
       </video>
     </section>
   );

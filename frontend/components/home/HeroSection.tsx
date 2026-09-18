@@ -13,8 +13,7 @@ export default function HeroSection() {
           alt="THIS IS VAHN"
           fill
           priority
-          quality={85}
-          sizes="100vw"
+          unoptimized
           className="hero-banner-img"
         />
       </div>

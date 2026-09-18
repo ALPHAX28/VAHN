@@ -21,6 +21,22 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'vahnsports.com',
       },
+      {
+        protocol: 'https',
+        hostname: '**.ufs.sh',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.ufs.sh',
+      },
+      {
+        protocol: 'https',
+        hostname: 'utfs.io',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.shopify.com',
+      },
     ],
   },
   async headers() {
