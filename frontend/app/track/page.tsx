@@ -55,6 +55,27 @@ function TrackingContent() {
     }
   }
 
+  function handleQueryChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    setQuery(val);
+    if (!val.trim()) {
+      setTracking(null);
+      setError('');
+      if (typeof window !== 'undefined' && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+  }
+
+  function handleClearSearch() {
+    setQuery('');
+    setTracking(null);
+    setError('');
+    if (typeof window !== 'undefined' && window.history.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (query.trim()) {
@@ -376,6 +397,76 @@ function TrackingContent() {
     >
       {/* Responsive Styles */}
       <style>{`
+        .tracking-search-form {
+          display: flex;
+          align-items: stretch;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          border: 2px solid #000;
+          background: #fff;
+          margin-bottom: 40px;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+          overflow: hidden;
+        }
+        .tracking-search-icon-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding-left: 16px;
+          color: #888;
+          flex-shrink: 0;
+        }
+        .tracking-search-input {
+          flex: 1 1 0%;
+          min-width: 0 !important;
+          width: 100%;
+          box-sizing: border-box;
+          padding: 16px 12px;
+          border: none;
+          font-size: 0.95rem;
+          font-weight: 600;
+          outline: none;
+          letter-spacing: -0.01em;
+          background: transparent;
+        }
+        .tracking-search-clear-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 0 10px;
+          color: #888;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: color 0.15s ease;
+        }
+        .tracking-search-clear-btn:hover {
+          color: #000;
+        }
+        .tracking-search-btn {
+          background: #000;
+          color: #fff;
+          border: none;
+          padding: 0 24px;
+          font-size: 0.85rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          transition: background 0.2s ease;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+        .tracking-search-btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
         .tracking-card {
           border: 1px solid #000;
           background: #fff;
@@ -585,6 +676,21 @@ function TrackingContent() {
           .tracking-search-form {
             margin-bottom: 24px !important;
           }
+          .tracking-search-icon-wrapper {
+            padding-left: 10px !important;
+          }
+          .tracking-search-input {
+            padding: 12px 6px !important;
+            font-size: 0.84rem !important;
+          }
+          .tracking-search-clear-btn {
+            padding: 0 6px !important;
+          }
+          .tracking-search-btn {
+            padding: 0 14px !important;
+            font-size: 0.78rem !important;
+            gap: 4px !important;
+          }
         }
       `}</style>
 
@@ -682,50 +788,22 @@ function TrackingContent() {
       <form
         onSubmit={handleSubmit}
         className="tracking-search-form"
-        style={{
-          display: 'flex',
-          border: '2px solid #000',
-          background: '#fff',
-          marginBottom: '40px',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.05)',
-        }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '16px', color: '#888' }}>
+        <div className="tracking-search-icon-wrapper">
           <SearchIcon size={18} color="#666" />
         </div>
         <input
           type="text"
-          placeholder="Enter Order ID (e.g. ORD-820990) or Courier AWB..."
+          className="tracking-search-input"
+          placeholder="Enter Order ID or Courier AWB..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          style={{
-            flex: 1,
-            padding: '16px 14px',
-            border: 'none',
-            fontSize: '0.95rem',
-            fontWeight: 600,
-            outline: 'none',
-            letterSpacing: '-0.01em',
-            background: 'transparent',
-          }}
+          onChange={handleQueryChange}
         />
         {query && (
           <button
             type="button"
-            onClick={() => {
-              setQuery('');
-              setTracking(null);
-              setError('');
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '0 12px',
-              color: '#888',
-              display: 'flex',
-              alignItems: 'center',
-            }}
+            className="tracking-search-clear-btn"
+            onClick={handleClearSearch}
             title="Clear search"
           >
             <XIcon size={14} color="#888" />
@@ -733,29 +811,15 @@ function TrackingContent() {
         )}
         <button
           type="submit"
+          className="tracking-search-btn"
           disabled={loading}
-          style={{
-            background: '#000',
-            color: '#fff',
-            border: 'none',
-            padding: '0 28px',
-            fontSize: '0.85rem',
-            fontWeight: 800,
-            textTransform: 'uppercase',
-            letterSpacing: '-0.01em',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            transition: 'background 0.2s ease',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
         >
           {loading ? (
             <span>Tracking...</span>
           ) : (
             <>
               <span>Track</span>
-              <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
             </>
