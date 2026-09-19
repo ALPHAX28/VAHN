@@ -465,7 +465,7 @@ export default function ContactPage() {
                   Phone &amp; WhatsApp
                 </span>
                 <a
-                  href="tel:+918013340567"
+                  href="tel:+919310502059"
                   style={{
                     fontFamily: 'var(--font-ui)',
                     fontSize: '1rem',
@@ -474,7 +474,7 @@ export default function ContactPage() {
                     textDecoration: 'none',
                   }}
                 >
-                  +91 8013340567
+                  +91 93105 02059
                 </a>
                 <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: '#666' }}>
                   Monday to Saturday, 10:00 AM – 6:00 PM IST
@@ -537,21 +537,30 @@ export default function ContactPage() {
             >
               <Link
                 href="/account/orders"
-                style={{ color: '#4232d9', textDecoration: 'underline' }}
+                style={{ color: '#4232d9', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center' }}
               >
-                Track My Order &rarr;
+                <span>Track My Order</span>
+                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </Link>
               <Link
                 href="/pages/shipping"
-                style={{ color: '#4232d9', textDecoration: 'underline' }}
+                style={{ color: '#4232d9', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center' }}
               >
-                Returns &amp; Exchange Policy &rarr;
+                <span>Returns &amp; Exchange Policy</span>
+                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </Link>
               <Link
                 href="/pages/terms-and-conditions"
-                style={{ color: '#4232d9', textDecoration: 'underline' }}
+                style={{ color: '#4232d9', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center' }}
               >
-                View Terms &amp; Conditions &rarr;
+                <span>View Terms &amp; Conditions</span>
+                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </Link>
             </div>
           </div>
@@ -1013,7 +1022,16 @@ export default function ContactPage() {
                   opacity: loading ? 0.7 : 1,
                 }}
               >
-                {loading ? 'Sending Message...' : 'Send Message →'}
+                {loading ? (
+                  'Sending Message...'
+                ) : (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span>Send Message</span>
+                    <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </span>
+                )}
               </button>
             </form>
           )}

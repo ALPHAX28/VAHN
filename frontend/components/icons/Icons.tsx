@@ -188,17 +188,17 @@ export function LockIcon({ size = 16, color = "currentColor" }: IconProps) {
   );
 }
 
-export function ChevronRightIcon({ size = 16, color = "currentColor" }: IconProps) {
+export function ChevronRightIcon({ size = 16, color = "currentColor", className = "" }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="m9 18 6-6-6-6" />
     </svg>
   );
 }
 
-export function ChevronLeftIcon({ size = 16, color = "currentColor" }: IconProps) {
+export function ChevronLeftIcon({ size = 16, color = "currentColor", className = "" }: IconProps) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="m15 18-6-6 6-6" />
     </svg>
   );

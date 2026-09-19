@@ -84,12 +84,15 @@ export default function AccountAddressesPage() {
           type="button"
           onClick={() => openAuthModal()}
           style={{
-            display: "inline-block", background: "#000", color: "#fff",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#000", color: "#fff",
             padding: "12px 28px", fontWeight: 900, border: "none", cursor: "pointer",
             textTransform: "uppercase", letterSpacing: '-0.025em', fontSize: "0.82rem", marginTop: 8
           }}
         >
-          Sign In →
+          <span>Sign In</span>
+          <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
         </button>
 
       </div>

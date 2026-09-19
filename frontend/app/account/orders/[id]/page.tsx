@@ -240,9 +240,12 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         <button
           type="button"
           onClick={() => openAuthModal()}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "#000", fontWeight: 800, textDecoration: "underline", fontSize: "0.9rem" }}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "#000", fontWeight: 800, textDecoration: "underline", fontSize: "0.9rem", display: "inline-flex", alignItems: "center" }}
         >
-          Sign In →
+          <span>Sign In</span>
+          <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
         </button>
       </div>
     );
@@ -472,7 +475,10 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 }}
               >
                 <TruckIcon size={15} color="#fff" />
-                Track Shipment →
+                <span>Track Shipment</span>
+                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </button>
             )}
 
@@ -789,7 +795,10 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 gap: 8,
               }}
             >
-              Retry Payment Now →
+              <span>Retry Payment Now</span>
+              <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
             </Link>
             <Link
               href="/products"
@@ -1007,7 +1016,10 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   flexShrink: 0,
                 }}
               >
-                <span>📍 View Live Tracking & Checkpoints →</span>
+                <span>📍 View Live Tracking & Checkpoints</span>
+                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </button>
             </div>
           )}
@@ -1183,7 +1195,12 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   cursor: "pointer",
                 }}
               >
-                📍 View Return Checkpoints & Status →
+                <span style={{ display: "inline-flex", alignItems: "center" }}>
+                  <span>📍 View Return Checkpoints & Status</span>
+                  <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </span>
               </button>
             )}
           </div>
@@ -2003,7 +2020,16 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   borderRadius: "0px",
                 }}
               >
-                {submittingAction ? "Processing..." : "Confirm & Refund →"}
+                {submittingAction ? (
+                  "Processing..."
+                ) : (
+                  <span style={{ display: "inline-flex", alignItems: "center" }}>
+                    <span>Confirm & Refund</span>
+                    <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </span>
+                )}
               </button>
             </div>
           </div>
@@ -2419,11 +2445,20 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   gap: 8,
                 }}
               >
-                {submittingAction
-                  ? "Processing..."
-                  : returnActionType === "REPLACEMENT"
-                  ? `Confirm Size Exchange (${selectedVariantTitle || "Select Size"}) →`
-                  : "Schedule Pickup & 100% Refund →"}
+                {submittingAction ? (
+                  "Processing..."
+                ) : (
+                  <span style={{ display: "inline-flex", alignItems: "center" }}>
+                    <span>
+                      {returnActionType === "REPLACEMENT"
+                        ? `Confirm Size Exchange (${selectedVariantTitle || "Select Size"})`
+                        : "Schedule Pickup & 100% Refund"}
+                    </span>
+                    <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </span>
+                )}
               </button>
             </div>
           </div>

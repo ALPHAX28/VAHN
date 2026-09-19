@@ -44,9 +44,14 @@ export default function PasswordForm() {
           letterSpacing: '-0.025em',
           fontSize: '0.875rem',
           textTransform: 'uppercase',
+          display: 'inline-flex',
+          alignItems: 'center',
         }}
       >
-        Notify Me →
+        <span>Notify Me</span>
+        <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
       </button>
     </form>
   );

@@ -493,10 +493,14 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
                   style={{
                     background: "#000", color: "#fff", border: "none", padding: "12px",
                     fontWeight: 900, fontSize: "0.85rem", cursor: "pointer",
-                    textTransform: "uppercase", letterSpacing: '-0.025em', width: "100%"
+                    textTransform: "uppercase", letterSpacing: '-0.025em', width: "100%",
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
                   }}
                 >
-                  Continue to Complete Address Details →
+                  <span>Continue to Complete Address Details</span>
+                  <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
                 </button>
               )}
             </div>
@@ -773,7 +777,16 @@ export default function AddressModal({ token, isOpen, onClose, onSuccess, initia
                   onMouseEnter={e => { if (!loading) e.currentTarget.style.background = "#4232d9"; }}
                   onMouseLeave={e => { if (!loading) e.currentTarget.style.background = "#000"; }}
                 >
-                  {loading ? "Saving..." : initialAddress ? "Update Address →" : "Save Address →"}
+                  {loading ? (
+                    "Saving..."
+                  ) : (
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                      <span>{initialAddress ? "Update Address" : "Save Address"}</span>
+                      <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </span>
+                  )}
                 </button>
 
               </div>

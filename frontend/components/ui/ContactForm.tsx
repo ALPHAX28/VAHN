@@ -172,7 +172,7 @@ export default function ContactForm() {
         </h3>
         <p style={{ margin: '0 0 6px', fontSize: '0.875rem', lineHeight: 1.6 }}>
           <strong>Email:</strong> <a href="mailto:support@vahnsports.com" style={{ color: '#4232d9', textDecoration: 'underline' }}>support@vahnsports.com</a><br/>
-          <strong>Phone:</strong> +91 8013340567<br/>
+          <strong>Phone:</strong> +91 93105 02059<br/>
           <strong>Support Hours:</strong> Monday to Saturday, 10:00 AM – 6:00 PM IST
         </p>
         <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-grey-dark)' }}>
@@ -290,7 +290,12 @@ export default function ContactForm() {
         {loading ? (
           <span className="loading-spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }} />
         ) : (
-          'Send Message →'
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span>Send Message</span>
+            <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </span>
         )}
       </button>
     </form>

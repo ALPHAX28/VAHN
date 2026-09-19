@@ -361,7 +361,10 @@ function OrderSuccessContent() {
             }}
           >
             <TruckIcon size={16} color="#fff" />
-            <span>Track Order Live →</span>
+            <span>Track Order Live</span>
+            <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
           </Link>
 
           <Link

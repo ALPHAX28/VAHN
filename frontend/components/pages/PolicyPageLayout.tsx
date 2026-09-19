@@ -280,8 +280,8 @@ export default function PolicyPageLayout({ page, currentHandle }: PolicyPageLayo
               </div>
               <div>
                 <span style={{ display: 'block', fontWeight: 600, color: '#111', textTransform: 'uppercase', fontSize: '0.6875rem', letterSpacing: '0.06em' }}>Phone Support</span>
-                <a href="tel:+918013340567" style={{ color: '#111', textDecoration: 'none' }}>
-                  +91 8013340567
+                <a href="tel:+919310502059" style={{ color: '#111', textDecoration: 'none' }}>
+                  +91 93105 02059
                 </a>
               </div>
               <div>
@@ -294,7 +294,10 @@ export default function PolicyPageLayout({ page, currentHandle }: PolicyPageLayo
               href="/pages/contact"
               className="btn btn-primary"
               style={{
-                display: 'block',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
                 textAlign: 'center',
                 marginTop: '24px',
                 background: '#4232d9',
@@ -305,7 +308,10 @@ export default function PolicyPageLayout({ page, currentHandle }: PolicyPageLayo
                 padding: '10px 16px',
               }}
             >
-              Contact Support →
+              <span>Contact Support</span>
+              <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
             </Link>
           </div>
 
@@ -351,9 +357,14 @@ export default function PolicyPageLayout({ page, currentHandle }: PolicyPageLayo
                 letterSpacing: '0.04em',
                 color: '#4232d9',
                 textDecoration: 'underline',
+                display: 'inline-flex',
+                alignItems: 'center',
               }}
             >
-              View My Orders &rarr;
+              <span>View My Orders</span>
+              <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
             </Link>
           </div>
         </aside>

@@ -241,7 +241,7 @@ export const STATIC_PAGES: Record<string, ShopifyPage> = {
       <div class="vahn-page-content">
         <p>We read every message.</p>
         <p><strong>Email:</strong> <a href="mailto:support@vahnsports.com">support@vahnsports.com</a><br/>
-        <strong>Phone:</strong> +91 8013340567<br/>
+        <strong>Phone:</strong> +91 93105 02059<br/>
         <strong>Support Hours:</strong> Monday to Saturday, 10:00 AM – 6:00 PM IST</p>
         <p>For order-related queries, please include your order number. We aim to respond to all emails within 24 hours on business days.</p>
       </div>

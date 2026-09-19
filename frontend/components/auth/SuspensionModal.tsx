@@ -139,12 +139,16 @@ export default function SuspensionModal({ isOpen, message, onClose, noticeType }
               width: "100%", background: "#000000", color: "#ffffff",
               border: "none", padding: "14px 24px", fontSize: "0.85rem",
               fontWeight: 900, cursor: "pointer", textTransform: "uppercase",
-              letterSpacing: '-0.025em', transition: "background 0.15s"
+              letterSpacing: '-0.025em', transition: "background 0.15s",
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
             }}
             onMouseEnter={e => (e.currentTarget.style.background = "#4232d9")}
             onMouseLeave={e => (e.currentTarget.style.background = "#000000")}
           >
-            Understood — Return to Shop &rarr;
+            <span>Understood — Return to Shop</span>
+            <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
           </button>
         </div>
       </div>

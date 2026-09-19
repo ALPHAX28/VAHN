@@ -514,7 +514,6 @@ export default function CheckoutPage() {
         <Link
           href="/products"
           style={{
-            display: 'inline-block',
             background: '#4232d9',
             color: '#fff',
             padding: '14px 32px',
@@ -524,9 +523,15 @@ export default function CheckoutPage() {
             letterSpacing: '-0.025em',
             fontSize: '0.85rem',
             borderRadius: '0px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          Explore Collection →
+          <span>Explore Collection</span>
+          <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
         </Link>
       </div>
     );
@@ -1034,9 +1039,14 @@ export default function CheckoutPage() {
                   cursor: 'pointer',
                   textDecoration: 'underline',
                   padding: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
                 }}
               >
-                Sign In for Saved Addresses →
+                <span>Sign In for Saved Addresses</span>
+                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </button>
             </div>
           </div>
@@ -1298,7 +1308,12 @@ export default function CheckoutPage() {
               {placingOrder ? (
                 <span>Connecting to Gateway...</span>
               ) : user ? (
-                <span>Pay ₹{grandTotal.toLocaleString('en-IN')} via Razorpay →</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span>Pay ₹{grandTotal.toLocaleString('en-IN')} via Razorpay</span>
+                  <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </span>
               ) : (
                 <>
                   <SparklesIcon size={18} color="#fff" />

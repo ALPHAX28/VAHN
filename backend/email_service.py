@@ -571,7 +571,7 @@ def send_contact_inquiry_receipt(to_email: str, customer_name: str = "", subject
         <p style="font-size:14px; color:#555; line-height:1.6;">Our support team reviews every message carefully. We will respond directly to this email address within 24 hours on business days (Monday to Saturday, 10:00 AM &ndash; 6:00 PM IST).</p>
         <div style="background:#fbfbfb; border:1px solid #e9e9e9; padding:16px; margin:24px 0; font-size:12px; color:#666;">
           <strong style="color:#111; display:block; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.04em;">Need Urgent Assistance?</strong>
-          You can also reach our studio directly via Phone/WhatsApp at <a href="tel:+918013340567" style="color:#4232d9; font-weight:700; text-decoration:none;">+91 8013340567</a>.
+          You can also reach our studio directly via Phone/WhatsApp at <a href="tel:+919310502059" style="color:#4232d9; font-weight:700; text-decoration:none;">+91 93105 02059</a>.
         </div>
         <hr style="border:none; border-top:1px solid #eeeeee; margin:32px 0;">
         <p style="font-size:11px; color:#aaaaaa; text-align:center; text-transform:uppercase; letter-spacing:0.1em;">&copy; 2026 VAHN. All rights reserved.</p>

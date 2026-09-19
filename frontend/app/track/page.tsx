@@ -755,7 +755,9 @@ function TrackingContent() {
           ) : (
             <>
               <span>Track</span>
-              <span>→</span>
+              <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
             </>
           )}
         </button>
@@ -1458,9 +1460,14 @@ function TrackingContent() {
                   textTransform: 'uppercase',
                   color: '#000',
                   textDecoration: 'underline',
+                  display: 'inline-flex',
+                  alignItems: 'center',
                 }}
               >
-                Contact Support →
+                <span>Contact Support</span>
+                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </Link>
             </div>
           </div>
