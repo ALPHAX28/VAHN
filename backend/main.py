@@ -923,11 +923,14 @@ def build_order_schema(order: models.Order) -> schemas.OrderSchema:
         ) for i in (order.items or [])
     ]
 
+    raw_status = order.status or "PROCESSING"
+    effective_status = "FAILED" if (order.payment_status == "FAILED" or raw_status in ("FAILED", "PAYMENT_FAILED")) and raw_status != "CANCELLED" else raw_status
+
     return schemas.OrderSchema(
         id=order.id,
         order_id=order.id,
         orderId=order.id,
-        status=order.status,
+        status=effective_status,
         refundStatus=order.refund_status,
         refundNote=order.refund_note,
         refundAmount=order.refund_amount or 0.0,
@@ -1504,7 +1507,7 @@ def razorpay_record_failure(
         if existing:
             if existing.payment_status != "CAPTURED":
                 existing.payment_status = "FAILED"
-                existing.status = "PENDING_PAYMENT"
+                existing.status = "FAILED"
                 existing.cancellation_reason = payload.error_description or payload.error_reason or "Payment session declined or failed."
                 if payload.razorpay_order_id:
                     existing.razorpay_order_id = payload.razorpay_order_id
@@ -1536,7 +1539,7 @@ def razorpay_record_failure(
         guest_name=payload.customer_name,
         guest_email=payload.customer_email,
         guest_phone=payload.customer_phone,
-        status="PENDING_PAYMENT",
+        status="FAILED",
         payment_method="RAZORPAY_CUSTOM",
         payment_status="FAILED",
         razorpay_order_id=payload.razorpay_order_id,
@@ -2253,7 +2256,7 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
 
     tracking_payload = {
         "order_id": order.id,
-        "status": order.status,
+        "status": "FAILED" if (order.payment_status == "FAILED" or (order.status or "") in ("FAILED", "PAYMENT_FAILED")) and order.status != "CANCELLED" else order.status,
         "shipping_status": order.shipping_status or "UNFULFILLED",
         "courier_name": order.shiprocket_courier_name,
         "awb_code": order.shiprocket_awb,
@@ -3760,7 +3763,7 @@ def admin_list_orders(
     items = [
         schemas.AdminOrderSummary(
             id=o.id,
-            status=o.status,
+            status="FAILED" if (o.payment_status == "FAILED" or (o.status or "") in ("FAILED", "PAYMENT_FAILED")) and o.status != "CANCELLED" else o.status,
             refund_status=o.refund_status,
             total_amount=o.total_amount,
             currency=o.currency,
@@ -4182,7 +4185,7 @@ def _admin_order_detail(order: models.Order) -> schemas.AdminOrderSchema:
     user_name = (order.guest_name if order.is_guest else (order.user.full_name if order.user else "")) or (order.user.full_name if order.user else "") or ""
     return schemas.AdminOrderSchema(
         id=order.id,
-        status=order.status,
+        status="FAILED" if (order.payment_status == "FAILED" or (order.status or "") in ("FAILED", "PAYMENT_FAILED")) and order.status != "CANCELLED" else order.status,
         refund_status=order.refund_status,
         refund_note=order.refund_note,
         refund_amount=order.refund_amount or 0.0,
