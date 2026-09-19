@@ -1961,11 +1961,11 @@ export default function AdminOrderDetailPage() {
                       >
                         Method
                       </span>
-                      {isPaymentFailed ? (
-                        <strong style={{ color: '#dc2626' }}>PAYMENT FAILED (UNCAPTURED)</strong>
-                      ) : (
-                        <strong style={{ color: '#15803d' }}>100% PREPAID (ONLINE)</strong>
-                      )}
+                      <strong style={{ color: '#111' }}>
+                        {order.payment_method?.toUpperCase().includes('RAZORPAY')
+                          ? 'RAZORPAY'
+                          : (order.payment_method || 'RAZORPAY')}
+                      </strong>
                     </div>
                     <div>
                       <span

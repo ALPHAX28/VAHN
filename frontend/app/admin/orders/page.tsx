@@ -188,15 +188,15 @@ export default function AdminOrdersPage() {
                       </div>
                       {order.payment_status === "FAILED" ? (
                         <div style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 800 }}>
-                          {order.payment_method || "ONLINE"} (FAILED)
+                          {order.payment_method?.toUpperCase().includes("RAZORPAY") ? "RAZORPAY" : (order.payment_method || "RAZORPAY")} (FAILED)
                         </div>
                       ) : order.payment_status === "REFUNDED" || order.refund_status === "REFUNDED" ? (
                         <div style={{ fontSize: "0.72rem", color: "#7c3aed", fontWeight: 800 }}>
-                          {order.payment_method || "PREPAID"} (REFUNDED)
+                          {order.payment_method?.toUpperCase().includes("RAZORPAY") ? "RAZORPAY" : (order.payment_method || "PREPAID")} (REFUNDED)
                         </div>
                       ) : (
                         <div style={{ fontSize: "0.72rem", color: "#16a34a", fontWeight: 700 }}>
-                          {order.payment_method || "PREPAID"} (PAID)
+                          {order.payment_method?.toUpperCase().includes("RAZORPAY") ? "RAZORPAY" : (order.payment_method || "PREPAID")} (PAID)
                         </div>
                       )}
                     </td>

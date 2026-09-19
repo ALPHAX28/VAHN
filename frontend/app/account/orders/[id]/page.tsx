@@ -731,7 +731,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 Payment Method
               </span>
               <span style={{ fontWeight: 800, color: "#111" }}>
-                {order.paymentMethod || "Online Prepaid"}
+                {order.paymentMethod?.toUpperCase().includes("RAZORPAY") ? "Razorpay" : (order.paymentMethod || "Razorpay")}
               </span>
             </div>
             <div>
