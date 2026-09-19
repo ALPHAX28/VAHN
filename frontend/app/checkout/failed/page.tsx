@@ -321,7 +321,7 @@ function CheckoutFailedContent() {
       }
       setIsCancelled(true);
       setShowCancelModal(false);
-      router.push('/cart');
+      router.push('/');
     } catch (err: any) {
       setActionError(err?.message || 'Could not cancel order. Please refresh and try again.');
       setCancelling(false);
@@ -591,12 +591,12 @@ function CheckoutFailedContent() {
                   cursor: 'pointer',
                 }}
               >
-                Cancel Order & Return to Cart
+                Cancel Order & Return to Home
               </button>
             </>
           ) : (
             <Link
-              href="/cart"
+              href="/"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -613,7 +613,7 @@ function CheckoutFailedContent() {
               }}
             >
               <ShoppingBagIcon size={16} color="#fff" />
-              <span>Return to Cart</span>
+              <span>Return to Home</span>
             </Link>
           )}
 
