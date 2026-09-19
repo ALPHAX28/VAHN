@@ -226,18 +226,37 @@ export default function ContactForm() {
       <div className="form-group">
         <label className="form-label" htmlFor="phone">Phone (Optional)</label>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <select
-            id="countryCode"
-            name="countryCode"
-            className="input"
-            style={{ width: '130px', flexShrink: 0 }}
-            value={formData.countryCode}
-            onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
-          >
-            {COUNTRY_CODES.map((c) => (
-              <option key={c.code} value={c.code}>{c.label}</option>
-            ))}
-          </select>
+          <div style={{ position: 'relative', width: '130px', flexShrink: 0 }}>
+            <select
+              id="countryCode"
+              name="countryCode"
+              className="input"
+              style={{ width: '100%', paddingRight: '26px', cursor: 'pointer' }}
+              value={formData.countryCode}
+              onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
+            >
+              {COUNTRY_CODES.map((c) => (
+                <option key={c.code} value={c.code}>{c.label}</option>
+              ))}
+            </select>
+            <div
+              style={{
+                position: 'absolute',
+                right: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#555',
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+          </div>
           <input
             id="phone"
             name="phone"
@@ -254,20 +273,40 @@ export default function ContactForm() {
 
       <div className="form-group">
         <label className="form-label" htmlFor="subject">Subject *</label>
-        <select
-          id="subject"
-          name="subject"
-          className="input"
-          required
-          value={formData.subject}
-          onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-        >
-          <option value="">Select a topic</option>
-          <option value="bespoke">Bespoke Teamwear Enquiry</option>
-          <option value="order">Order Support</option>
-          <option value="wholesale">Wholesale</option>
-          <option value="other">Other</option>
-        </select>
+        <div style={{ position: 'relative', width: '100%' }}>
+          <select
+            id="subject"
+            name="subject"
+            className="input"
+            required
+            style={{ width: '100%', paddingRight: '38px', cursor: 'pointer' }}
+            value={formData.subject}
+            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+          >
+            <option value="">Select a topic</option>
+            <option value="bespoke">Bespoke Teamwear Enquiry</option>
+            <option value="order">Order Support</option>
+            <option value="wholesale">Wholesale</option>
+            <option value="other">Other</option>
+          </select>
+          <div
+            style={{
+              position: 'absolute',
+              right: '14px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              pointerEvents: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#222',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+        </div>
         {errors.subject && <span style={{ color: '#d93025', fontSize: '0.75rem' }}>{errors.subject}</span>}
       </div>
 

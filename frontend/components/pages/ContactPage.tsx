@@ -827,30 +827,48 @@ export default function ContactPage() {
                     Phone Number (Optional)
                   </label>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <select
-                      id="countryCode"
-                      name="countryCode"
-                      className="input"
-                      style={{
-                        width: '135px',
-                        flexShrink: 0,
-                        padding: '0 8px',
-                        fontSize: '0.8125rem',
-                        background: '#ffffff',
-                        cursor: 'pointer',
-                      }}
-                      value={formData.countryCode}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, countryCode: e.target.value }))
-                      }
-                      aria-label="Country Code"
-                    >
-                      {COUNTRY_CODES.map((item) => (
-                        <option key={item.code} value={item.code}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div style={{ position: 'relative', width: '140px', flexShrink: 0 }}>
+                      <select
+                        id="countryCode"
+                        name="countryCode"
+                        className="input"
+                        style={{
+                          width: '100%',
+                          padding: '0 26px 0 8px',
+                          fontSize: '0.8125rem',
+                          backgroundColor: '#ffffff',
+                          cursor: 'pointer',
+                        }}
+                        value={formData.countryCode}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, countryCode: e.target.value }))
+                        }
+                        aria-label="Country Code"
+                      >
+                        {COUNTRY_CODES.map((item) => (
+                          <option key={item.code} value={item.code}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                      <div
+                        style={{
+                          position: 'absolute',
+                          right: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          pointerEvents: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#555',
+                        }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </div>
+                    </div>
                     <input
                       id="phone"
                       name="phone"
@@ -932,26 +950,48 @@ export default function ContactPage() {
                   <label className="form-label" htmlFor="subject">
                     Subject *
                   </label>
-                  <select
-                    id="subject"
-                    name="subject"
-                    className="input"
-                    required
-                    style={{
-                      borderColor: errors.subject ? '#d93025' : undefined,
-                      boxShadow: errors.subject ? '0 0 0 1px #d93025' : undefined,
-                    }}
-                    value={formData.subject}
-                    onChange={handleInputChange}
-                    onBlur={() => handleBlur('subject')}
-                  >
-                    <option value="">Select a topic</option>
-                    <option value="order">Order Tracking / Status</option>
-                    <option value="return">Return or Exchange</option>
-                    <option value="bespoke">Bespoke Teamwear Enquiry</option>
-                    <option value="product">Product &amp; Sizing Question</option>
-                    <option value="other">General Feedback / Other</option>
-                  </select>
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <select
+                      id="subject"
+                      name="subject"
+                      className="input"
+                      required
+                      style={{
+                        width: '100%',
+                        paddingRight: '38px',
+                        cursor: 'pointer',
+                        borderColor: errors.subject ? '#d93025' : undefined,
+                        boxShadow: errors.subject ? '0 0 0 1px #d93025' : undefined,
+                      }}
+                      value={formData.subject}
+                      onChange={handleInputChange}
+                      onBlur={() => handleBlur('subject')}
+                    >
+                      <option value="">Select a topic</option>
+                      <option value="order">Order Tracking / Status</option>
+                      <option value="return">Return or Exchange</option>
+                      <option value="bespoke">Bespoke Teamwear Enquiry</option>
+                      <option value="product">Product &amp; Sizing Question</option>
+                      <option value="other">General Feedback / Other</option>
+                    </select>
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: '14px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        pointerEvents: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#222',
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </div>
+                  </div>
                   {errors.subject && (
                     <span
                       style={{
