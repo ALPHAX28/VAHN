@@ -1323,10 +1323,21 @@ class ContactMessageCreate(BaseModel):
     last_name: str
     email: str
     country_code: str = "+91"
-    phone: Optional[str] = None
+    phone: str
     order_number: Optional[str] = None
     subject: str
     message: str
+
+    @field_validator('phone')
+    @classmethod
+    def check_phone(cls, v: str) -> str:
+        trimmed = (v or "").strip()
+        if not trimmed:
+            raise ValueError("Phone number is required.")
+        digits = "".join(filter(str.isdigit, trimmed))
+        if len(digits) < 7 or len(digits) > 15:
+            raise ValueError("Please enter a valid phone number (7 to 15 digits).")
+        return trimmed
 
     @field_validator('email')
     @classmethod

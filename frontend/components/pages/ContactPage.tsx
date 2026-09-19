@@ -64,7 +64,7 @@ const COUNTRY_CODES = [
 ];
 
 const containsEmoji = (str: string): boolean => {
-  return /[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F]/u.test(str);
+  return /[\p{Extended_Pictographic}\p{Emoji_Presentation}]|\uFE0F/u.test(str);
 };
 
 const containsLink = (str: string): boolean => {
@@ -137,7 +137,7 @@ export default function ContactPage() {
       }
 
       case 'phone': {
-        if (!trimmed) return undefined; // Phone is optional
+        if (!trimmed) return 'Phone number is required.';
         if (containsLink(trimmed)) return 'Links and URLs are not permitted in phone number.';
         if (containsEmoji(trimmed)) return 'Emojis are not permitted in phone number.';
         const digitsOnly = trimmed.replace(/\D/g, '');
@@ -288,7 +288,7 @@ export default function ContactPage() {
           last_name: formData.lastName,
           email: formData.email,
           country_code: formData.countryCode,
-          phone: formData.phone || null,
+          phone: formData.phone.trim(),
           order_number: formData.orderNumber || null,
           subject: SUBJECT_LABELS[formData.subject] || formData.subject,
           message: formData.message,
@@ -540,7 +540,7 @@ export default function ContactPage() {
                 style={{ color: '#4232d9', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center' }}
               >
                 <span>Track My Order</span>
-                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="btn-checkout-arrow" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
               </Link>
@@ -549,7 +549,7 @@ export default function ContactPage() {
                 style={{ color: '#4232d9', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center' }}
               >
                 <span>Returns &amp; Exchange Policy</span>
-                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="btn-checkout-arrow" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
               </Link>
@@ -558,7 +558,7 @@ export default function ContactPage() {
                 style={{ color: '#4232d9', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center' }}
               >
                 <span>View Terms &amp; Conditions</span>
-                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="btn-checkout-arrow" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
               </Link>
@@ -590,6 +590,7 @@ export default function ContactPage() {
                 }}
               >
                 <svg
+                  aria-hidden="true"
                   width="28"
                   height="28"
                   viewBox="0 0 24 24"
@@ -824,7 +825,7 @@ export default function ContactPage() {
 
                 <div className="form-group">
                   <label className="form-label" htmlFor="phone">
-                    Phone Number (Optional)
+                    Phone Number *
                   </label>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <div style={{ position: 'relative', width: '140px', flexShrink: 0 }}>
@@ -864,7 +865,7 @@ export default function ContactPage() {
                           color: '#555',
                         }}
                       >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="6 9 12 15 18 9" />
                         </svg>
                       </div>
@@ -874,6 +875,8 @@ export default function ContactPage() {
                       name="phone"
                       type="tel"
                       inputMode="numeric"
+                      required
+                      aria-required="true"
                       className="input"
                       maxLength={formData.countryCode === '+91' ? 10 : 15}
                       placeholder={formData.countryCode === '+91' ? '9876543210' : 'Phone number'}
@@ -977,7 +980,7 @@ export default function ContactPage() {
                     <div
                       style={{
                         position: 'absolute',
-                        right: '14px',
+                        right: '12px',
                         top: '50%',
                         transform: 'translateY(-50%)',
                         pointerEvents: 'none',
@@ -987,7 +990,7 @@ export default function ContactPage() {
                         color: '#222',
                       }}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="6 9 12 15 18 9" />
                       </svg>
                     </div>
@@ -1067,7 +1070,7 @@ export default function ContactPage() {
                 ) : (
                   <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                     <span>Send Message</span>
-                    <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="btn-checkout-arrow" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="9 18 15 12 9 6" />
                     </svg>
                   </span>

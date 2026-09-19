@@ -173,10 +173,20 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
           {/* Real Athlete Image Card 01 — White Jersey */}
           <Image
             src="/assets/pick-your-side-01.png"
-            alt="Pick Your Side — White"
+            alt={`Pick Your Side — ${leftColour || 'White'} Jersey`}
             fill
-            unoptimized
-            className="pick-your-side-img"
+            sizes="(max-width: 768px) 100vw, 50vw"
+            priority
+            className="pick-your-side-img pick-your-side-img-default"
+          />
+
+          {/* Hover Athlete Image Card — 0010.png */}
+          <Image
+            src="/assets/0010.png"
+            alt={`Pick Your Side — ${leftColour || 'White'} Alternate`}
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="pick-your-side-img pick-your-side-img-hover"
           />
 
           {/* Gradient overlay for CTA contrast */}
@@ -185,7 +195,7 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
               position: 'absolute',
               inset: 0,
               background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 35%)',
-              zIndex: 1,
+              zIndex: 3,
             }}
             aria-hidden="true"
           />
@@ -195,7 +205,7 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
             className="pick-your-side-btn"
             style={{
               position: 'relative',
-              zIndex: 2,
+              zIndex: 4,
               background: BRAND_BLUE,
               color: '#ffffff',
               border: 'none',
@@ -208,7 +218,8 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
               letterSpacing: '-0.01em',
               textDecoration: 'none',
               display: 'inline-block',
-              transition: 'background-color 0.2s ease, transform 0.2s ease',
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+              transition: 'background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             Buy Now
@@ -228,10 +239,20 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
           {/* Real Athlete Image Card 02 — Black Jersey */}
           <Image
             src="/assets/pick-your-side-02.png"
-            alt="Pick Your Side — Black"
+            alt={`Pick Your Side — ${rightColour || 'Black'} Jersey`}
             fill
-            unoptimized
-            className="pick-your-side-img"
+            sizes="(max-width: 768px) 100vw, 50vw"
+            priority
+            className="pick-your-side-img pick-your-side-img-default"
+          />
+
+          {/* Hover Athlete Image Card — 011.png */}
+          <Image
+            src="/assets/011.png"
+            alt={`Pick Your Side — ${rightColour || 'Black'} Alternate`}
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="pick-your-side-img pick-your-side-img-hover"
           />
 
           {/* Gradient overlay for CTA contrast */}
@@ -240,7 +261,7 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
               position: 'absolute',
               inset: 0,
               background: 'linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 35%)',
-              zIndex: 1,
+              zIndex: 3,
             }}
             aria-hidden="true"
           />
@@ -250,7 +271,7 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
             className="pick-your-side-btn"
             style={{
               position: 'relative',
-              zIndex: 2,
+              zIndex: 4,
               background: BRAND_BLUE,
               color: '#ffffff',
               border: 'none',
@@ -263,7 +284,8 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
               letterSpacing: '-0.01em',
               textDecoration: 'none',
               display: 'inline-block',
-              transition: 'background-color 0.2s ease, transform 0.2s ease',
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+              transition: 'background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             Buy Now

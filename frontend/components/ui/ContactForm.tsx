@@ -52,7 +52,7 @@ export default function ContactForm() {
   const [formData, setFormData] = useState<FormState>(initialFormState);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const containsEmoji = (str: string) => /[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F]/u.test(str);
+  const containsEmoji = (str: string) => /[\p{Extended_Pictographic}\p{Emoji_Presentation}]|\uFE0F/u.test(str);
   const containsLink = (str: string) => /(https?:\/\/|ftp:\/\/|www\.[^\s]+|[a-zA-Z0-9-]+\.(com|org|net|io|co|in|ai|app|dev|biz|info|me|xyz|online|store|shop|site)\b)/i.test(str);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -69,7 +69,9 @@ export default function ContactForm() {
     if (!emailTrimmed || containsLink(emailTrimmed) || containsEmoji(emailTrimmed) || emailTrimmed.includes('..') || /\.(com|org|net|in|co)\.\1$/i.test(emailTrimmed) || !/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,10})+$/.test(emailTrimmed)) {
       errs.email = 'Please enter a valid email address.';
     }
-    if (formData.phone) {
+    if (!formData.phone.trim()) {
+      errs.phone = 'Phone number is required.';
+    } else {
       const digits = formData.phone.replace(/\D/g, '');
       if (digits.length < 7 || digits.length > 15 || containsLink(formData.phone) || containsEmoji(formData.phone)) {
         errs.phone = 'Valid phone number is required (7 to 15 digits).';
@@ -113,8 +115,9 @@ export default function ContactForm() {
       setFormData(initialFormState);
       setErrors({});
       setSubmitted(true);
-    } catch (e: any) {
-      setErrors({ submit: e.message || 'Error submitting message. Please try again.' });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error submitting message. Please try again.';
+      setErrors({ submit: msg });
     } finally {
       setLoading(false);
     }
@@ -128,7 +131,7 @@ export default function ContactForm() {
           background: 'var(--color-navy)', display: 'flex',
           alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px',
         }}>
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="white" strokeWidth="2">
+          <svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="white" strokeWidth="2">
             <polyline points="4,14 11,21 24,8" />
           </svg>
         </div>
@@ -224,7 +227,7 @@ export default function ContactForm() {
       </div>
 
       <div className="form-group">
-        <label className="form-label" htmlFor="phone">Phone (Optional)</label>
+        <label className="form-label" htmlFor="phone">Phone *</label>
         <div style={{ display: 'flex', gap: '8px' }}>
           <div style={{ position: 'relative', width: '130px', flexShrink: 0 }}>
             <select
@@ -252,7 +255,7 @@ export default function ContactForm() {
                 color: '#555',
               }}
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </div>
@@ -261,6 +264,8 @@ export default function ContactForm() {
             id="phone"
             name="phone"
             type="tel"
+            required
+            aria-required="true"
             className="input"
             placeholder="98765 43210"
             style={{ flex: 1 }}
@@ -302,7 +307,7 @@ export default function ContactForm() {
               color: '#222',
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 9 12 15 18 9" />
             </svg>
           </div>
@@ -331,7 +336,7 @@ export default function ContactForm() {
         ) : (
           <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
             <span>Send Message</span>
-            <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="btn-checkout-arrow" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </span>

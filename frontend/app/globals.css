@@ -385,20 +385,43 @@ input, textarea, select {
   padding-bottom: clamp(28px, 4vh, 48px);
 }
 
-.pick-your-side-panel img {
-  transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
+.pick-your-side-panel img,
+.pick-your-side-panel .pick-your-side-img {
   transform-origin: center center;
   object-fit: cover !important;
   object-position: center 15% !important;
+  pointer-events: none;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
-.pick-your-side-panel:hover img {
+.pick-your-side-panel .pick-your-side-img-default {
+  opacity: 1;
+  transform: scale(1);
+  transition: transform 0.75s cubic-bezier(0.25, 1, 0.5, 1) !important;
+  z-index: 1;
+}
+
+.pick-your-side-panel .pick-your-side-img-hover {
+  opacity: 0;
+  transform: scale(1.05);
+  transition: opacity 0.65s cubic-bezier(0.25, 1, 0.5, 1), transform 0.75s cubic-bezier(0.25, 1, 0.5, 1) !important;
+  z-index: 2;
+}
+
+.pick-your-side-panel:hover .pick-your-side-img-default {
   transform: scale(1.04) !important;
+}
+
+.pick-your-side-panel:hover .pick-your-side-img-hover {
+  opacity: 1 !important;
+  transform: scale(1) !important;
 }
 
 .pick-your-side-panel:hover .pick-your-side-btn {
   background-color: #3425b8 !important;
   transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(66, 50, 217, 0.45) !important;
 }
 
 @media (max-width: 768px) {
@@ -416,7 +439,8 @@ input, textarea, select {
     max-height: 480px !important;
     padding-bottom: 24px !important;
   }
-  .pick-your-side-panel img {
+  .pick-your-side-panel img,
+  .pick-your-side-panel .pick-your-side-img {
     object-position: center 15% !important;
   }
 }
