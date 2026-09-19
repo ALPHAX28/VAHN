@@ -270,6 +270,36 @@ function CheckoutFailedContent() {
           '';
         const shippingAddrObj = retryData.shipping_address || order?.shipping_address;
 
+        let formattedShippingAddress: any = undefined;
+        if (shippingAddrObj) {
+          const addr = shippingAddrObj as Record<string, any>;
+          const line1 = (addr.line1 || addr.address || addr.street_address || '').trim();
+          const line2 = (addr.line2 || addr.apartment || addr.building_name || '').trim();
+          const city = (addr.city || '').trim();
+          const state = (addr.state || '').trim();
+          const pincode = (addr.pincode || addr.postalCode || addr.zipcode || '').toString().trim();
+          const country =
+            (addr.country || 'in').toString().trim().toLowerCase() === 'india'
+              ? 'in'
+              : (addr.country || 'in').toString().trim().toLowerCase();
+          const name = (addr.name || custName || '').trim();
+          const phone = (addr.phone || formattedContact || '').trim();
+
+          if (line1 || city || pincode) {
+            formattedShippingAddress = {
+              name,
+              contact: phone,
+              line1,
+              line2,
+              city,
+              state,
+              pincode,
+              zipcode: pincode,
+              country: country || 'in',
+            };
+          }
+        }
+
         const options: any = {
           key: retryData.key_id,
           amount: retryData.amount,
@@ -281,6 +311,7 @@ function CheckoutFailedContent() {
           // Magic Checkout ONLY for guest orders — standard modal for logged-in users
           one_click_checkout: isGuest,
           show_coupons: isGuest,
+          shipping_address: formattedShippingAddress,
           handler: async (response: any) => {
             try {
               cleanUpRazorpayModal(rzp);
@@ -307,6 +338,16 @@ function CheckoutFailedContent() {
             name: custName,
             email: custEmail,
             contact: formattedContact,
+            shipping_address: formattedShippingAddress,
+            ...(formattedShippingAddress
+              ? {
+                  address: formattedShippingAddress.line1,
+                  city: formattedShippingAddress.city,
+                  state: formattedShippingAddress.state,
+                  pincode: formattedShippingAddress.pincode,
+                  zipcode: formattedShippingAddress.pincode,
+                }
+              : {}),
           },
           notes: {
             order_id: orderId,
@@ -315,11 +356,11 @@ function CheckoutFailedContent() {
             customer_name: custName,
             customer_email: custEmail,
             customer_phone: formattedContact,
-            delivery_address: shippingAddrObj
-              ? typeof shippingAddrObj === 'string'
+            delivery_address: formattedShippingAddress
+              ? `${formattedShippingAddress.line1}${formattedShippingAddress.line2 ? `, ${formattedShippingAddress.line2}` : ''}, ${formattedShippingAddress.city}, ${formattedShippingAddress.state} - ${formattedShippingAddress.pincode}`
+              : typeof shippingAddrObj === 'string'
                 ? shippingAddrObj
-                : `${shippingAddrObj.address || ''}, ${shippingAddrObj.city || ''}, ${shippingAddrObj.state || ''} - ${shippingAddrObj.pincode || ''}`
-              : '',
+                : '',
           },
           theme: {
             color: '#4232d9',

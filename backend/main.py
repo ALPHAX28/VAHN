@@ -1216,18 +1216,25 @@ def resolve_shipping_address(address_id: Optional[int], shipping_address: Option
 
     if shipping_address:
         raw_addr = shipping_address
-        pincode = str(raw_addr.get("postalCode", raw_addr.get("pincode", ""))).strip()
+        pincode = str(raw_addr.get("postalCode") or raw_addr.get("pincode") or raw_addr.get("zipcode") or "").strip()
         import re
         if not re.match(r'^[1-9][0-9]{5}$', pincode):
             pincode = "400001"
+        line1 = str(raw_addr.get("line1") or raw_addr.get("address") or raw_addr.get("street_address") or "Standard Address").strip()
+        line2 = str(raw_addr.get("line2") or raw_addr.get("apartment") or "").strip()
+        full_street = f"{line1}, {line2}".strip(", ") if line2 and line2 not in line1 else line1
         return {
             "label": raw_addr.get("label", "Home"),
             "name": raw_addr.get("name", (user.full_name if user else "Athlete")),
-            "address": raw_addr.get("address", raw_addr.get("street_address", "Standard Address")),
+            "address": full_street,
+            "line1": line1,
+            "line2": line2,
+            "apartment": line2,
             "city": raw_addr.get("city", "Mumbai"),
             "state": raw_addr.get("state", "Maharashtra"),
+            "pincode": pincode,
             "postalCode": pincode,
-            "country": "India",
+            "country": raw_addr.get("country", "India"),
             "phone": raw_addr.get("phone", (user.phone if user else ""))
         }
 
@@ -1550,11 +1557,15 @@ def razorpay_record_failure(
         cust_phone = "".join(filter(str.isdigit, str(raw_phone)))[-10:] if raw_phone else None
 
     if not shipping_payload and rzp_shipping:
+        rzp_line1 = str(rzp_shipping.get("line1") or rzp_shipping.get("address") or "").strip()
+        rzp_line2 = str(rzp_shipping.get("line2") or "").strip()
         shipping_payload = {
             "name": cust_name or rzp_shipping.get("name") or "Guest Athlete",
             "phone": cust_phone or rzp_shipping.get("contact") or "",
-            "address": rzp_shipping.get("line1") or rzp_shipping.get("address") or "",
-            "apartment": rzp_shipping.get("line2") or "",
+            "line1": rzp_line1,
+            "line2": rzp_line2,
+            "address": f"{rzp_line1}, {rzp_line2}".strip(", ") if rzp_line2 and rzp_line2 not in rzp_line1 else rzp_line1,
+            "apartment": rzp_line2,
             "city": rzp_shipping.get("city") or "",
             "state": rzp_shipping.get("state") or "",
             "pincode": str(rzp_shipping.get("postal_code") or rzp_shipping.get("zipcode") or rzp_shipping.get("pincode") or ""),
@@ -2496,10 +2507,59 @@ def retry_order_payment(
     # Passing line_items/line_items_total activates Razorpay Magic Checkout (OPC) on Razorpay's servers.
     is_guest = not bool(current_user or order.user_id)
 
-    shipping_addr = order.shipping_address or {}
+    shipping_addr = dict(order.shipping_address or {})
     cust_name = order.guest_name or shipping_addr.get("name") or (current_user.full_name if current_user else "")
     cust_email = order.guest_email or shipping_addr.get("email") or (current_user.email if current_user else "")
     cust_phone = order.guest_phone or shipping_addr.get("phone") or (current_user.phone if current_user else "")
+
+    # Backfill complete shipping details directly from Razorpay if missing line1 or city or pincode
+    if order.razorpay_order_id and (not shipping_addr.get("line1") or not shipping_addr.get("city") or not shipping_addr.get("pincode")):
+        try:
+            details = razorpay_service.fetch_order_details(order.razorpay_order_id)
+            rzp_o = details.get("order") or {}
+            rzp_cd = rzp_o.get("customer_details") or {}
+            rzp_s = rzp_cd.get("shipping_address") or rzp_cd.get("billing_address") or {}
+            if rzp_s:
+                l1 = str(rzp_s.get("line1") or rzp_s.get("address") or shipping_addr.get("line1") or shipping_addr.get("address") or "").strip()
+                l2 = str(rzp_s.get("line2") or shipping_addr.get("line2") or shipping_addr.get("apartment") or "").strip()
+                pin = str(rzp_s.get("zipcode") or rzp_s.get("postal_code") or rzp_s.get("pincode") or shipping_addr.get("pincode") or shipping_addr.get("postalCode") or "").strip()
+                c_name = str(cust_name or rzp_s.get("name") or "").strip()
+                c_phone = str(cust_phone or rzp_s.get("contact") or "").strip()
+                shipping_addr = {
+                    "label": "Home",
+                    "name": c_name,
+                    "line1": l1,
+                    "line2": l2,
+                    "address": f"{l1}, {l2}".strip(", ") if l2 and l2 not in l1 else l1,
+                    "apartment": l2,
+                    "city": str(rzp_s.get("city") or shipping_addr.get("city") or "").strip(),
+                    "state": str(rzp_s.get("state") or shipping_addr.get("state") or "").strip(),
+                    "pincode": pin,
+                    "postalCode": pin,
+                    "country": str(rzp_s.get("country") or "India").strip(),
+                    "phone": c_phone,
+                    "email": cust_email
+                }
+                order.shipping_address = shipping_addr
+                if c_name and not order.guest_name:
+                    order.guest_name = c_name
+                    cust_name = c_name
+                if c_phone and not order.guest_phone:
+                    order.guest_phone = c_phone
+                    cust_phone = c_phone
+                db.commit()
+        except Exception as e:
+            logger.warning(f"Could not backfill shipping address from Razorpay in retry: {e}")
+
+    # Ensure shipping_addr has both line1 and line2 formatted
+    if shipping_addr:
+        l1 = shipping_addr.get("line1") or shipping_addr.get("address", "")
+        l2 = shipping_addr.get("line2") or shipping_addr.get("apartment", "")
+        pin = shipping_addr.get("pincode") or shipping_addr.get("postalCode", "")
+        shipping_addr["line1"] = l1
+        shipping_addr["line2"] = l2
+        shipping_addr["pincode"] = pin
+        shipping_addr["postalCode"] = pin
 
     receipt_id = f"REC-RETRY-{secrets.randbelow(899999) + 100000}"
     notes = {
