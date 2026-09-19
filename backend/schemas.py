@@ -671,6 +671,7 @@ class OrderRetryPaymentResponse(BaseModel):
     customer_name: Optional[str] = None
     customer_email: Optional[str] = None
     customer_phone: Optional[str] = None
+    shipping_address: Optional[dict] = None
     is_guest: bool = False
 
 class OrderConfirmRetryPaymentRequest(BaseModel):
@@ -706,6 +707,9 @@ class OrderTrackingResponse(BaseModel):
     total_amount: Optional[float] = 0.0
     currency: Optional[str] = "INR"
     shipping_address: Optional[dict] = None
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
     created_at: Optional[str] = None
     payment_status: Optional[str] = None
     payment_method: Optional[str] = None

@@ -41,16 +41,34 @@ function CheckoutFailedContent() {
   const [isCancelled, setIsCancelled] = useState<boolean>(false);
   const [actionError, setActionError] = useState<string>('');
 
-  // Clean up any lingering body overflow lock and guarantee scrolling
-  useEffect(() => {
+  const cleanUpRazorpayModal = (instance?: any) => {
+    try {
+      if (instance && typeof instance.close === 'function') {
+        instance.close();
+      }
+    } catch {}
     if (typeof document !== 'undefined') {
       document.body.style.overflow = 'auto';
       document.body.style.pointerEvents = 'auto';
       document.documentElement.style.overflow = 'auto';
-      // Note: We do NOT remove .razorpay-container here without purging the script.
-      // Forcefully deleting the container without reloading the script detaches the iframe
-      // and causes "This browser is not supported" on retry.
+      const elements = document.querySelectorAll('.razorpay-container, iframe[name^="razorpay"]');
+      elements.forEach((el) => {
+        try {
+          el.remove();
+        } catch {}
+      });
+      if (typeof window !== 'undefined') {
+        try {
+          delete (window as any).Razorpay;
+          (window as any).Razorpay = undefined;
+        } catch {}
+      }
     }
+  };
+
+  // Clean up any lingering body overflow lock and auto-dismiss lingering Razorpay modals from previous page
+  useEffect(() => {
+    cleanUpRazorpayModal();
   }, []);
 
   // Helper to safely load the required Razorpay SDK and purge conflicting scripts
@@ -223,6 +241,35 @@ function CheckoutFailedContent() {
           );
         }
 
+        const rawContact = (
+          retryData.customer_phone ||
+          order?.customer_phone ||
+          (order?.shipping_address as any)?.phone ||
+          user?.phone ||
+          ''
+        ).trim();
+        const digitsOnly = rawContact.replace(/\D/g, '');
+        let formattedContact = rawContact;
+        if (digitsOnly.length === 10) {
+          formattedContact = `+91${digitsOnly}`;
+        } else if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
+          formattedContact = `+${digitsOnly}`;
+        }
+
+        const custName =
+          retryData.customer_name ||
+          order?.customer_name ||
+          (order?.shipping_address as any)?.name ||
+          user?.full_name ||
+          '';
+        const custEmail =
+          retryData.customer_email ||
+          order?.customer_email ||
+          (order?.shipping_address as any)?.email ||
+          user?.email ||
+          '';
+        const shippingAddrObj = retryData.shipping_address || order?.shipping_address;
+
         const options: any = {
           key: retryData.key_id,
           amount: retryData.amount,
@@ -236,6 +283,7 @@ function CheckoutFailedContent() {
           show_coupons: isGuest,
           handler: async (response: any) => {
             try {
+              cleanUpRazorpayModal(rzp);
               await confirmRetryPayment(
                 orderId,
                 {
@@ -248,6 +296,7 @@ function CheckoutFailedContent() {
               clearCart();
               router.push(`/checkout/success?order_id=${orderId}`);
             } catch (confErr: any) {
+              cleanUpRazorpayModal(rzp);
               setActionError(
                 confErr?.message || 'Payment verified, but confirmation timed out. Contact support.'
               );
@@ -255,9 +304,22 @@ function CheckoutFailedContent() {
             }
           },
           prefill: {
-            name: retryData.customer_name || user?.full_name || '',
-            email: retryData.customer_email || user?.email || '',
-            contact: retryData.customer_phone || user?.phone || '',
+            name: custName,
+            email: custEmail,
+            contact: formattedContact,
+          },
+          notes: {
+            order_id: orderId,
+            is_retry: 'true',
+            is_guest: isGuest ? 'true' : 'false',
+            customer_name: custName,
+            customer_email: custEmail,
+            customer_phone: formattedContact,
+            delivery_address: shippingAddrObj
+              ? typeof shippingAddrObj === 'string'
+                ? shippingAddrObj
+                : `${shippingAddrObj.address || ''}, ${shippingAddrObj.city || ''}, ${shippingAddrObj.state || ''} - ${shippingAddrObj.pincode || ''}`
+              : '',
           },
           theme: {
             color: '#4232d9',
@@ -266,23 +328,14 @@ function CheckoutFailedContent() {
             confirm_close: true,
             ondismiss: () => {
               setRetrying(false);
-              if (typeof document !== 'undefined') {
-                document.body.style.overflow = 'auto';
-                document.documentElement.style.overflow = 'auto';
-              }
+              cleanUpRazorpayModal(rzp);
             },
           },
         };
 
         const rzp = new RazorpayClass(options);
         rzp.on('payment.failed', (failRes: any) => {
-          try {
-            rzp.close();
-          } catch {}
-          if (typeof document !== 'undefined') {
-            document.body.style.overflow = 'auto';
-            document.documentElement.style.overflow = 'auto';
-          }
+          cleanUpRazorpayModal(rzp);
           const newDesc = failRes?.error?.description || 'Payment attempt declined.';
           setReason(newDesc);
           setActionError(`Payment declined: ${newDesc}`);

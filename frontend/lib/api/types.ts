@@ -82,7 +82,6 @@ export interface Product {
   product_details?: string | null;
 }
 
-
 export interface LookbookItem {
   id: string;
   imageUrl: string;
@@ -123,7 +122,6 @@ export interface CollectionListItem {
   image: Image | null;
   products_count: number;
 }
-
 
 export interface Filter {
   id: string;
@@ -262,7 +260,6 @@ export interface UserAddress {
   created_at: string;
 }
 
-
 export interface OrderItem {
   id: string;
   variantId?: string | null;
@@ -316,7 +313,10 @@ export interface TrackingInfo {
   is_guest?: boolean;
   total_amount?: number;
   currency?: string;
-  shipping_address?: any;
+  shipping_address?: Record<string, unknown> | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
   items?: any[];
   created_at?: string;
   delivered_at?: string | null;
@@ -339,6 +339,7 @@ export interface RetryPaymentResponse {
   customer_name?: string | null;
   customer_email?: string | null;
   customer_phone?: string | null;
+  shipping_address?: Record<string, unknown> | null;
   is_guest?: boolean;
 }
 
@@ -512,4 +513,3 @@ export interface NotificationBanner {
   created_at: string;
   updated_at: string;
 }
-

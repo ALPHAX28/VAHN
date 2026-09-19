@@ -1,37 +1,37 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
-import Link from "next/link";
-import { useAuth } from "@/context/AuthContext";
-import { useCart } from "@/context/CartContext";
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import AddressModal from '@/components/address/AddressModal';
 import {
-  getUserAddresses,
-  checkShippingServiceability,
-  createRazorpayOrder,
-  verifyRazorpayPayment,
-  createMagicCheckoutOrder,
-  recordRazorpayPaymentFailure,
-} from "@/lib/api";
-import type { UserAddress, ServiceabilityResponse } from "@/lib/api/types";
-import AddressModal from "@/components/address/AddressModal";
-import {
-  MapPinIcon,
-  ShoppingBagIcon,
-  ShieldCheckIcon,
-  PhoneIcon,
-  HomeIcon,
-  BriefcaseIcon,
   AlertCircleIcon,
+  BriefcaseIcon,
   CheckIcon,
-  TruckIcon,
   EditIcon,
+  HomeIcon,
   LockIcon,
-  SparklesIcon,
+  MapPinIcon,
   PackageIcon,
+  PhoneIcon,
+  ShieldCheckIcon,
+  ShoppingBagIcon,
+  SparklesIcon,
+  TruckIcon,
   UserIcon,
-} from "@/components/icons/Icons";
+} from '@/components/icons/Icons';
+import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
+import {
+  checkShippingServiceability,
+  createMagicCheckoutOrder,
+  createRazorpayOrder,
+  getUserAddresses,
+  recordRazorpayPaymentFailure,
+  verifyRazorpayPayment,
+} from '@/lib/api';
+import type { ServiceabilityResponse, UserAddress } from '@/lib/api/types';
 
 declare global {
   interface Window {
@@ -52,7 +52,7 @@ export default function CheckoutPage() {
   const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
 
   // Guest checkout state
-  const [guestPincodeInput, setGuestPincodeInput] = useState("");
+  const [guestPincodeInput, setGuestPincodeInput] = useState('');
 
   // Serviceability check state
   const [serviceability, setServiceability] = useState<ServiceabilityResponse | null>(null);
@@ -60,24 +60,26 @@ export default function CheckoutPage() {
 
   // Process & Error states
   const [placingOrder, setPlacingOrder] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [rzpLoaded, setRzpLoaded] = useState(false);
-
-
 
   // Ensure clean, valid Razorpay SDK instance and detect detached iframes
   const ensureFreshRazorpaySdk = useCallback(async (isGuestUser: boolean): Promise<any> => {
-    if (typeof window === "undefined") return null;
+    if (typeof window === 'undefined') return null;
 
     const targetScriptSrc = isGuestUser
-      ? "https://checkout.razorpay.com/v1/magic-checkout.js"
-      : "https://checkout.razorpay.com/v1/checkout.js";
+      ? 'https://checkout.razorpay.com/v1/magic-checkout.js'
+      : 'https://checkout.razorpay.com/v1/checkout.js';
 
     // Check if an existing iframe was detached or corrupted (contentWindow is null)
-    const existingIframe = document.querySelector(".razorpay-container iframe") as HTMLIFrameElement | null;
+    const existingIframe = document.querySelector(
+      '.razorpay-container iframe'
+    ) as HTMLIFrameElement | null;
     const hasCorruptedIframe = existingIframe && !existingIframe.contentWindow;
 
-    const allScripts = Array.from(document.querySelectorAll<HTMLScriptElement>("script[src*='checkout.razorpay.com']"));
+    const allScripts = Array.from(
+      document.querySelectorAll<HTMLScriptElement>("script[src*='checkout.razorpay.com']")
+    );
     const currentScript = allScripts.find((s) => s.src === targetScriptSrc);
 
     if (currentScript && (window as any).Razorpay && !hasCorruptedIframe) {
@@ -87,7 +89,7 @@ export default function CheckoutPage() {
 
     // Cleanly purge corrupted scripts and detached containers
     allScripts.forEach((s) => s.remove());
-    document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
+    document.querySelectorAll('.razorpay-container').forEach((el) => el.remove());
     try {
       delete (window as any).Razorpay;
     } catch {
@@ -96,8 +98,8 @@ export default function CheckoutPage() {
 
     setRzpLoaded(false);
     return new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.id = "rzp-checkout-script";
+      const script = document.createElement('script');
+      script.id = 'rzp-checkout-script';
       script.src = targetScriptSrc;
       script.async = true;
       script.onload = () => {
@@ -105,10 +107,10 @@ export default function CheckoutPage() {
         resolve((window as any).Razorpay);
       };
       script.onerror = () => {
-        console.warn("Primary SDK load failed, falling back to standard checkout.js");
-        const fallbackScript = document.createElement("script");
-        fallbackScript.id = "rzp-checkout-script";
-        fallbackScript.src = "https://checkout.razorpay.com/v1/checkout.js";
+        console.warn('Primary SDK load failed, falling back to standard checkout.js');
+        const fallbackScript = document.createElement('script');
+        fallbackScript.id = 'rzp-checkout-script';
+        fallbackScript.src = 'https://checkout.razorpay.com/v1/checkout.js';
         fallbackScript.async = true;
         fallbackScript.onload = () => {
           setRzpLoaded(true);
@@ -122,7 +124,7 @@ export default function CheckoutPage() {
 
   // Initial load
   useEffect(() => {
-    if (typeof window === "undefined" || isAuthLoading) return;
+    if (typeof window === 'undefined' || isAuthLoading) return;
     ensureFreshRazorpaySdk(!user);
   }, [user, isAuthLoading, ensureFreshRazorpaySdk]);
 
@@ -162,7 +164,8 @@ export default function CheckoutPage() {
       setServiceability({
         pincode: cleanPin,
         serviceable: false,
-        message: "Invalid PIN code format. Indian PIN codes must be 6 digits and cannot start with 0.",
+        message:
+          'Invalid PIN code format. Indian PIN codes must be 6 digits and cannot start with 0.',
       });
       return;
     }
@@ -174,7 +177,7 @@ export default function CheckoutPage() {
       setServiceability({
         pincode: cleanPin,
         serviceable: false,
-        message: "Unable to verify courier coverage for this PIN code.",
+        message: 'Unable to verify courier coverage for this PIN code.',
       });
     } finally {
       setCheckingPincode(false);
@@ -192,11 +195,7 @@ export default function CheckoutPage() {
     return rate != null && rate <= 500 ? Math.max(max, rate) : max;
   }, -1);
   const shippingFee =
-    subtotal >= 1999 || subtotal === 0
-      ? 0
-      : customShippingRate >= 0
-      ? customShippingRate
-      : 99;
+    subtotal >= 1999 || subtotal === 0 ? 0 : customShippingRate >= 0 ? customShippingRate : 99;
 
   const estimatedTax = Math.round(
     cartLines.reduce((taxSum, line) => {
@@ -210,47 +209,73 @@ export default function CheckoutPage() {
   const grandTotal = subtotal + shippingFee;
   const selectedAddr = addresses.find((a) => a.id === selectedAddressId);
 
+  const cleanUpRazorpayModal = (instance?: any) => {
+    try {
+      if (instance && typeof instance.close === 'function') {
+        instance.close();
+      }
+    } catch {}
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = 'auto';
+      document.body.style.pointerEvents = 'auto';
+      document.documentElement.style.overflow = 'auto';
+      const elements = document.querySelectorAll(".razorpay-container, iframe[name^='razorpay']");
+      elements.forEach((el) => {
+        try {
+          el.remove();
+        } catch {}
+      });
+      if (elements.length > 0 && typeof window !== 'undefined') {
+        try {
+          delete (window as any).Razorpay;
+          (window as any).Razorpay = undefined;
+        } catch {}
+      }
+    }
+  };
+
   // Trigger Razorpay Checkout
   async function handleInitiatePayment() {
     if (placingOrder) return;
-    setError("");
+    setError('');
 
     if (!cart?.id || cartLines.length === 0) {
-      setError("Your cart is empty. Please add items before checking out.");
+      setError('Your cart is empty. Please add items before checking out.');
       return;
     }
 
     // Validation
     let shippingPayload: any = null;
-    let customerName = "";
-    let customerEmail = "";
-    let customerPhone = "";
+    let customerName = '';
+    let customerEmail = '';
+    let customerPhone = '';
 
     if (user && token) {
       if (!selectedAddressId || !selectedAddr) {
-        setError("Please select a delivery address.");
+        setError('Please select a delivery address.');
         return;
       }
-      customerName = `${selectedAddr.first_name} ${selectedAddr.last_name}`.trim() || user.full_name;
-      customerEmail = selectedAddr.email || user.email || "";
-      customerPhone = selectedAddr.phone || user.phone || "";
+      customerName =
+        `${selectedAddr.first_name} ${selectedAddr.last_name}`.trim() || user.full_name;
+      customerEmail = selectedAddr.email || user.email || '';
+      customerPhone = selectedAddr.phone || user.phone || '';
       shippingPayload = {
         name: customerName,
         phone: customerPhone,
-        address: `${selectedAddr.house_flat_no || ""} ${selectedAddr.street_address}`.trim(),
-        apartment: selectedAddr.apartment || selectedAddr.building_name || "",
+        address: `${selectedAddr.house_flat_no || ''} ${selectedAddr.street_address}`.trim(),
+        apartment: selectedAddr.apartment || selectedAddr.building_name || '',
         city: selectedAddr.city,
         state: selectedAddr.state,
         pincode: selectedAddr.pincode,
-        country: selectedAddr.country || "India",
+        country: selectedAddr.country || 'India',
       };
     } else {
       // Guest: Razorpay Magic Checkout collects all contact & address details.
       // Backend fetches name, email, phone, and shipping address from the Razorpay
       // order/payment after the user completes payment — no local form needed.
-      customerName = "";
-      customerEmail = "";
-      customerPhone = "";
+      customerName = '';
+      customerEmail = '';
+      customerPhone = '';
       shippingPayload = null;
     }
 
@@ -271,8 +296,8 @@ export default function CheckoutPage() {
 
       // Ensure fresh, uncorrupted Razorpay SDK before creating order
       const RazorpayConstructor = await ensureFreshRazorpaySdk(isGuest);
-      if (!RazorpayConstructor && typeof (window as any).Razorpay === "undefined") {
-        throw new Error("Razorpay gateway is initializing. Please try again in a few moments.");
+      if (!RazorpayConstructor && typeof (window as any).Razorpay === 'undefined') {
+        throw new Error('Razorpay gateway is initializing. Please try again in a few moments.');
       }
       const RzpClass = RazorpayConstructor || (window as any).Razorpay;
 
@@ -280,16 +305,16 @@ export default function CheckoutPage() {
       const options: any = {
         key: rzpOrder.key_id,
         amount: rzpOrder.amount,
-        currency: rzpOrder.currency || "INR",
-        name: "VAHN Sports",
-        description: `Order Payment (${cartLines.length} item${cartLines.length > 1 ? "s" : ""})`,
-        image: "https://vahn.s3.ap-south-2.amazonaws.com/logo.png",
+        currency: rzpOrder.currency || 'INR',
+        name: 'VAHN Sports',
+        description: `Order Payment (${cartLines.length} item${cartLines.length > 1 ? 's' : ''})`,
+        image: 'https://vahn.s3.ap-south-2.amazonaws.com/logo.png',
         order_id: rzpOrder.razorpay_order_id,
         one_click_checkout: isGuest, // True for guest (Razorpay Magic Checkout Gateway), False for logged-in athletes
         show_coupons: isGuest,
-        handler: async function (response: any) {
+        handler: async (response: any) => {
           try {
-            let confirmedId = "";
+            let confirmedId = '';
             if (user && token) {
               const verifiedOrder = await verifyRazorpayPayment(
                 {
@@ -302,7 +327,11 @@ export default function CheckoutPage() {
                 },
                 token
               );
-              confirmedId = (verifiedOrder as any)?.id || (verifiedOrder as any)?.order_id || (verifiedOrder as any)?.orderId || "";
+              confirmedId =
+                (verifiedOrder as any)?.id ||
+                (verifiedOrder as any)?.order_id ||
+                (verifiedOrder as any)?.orderId ||
+                '';
             } else {
               // Guest checkout verification
               const guestOrder = await createMagicCheckoutOrder({
@@ -315,22 +344,24 @@ export default function CheckoutPage() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_signature: response.razorpay_signature,
               });
-              confirmedId = (guestOrder as any)?.id || (guestOrder as any)?.order_id || (guestOrder as any)?.orderId || "";
+              confirmedId =
+                (guestOrder as any)?.id ||
+                (guestOrder as any)?.order_id ||
+                (guestOrder as any)?.orderId ||
+                '';
             }
             clearCart();
             if (confirmedId) {
               router.push(`/checkout/success?order_id=${confirmedId}`);
             } else {
-              router.push("/account/orders");
+              router.push('/account/orders');
             }
           } catch (verifyErr: any) {
-            const verifyMsg = verifyErr?.message || "Payment verification failed. Please contact VAHN support.";
-            if (typeof document !== "undefined") {
-              document.body.style.overflow = "auto";
-              document.documentElement.style.overflow = "auto";
-            }
+            cleanUpRazorpayModal(rzpInstance);
+            const verifyMsg =
+              verifyErr?.message || 'Payment verification failed. Please contact VAHN support.';
             try {
-              if (typeof recordRazorpayPaymentFailure === "function") {
+              if (typeof recordRazorpayPaymentFailure === 'function') {
                 const failedOrder = await recordRazorpayPaymentFailure(
                   {
                     cart_id: cart.id,
@@ -344,8 +375,11 @@ export default function CheckoutPage() {
                   },
                   token || undefined
                 );
-                const failedOrderId = (failedOrder as any)?.id || (failedOrder as any)?.order_id || "";
-                router.push(`/checkout/failed?order_id=${failedOrderId}&reason=${encodeURIComponent(verifyMsg)}`);
+                const failedOrderId =
+                  (failedOrder as any)?.id || (failedOrder as any)?.order_id || '';
+                router.push(
+                  `/checkout/failed?order_id=${failedOrderId}&reason=${encodeURIComponent(verifyMsg)}`
+                );
                 return;
               }
             } catch {
@@ -363,54 +397,49 @@ export default function CheckoutPage() {
         },
         notes: {
           cart_id: cart.id,
-          is_guest: isGuest ? "true" : "false",
-          customer_name: customerName || "Guest Athlete",
-          customer_email: customerEmail || "",
-          customer_phone: customerPhone || "",
+          is_guest: isGuest ? 'true' : 'false',
+          customer_name: customerName || 'Guest Athlete',
+          customer_email: customerEmail || '',
+          customer_phone: customerPhone || '',
           delivery_address: shippingPayload
             ? `${shippingPayload.address}, ${shippingPayload.city}, ${shippingPayload.state} - ${shippingPayload.pincode}`
-            : "Collected via Razorpay Magic Checkout",
-          store: "VAHN Sports Official",
+            : 'Collected via Razorpay Magic Checkout',
+          store: 'VAHN Sports Official',
         },
         theme: {
-          color: "#4232d9",
+          color: '#4232d9',
         },
         modal: {
           confirm_close: true,
-          ondismiss: function () {
+          ondismiss: () => {
             setPlacingOrder(false);
-            if (typeof document !== "undefined") {
-              document.body.style.overflow = "auto";
-              document.documentElement.style.overflow = "auto";
+            if (typeof document !== 'undefined') {
+              document.body.style.overflow = 'auto';
+              document.documentElement.style.overflow = 'auto';
               // Never forcefully delete .razorpay-container: Razorpay automatically hides the modal.
               // Deleting the DOM container detaches the iframe and breaks contentWindow on retry.
             }
-            setError("Payment was cancelled or closed. You can retry anytime — your cart items are preserved.");
+            setError(
+              'Payment was cancelled or closed. You can retry anytime — your cart items are preserved.'
+            );
           },
         },
       };
 
       const rzpInstance = new RzpClass(options);
-      rzpInstance.on("payment.failed", async function (response: any) {
-        // Dismiss Razorpay modal cleanly
-        try {
-          rzpInstance.close();
-        } catch {
-          // Ignore
-        }
-        if (typeof document !== "undefined") {
-          document.body.style.overflow = "auto";
-          document.documentElement.style.overflow = "auto";
-        }
+      rzpInstance.on('payment.failed', async (response: any) => {
+        cleanUpRazorpayModal(rzpInstance);
 
         const errorDesc =
-          response?.error?.description || response?.error?.reason || "Transaction declined by bank.";
-        const errorCode = response?.error?.code || "";
+          response?.error?.description ||
+          response?.error?.reason ||
+          'Transaction declined by bank.';
+        const errorCode = response?.error?.code || '';
         const rzpOrderId = response?.error?.metadata?.order_id || rzpOrder.razorpay_order_id;
-        const rzpPaymentId = response?.error?.metadata?.payment_id || "";
+        const rzpPaymentId = response?.error?.metadata?.payment_id || '';
 
         try {
-          if (typeof recordRazorpayPaymentFailure === "function") {
+          if (typeof recordRazorpayPaymentFailure === 'function') {
             const failedOrder = await recordRazorpayPaymentFailure(
               {
                 cart_id: cart.id,
@@ -425,12 +454,14 @@ export default function CheckoutPage() {
               },
               token || undefined
             );
-            const failedOrderId = (failedOrder as any)?.id || (failedOrder as any)?.order_id || "";
-            router.push(`/checkout/failed?order_id=${failedOrderId}&reason=${encodeURIComponent(errorDesc)}`);
+            const failedOrderId = (failedOrder as any)?.id || (failedOrder as any)?.order_id || '';
+            router.push(
+              `/checkout/failed?order_id=${failedOrderId}&reason=${encodeURIComponent(errorDesc)}`
+            );
             return;
           }
         } catch (recErr) {
-          console.error("Could not record failure order:", recErr);
+          console.error('Could not record failure order:', recErr);
         }
         router.push(`/checkout/failed?reason=${encodeURIComponent(errorDesc)}`);
         setPlacingOrder(false);
@@ -438,61 +469,61 @@ export default function CheckoutPage() {
       try {
         rzpInstance.open();
       } catch (openErr: any) {
-        console.error("Razorpay open error:", openErr);
+        console.error('Razorpay open error:', openErr);
         setPlacingOrder(false);
-        setError("Unable to open payment gateway. Please try again.");
+        setError('Unable to open payment gateway. Please try again.');
       }
     } catch (err: any) {
-      setError(err?.message || "Failed to initiate payment. Please try again.");
+      setError(err?.message || 'Failed to initiate payment. Please try again.');
       setPlacingOrder(false);
     }
   }
 
   if (!cartLines.length) {
     return (
-      <div style={{ maxWidth: 560, margin: "100px auto", padding: "0 24px", textAlign: "center" }}>
+      <div style={{ maxWidth: 560, margin: '100px auto', padding: '0 24px', textAlign: 'center' }}>
         <div
           style={{
             width: 64,
             height: 64,
-            background: "#000",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 20px",
-            borderRadius: "0px",
+            background: '#000',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 20px',
+            borderRadius: '0px',
           }}
         >
           <ShoppingBagIcon size={28} color="#fff" />
         </div>
         <h2
           style={{
-            fontSize: "1.4rem",
+            fontSize: '1.4rem',
             fontWeight: 900,
-            textTransform: "uppercase",
-            letterSpacing: "-0.025em",
-            margin: "0 0 10px",
-            fontFamily: "var(--font-ui)",
+            textTransform: 'uppercase',
+            letterSpacing: '-0.025em',
+            margin: '0 0 10px',
+            fontFamily: 'var(--font-ui)',
           }}
         >
           Your Cart is Empty
         </h2>
-        <p style={{ color: "#666", fontSize: "0.9rem", margin: "0 0 24px" }}>
+        <p style={{ color: '#666', fontSize: '0.9rem', margin: '0 0 24px' }}>
           Add high-performance gear to your cart before proceeding to checkout.
         </p>
         <Link
           href="/products"
           style={{
-            display: "inline-block",
-            background: "#4232d9",
-            color: "#fff",
-            padding: "14px 32px",
+            display: 'inline-block',
+            background: '#4232d9',
+            color: '#fff',
+            padding: '14px 32px',
             fontWeight: 800,
-            textDecoration: "none",
-            textTransform: "uppercase",
-            letterSpacing: "-0.025em",
-            fontSize: "0.85rem",
-            borderRadius: "0px",
+            textDecoration: 'none',
+            textTransform: 'uppercase',
+            letterSpacing: '-0.025em',
+            fontSize: '0.85rem',
+            borderRadius: '0px',
           }}
         >
           Explore Collection →
@@ -506,37 +537,37 @@ export default function CheckoutPage() {
       className="checkout-container"
       style={{
         maxWidth: 1200,
-        margin: "40px auto 100px",
-        padding: "0 24px",
-        fontFamily: "var(--font-ui)",
+        margin: '40px auto 100px',
+        padding: '0 24px',
+        fontFamily: 'var(--font-ui)',
       }}
     >
       {/* Header */}
       <div
         style={{
-          borderBottom: "2px solid #000",
-          paddingBottom: "16px",
-          marginBottom: "36px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          flexWrap: "wrap",
-          gap: "12px",
+          borderBottom: '2px solid #000',
+          paddingBottom: '16px',
+          marginBottom: '36px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          flexWrap: 'wrap',
+          gap: '12px',
         }}
       >
         <div>
           <h1
             style={{
-              fontSize: "clamp(1.6rem, 3vw, 2.2rem)",
+              fontSize: 'clamp(1.6rem, 3vw, 2.2rem)',
               fontWeight: 900,
-              textTransform: "uppercase",
-              letterSpacing: "-0.03em",
+              textTransform: 'uppercase',
+              letterSpacing: '-0.03em',
               margin: 0,
             }}
           >
             Secure Checkout
           </h1>
-          <p style={{ color: "#666", fontSize: "0.85rem", margin: "4px 0 0" }}>
+          <p style={{ color: '#666', fontSize: '0.85rem', margin: '4px 0 0' }}>
             100% Secure Prepaid Payment
           </p>
         </div>
@@ -546,28 +577,30 @@ export default function CheckoutPage() {
       {error && (
         <div
           style={{
-            background: "#fff5f5",
-            border: "1px solid #ff4d4f",
-            borderRadius: "0px",
-            padding: "16px 20px",
-            marginBottom: "28px",
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "12px",
+            background: '#fff5f5',
+            border: '1px solid #ff4d4f',
+            borderRadius: '0px',
+            padding: '16px 20px',
+            marginBottom: '28px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
           }}
         >
           <AlertCircleIcon size={20} color="#ff4d4f" />
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, color: "#cf1322", fontSize: "0.9rem" }}>Payment Alert</div>
-            <div style={{ fontSize: "0.85rem", color: "#434343", marginTop: "2px" }}>{error}</div>
+            <div style={{ fontWeight: 700, color: '#cf1322', fontSize: '0.9rem' }}>
+              Payment Alert
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#434343', marginTop: '2px' }}>{error}</div>
           </div>
           <button
-            onClick={() => setError("")}
+            onClick={() => setError('')}
             style={{
-              background: "none",
-              border: "none",
-              color: "#999",
-              cursor: "pointer",
+              background: 'none',
+              border: 'none',
+              color: '#999',
+              cursor: 'pointer',
               fontWeight: 700,
             }}
           >
@@ -622,43 +655,43 @@ export default function CheckoutPage() {
       <div
         className="checkout-main-grid"
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 420px",
-          gap: "36px",
-          alignItems: "start",
+          display: 'grid',
+          gridTemplateColumns: '1fr 420px',
+          gap: '36px',
+          alignItems: 'start',
         }}
       >
         {/* Left Column: Logged-in Address Manager OR Revamped Guest Checkout Hub */}
         {user ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {/* 1. Delivery Details Section */}
             <div
               className="checkout-card"
               style={{
-                border: "1px solid #e0e0e0",
-                borderRadius: "0px",
-                padding: "24px",
-                background: "#fff",
+                border: '1px solid #e0e0e0',
+                borderRadius: '0px',
+                padding: '24px',
+                background: '#fff',
               }}
             >
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "20px",
-                  borderBottom: "1px solid #f0f0f0",
-                  paddingBottom: "12px",
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '20px',
+                  borderBottom: '1px solid #f0f0f0',
+                  paddingBottom: '12px',
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <MapPinIcon size={20} color="#000" />
                   <h2
                     style={{
-                      fontSize: "1.1rem",
+                      fontSize: '1.1rem',
                       fontWeight: 900,
-                      textTransform: "uppercase",
-                      letterSpacing: "-0.02em",
+                      textTransform: 'uppercase',
+                      letterSpacing: '-0.02em',
                       margin: 0,
                     }}
                   >
@@ -672,15 +705,15 @@ export default function CheckoutPage() {
                     setShowAddressModal(true);
                   }}
                   style={{
-                    background: "#000",
-                    color: "#fff",
-                    border: "none",
-                    padding: "6px 14px",
-                    fontSize: "0.75rem",
+                    background: '#000',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '6px 14px',
+                    fontSize: '0.75rem',
                     fontWeight: 700,
-                    textTransform: "uppercase",
-                    cursor: "pointer",
-                    borderRadius: "0px",
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                    borderRadius: '0px',
                   }}
                 >
                   + Add New Address
@@ -689,12 +722,12 @@ export default function CheckoutPage() {
 
               {/* Saved Address Selector */}
               {loadingAddresses ? (
-                <div style={{ padding: "20px", textAlign: "center", color: "#666" }}>
+                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
                   Loading saved addresses...
                 </div>
               ) : addresses.length === 0 ? (
-                <div style={{ padding: "20px", textAlign: "center" }}>
-                  <p style={{ color: "#666", fontSize: "0.9rem", marginBottom: "16px" }}>
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                  <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '16px' }}>
                     No saved addresses found. Add an address to proceed.
                   </p>
                   <button
@@ -703,22 +736,22 @@ export default function CheckoutPage() {
                       setShowAddressModal(true);
                     }}
                     style={{
-                      background: "#4232d9",
-                      color: "#fff",
-                      border: "none",
-                      padding: "10px 24px",
-                      fontSize: "0.85rem",
+                      background: '#4232d9',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '10px 24px',
+                      fontSize: '0.85rem',
                       fontWeight: 800,
-                      textTransform: "uppercase",
-                      cursor: "pointer",
-                      borderRadius: "0px",
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                      borderRadius: '0px',
                     }}
                   >
                     Add Delivery Address
                   </button>
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {addresses.map((addr) => {
                     const isSelected = selectedAddressId === addr.id;
                     return (
@@ -729,23 +762,23 @@ export default function CheckoutPage() {
                           handleCheckPincode(addr.pincode);
                         }}
                         style={{
-                          border: isSelected ? "2px solid #4232d9" : "1px solid #e0e0e0",
-                          background: isSelected ? "rgba(66, 50, 217, 0.03)" : "#fff",
-                          borderRadius: "0px",
-                          padding: "16px",
-                          cursor: "pointer",
-                          transition: "border 0.2s ease",
+                          border: isSelected ? '2px solid #4232d9' : '1px solid #e0e0e0',
+                          background: isSelected ? 'rgba(66, 50, 217, 0.03)' : '#fff',
+                          borderRadius: '0px',
+                          padding: '16px',
+                          cursor: 'pointer',
+                          transition: 'border 0.2s ease',
                         }}
                       >
                         <div
                           style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            marginBottom: "6px",
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: '6px',
                           }}
                         >
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <input
                               type="radio"
                               name="selected_address"
@@ -754,27 +787,27 @@ export default function CheckoutPage() {
                                 setSelectedAddressId(addr.id);
                                 handleCheckPincode(addr.pincode);
                               }}
-                              style={{ accentColor: "#4232d9", cursor: "pointer" }}
+                              style={{ accentColor: '#4232d9', cursor: 'pointer' }}
                             />
                             <span
                               style={{
                                 fontWeight: 800,
-                                fontSize: "0.9rem",
-                                textTransform: "uppercase",
+                                fontSize: '0.9rem',
+                                textTransform: 'uppercase',
                               }}
                             >
                               {addr.first_name} {addr.last_name}
                             </span>
                             <span
                               style={{
-                                fontSize: "0.7rem",
+                                fontSize: '0.7rem',
                                 fontWeight: 700,
-                                background: "#f0f0f0",
-                                padding: "2px 6px",
-                                textTransform: "uppercase",
+                                background: '#f0f0f0',
+                                padding: '2px 6px',
+                                textTransform: 'uppercase',
                               }}
                             >
-                              {addr.label || "HOME"}
+                              {addr.label || 'HOME'}
                             </span>
                           </div>
                           <button
@@ -785,13 +818,13 @@ export default function CheckoutPage() {
                               setShowAddressModal(true);
                             }}
                             style={{
-                              background: "none",
-                              border: "none",
-                              color: "#666",
-                              cursor: "pointer",
-                              fontSize: "0.75rem",
+                              background: 'none',
+                              border: 'none',
+                              color: '#666',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
                               fontWeight: 600,
-                              textDecoration: "underline",
+                              textDecoration: 'underline',
                             }}
                           >
                             Edit
@@ -799,19 +832,19 @@ export default function CheckoutPage() {
                         </div>
                         <div
                           style={{
-                            fontSize: "0.85rem",
-                            color: "#444",
+                            fontSize: '0.85rem',
+                            color: '#444',
                             lineHeight: 1.5,
-                            marginLeft: "24px",
+                            marginLeft: '24px',
                           }}
                         >
-                          {addr.house_flat_no ? `${addr.house_flat_no}, ` : ""}
+                          {addr.house_flat_no ? `${addr.house_flat_no}, ` : ''}
                           {addr.street_address}
-                          {addr.apartment ? `, ${addr.apartment}` : ""}
+                          {addr.apartment ? `, ${addr.apartment}` : ''}
                           <br />
                           {addr.city}, {addr.state} - <strong>{addr.pincode}</strong>
                           <br />
-                          <span style={{ color: "#777" }}>Phone: {addr.phone}</span>
+                          <span style={{ color: '#777' }}>Phone: {addr.phone}</span>
                         </div>
                       </div>
                     );
@@ -820,24 +853,24 @@ export default function CheckoutPage() {
               )}
 
               {/* Logged-In Pincode Serviceability Indicator */}
-              <div style={{ marginTop: "16px" }}>
+              <div style={{ marginTop: '16px' }}>
                 {checkingPincode ? (
-                  <div style={{ fontSize: "0.8rem", color: "#666" }}>
+                  <div style={{ fontSize: '0.8rem', color: '#666' }}>
                     Verifying courier serviceability with Shiprocket...
                   </div>
                 ) : serviceability ? (
                   <div
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      padding: "8px 12px",
-                      background: serviceability.serviceable ? "#f6ffed" : "#fff2f0",
-                      border: `1px solid ${serviceability.serviceable ? "#b7eb8f" : "#ffccc7"}`,
-                      fontSize: "0.8rem",
-                      color: serviceability.serviceable ? "#389e0d" : "#cf1322",
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      background: serviceability.serviceable ? '#f6ffed' : '#fff2f0',
+                      border: `1px solid ${serviceability.serviceable ? '#b7eb8f' : '#ffccc7'}`,
+                      fontSize: '0.8rem',
+                      color: serviceability.serviceable ? '#389e0d' : '#cf1322',
                       fontWeight: 600,
-                      borderRadius: "0px",
+                      borderRadius: '0px',
                     }}
                   >
                     {serviceability.serviceable ? (
@@ -847,8 +880,9 @@ export default function CheckoutPage() {
                     )}
                     <span>
                       {serviceability.serviceable
-                        ? `Delivery available${serviceability.city ? ` to ${serviceability.city}, ${serviceability.state}` : ""} via ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_days || `${serviceability.estimated_delivery_days || 3} business days`})`
-                        : (serviceability.message || `Delivery is not serviceable to PIN ${serviceability.pincode}`)}
+                        ? `Delivery available${serviceability.city ? ` to ${serviceability.city}, ${serviceability.state}` : ''} via ${serviceability.courier_name || 'Express Courier'} (Est. ${serviceability.estimated_days || `${serviceability.estimated_delivery_days || 3} business days`})`
+                        : serviceability.message ||
+                          `Delivery is not serviceable to PIN ${serviceability.pincode}`}
                     </span>
                   </div>
                 ) : null}
@@ -857,43 +891,48 @@ export default function CheckoutPage() {
           </div>
         ) : (
           /* Simple & Elegant Guest Checkout Details */
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* Interactive Delivery Speed & PIN Code Estimator */}
             <div
               className="checkout-card"
               style={{
-                border: "1px solid #e0e0e0",
-                borderRadius: "0px",
-                padding: "24px",
-                background: "#fff",
+                border: '1px solid #e0e0e0',
+                borderRadius: '0px',
+                padding: '24px',
+                background: '#fff',
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}
+              >
                 <TruckIcon size={18} color="#000" />
                 <h3
                   style={{
-                    fontSize: "1.05rem",
+                    fontSize: '1.05rem',
                     fontWeight: 900,
-                    textTransform: "uppercase",
-                    letterSpacing: "-0.02em",
+                    textTransform: 'uppercase',
+                    letterSpacing: '-0.02em',
                     margin: 0,
                   }}
                 >
                   Estimated Delivery Timeline
                 </h3>
               </div>
-              <p style={{ fontSize: "0.82rem", color: "#666", margin: "0 0 14px" }}>
+              <p style={{ fontSize: '0.82rem', color: '#666', margin: '0 0 14px' }}>
                 Check courier transit days and serviceability for your postal PIN code:
               </p>
 
-              <div className="checkout-pincode-form" style={{ display: "flex", gap: "10px", maxWidth: "420px", marginBottom: "12px" }}>
+              <div
+                className="checkout-pincode-form"
+                style={{ display: 'flex', gap: '10px', maxWidth: '420px', marginBottom: '12px' }}
+              >
                 <input
                   type="text"
                   maxLength={6}
                   placeholder="Enter 6-digit PIN code"
                   value={guestPincodeInput}
                   onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "");
+                    const val = e.target.value.replace(/\D/g, '');
                     setGuestPincodeInput(val);
                     if (val.length === 6) {
                       handleCheckPincode(val);
@@ -901,11 +940,11 @@ export default function CheckoutPage() {
                   }}
                   style={{
                     flex: 1,
-                    padding: "10px 14px",
-                    border: "1px solid #ccc",
-                    fontSize: "0.9rem",
-                    outline: "none",
-                    borderRadius: "0px",
+                    padding: '10px 14px',
+                    border: '1px solid #ccc',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    borderRadius: '0px',
                   }}
                 />
                 <button
@@ -914,40 +953,40 @@ export default function CheckoutPage() {
                   disabled={checkingPincode || guestPincodeInput.length !== 6}
                   className="checkout-pincode-btn"
                   style={{
-                    background: guestPincodeInput.length === 6 ? "#000" : "#999",
-                    color: "#fff",
-                    border: "none",
-                    padding: "10px 20px",
-                    fontSize: "0.8rem",
+                    background: guestPincodeInput.length === 6 ? '#000' : '#999',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '10px 20px',
+                    fontSize: '0.8rem',
                     fontWeight: 800,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.02em",
-                    cursor: guestPincodeInput.length === 6 ? "pointer" : "not-allowed",
-                    borderRadius: "0px",
-                    whiteSpace: "nowrap",
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.02em',
+                    cursor: guestPincodeInput.length === 6 ? 'pointer' : 'not-allowed',
+                    borderRadius: '0px',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {checkingPincode ? "Checking..." : "Check Delivery"}
+                  {checkingPincode ? 'Checking...' : 'Check Delivery'}
                 </button>
               </div>
 
               {/* Serviceability Result */}
               {checkingPincode ? (
-                <div style={{ fontSize: "0.82rem", color: "#666", fontStyle: "italic" }}>
+                <div style={{ fontSize: '0.82rem', color: '#666', fontStyle: 'italic' }}>
                   Checking Shiprocket courier coverage...
                 </div>
               ) : serviceability ? (
                 <div
                   style={{
-                    padding: "12px 14px",
-                    background: serviceability.serviceable ? "#f6ffed" : "#fff2f0",
-                    border: `1px solid ${serviceability.serviceable ? "#b7eb8f" : "#ffccc7"}`,
-                    fontSize: "0.82rem",
-                    color: serviceability.serviceable ? "#237804" : "#cf1322",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    borderRadius: "0px",
+                    padding: '12px 14px',
+                    background: serviceability.serviceable ? '#f6ffed' : '#fff2f0',
+                    border: `1px solid ${serviceability.serviceable ? '#b7eb8f' : '#ffccc7'}`,
+                    fontSize: '0.82rem',
+                    color: serviceability.serviceable ? '#237804' : '#cf1322',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    borderRadius: '0px',
                   }}
                 >
                   {serviceability.serviceable ? (
@@ -958,8 +997,9 @@ export default function CheckoutPage() {
                   <div>
                     <span style={{ fontWeight: 700 }}>
                       {serviceability.serviceable
-                        ? `Delivery available to ${serviceability.city ? `${serviceability.city}, ${serviceability.state} (PIN ${serviceability.pincode})` : `PIN ${serviceability.pincode}`} via ${serviceability.courier_name || "Express Courier"} (Est. ${serviceability.estimated_days || `${serviceability.estimated_delivery_days || 3} business days`})`
-                        : (serviceability.message || `Delivery is not serviceable to PIN ${serviceability.pincode}`)}
+                        ? `Delivery available to ${serviceability.city ? `${serviceability.city}, ${serviceability.state} (PIN ${serviceability.pincode})` : `PIN ${serviceability.pincode}`} via ${serviceability.courier_name || 'Express Courier'} (Est. ${serviceability.estimated_days || `${serviceability.estimated_delivery_days || 3} business days`})`
+                        : serviceability.message ||
+                          `Delivery is not serviceable to PIN ${serviceability.pincode}`}
                     </span>
                   </div>
                 </div>
@@ -970,29 +1010,29 @@ export default function CheckoutPage() {
             <div
               className="checkout-signin-strip"
               style={{
-                border: "1px solid #e0e0e0",
-                background: "#fafafa",
-                padding: "14px 20px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "12px",
+                border: '1px solid #e0e0e0',
+                background: '#fafafa',
+                padding: '14px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
               }}
             >
-              <span style={{ fontSize: "0.82rem", color: "#555" }}>
+              <span style={{ fontSize: '0.82rem', color: '#555' }}>
                 Already have a VAHN Athlete account?
               </span>
               <button
                 type="button"
                 onClick={() => openAuthModal()}
                 style={{
-                  background: "none",
-                  border: "none",
-                  color: "#4232d9",
+                  background: 'none',
+                  border: 'none',
+                  color: '#4232d9',
                   fontWeight: 700,
-                  fontSize: "0.82rem",
-                  cursor: "pointer",
-                  textDecoration: "underline",
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
                   padding: 0,
                 }}
               >
@@ -1007,59 +1047,59 @@ export default function CheckoutPage() {
           <div
             className="checkout-card checkout-summary-card"
             style={{
-              border: "1px solid #e0e0e0",
-              borderRadius: "0px",
-              padding: "24px",
-              background: "#fff",
-              position: "sticky",
-              top: "100px",
+              border: '1px solid #e0e0e0',
+              borderRadius: '0px',
+              padding: '24px',
+              background: '#fff',
+              position: 'sticky',
+              top: '100px',
             }}
           >
             <h2
               style={{
-                fontSize: "1.1rem",
+                fontSize: '1.1rem',
                 fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "-0.02em",
-                margin: "0 0 16px",
-                borderBottom: "1px solid #f0f0f0",
-                paddingBottom: "12px",
+                textTransform: 'uppercase',
+                letterSpacing: '-0.02em',
+                margin: '0 0 16px',
+                borderBottom: '1px solid #f0f0f0',
+                paddingBottom: '12px',
               }}
             >
-              Order Summary ({cartLines.length} item{cartLines.length > 1 ? "s" : ""})
+              Order Summary ({cartLines.length} item{cartLines.length > 1 ? 's' : ''})
             </h2>
 
             {/* Cart Items list */}
             <div
               style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "14px",
-                maxHeight: "320px",
-                overflowY: "auto",
-                marginBottom: "20px",
-                paddingRight: "4px",
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                maxHeight: '320px',
+                overflowY: 'auto',
+                marginBottom: '20px',
+                paddingRight: '4px',
               }}
             >
               {cartLines.map((line) => (
                 <div
                   key={line.id}
                   style={{
-                    display: "flex",
-                    gap: "12px",
-                    alignItems: "center",
-                    borderBottom: "1px solid #f5f5f5",
-                    paddingBottom: "12px",
+                    display: 'flex',
+                    gap: '12px',
+                    alignItems: 'center',
+                    borderBottom: '1px solid #f5f5f5',
+                    paddingBottom: '12px',
                   }}
                 >
                   <div
                     style={{
-                      position: "relative",
+                      position: 'relative',
                       width: 54,
                       height: 54,
                       flexShrink: 0,
-                      background: "#f7f7f7",
-                      border: "1px solid #eee",
+                      background: '#f7f7f7',
+                      border: '1px solid #eee',
                     }}
                   >
                     {line.merchandise.product.featuredImage ? (
@@ -1068,18 +1108,18 @@ export default function CheckoutPage() {
                         alt={line.merchandise.product.title}
                         fill
                         sizes="54px"
-                        style={{ objectFit: "cover" }}
+                        style={{ objectFit: 'cover' }}
                       />
                     ) : (
                       <div
                         style={{
-                          width: "100%",
-                          height: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "0.65rem",
-                          color: "#999",
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.65rem',
+                          color: '#999',
                         }}
                       >
                         VAHN
@@ -1090,21 +1130,24 @@ export default function CheckoutPage() {
                     <div
                       style={{
                         fontWeight: 700,
-                        fontSize: "0.85rem",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        fontSize: '0.85rem',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
                       }}
                     >
                       {line.merchandise.product.title}
                     </div>
-                    <div style={{ fontSize: "0.75rem", color: "#666" }}>
-                      {line.merchandise.title !== "Default Title" ? line.merchandise.title : ""} • Qty:{" "}
-                      {line.quantity}
+                    <div style={{ fontSize: '0.75rem', color: '#666' }}>
+                      {line.merchandise.title !== 'Default Title' ? line.merchandise.title : ''} •
+                      Qty: {line.quantity}
                     </div>
                   </div>
-                  <div style={{ fontWeight: 800, fontSize: "0.85rem", whiteSpace: "nowrap" }}>
-                    ₹{(parseFloat(line.merchandise.price.amount) * line.quantity).toLocaleString("en-IN")}
+                  <div style={{ fontWeight: 800, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                    ₹
+                    {(parseFloat(line.merchandise.price.amount) * line.quantity).toLocaleString(
+                      'en-IN'
+                    )}
                   </div>
                 </div>
               ))}
@@ -1113,97 +1156,114 @@ export default function CheckoutPage() {
             {/* Calculations */}
             <div
               style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "10px",
-                fontSize: "0.85rem",
-                color: "#555",
-                borderBottom: "1px solid #f0f0f0",
-                paddingBottom: "16px",
-                marginBottom: "16px",
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                fontSize: '0.85rem',
+                color: '#555',
+                borderBottom: '1px solid #f0f0f0',
+                paddingBottom: '16px',
+                marginBottom: '16px',
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Subtotal</span>
-                <span>₹{subtotal.toLocaleString("en-IN")}</span>
+                <span>₹{subtotal.toLocaleString('en-IN')}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Shipping</span>
-                <span style={{ color: shippingFee === 0 ? "#52c41a" : "#000", fontWeight: 700 }}>
-                  {shippingFee === 0 ? "FREE" : `₹${shippingFee.toLocaleString("en-IN")}`}
+                <span style={{ color: shippingFee === 0 ? '#52c41a' : '#000', fontWeight: 700 }}>
+                  {shippingFee === 0 ? 'FREE' : `₹${shippingFee.toLocaleString('en-IN')}`}
                 </span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "#888" }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '0.75rem',
+                  color: '#888',
+                }}
+              >
                 <span>Estimated GST Included</span>
-                <span>₹{estimatedTax.toLocaleString("en-IN")}</span>
+                <span>₹{estimatedTax.toLocaleString('en-IN')}</span>
               </div>
             </div>
 
             {/* Total */}
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
                 fontWeight: 900,
-                fontSize: "1.2rem",
-                marginBottom: "24px",
+                fontSize: '1.2rem',
+                marginBottom: '24px',
               }}
             >
-              <span style={{ textTransform: "uppercase" }}>Total</span>
-              <span style={{ color: "#4232d9" }}>₹{grandTotal.toLocaleString("en-IN")}</span>
+              <span style={{ textTransform: 'uppercase' }}>Total</span>
+              <span style={{ color: '#4232d9' }}>₹{grandTotal.toLocaleString('en-IN')}</span>
             </div>
 
             {/* Free Shipping Progress Bar */}
             <div
               style={{
-                background: subtotal >= 1999 ? "#f6ffed" : "#fbfbfe",
-                border: `1px solid ${subtotal >= 1999 ? "#b7eb8f" : "#ecebf8"}`,
-                padding: "14px",
-                marginBottom: "20px",
+                background: subtotal >= 1999 ? '#f6ffed' : '#fbfbfe',
+                border: `1px solid ${subtotal >= 1999 ? '#b7eb8f' : '#ecebf8'}`,
+                padding: '14px',
+                marginBottom: '20px',
               }}
             >
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: "0.78rem",
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '0.78rem',
                   fontWeight: 700,
-                  marginBottom: "8px",
-                  color: subtotal >= 1999 ? "#237804" : "#333",
+                  marginBottom: '8px',
+                  color: subtotal >= 1999 ? '#237804' : '#333',
                 }}
               >
-                <span>{subtotal >= 1999 ? "✓ Free Express Shipping Unlocked" : "Free Express Shipping"}</span>
-                <span style={{ color: "#4232d9" }}>
-                  {subtotal >= 1999 ? "FREE" : `₹${subtotal.toLocaleString("en-IN")} / ₹1,999`}
+                <span>
+                  {subtotal >= 1999 ? '✓ Free Express Shipping Unlocked' : 'Free Express Shipping'}
+                </span>
+                <span style={{ color: '#4232d9' }}>
+                  {subtotal >= 1999 ? 'FREE' : `₹${subtotal.toLocaleString('en-IN')} / ₹1,999`}
                 </span>
               </div>
               <div
                 style={{
-                  height: "6px",
-                  width: "100%",
-                  background: "#e8e7f2",
-                  borderRadius: "3px",
-                  overflow: "hidden",
+                  height: '6px',
+                  width: '100%',
+                  background: '#e8e7f2',
+                  borderRadius: '3px',
+                  overflow: 'hidden',
                 }}
               >
                 <div
                   style={{
-                    height: "100%",
+                    height: '100%',
                     width: `${Math.min(100, Math.round((subtotal / 1999) * 100))}%`,
-                    background: subtotal >= 1999 ? "#52c41a" : "#4232d9",
-                    transition: "width 0.3s ease",
+                    background: subtotal >= 1999 ? '#52c41a' : '#4232d9',
+                    transition: 'width 0.3s ease',
                   }}
                 />
               </div>
-              <div style={{ fontSize: "0.73rem", color: "#666", marginTop: "7px", textAlign: "center" }}>
+              <div
+                style={{
+                  fontSize: '0.73rem',
+                  color: '#666',
+                  marginTop: '7px',
+                  textAlign: 'center',
+                }}
+              >
                 {subtotal >= 1999 ? (
-                  <span style={{ color: "#237804", fontWeight: 700 }}>
+                  <span style={{ color: '#237804', fontWeight: 700 }}>
                     Your order qualifies for complimentary priority express shipping!
                   </span>
                 ) : (
                   <>
-                    Add <strong>₹{(1999 - subtotal).toLocaleString("en-IN")}</strong> more to unlock <strong>FREE SHIPPING</strong>
+                    Add <strong>₹{(1999 - subtotal).toLocaleString('en-IN')}</strong> more to unlock{' '}
+                    <strong>FREE SHIPPING</strong>
                   </>
                 )}
               </div>
@@ -1216,87 +1276,87 @@ export default function CheckoutPage() {
               disabled={placingOrder}
               className="checkout-pay-btn"
               style={{
-                width: "100%",
-                background: placingOrder ? "#666" : "#4232d9",
-                color: "#fff",
-                border: "none",
-                padding: "16px 20px",
-                fontSize: "0.95rem",
+                width: '100%',
+                background: placingOrder ? '#666' : '#4232d9',
+                color: '#fff',
+                border: 'none',
+                padding: '16px 20px',
+                fontSize: '0.95rem',
                 fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "0.02em",
-                cursor: placingOrder ? "not-allowed" : "pointer",
-                borderRadius: "0px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "10px",
-                boxShadow: "0 4px 14px rgba(66, 50, 217, 0.25)",
-                transition: "all 0.2s ease",
+                textTransform: 'uppercase',
+                letterSpacing: '0.02em',
+                cursor: placingOrder ? 'not-allowed' : 'pointer',
+                borderRadius: '0px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                boxShadow: '0 4px 14px rgba(66, 50, 217, 0.25)',
+                transition: 'all 0.2s ease',
               }}
             >
               {placingOrder ? (
                 <span>Connecting to Gateway...</span>
               ) : user ? (
-                <span>Pay ₹{grandTotal.toLocaleString("en-IN")} via Razorpay →</span>
+                <span>Pay ₹{grandTotal.toLocaleString('en-IN')} via Razorpay →</span>
               ) : (
                 <>
                   <SparklesIcon size={18} color="#fff" />
-                  <span>Pay ₹{grandTotal.toLocaleString("en-IN")} with Magic Checkout</span>
+                  <span>Pay ₹{grandTotal.toLocaleString('en-IN')} with Magic Checkout</span>
                 </>
               )}
             </button>
 
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "6px",
-                marginTop: "14px",
-                fontSize: "0.74rem",
-                color: "#555",
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                marginTop: '14px',
+                fontSize: '0.74rem',
+                color: '#555',
               }}
             >
               <ShieldCheckIcon size={15} color="#52c41a" />
               <span>
                 {user
-                  ? "256-Bit SSL Encrypted Razorpay Gateway (Cards, UPI, Netbanking)"
-                  : "1-Click Razorpay Magic Checkout — SSL Encrypted"}
+                  ? '256-Bit SSL Encrypted Razorpay Gateway (Cards, UPI, Netbanking)'
+                  : '1-Click Razorpay Magic Checkout — SSL Encrypted'}
               </span>
             </div>
 
             {/* Trust badges */}
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr",
-                gap: "8px",
-                marginTop: "14px",
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gap: '8px',
+                marginTop: '14px',
               }}
             >
               {[
-                { icon: <LockIcon size={14} color="#4232d9" />, label: "Secure Payment" },
-                { icon: <TruckIcon size={14} color="#4232d9" />, label: "Pan India Shipping" },
-                { icon: <PackageIcon size={14} color="#4232d9" />, label: "10-Day Returns" },
+                { icon: <LockIcon size={14} color="#4232d9" />, label: 'Secure Payment' },
+                { icon: <TruckIcon size={14} color="#4232d9" />, label: 'Pan India Shipping' },
+                { icon: <PackageIcon size={14} color="#4232d9" />, label: '10-Day Returns' },
               ].map(({ icon, label }) => (
                 <div
                   key={label}
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "5px",
-                    padding: "10px 6px",
-                    background: "#f7f6ff",
-                    border: "1px solid #e8e4ff",
-                    borderRadius: "4px",
-                    fontSize: "0.65rem",
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '10px 6px',
+                    background: '#f7f6ff',
+                    border: '1px solid #e8e4ff',
+                    borderRadius: '4px',
+                    fontSize: '0.65rem',
                     fontWeight: 700,
-                    color: "#333",
-                    textAlign: "center",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.02em",
+                    color: '#333',
+                    textAlign: 'center',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.02em',
                   }}
                 >
                   {icon}

@@ -1501,6 +1501,66 @@ def razorpay_record_failure(
     current_user: Optional[models.User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
+    # Extract customer and address details from Razorpay if not provided in payload (e.g., Magic Checkout)
+    cust_name = payload.customer_name
+    cust_email = payload.customer_email
+    cust_phone = payload.customer_phone
+    shipping_payload = payload.shipping_address
+
+    target_rzp_order_id = payload.razorpay_order_id
+    target_rzp_payment_id = payload.razorpay_payment_id
+
+    rzp_order_obj = {}
+    rzp_cust_details = {}
+    rzp_shipping = {}
+
+    if target_rzp_order_id:
+        try:
+            details = razorpay_service.fetch_order_details(target_rzp_order_id)
+            rzp_order_obj = details.get("order") or {}
+            rzp_cust_details = rzp_order_obj.get("customer_details") or {}
+            rzp_shipping = rzp_cust_details.get("shipping_address") or rzp_cust_details.get("billing_address") or {}
+        except Exception as e:
+            logger.warning(f"Could not fetch Razorpay order details on failure: {e}")
+
+    rzp_payment = {}
+    if target_rzp_payment_id:
+        try:
+            rzp_payment = razorpay_service.fetch_payment(target_rzp_payment_id) or {}
+        except Exception as e:
+            logger.warning(f"Could not fetch payment from Razorpay on failure: {e}")
+
+    if not cust_name:
+        cust_name = (
+            rzp_shipping.get("name")
+            or rzp_cust_details.get("name")
+            or rzp_payment.get("notes", {}).get("name")
+            or (current_user.full_name if current_user else None)
+        )
+    if not cust_email:
+        cust_email = (
+            rzp_cust_details.get("email")
+            or rzp_payment.get("email")
+            or (current_user.email if current_user else None)
+        )
+        if cust_email:
+            cust_email = cust_email.strip().lower()
+    if not cust_phone:
+        raw_phone = rzp_cust_details.get("contact") or rzp_payment.get("contact") or (current_user.phone if current_user else None)
+        cust_phone = "".join(filter(str.isdigit, str(raw_phone)))[-10:] if raw_phone else None
+
+    if not shipping_payload and rzp_shipping:
+        shipping_payload = {
+            "name": cust_name or rzp_shipping.get("name") or "Guest Athlete",
+            "phone": cust_phone or rzp_shipping.get("contact") or "",
+            "address": rzp_shipping.get("line1") or rzp_shipping.get("address") or "",
+            "apartment": rzp_shipping.get("line2") or "",
+            "city": rzp_shipping.get("city") or "",
+            "state": rzp_shipping.get("state") or "",
+            "pincode": str(rzp_shipping.get("postal_code") or rzp_shipping.get("zipcode") or rzp_shipping.get("pincode") or ""),
+            "country": rzp_shipping.get("country") or "India",
+        }
+
     # If existing order_id provided, update it
     if payload.order_id:
         existing = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=payload.order_id).first()
@@ -1513,11 +1573,19 @@ def razorpay_record_failure(
                     existing.razorpay_order_id = payload.razorpay_order_id
                 if payload.razorpay_payment_id:
                     existing.razorpay_payment_id = payload.razorpay_payment_id
+                if not existing.guest_name and cust_name:
+                    existing.guest_name = cust_name
+                if not existing.guest_email and cust_email:
+                    existing.guest_email = cust_email
+                if not existing.guest_phone and cust_phone:
+                    existing.guest_phone = cust_phone
+                if not existing.shipping_address and shipping_payload:
+                    existing.shipping_address = resolve_shipping_address(None, shipping_payload, current_user, db)
                 db.commit()
                 db.refresh(existing)
             return build_order_schema(existing)
 
-    # If no order_id, locate cart and create an order with status PENDING_PAYMENT / FAILED
+    # If no order_id, locate cart and create an order with status FAILED
     if not payload.cart_id:
         raise HTTPException(status_code=400, detail="cart_id or order_id is required to record failure.")
 
@@ -1529,18 +1597,18 @@ def razorpay_record_failure(
         raise HTTPException(status_code=400, detail="Cart is empty or not found.")
 
     subtotal, shipping_amount, tax_amount, total_amount, _ = calculate_cart_pricing(cart)
-    final_address = resolve_shipping_address(None, payload.shipping_address, current_user, db)
+    final_address = resolve_shipping_address(None, shipping_payload, current_user, db)
 
     order_id = f"ORD-{secrets.randbelow(899999) + 100000}"
     order = models.Order(
         id=order_id,
         user_id=current_user.id if current_user else None,
         is_guest=current_user is None,
-        guest_name=payload.customer_name,
-        guest_email=payload.customer_email,
-        guest_phone=payload.customer_phone,
+        guest_name=cust_name,
+        guest_email=cust_email,
+        guest_phone=cust_phone,
         status="FAILED",
-        payment_method="RAZORPAY_CUSTOM",
+        payment_method="RAZORPAY_MAGIC" if current_user is None else "RAZORPAY_CUSTOM",
         payment_status="FAILED",
         razorpay_order_id=payload.razorpay_order_id,
         razorpay_payment_id=payload.razorpay_payment_id,
@@ -2274,6 +2342,9 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         "total_amount": order.total_amount,
         "currency": order.currency or "INR",
         "shipping_address": order.shipping_address,
+        "customer_name": (order.user.full_name or order.user.username) if order.user else (order.guest_name or (order.shipping_address or {}).get("name")),
+        "customer_email": (order.user.email if order.user else (order.guest_email or (order.shipping_address or {}).get("email"))),
+        "customer_phone": (order.user.phone if order.user else (order.guest_phone or (order.shipping_address or {}).get("phone"))),
         "created_at": order.created_at.strftime("%b %d, %Y") if order.created_at else "",
         "payment_status": order.payment_status or "PENDING",
         "payment_method": order.payment_method or "ONLINE",
@@ -2425,13 +2496,26 @@ def retry_order_payment(
     # Passing line_items/line_items_total activates Razorpay Magic Checkout (OPC) on Razorpay's servers.
     is_guest = not bool(current_user or order.user_id)
 
+    shipping_addr = order.shipping_address or {}
+    cust_name = order.guest_name or shipping_addr.get("name") or (current_user.full_name if current_user else "")
+    cust_email = order.guest_email or shipping_addr.get("email") or (current_user.email if current_user else "")
+    cust_phone = order.guest_phone or shipping_addr.get("phone") or (current_user.phone if current_user else "")
+
     receipt_id = f"REC-RETRY-{secrets.randbelow(899999) + 100000}"
     notes = {
         "order_id": order.id,
         "is_retry": "true",
         "is_guest": "true" if is_guest else "false",
-        "user_email": (current_user.email if current_user else "") or order.guest_email or "",
+        "user_email": cust_email or "",
+        "customer_name": cust_name or "",
+        "customer_email": cust_email or "",
+        "customer_phone": cust_phone or "",
     }
+    if shipping_addr:
+        try:
+            notes["delivery_address"] = json.dumps(shipping_addr)
+        except Exception:
+            pass
 
     if not is_guest:
         # Standard Razorpay Payment Gateway Order for Logged-In User
@@ -2467,11 +2551,6 @@ def retry_order_payment(
     order.razorpay_order_id = rzp_order["id"]
     db.commit()
 
-    shipping_addr = order.shipping_address or {}
-    cust_name = order.guest_name or shipping_addr.get("name") or (current_user.full_name if current_user else "")
-    cust_email = order.guest_email or shipping_addr.get("email") or (current_user.email if current_user else "")
-    cust_phone = order.guest_phone or shipping_addr.get("phone") or (current_user.phone if current_user else "")
-
     return schemas.OrderRetryPaymentResponse(
         order_id=order.id,
         razorpay_order_id=rzp_order["id"],
@@ -2482,6 +2561,7 @@ def retry_order_payment(
         customer_name=cust_name,
         customer_email=cust_email,
         customer_phone=cust_phone,
+        shipping_address=shipping_addr,
         is_guest=is_guest
     )
 
@@ -2516,6 +2596,51 @@ def confirm_retry_payment(
             var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
             if var:
                 var.inventory_quantity = max(0, var.inventory_quantity - item.quantity)
+
+    # If guest order or customer details were updated in Razorpay Magic Checkout during retry:
+    if order.is_guest or not order.user_id:
+        try:
+            rzp_payment = razorpay_service.fetch_payment(payload.razorpay_payment_id) or {}
+            details = razorpay_service.fetch_order_details(payload.razorpay_order_id)
+            rzp_order_obj = details.get("order") or {}
+            rzp_cust_details = rzp_order_obj.get("customer_details") or {}
+            rzp_shipping = rzp_cust_details.get("shipping_address") or rzp_cust_details.get("billing_address") or {}
+
+            fetched_name = (
+                rzp_shipping.get("name")
+                or rzp_cust_details.get("name")
+                or rzp_payment.get("notes", {}).get("name")
+                or (rzp_payment.get("notes", {}) or {}).get("customer_name")
+            )
+            if fetched_name and str(fetched_name).strip():
+                order.guest_name = str(fetched_name).strip()
+
+            fetched_email = (
+                rzp_cust_details.get("email")
+                or rzp_payment.get("email")
+                or (rzp_payment.get("notes", {}) or {}).get("customer_email")
+            )
+            if fetched_email and str(fetched_email).strip():
+                order.guest_email = str(fetched_email).strip().lower()
+
+            fetched_phone = (
+                rzp_cust_details.get("contact")
+                or rzp_payment.get("contact")
+                or (rzp_payment.get("notes", {}) or {}).get("customer_phone")
+            )
+            if fetched_phone and str(fetched_phone).strip():
+                cleaned_ph = "".join(filter(str.isdigit, str(fetched_phone)))
+                if len(cleaned_ph) >= 10:
+                    order.guest_phone = cleaned_ph[-10:]
+
+            if rzp_shipping and any(rzp_shipping.values()):
+                existing_addr = dict(order.shipping_address or {})
+                for k, v in rzp_shipping.items():
+                    if v:
+                        existing_addr[k] = v
+                order.shipping_address = existing_addr
+        except Exception as e:
+            logger.warning(f"Failed to fetch updated Razorpay details on retry confirm: {e}")
 
     # Transition order state to PROCESSING & CAPTURED
     order.status = "PROCESSING"
