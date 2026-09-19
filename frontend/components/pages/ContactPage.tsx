@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
 import Link from 'next/link';
-import TrustBadgesBar from '@/components/ui/TrustBadgesBar';
+import type React from 'react';
+import { useState } from 'react';
 import PolicyTabs from '@/components/ui/PolicyTabs';
+import TrustBadgesBar from '@/components/ui/TrustBadgesBar';
 import { getApiBaseUrl } from '@/lib/api/client';
 
 interface FormState {
@@ -17,7 +18,14 @@ interface FormState {
   message: string;
 }
 
-type ValidatedField = 'firstName' | 'lastName' | 'email' | 'phone' | 'orderNumber' | 'subject' | 'message';
+type ValidatedField =
+  | 'firstName'
+  | 'lastName'
+  | 'email'
+  | 'phone'
+  | 'orderNumber'
+  | 'subject'
+  | 'message';
 
 type FormErrors = Partial<Record<ValidatedField, string>>;
 
@@ -61,7 +69,29 @@ const containsEmoji = (str: string): boolean => {
 
 const containsLink = (str: string): boolean => {
   if (!str) return false;
-  return /(https?:\/\/|ftp:\/\/|www\.[^\s]+|[a-zA-Z0-9-]+\.(com|org|net|io|co|in|ai|app|dev|biz|info|me|xyz|online|store|shop|site|page)\b)/i.test(str);
+  return /(https?:\/\/|ftp:\/\/|www\.[^\s]+|[a-zA-Z0-9-]+\.(com|org|net|io|co|in|ai|app|dev|biz|info|me|xyz|online|store|shop|site|page)\b)/i.test(
+    str
+  );
+};
+
+const isOrderRelatedSubject = (subject: string): boolean => {
+  const norm = (subject || '').trim().toLowerCase();
+  return (
+    norm === 'order' ||
+    norm === 'return' ||
+    norm === 'order tracking / status' ||
+    norm === 'return or exchange' ||
+    norm.includes('tracking') ||
+    norm.includes('return')
+  );
+};
+
+const SUBJECT_LABELS: Record<string, string> = {
+  order: 'Order Tracking / Status',
+  return: 'Return or Exchange',
+  bespoke: 'Bespoke Teamwear Enquiry',
+  product: 'Product & Sizing Question',
+  other: 'General Feedback / Other',
 };
 
 export default function ContactPage() {
@@ -98,7 +128,8 @@ export default function ContactPage() {
         if (/\.(com|org|net|in|co|io|edu|gov)\.\1$/i.test(trimmed)) {
           return 'Invalid domain suffix in email address.';
         }
-        const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,10})+$/;
+        const emailRegex =
+          /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,10})+$/;
         if (!emailRegex.test(trimmed)) {
           return 'Please enter a valid email address (e.g. name@example.com).';
         }
@@ -126,7 +157,7 @@ export default function ContactPage() {
       }
 
       case 'orderNumber': {
-        const isOrderRelated = formData.subject === 'Order Tracking / Status' || formData.subject === 'Return or Exchange';
+        const isOrderRelated = isOrderRelatedSubject(formData.subject);
         if (isOrderRelated && !trimmed) {
           return 'Order number is required for order tracking, returns, and exchanges.';
         }
@@ -176,7 +207,9 @@ export default function ContactPage() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
     let cleanVal = value;
     // SCRUM-76: Disable leading whitespace on all form fields
@@ -191,7 +224,7 @@ export default function ContactPage() {
 
     // SCRUM-79: Revalidate orderNumber when subject changes
     if (name === 'subject') {
-      if (['Order Tracking / Status', 'Return or Exchange'].includes(cleanVal)) {
+      if (isOrderRelatedSubject(cleanVal)) {
         if (!formData.orderNumber.trim()) {
           setErrors((prev) => ({
             ...prev,
@@ -222,7 +255,15 @@ export default function ContactPage() {
 
     // Validate all fields
     const newErrors: FormErrors = {};
-    const fieldsToValidate: ValidatedField[] = ['firstName', 'lastName', 'email', 'phone', 'orderNumber', 'subject', 'message'];
+    const fieldsToValidate: ValidatedField[] = [
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'orderNumber',
+      'subject',
+      'message',
+    ];
     for (const field of fieldsToValidate) {
       const err = validateField(field, formData[field]);
       if (err) newErrors[field] = err;
@@ -249,14 +290,16 @@ export default function ContactPage() {
           country_code: formData.countryCode,
           phone: formData.phone || null,
           order_number: formData.orderNumber || null,
-          subject: formData.subject,
+          subject: SUBJECT_LABELS[formData.subject] || formData.subject,
           message: formData.message,
         }),
       });
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Unable to submit your message right now. Please try again.');
+        throw new Error(
+          errData.detail || 'Unable to submit your message right now. Please try again.'
+        );
       }
 
       // SCRUM-74: Reset all form fields data to blank
@@ -265,7 +308,10 @@ export default function ContactPage() {
       setSubmitError(null);
       setSubmitted(true);
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Unable to send your message right now. Please check your connection or email us directly.';
+      const errorMsg =
+        err instanceof Error
+          ? err.message
+          : 'Unable to send your message right now. Please check your connection or email us directly.';
       setSubmitError(errorMsg);
     } finally {
       setLoading(false);
@@ -324,7 +370,8 @@ export default function ContactPage() {
               lineHeight: 1.6,
             }}
           >
-            We read every message. Whether you have an order question, teamwear enquiry, or design feedback, our team is here to assist.
+            We read every message. Whether you have an order question, teamwear enquiry, or design
+            feedback, our team is here to assist.
           </p>
         </div>
       </section>
@@ -480,14 +527,30 @@ export default function ContactPage() {
             >
               Self-Service Shortcuts
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8125rem' }}>
-              <Link href="/account/orders" style={{ color: '#4232d9', textDecoration: 'underline' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                fontSize: '0.8125rem',
+              }}
+            >
+              <Link
+                href="/account/orders"
+                style={{ color: '#4232d9', textDecoration: 'underline' }}
+              >
                 Track My Order &rarr;
               </Link>
-              <Link href="/pages/shipping" style={{ color: '#4232d9', textDecoration: 'underline' }}>
+              <Link
+                href="/pages/shipping"
+                style={{ color: '#4232d9', textDecoration: 'underline' }}
+              >
                 Returns &amp; Exchange Policy &rarr;
               </Link>
-              <Link href="/pages/terms-and-conditions" style={{ color: '#4232d9', textDecoration: 'underline' }}>
+              <Link
+                href="/pages/terms-and-conditions"
+                style={{ color: '#4232d9', textDecoration: 'underline' }}
+              >
                 View Terms &amp; Conditions &rarr;
               </Link>
             </div>
@@ -517,15 +580,42 @@ export default function ContactPage() {
                   margin: '0 auto 24px',
                 }}
               >
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
-              <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '12px' }}>
+              <h2
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: '1.5rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  marginBottom: '12px',
+                }}
+              >
                 Message Received
               </h2>
-              <p style={{ fontFamily: 'var(--font-body), Georgia, serif', color: 'var(--color-grey-dark)', fontSize: '1.05rem', lineHeight: 1.6, maxWidth: '480px', margin: '0 auto 28px' }}>
-                Thank you for reaching out. Our support team will review your inquiry and respond to your email within 24 hours on business days.
+              <p
+                style={{
+                  fontFamily: 'var(--font-body), Georgia, serif',
+                  color: 'var(--color-grey-dark)',
+                  fontSize: '1.05rem',
+                  lineHeight: 1.6,
+                  maxWidth: '480px',
+                  margin: '0 auto 28px',
+                }}
+              >
+                Thank you for reaching out. Our support team will review your inquiry and respond to
+                your email within 24 hours on business days.
               </p>
               <button
                 type="button"
@@ -557,7 +647,14 @@ export default function ContactPage() {
                 >
                   Send a Message
                 </h2>
-                <p style={{ fontFamily: 'var(--font-body), Georgia, serif', fontSize: '0.9375rem', color: '#666', margin: 0 }}>
+                <p
+                  style={{
+                    fontFamily: 'var(--font-body), Georgia, serif',
+                    fontSize: '0.9375rem',
+                    color: '#666',
+                    margin: 0,
+                  }}
+                >
                   Fill in the details below and our team will get back to you promptly.
                 </p>
               </div>
@@ -597,9 +694,18 @@ export default function ContactPage() {
               )}
 
               {/* First Name & Last Name */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '16px',
+                  marginBottom: '16px',
+                }}
+              >
                 <div className="form-group">
-                  <label className="form-label" htmlFor="firstName">First Name *</label>
+                  <label className="form-label" htmlFor="firstName">
+                    First Name *
+                  </label>
                   <input
                     id="firstName"
                     name="firstName"
@@ -615,13 +721,24 @@ export default function ContactPage() {
                     onBlur={() => handleBlur('firstName')}
                   />
                   {errors.firstName && (
-                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                    <span
+                      style={{
+                        display: 'block',
+                        color: '#d93025',
+                        fontSize: '0.75rem',
+                        marginTop: '4px',
+                        fontWeight: 500,
+                        fontFamily: 'var(--font-ui)',
+                      }}
+                    >
                       {errors.firstName}
                     </span>
                   )}
                 </div>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="lastName">Last Name *</label>
+                  <label className="form-label" htmlFor="lastName">
+                    Last Name *
+                  </label>
                   <input
                     id="lastName"
                     name="lastName"
@@ -637,7 +754,16 @@ export default function ContactPage() {
                     onBlur={() => handleBlur('lastName')}
                   />
                   {errors.lastName && (
-                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                    <span
+                      style={{
+                        display: 'block',
+                        color: '#d93025',
+                        fontSize: '0.75rem',
+                        marginTop: '4px',
+                        fontWeight: 500,
+                        fontFamily: 'var(--font-ui)',
+                      }}
+                    >
                       {errors.lastName}
                     </span>
                   )}
@@ -645,9 +771,18 @@ export default function ContactPage() {
               </div>
 
               {/* Email & Phone with Country Code */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '16px',
+                  marginBottom: '16px',
+                }}
+              >
                 <div className="form-group">
-                  <label className="form-label" htmlFor="email">Email Address *</label>
+                  <label className="form-label" htmlFor="email">
+                    Email Address *
+                  </label>
                   <input
                     id="email"
                     name="email"
@@ -663,14 +798,25 @@ export default function ContactPage() {
                     onBlur={() => handleBlur('email')}
                   />
                   {errors.email && (
-                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                    <span
+                      style={{
+                        display: 'block',
+                        color: '#d93025',
+                        fontSize: '0.75rem',
+                        marginTop: '4px',
+                        fontWeight: 500,
+                        fontFamily: 'var(--font-ui)',
+                      }}
+                    >
                       {errors.email}
                     </span>
                   )}
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" htmlFor="phone">Phone Number (Optional)</label>
+                  <label className="form-label" htmlFor="phone">
+                    Phone Number (Optional)
+                  </label>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <select
                       id="countryCode"
@@ -685,7 +831,9 @@ export default function ContactPage() {
                         cursor: 'pointer',
                       }}
                       value={formData.countryCode}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, countryCode: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, countryCode: e.target.value }))
+                      }
                       aria-label="Country Code"
                     >
                       {COUNTRY_CODES.map((item) => (
@@ -713,7 +861,16 @@ export default function ContactPage() {
                     />
                   </div>
                   {errors.phone && (
-                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                    <span
+                      style={{
+                        display: 'block',
+                        color: '#d93025',
+                        fontSize: '0.75rem',
+                        marginTop: '4px',
+                        fontWeight: 500,
+                        fontFamily: 'var(--font-ui)',
+                      }}
+                    >
                       {errors.phone}
                     </span>
                   )}
@@ -721,10 +878,17 @@ export default function ContactPage() {
               </div>
 
               {/* Order Number & Subject */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '16px',
+                  marginBottom: '16px',
+                }}
+              >
                 <div className="form-group">
                   <label className="form-label" htmlFor="orderNumber">
-                    Order Number {['Order Tracking / Status', 'Return or Exchange'].includes(formData.subject) ? '*' : '(If Applicable)'}
+                    Order Number {isOrderRelatedSubject(formData.subject) ? '*' : '(If Applicable)'}
                   </label>
                   <input
                     id="orderNumber"
@@ -741,13 +905,24 @@ export default function ContactPage() {
                     onBlur={() => handleBlur('orderNumber')}
                   />
                   {errors.orderNumber && (
-                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                    <span
+                      style={{
+                        display: 'block',
+                        color: '#d93025',
+                        fontSize: '0.75rem',
+                        marginTop: '4px',
+                        fontWeight: 500,
+                        fontFamily: 'var(--font-ui)',
+                      }}
+                    >
                       {errors.orderNumber}
                     </span>
                   )}
                 </div>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="subject">Subject *</label>
+                  <label className="form-label" htmlFor="subject">
+                    Subject *
+                  </label>
                   <select
                     id="subject"
                     name="subject"
@@ -769,7 +944,16 @@ export default function ContactPage() {
                     <option value="other">General Feedback / Other</option>
                   </select>
                   {errors.subject && (
-                    <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                    <span
+                      style={{
+                        display: 'block',
+                        color: '#d93025',
+                        fontSize: '0.75rem',
+                        marginTop: '4px',
+                        fontWeight: 500,
+                        fontFamily: 'var(--font-ui)',
+                      }}
+                    >
                       {errors.subject}
                     </span>
                   )}
@@ -778,7 +962,9 @@ export default function ContactPage() {
 
               {/* Message */}
               <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label" htmlFor="message">Message *</label>
+                <label className="form-label" htmlFor="message">
+                  Message *
+                </label>
                 <textarea
                   id="message"
                   name="message"
@@ -796,7 +982,16 @@ export default function ContactPage() {
                   onBlur={() => handleBlur('message')}
                 />
                 {errors.message && (
-                  <span style={{ display: 'block', color: '#d93025', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500, fontFamily: 'var(--font-ui)' }}>
+                  <span
+                    style={{
+                      display: 'block',
+                      color: '#d93025',
+                      fontSize: '0.75rem',
+                      marginTop: '4px',
+                      fontWeight: 500,
+                      fontFamily: 'var(--font-ui)',
+                    }}
+                  >
                     {errors.message}
                   </span>
                 )}

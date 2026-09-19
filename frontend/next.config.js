@@ -64,6 +64,41 @@ const nextConfig = {
         destination: '/products',
         permanent: false,
       },
+      {
+        source: '/contact',
+        destination: '/pages/contact',
+        permanent: false,
+      },
+      {
+        source: '/faq',
+        destination: '/pages/faq',
+        permanent: false,
+      },
+      {
+        source: '/faqs',
+        destination: '/pages/faq',
+        permanent: false,
+      },
+      {
+        source: '/policies/refund-policy',
+        destination: '/pages/shipping',
+        permanent: false,
+      },
+      {
+        source: '/policies/shipping-policy',
+        destination: '/pages/shipping',
+        permanent: false,
+      },
+      {
+        source: '/policies/privacy-policy',
+        destination: '/pages/privacy-policy',
+        permanent: false,
+      },
+      {
+        source: '/policies/terms-of-service',
+        destination: '/pages/terms-and-conditions',
+        permanent: false,
+      },
     ];
   },
 };

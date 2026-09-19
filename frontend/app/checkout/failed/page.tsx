@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
-import { useAuth } from "@/context/AuthContext";
-import { useCart } from "@/context/CartContext";
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import React, { Suspense, useEffect, useState } from 'react';
+import { AlertCircleIcon, ShoppingBagIcon, XIcon } from '@/components/icons/Icons';
+import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
 import {
+  cancelPendingOrder,
+  confirmRetryPayment,
   getPublicTracking,
   retryOrderPayment,
-  confirmRetryPayment,
-  cancelPendingOrder,
-} from "@/lib/api";
-import type { TrackingInfo } from "@/lib/api/types";
-import { AlertCircleIcon, ShoppingBagIcon, XIcon } from "@/components/icons/Icons";
+} from '@/lib/api';
+import type { TrackingInfo } from '@/lib/api/types';
 
 declare global {
   interface Window {
@@ -28,10 +28,10 @@ function CheckoutFailedContent() {
   const { cart, clearCart } = useCart();
 
   const initialReason =
-    searchParams.get("reason") ||
-    searchParams.get("error") ||
-    "The payment was declined by your bank or timed out.";
-  const orderId = searchParams.get("order_id") || searchParams.get("id") || "";
+    searchParams.get('reason') ||
+    searchParams.get('error') ||
+    'The payment was declined by your bank or timed out.';
+  const orderId = searchParams.get('order_id') || searchParams.get('id') || '';
 
   const [reason, setReason] = useState<string>(initialReason);
   const [order, setOrder] = useState<TrackingInfo | null>(null);
@@ -39,72 +39,76 @@ function CheckoutFailedContent() {
   const [cancelling, setCancelling] = useState<boolean>(false);
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [isCancelled, setIsCancelled] = useState<boolean>(false);
-  const [actionError, setActionError] = useState<string>("");
+  const [actionError, setActionError] = useState<string>('');
 
   // Clean up any lingering body overflow lock and guarantee scrolling
   useEffect(() => {
-    if (typeof document !== "undefined") {
-      document.body.style.overflow = "auto";
-      document.body.style.pointerEvents = "auto";
-      document.documentElement.style.overflow = "auto";
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = 'auto';
+      document.body.style.pointerEvents = 'auto';
+      document.documentElement.style.overflow = 'auto';
       // Note: We do NOT remove .razorpay-container here without purging the script.
       // Forcefully deleting the container without reloading the script detaches the iframe
       // and causes "This browser is not supported" on retry.
     }
   }, []);
 
-// Helper to safely load the required Razorpay SDK and purge conflicting scripts
-async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
-  if (typeof window === "undefined") return null;
+  // Helper to safely load the required Razorpay SDK and purge conflicting scripts
+  async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
+    if (typeof window === 'undefined') return null;
 
-  const targetFile = isGuest ? "magic-checkout.js" : "checkout.js";
-  const targetSrc = isGuest
-    ? "https://checkout.razorpay.com/v1/magic-checkout.js"
-    : "https://checkout.razorpay.com/v1/checkout.js";
+    const targetFile = isGuest ? 'magic-checkout.js' : 'checkout.js';
+    const targetSrc = isGuest
+      ? 'https://checkout.razorpay.com/v1/magic-checkout.js'
+      : 'https://checkout.razorpay.com/v1/checkout.js';
 
-  // Check if an existing iframe in .razorpay-container is detached or corrupted (contentWindow is null)
-  const existingIframe = document.querySelector(".razorpay-container iframe") as HTMLIFrameElement | null;
-  const hasCorruptedIframe = existingIframe && !existingIframe.contentWindow;
+    // Check if an existing iframe in .razorpay-container is detached or corrupted (contentWindow is null)
+    const existingIframe = document.querySelector(
+      '.razorpay-container iframe'
+    ) as HTMLIFrameElement | null;
+    const hasCorruptedIframe = existingIframe && !existingIframe.contentWindow;
 
-  const allScripts = Array.from(document.querySelectorAll<HTMLScriptElement>("script[src*='checkout.razorpay.com']"));
-  const currentScript = allScripts.find((s) => s.src.includes(targetFile));
+    const allScripts = Array.from(
+      document.querySelectorAll<HTMLScriptElement>("script[src*='checkout.razorpay.com']")
+    );
+    const currentScript = allScripts.find((s) => s.src.includes(targetFile));
 
-  if (currentScript && (window as any).Razorpay && !hasCorruptedIframe) {
-    return (window as any).Razorpay;
+    if (currentScript && (window as any).Razorpay && !hasCorruptedIframe) {
+      return (window as any).Razorpay;
+    }
+
+    // Remove ALL existing razorpay scripts and overlay containers to guarantee a fresh instance
+    allScripts.forEach((s) => s.remove());
+    document.querySelectorAll('.razorpay-container').forEach((el) => el.remove());
+    try {
+      delete (window as any).Razorpay;
+    } catch {
+      (window as any).Razorpay = undefined;
+    }
+
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.id = isGuest ? 'rzp-magic-script' : 'rzp-retry-script';
+      script.src = targetSrc;
+      script.async = true;
+      script.onload = () => resolve((window as any).Razorpay);
+      script.onerror = () => {
+        const fallback = document.createElement('script');
+        fallback.id = 'rzp-retry-script';
+        fallback.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        fallback.async = true;
+        fallback.onload = () => resolve((window as any).Razorpay);
+        document.body.appendChild(fallback);
+      };
+      document.body.appendChild(script);
+    });
   }
-
-  // Remove ALL existing razorpay scripts and overlay containers to guarantee a fresh instance
-  allScripts.forEach((s) => s.remove());
-  document.querySelectorAll(".razorpay-container").forEach((el) => el.remove());
-  try {
-    delete (window as any).Razorpay;
-  } catch {
-    (window as any).Razorpay = undefined;
-  }
-
-  return new Promise((resolve) => {
-    const script = document.createElement("script");
-    script.id = isGuest ? "rzp-magic-script" : "rzp-retry-script";
-    script.src = targetSrc;
-    script.async = true;
-    script.onload = () => resolve((window as any).Razorpay);
-    script.onerror = () => {
-      const fallback = document.createElement("script");
-      fallback.id = "rzp-retry-script";
-      fallback.src = "https://checkout.razorpay.com/v1/checkout.js";
-      fallback.async = true;
-      fallback.onload = () => resolve((window as any).Razorpay);
-      document.body.appendChild(fallback);
-    };
-    document.body.appendChild(script);
-  });
-}
 
   // Pre-load correct Razorpay SDK based on CURRENT AUTH STATE:
   // - Logged-in user (!user === false) → checkout.js → standard modal
   // - Guest (user === null) → magic-checkout.js → Magic Checkout
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return;
     if (isAuthLoading) return; // wait for auth to resolve before deciding
 
     const isGuest = !user;
@@ -124,12 +128,12 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
           if (data.cancellation_reason) {
             setReason(data.cancellation_reason);
           }
-          if (data.status === "CANCELLED") {
+          if (data.status === 'CANCELLED') {
             setIsCancelled(true);
           }
         }
       } catch (err) {
-        console.error("Could not fetch failed order summary:", err);
+        console.error('Could not fetch failed order summary:', err);
       }
     }
 
@@ -147,50 +151,55 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
   const displayItems =
     orderItems.length > 0
       ? orderItems.map((item: any) => ({
-          id: item.id || item.variant_id,
-          title: item.product_title || "Product",
-          variantTitle: item.variant_title || "Standard",
+          id: item.id || item.variant_id || item.variantId,
+          title: item.product_title || item.productTitle || 'Product',
+          variantTitle: item.variant_title || item.variantTitle || 'Standard',
           quantity: item.quantity || 1,
-          price: item.price_amount || 0,
-          image: item.image_url || "",
+          price: item.price_amount ?? (item.price?.amount ? parseFloat(item.price.amount) : 0),
+          image: item.image_url || item.imageUrl || item.image || '',
         }))
       : cartLines.map((line: any) => ({
           id: line.id || line?.merchandise?.id,
-          title: line?.merchandise?.product?.title || line?.merchandise?.title || "Product",
-          variantTitle: line?.merchandise?.title || "Standard",
+          title: line?.merchandise?.product?.title || line?.merchandise?.title || 'Product',
+          variantTitle: line?.merchandise?.title || 'Standard',
           quantity: line.quantity || 1,
-          price: parseFloat(line?.merchandise?.price?.amount || "0"),
+          price: parseFloat(line?.merchandise?.price?.amount || '0'),
           image:
-            line?.merchandise?.product?.featuredImage?.url ||
             line?.merchandise?.image?.url ||
+            line?.merchandise?.product?.featuredImage?.url ||
             line?.merchandise?.product?.images?.[0]?.url ||
-            "",
+            '',
         }));
 
   // Pricing calculation
   const itemsSubtotal = displayItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const orderTotal = order?.total_amount || 0;
-  const shippingFee = orderTotal > 0 ? Math.max(0, orderTotal - itemsSubtotal) : itemsSubtotal >= 1999 || itemsSubtotal === 0 ? 0 : 99;
+  const shippingFee =
+    orderTotal > 0
+      ? Math.max(0, orderTotal - itemsSubtotal)
+      : itemsSubtotal >= 1999 || itemsSubtotal === 0
+        ? 0
+        : 99;
   const grandTotal = orderTotal > 0 ? orderTotal : itemsSubtotal + shippingFee;
 
   // ============================================================
   // RETRY PAYMENT HANDLER (with complete validations)
   // ============================================================
   async function handleRetryPayment() {
-    setActionError("");
+    setActionError('');
 
-    if (isCancelled || order?.status === "CANCELLED") {
-      setActionError("This order has been cancelled. Return to your cart to checkout again.");
+    if (isCancelled || order?.status === 'CANCELLED') {
+      setActionError('This order has been cancelled. Return to your cart to checkout again.');
       return;
     }
 
-    if (order?.payment_status === "CAPTURED") {
+    if (order?.payment_status === 'CAPTURED') {
       router.push(`/checkout/success?order_id=${orderId}`);
       return;
     }
 
     if (isAuthLoading) {
-      setActionError("Authenticating... please retry in a few moments.");
+      setActionError('Authenticating... please retry in a few moments.');
       return;
     }
 
@@ -208,22 +217,24 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
         // Ensure the correct SDK is loaded and active with a valid iframe
         const RazorpayClass = (await ensureRazorpaySdk(isGuest)) || (window as any).Razorpay;
 
-        if (typeof window === "undefined" || !RazorpayClass) {
-          throw new Error("Payment gateway could not be loaded. Please check your connection and retry.");
+        if (typeof window === 'undefined' || !RazorpayClass) {
+          throw new Error(
+            'Payment gateway could not be loaded. Please check your connection and retry.'
+          );
         }
 
         const options: any = {
           key: retryData.key_id,
           amount: retryData.amount,
-          currency: retryData.currency || "INR",
-          name: "VAHN Sports",
+          currency: retryData.currency || 'INR',
+          name: 'VAHN Sports',
           description: `Retry Payment for Order #${orderId}`,
-          image: "https://vahn.s3.ap-south-2.amazonaws.com/logo.png",
+          image: 'https://vahn.s3.ap-south-2.amazonaws.com/logo.png',
           order_id: retryData.razorpay_order_id,
           // Magic Checkout ONLY for guest orders — standard modal for logged-in users
           one_click_checkout: isGuest,
           show_coupons: isGuest,
-          handler: async function (response: any) {
+          handler: async (response: any) => {
             try {
               await confirmRetryPayment(
                 orderId,
@@ -237,40 +248,42 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
               clearCart();
               router.push(`/checkout/success?order_id=${orderId}`);
             } catch (confErr: any) {
-              setActionError(confErr?.message || "Payment verified, but confirmation timed out. Contact support.");
+              setActionError(
+                confErr?.message || 'Payment verified, but confirmation timed out. Contact support.'
+              );
               setRetrying(false);
             }
           },
           prefill: {
-            name: retryData.customer_name || user?.full_name || "",
-            email: retryData.customer_email || user?.email || "",
-            contact: retryData.customer_phone || user?.phone || "",
+            name: retryData.customer_name || user?.full_name || '',
+            email: retryData.customer_email || user?.email || '',
+            contact: retryData.customer_phone || user?.phone || '',
           },
           theme: {
-            color: "#4232d9",
+            color: '#4232d9',
           },
           modal: {
             confirm_close: true,
-            ondismiss: function () {
+            ondismiss: () => {
               setRetrying(false);
-              if (typeof document !== "undefined") {
-                document.body.style.overflow = "auto";
-                document.documentElement.style.overflow = "auto";
+              if (typeof document !== 'undefined') {
+                document.body.style.overflow = 'auto';
+                document.documentElement.style.overflow = 'auto';
               }
             },
           },
         };
 
         const rzp = new RazorpayClass(options);
-        rzp.on("payment.failed", function (failRes: any) {
+        rzp.on('payment.failed', (failRes: any) => {
           try {
             rzp.close();
           } catch {}
-          if (typeof document !== "undefined") {
-            document.body.style.overflow = "auto";
-            document.documentElement.style.overflow = "auto";
+          if (typeof document !== 'undefined') {
+            document.body.style.overflow = 'auto';
+            document.documentElement.style.overflow = 'auto';
           }
-          const newDesc = failRes?.error?.description || "Payment attempt declined.";
+          const newDesc = failRes?.error?.description || 'Payment attempt declined.';
           setReason(newDesc);
           setActionError(`Payment declined: ${newDesc}`);
           setRetrying(false);
@@ -278,15 +291,15 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
         try {
           rzp.open();
         } catch (openErr: any) {
-          console.error("Razorpay retry open error:", openErr);
+          console.error('Razorpay retry open error:', openErr);
           setRetrying(false);
-          setActionError("Unable to open payment gateway. Please try again.");
+          setActionError('Unable to open payment gateway. Please try again.');
         }
       } else {
-        router.push("/checkout");
+        router.push('/checkout');
       }
     } catch (err: any) {
-      setActionError(err?.message || "Could not re-initiate payment. Please try again.");
+      setActionError(err?.message || 'Could not re-initiate payment. Please try again.');
       setRetrying(false);
     }
   }
@@ -295,18 +308,22 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
   // CANCEL ORDER HANDLER (with complete validations)
   // ============================================================
   async function handleConfirmCancel() {
-    setActionError("");
+    setActionError('');
     setCancelling(true);
 
     try {
       if (orderId) {
-        await cancelPendingOrder(orderId, "Customer cancelled after payment failure", token || undefined);
+        await cancelPendingOrder(
+          orderId,
+          'Customer cancelled after payment failure',
+          token || undefined
+        );
       }
       setIsCancelled(true);
       setShowCancelModal(false);
-      router.push("/cart");
+      router.push('/cart');
     } catch (err: any) {
-      setActionError(err?.message || "Could not cancel order. Please refresh and try again.");
+      setActionError(err?.message || 'Could not cancel order. Please refresh and try again.');
       setCancelling(false);
     }
   }
@@ -314,34 +331,34 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
   return (
     <div
       style={{
-        maxWidth: "540px",
-        margin: "48px auto 80px",
-        padding: "0 20px",
-        fontFamily: "var(--font-ui, sans-serif)",
+        maxWidth: '540px',
+        margin: '48px auto 80px',
+        padding: '0 20px',
+        fontFamily: 'var(--font-ui, sans-serif)',
       }}
     >
       <div
         style={{
-          background: "#fff",
-          border: "1px solid #fee2e2",
-          boxShadow: "0 4px 20px rgba(220, 38, 38, 0.05)",
-          padding: "36px 28px",
-          textAlign: "center",
+          background: '#fff',
+          border: '1px solid #fee2e2',
+          boxShadow: '0 4px 20px rgba(220, 38, 38, 0.05)',
+          padding: '36px 28px',
+          textAlign: 'center',
         }}
       >
         {/* Red Alert Icon */}
         <div
           style={{
-            width: "56px",
-            height: "56px",
-            borderRadius: "50%",
-            background: "#fef2f2",
-            border: "2px solid #ef4444",
-            color: "#dc2626",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 16px",
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            background: '#fef2f2',
+            border: '2px solid #ef4444',
+            color: '#dc2626',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px',
           }}
         >
           <AlertCircleIcon size={28} color="#dc2626" />
@@ -350,55 +367,57 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
         {/* Status Badge */}
         <span
           style={{
-            display: "inline-block",
-            background: "#fef2f2",
-            color: "#991b1b",
-            fontSize: "0.72rem",
+            display: 'inline-block',
+            background: '#fef2f2',
+            color: '#991b1b',
+            fontSize: '0.72rem',
             fontWeight: 800,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-            padding: "3px 10px",
-            border: "1px solid #fecaca",
-            marginBottom: "12px",
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            padding: '3px 10px',
+            border: '1px solid #fecaca',
+            marginBottom: '12px',
           }}
         >
-          {isCancelled ? "Order Cancelled" : "Payment Not Completed"}
+          {isCancelled ? 'Order Cancelled' : 'Payment Not Completed'}
         </span>
 
         <h1
           style={{
-            fontSize: "1.6rem",
+            fontSize: '1.6rem',
             fontWeight: 900,
-            textTransform: "uppercase",
-            letterSpacing: "-0.03em",
-            margin: "0 0 8px",
-            color: "#000",
+            textTransform: 'uppercase',
+            letterSpacing: '-0.03em',
+            margin: '0 0 8px',
+            color: '#000',
           }}
         >
-          {isCancelled ? "Order Cancelled" : "Transaction Incomplete"}
+          {isCancelled ? 'Order Cancelled' : 'Transaction Incomplete'}
         </h1>
 
-        <p style={{ fontSize: "0.88rem", color: "#666", margin: "0 0 16px", lineHeight: 1.5 }}>
+        <p style={{ fontSize: '0.88rem', color: '#666', margin: '0 0 16px', lineHeight: 1.5 }}>
           {isCancelled
-            ? "Your order attempt has been cancelled. Your cart items are preserved."
-            : "No money was deducted from your account. Your selected gear remains in your cart."}
+            ? 'Your order attempt has been cancelled. Your cart items are preserved.'
+            : 'No money was deducted from your account. Your selected gear remains in your cart.'}
         </p>
 
         {/* Failure Reason */}
         {!isCancelled && reason && (
           <div
             style={{
-              background: "#fafafa",
-              border: "1px solid #f0f0f0",
-              borderLeft: "3px solid #ef4444",
-              padding: "10px 14px",
-              fontSize: "0.82rem",
-              color: "#555",
-              textAlign: "left",
-              marginBottom: "20px",
+              background: '#fafafa',
+              border: '1px solid #f0f0f0',
+              borderLeft: '3px solid #ef4444',
+              padding: '10px 14px',
+              fontSize: '0.82rem',
+              color: '#555',
+              textAlign: 'left',
+              marginBottom: '20px',
             }}
           >
-            <strong style={{ color: "#000", display: "block", marginBottom: "2px" }}>Reason:</strong>
+            <strong style={{ color: '#000', display: 'block', marginBottom: '2px' }}>
+              Reason:
+            </strong>
             {reason}
           </div>
         )}
@@ -407,14 +426,14 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
         {actionError && (
           <div
             style={{
-              background: "#fff1f2",
-              border: "1px solid #fecdd3",
-              color: "#e11d48",
-              padding: "10px 14px",
-              fontSize: "0.82rem",
+              background: '#fff1f2',
+              border: '1px solid #fecdd3',
+              color: '#e11d48',
+              padding: '10px 14px',
+              fontSize: '0.82rem',
               fontWeight: 700,
-              marginBottom: "16px",
-              textAlign: "left",
+              marginBottom: '16px',
+              textAlign: 'left',
             }}
           >
             {actionError}
@@ -425,40 +444,46 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
         {displayItems.length > 0 && (
           <div
             style={{
-              borderTop: "1px solid #f0f0f0",
-              borderBottom: "1px solid #f0f0f0",
-              padding: "16px 0",
-              marginBottom: "24px",
-              textAlign: "left",
+              borderTop: '1px solid #f0f0f0',
+              borderBottom: '1px solid #f0f0f0',
+              padding: '16px 0',
+              marginBottom: '24px',
+              textAlign: 'left',
             }}
           >
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {displayItems.map((item, idx) => (
-                <div key={idx} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div
                     style={{
-                      position: "relative",
-                      width: "48px",
-                      height: "48px",
-                      background: "#f9fafb",
-                      border: "1px solid #e5e7eb",
+                      position: 'relative',
+                      width: '48px',
+                      height: '48px',
+                      background: '#f9fafb',
+                      border: '1px solid #e5e7eb',
                       flexShrink: 0,
-                      overflow: "hidden",
+                      overflow: 'hidden',
                     }}
                   >
                     {item.image ? (
-                      <Image src={item.image} alt={item.title} fill sizes="48px" style={{ objectFit: "cover" }} />
+                      <Image
+                        src={item.image}
+                        alt={item.title}
+                        fill
+                        sizes="48px"
+                        style={{ objectFit: 'cover' }}
+                      />
                     ) : (
                       <div
                         style={{
-                          width: "100%",
-                          height: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "0.6rem",
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.6rem',
                           fontWeight: 800,
-                          color: "#999",
+                          color: '#999',
                         }}
                       >
                         VAHN
@@ -470,22 +495,22 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
                     <div
                       style={{
                         fontWeight: 800,
-                        fontSize: "0.85rem",
-                        color: "#000",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        fontSize: '0.85rem',
+                        color: '#000',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
                       }}
                     >
                       {item.title}
                     </div>
-                    <div style={{ fontSize: "0.75rem", color: "#666" }}>
+                    <div style={{ fontSize: '0.75rem', color: '#666' }}>
                       {item.variantTitle} • Qty: {item.quantity}
                     </div>
                   </div>
 
-                  <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "#000" }}>
-                    ₹{(item.price * item.quantity).toLocaleString("en-IN")}
+                  <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#000' }}>
+                    ₹{(item.price * item.quantity).toLocaleString('en-IN')}
                   </div>
                 </div>
               ))}
@@ -494,26 +519,33 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
             {/* Total Due Row */}
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                marginTop: "14px",
-                paddingTop: "12px",
-                borderTop: "1px dashed #e5e7eb",
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
+                marginTop: '14px',
+                paddingTop: '12px',
+                borderTop: '1px dashed #e5e7eb',
               }}
             >
-              <span style={{ fontSize: "0.85rem", fontWeight: 800, textTransform: "uppercase", color: "#555" }}>
-                Total Due {shippingFee > 0 ? `(incl. ₹${shippingFee} shipping)` : "(Free Shipping)"}
+              <span
+                style={{
+                  fontSize: '0.85rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  color: '#555',
+                }}
+              >
+                Total Due {shippingFee > 0 ? `(incl. ₹${shippingFee} shipping)` : '(Free Shipping)'}
               </span>
-              <span style={{ fontSize: "1.2rem", fontWeight: 900, color: "#000" }}>
-                ₹{grandTotal.toLocaleString("en-IN")}
+              <span style={{ fontSize: '1.2rem', fontWeight: 900, color: '#000' }}>
+                ₹{grandTotal.toLocaleString('en-IN')}
               </span>
             </div>
           </div>
         )}
 
         {/* Minimal Action Buttons: Retry & Cancel */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {!isCancelled ? (
             <>
               <button
@@ -521,22 +553,26 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
                 onClick={handleRetryPayment}
                 disabled={retrying}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  padding: "15px",
-                  background: retrying ? "#555" : "#000",
-                  color: "#fff",
-                  border: "none",
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '15px',
+                  background: retrying ? '#555' : '#000',
+                  color: '#fff',
+                  border: 'none',
                   fontWeight: 900,
-                  fontSize: "0.88rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  cursor: retrying ? "not-allowed" : "pointer",
+                  fontSize: '0.88rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  cursor: retrying ? 'not-allowed' : 'pointer',
                 }}
               >
-                <span>{retrying ? "Connecting Gateway..." : `Retry Payment (₹${grandTotal.toLocaleString("en-IN")}) →`}</span>
+                <span>
+                  {retrying
+                    ? 'Connecting Gateway...'
+                    : `Retry Payment (₹${grandTotal.toLocaleString('en-IN')}) →`}
+                </span>
               </button>
 
               <button
@@ -544,15 +580,15 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
                 onClick={() => setShowCancelModal(true)}
                 disabled={retrying || cancelling}
                 style={{
-                  padding: "13px",
-                  background: "#fff",
-                  border: "1px solid #d1d5db",
-                  color: "#4b5563",
+                  padding: '13px',
+                  background: '#fff',
+                  border: '1px solid #d1d5db',
+                  color: '#4b5563',
                   fontWeight: 800,
-                  fontSize: "0.82rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.02em",
-                  cursor: "pointer",
+                  fontSize: '0.82rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.02em',
+                  cursor: 'pointer',
                 }}
               >
                 Cancel Order & Return to Cart
@@ -562,18 +598,18 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
             <Link
               href="/cart"
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                padding: "15px",
-                background: "#000",
-                color: "#fff",
-                textDecoration: "none",
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '15px',
+                background: '#000',
+                color: '#fff',
+                textDecoration: 'none',
                 fontWeight: 900,
-                fontSize: "0.88rem",
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
+                fontSize: '0.88rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
               }}
             >
               <ShoppingBagIcon size={16} color="#fff" />
@@ -581,13 +617,13 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
             </Link>
           )}
 
-          <div style={{ marginTop: "8px" }}>
+          <div style={{ marginTop: '8px' }}>
             <Link
-              href="/contact"
+              href="/pages/contact"
               style={{
-                fontSize: "0.78rem",
-                color: "#888",
-                textDecoration: "underline",
+                fontSize: '0.78rem',
+                color: '#888',
+                textDecoration: 'underline',
               }}
             >
               Need help? Contact VAHN Athlete Support
@@ -600,49 +636,57 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
       {showCancelModal && (
         <div
           style={{
-            position: "fixed",
+            position: 'fixed',
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            background: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             zIndex: 9999,
-            padding: "20px",
+            padding: '20px',
           }}
         >
           <div
             style={{
-              background: "#fff",
-              maxWidth: "400px",
-              width: "100%",
-              padding: "24px",
-              textAlign: "center",
+              background: '#fff',
+              maxWidth: '400px',
+              width: '100%',
+              padding: '24px',
+              textAlign: 'center',
             }}
           >
-            <h3 style={{ fontSize: "1.05rem", fontWeight: 900, textTransform: "uppercase", margin: "0 0 8px" }}>
+            <h3
+              style={{
+                fontSize: '1.05rem',
+                fontWeight: 900,
+                textTransform: 'uppercase',
+                margin: '0 0 8px',
+              }}
+            >
               Cancel This Order Attempt?
             </h3>
-            <p style={{ fontSize: "0.85rem", color: "#666", margin: "0 0 20px", lineHeight: 1.4 }}>
-              Your selected items will remain in your cart so you can checkout whenever you are ready.
+            <p style={{ fontSize: '0.85rem', color: '#666', margin: '0 0 20px', lineHeight: 1.4 }}>
+              Your selected items will remain in your cart so you can checkout whenever you are
+              ready.
             </p>
 
-            <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
               <button
                 type="button"
                 onClick={() => setShowCancelModal(false)}
                 disabled={cancelling}
                 style={{
                   flex: 1,
-                  padding: "11px",
-                  background: "#fff",
-                  border: "1px solid #ccc",
+                  padding: '11px',
+                  background: '#fff',
+                  border: '1px solid #ccc',
                   fontWeight: 800,
-                  fontSize: "0.8rem",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
+                  fontSize: '0.8rem',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
                 }}
               >
                 Keep Order
@@ -653,17 +697,17 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
                 disabled={cancelling}
                 style={{
                   flex: 1,
-                  padding: "11px",
-                  background: "#000",
-                  color: "#fff",
-                  border: "none",
+                  padding: '11px',
+                  background: '#000',
+                  color: '#fff',
+                  border: 'none',
                   fontWeight: 900,
-                  fontSize: "0.8rem",
-                  textTransform: "uppercase",
-                  cursor: cancelling ? "not-allowed" : "pointer",
+                  fontSize: '0.8rem',
+                  textTransform: 'uppercase',
+                  cursor: cancelling ? 'not-allowed' : 'pointer',
                 }}
               >
-                {cancelling ? "Cancelling..." : "Yes, Cancel"}
+                {cancelling ? 'Cancelling...' : 'Yes, Cancel'}
               </button>
             </div>
           </div>
@@ -675,7 +719,9 @@ async function ensureRazorpaySdk(isGuest: boolean): Promise<any> {
 
 export default function CheckoutFailedPage() {
   return (
-    <Suspense fallback={<div style={{ textAlign: "center", padding: "80px 20px" }}>Loading...</div>}>
+    <Suspense
+      fallback={<div style={{ textAlign: 'center', padding: '80px 20px' }}>Loading...</div>}
+    >
       <CheckoutFailedContent />
     </Suspense>
   );

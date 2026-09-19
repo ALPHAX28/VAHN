@@ -472,6 +472,37 @@ def get_collection(handle: str, db: Session = Depends(get_db)):
 
 # ---- CART ENDPOINTS ----
 
+def resolve_variant_image_url(v: Optional[models.ProductVariant], p: Optional[models.Product]) -> Optional[str]:
+    """Resolves variant/colour-specific image, falling back to featured_image_url."""
+    if not v:
+        if p and p.featured_image_url:
+            return str(p.featured_image_url)
+        return None
+    variant_image_url: Optional[str] = str(v.image_url) if v.image_url else None
+    if not variant_image_url and p:
+        colour_val = None
+        for opt in (v.selected_options or []):
+            if isinstance(opt, dict) and opt.get("name", "").lower() in ("colour", "color"):
+                colour_val = opt.get("value")
+                break
+        if colour_val and p.colour_groups:
+            for cg in p.colour_groups:
+                if cg.colour_value and str(cg.colour_value).strip().lower() == str(colour_val).strip().lower() and cg.images:
+                    if isinstance(cg.images, list) and len(cg.images) > 0:
+                        first_img = cg.images[0]
+                        if isinstance(first_img, dict):
+                            img_url = first_img.get("url")
+                            if img_url:
+                                variant_image_url = str(img_url)
+                        elif isinstance(first_img, str) and first_img:
+                            variant_image_url = str(first_img)
+                    break
+    if variant_image_url:
+        return variant_image_url
+    if p and p.featured_image_url:
+        return str(p.featured_image_url)
+    return None
+
 def build_cart_schema(cart: models.Cart, db: Session) -> schemas.CartSchema:
     line_edges = []
     total_qty = 0
@@ -485,26 +516,7 @@ def build_cart_schema(cart: models.Cart, db: Session) -> schemas.CartSchema:
         subtotal += v.price_amount * item.quantity
         currency = v.price_currency
 
-        # Resolve variant/colour-specific image
-        variant_image_url = v.image_url
-        if not variant_image_url and p:
-            colour_val = None
-            for opt in (v.selected_options or []):
-                if isinstance(opt, dict) and opt.get("name", "").lower() in ("colour", "color"):
-                    colour_val = opt.get("value")
-                    break
-            if colour_val and p.colour_groups:
-                for cg in p.colour_groups:
-                    if cg.colour_value and str(cg.colour_value).strip().lower() == str(colour_val).strip().lower() and cg.images:
-                        if isinstance(cg.images, list) and len(cg.images) > 0:
-                            first_img = cg.images[0]
-                            if isinstance(first_img, dict):
-                                variant_image_url = first_img.get("url")
-                            elif isinstance(first_img, str):
-                                variant_image_url = first_img
-                        break
-
-        final_image_url = variant_image_url or (p.featured_image_url if p else None)
+        final_image_url = resolve_variant_image_url(v, p)
         alt_text = (p.featured_image_alt if p else None) or (p.title if p else "")
         image_node = schemas.ImageNode(url=final_image_url, altText=alt_text) if final_image_url else None
 
@@ -905,6 +917,7 @@ def build_order_schema(order: models.Order) -> schemas.OrderSchema:
             productTitle=i.product_title,
             variantTitle=i.variant_title,
             imageUrl=i.image_url,
+            image_url=i.image_url,
             price=schemas.Money(amount=f"{i.price_amount:.2f}", currencyCode=order.currency or "INR"),
             quantity=i.quantity
         ) for i in (order.items or [])
@@ -1452,7 +1465,7 @@ def razorpay_verify_payment(
             variant_id=item.variant_id,
             product_title=prod.title if prod else "Product",
             variant_title=var.title if var else "Default",
-            image_url=var.image_url if (var and var.image_url) else (prod.featured_image_url if prod else None),
+            image_url=resolve_variant_image_url(var, prod),
             price_amount=var.price_amount if var else 0.0,
             quantity=item.quantity
         )
@@ -1550,7 +1563,7 @@ def razorpay_record_failure(
             variant_id=item.variant_id,
             product_title=prod.title if prod else "Product",
             variant_title=var.title if var else "Default",
-            image_url=var.image_url if (var and var.image_url) else (prod.featured_image_url if prod else None),
+            image_url=resolve_variant_image_url(var, prod),
             price_amount=var.price_amount if var else 0.0,
             quantity=item.quantity
         )
@@ -2005,7 +2018,7 @@ def magic_checkout_order(
             variant_id=item.variant_id,
             product_title=prod.title if prod else "Product",
             variant_title=var.title if var else "Default",
-            image_url=var.image_url if (var and var.image_url) else (prod.featured_image_url if prod else None),
+            image_url=resolve_variant_image_url(var, prod),
             price_amount=var.price_amount if var else 0.0,
             quantity=item.quantity
         )

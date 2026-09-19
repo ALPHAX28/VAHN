@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
-import type { Product, ProductVariant } from '@/lib/api/types';
-import { useCart } from '@/context/CartContext';
+import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import TrustBadgesBar from '@/components/ui/TrustBadgesBar';
-
+import { useCart } from '@/context/CartContext';
+import type { Product, ProductVariant } from '@/lib/api/types';
 
 interface Props {
   initialProducts: Product[];
@@ -62,7 +61,7 @@ const FAQ_ITEMS = [
   {
     q: "WHAT'S YOUR RETURN/EXCHANGE POLICY?",
     a: 'Refer to our ',
-    link: { label: 'Shipping & Returns Policies', href: '/policies/refund-policy' },
+    link: { label: 'Shipping & Returns Policies', href: '/pages/shipping' },
   },
 ];
 
@@ -128,15 +127,21 @@ function getExpandedItems(products: Product[]): ExpandedCardItem[] {
         }));
         if (cgImages.length === 0) {
           const variantImg = colourVariants.find((v) => v.image?.url)?.image?.url;
-          if (variantImg) cgImages.push({ url: variantImg, altText: `${product.title} - ${colourName}` });
-          else if (product.featuredImage?.url) cgImages.push({ url: product.featuredImage.url, altText: product.title });
+          if (variantImg)
+            cgImages.push({ url: variantImg, altText: `${product.title} - ${colourName}` });
+          else if (product.featuredImage?.url)
+            cgImages.push({ url: product.featuredImage.url, altText: product.title });
         }
         const pool = colourVariants.length > 0 ? colourVariants : allVariants;
         items.push({
           id: `${product.id}-${colourName.toLowerCase().replace(/\s+/g, '-')}`,
-          product, colourName, images: cgImages,
-          price: calcPrice(pool), isFewLeft: calcFewLeft(pool),
-          tag, title: product.title,
+          product,
+          colourName,
+          images: cgImages,
+          price: calcPrice(pool),
+          isFewLeft: calcFewLeft(pool),
+          tag,
+          title: product.title,
           targetHref: `/products/${product.handle}?colour=${encodeURIComponent(colourName)}`,
           variants: pool,
           productType: (product.productType || '').trim(),
@@ -148,7 +153,10 @@ function getExpandedItems(products: Product[]): ExpandedCardItem[] {
       const variantColourSet = new Set<string>();
       allVariants.forEach((v) =>
         v.selectedOptions?.forEach((opt) => {
-          if ((opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value.trim())
+          if (
+            (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') &&
+            opt.value.trim()
+          )
             variantColourSet.add(opt.value.trim());
         })
       );
@@ -173,9 +181,13 @@ function getExpandedItems(products: Product[]): ExpandedCardItem[] {
           const pool = colourVariants.length > 0 ? colourVariants : allVariants;
           items.push({
             id: `${product.id}-${col.toLowerCase().replace(/\s+/g, '-')}`,
-            product, colourName: col, images: colImages,
-            price: calcPrice(pool), isFewLeft: calcFewLeft(pool),
-            tag, title: product.title,
+            product,
+            colourName: col,
+            images: colImages,
+            price: calcPrice(pool),
+            isFewLeft: calcFewLeft(pool),
+            tag,
+            title: product.title,
             targetHref: `/products/${product.handle}?colour=${encodeURIComponent(col)}`,
             variants: pool,
             productType: (product.productType || '').trim(),
@@ -192,9 +204,13 @@ function getExpandedItems(products: Product[]): ExpandedCardItem[] {
           prodImages.push({ url: product.featuredImage.url, altText: product.title });
         items.push({
           id: product.id,
-          product, colourName: '', images: prodImages,
-          price: calcPrice(allVariants), isFewLeft: calcFewLeft(allVariants),
-          tag, title: product.title,
+          product,
+          colourName: '',
+          images: prodImages,
+          price: calcPrice(allVariants),
+          isFewLeft: calcFewLeft(allVariants),
+          tag,
+          title: product.title,
           targetHref: `/products/${product.handle}`,
           variants: allVariants,
           productType: (product.productType || '').trim(),
@@ -209,11 +225,17 @@ function getExpandedItems(products: Product[]): ExpandedCardItem[] {
 
 // ── FAQ Accordion Item ──
 function FaqItem({
-  q, a, link, isOpen, onToggle,
+  q,
+  a,
+  link,
+  isOpen,
+  onToggle,
 }: {
-  q: string; a: string;
+  q: string;
+  a: string;
   link?: { label: string; href: string };
-  isOpen: boolean; onToggle: () => void;
+  isOpen: boolean;
+  onToggle: () => void;
 }) {
   return (
     <div style={{ borderBottom: '1px solid #e5e5e5' }}>
@@ -255,7 +277,15 @@ function FaqItem({
             transform: isOpen ? 'rotate(45deg)' : 'rotate(0deg)',
           }}
         >
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <svg
+            width="26"
+            height="26"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
             <line x1="12" y1="4" x2="12" y2="20" />
             <line x1="4" y1="12" x2="20" y2="12" />
           </svg>
@@ -304,25 +334,46 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
   const sizeVariants = useMemo(() => {
     return item.variants.map((v) => {
       const sizeOpt = v.selectedOptions?.find((o) => o.name.toLowerCase() === 'size');
-      const sizeLabel = sizeOpt ? sizeOpt.value.trim() : v.title !== 'Default Title' ? v.title : 'ONE SIZE';
-      const isAvailable = v.availableForSale && (v.quantityAvailable === undefined || v.quantityAvailable > 0);
-      const isFew = isAvailable && typeof v.quantityAvailable === 'number' && v.quantityAvailable <= 5;
+      const sizeLabel = sizeOpt
+        ? sizeOpt.value.trim()
+        : v.title !== 'Default Title'
+          ? v.title
+          : 'ONE SIZE';
+      const isAvailable =
+        v.availableForSale && (v.quantityAvailable === undefined || v.quantityAvailable > 0);
+      const isFew =
+        isAvailable && typeof v.quantityAvailable === 'number' && v.quantityAvailable <= 5;
       return { variant: v, sizeLabel, isAvailable, isFew };
     });
   }, [item]);
 
   const handleAddToCart = (v: ProductVariant) => {
     setAddedVariantId(v.id);
-    addItem(v.id, 1, {
-      productTitle: item.title,
-      productHandle: item.product.handle,
-      variantTitle: v.title,
-      price: v.price,
-      image: currentImg ? { url: currentImg.url, altText: currentImg.altText || item.title, width: 800, height: 800 } : null,
-      selectedOptions: v.selectedOptions,
-      quantityAvailable: v.quantityAvailable,
-    }, true);
-    setTimeout(() => { setAddedVariantId(null); setShowQuickAdd(false); }, 600);
+    addItem(
+      v.id,
+      1,
+      {
+        productTitle: item.title,
+        productHandle: item.product.handle,
+        variantTitle: v.title,
+        price: v.price,
+        image: currentImg
+          ? {
+              url: currentImg.url,
+              altText: currentImg.altText || item.title,
+              width: 800,
+              height: 800,
+            }
+          : null,
+        selectedOptions: v.selectedOptions,
+        quantityAvailable: v.quantityAvailable,
+      },
+      true
+    );
+    setTimeout(() => {
+      setAddedVariantId(null);
+      setShowQuickAdd(false);
+    }, 600);
   };
 
   useEffect(() => {
@@ -335,11 +386,13 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
   }, [showQuickAdd]);
 
   const handlePrev = (e: React.MouseEvent) => {
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
     if (images.length > 1) setImgIdx((i) => (i - 1 + images.length) % images.length);
   };
   const handleNext = (e: React.MouseEvent) => {
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
     if (images.length > 1) setImgIdx((i) => (i + 1) % images.length);
   };
 
@@ -392,7 +445,16 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
             e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
           }}
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
@@ -400,7 +462,15 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
         {/* Product Image Link */}
         <Link
           href={item.targetHref}
-          style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+          style={{
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textDecoration: 'none',
+          }}
         >
           {activeImageUrl ? (
             <Image
@@ -416,7 +486,18 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
               }}
             />
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '0.8125rem', fontFamily: 'var(--font-heading)' }}>
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#999',
+                fontSize: '0.8125rem',
+                fontFamily: 'var(--font-heading)',
+              }}
+            >
               No image
             </div>
           )}
@@ -453,16 +534,47 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
             e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
           }}
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </button>
 
         {/* Pagination Dots */}
         {hasMultipleImages && (
-          <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: '5px', zIndex: 10, pointerEvents: 'none' }}>
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '10px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              zIndex: 10,
+              pointerEvents: 'none',
+            }}
+          >
             {images.map((_, dotIdx) => (
-              <span key={dotIdx} style={{ width: dotIdx === imgIdx ? '16px' : '5px', height: '5px', borderRadius: '3px', background: dotIdx === imgIdx ? BRAND_COLOR : 'rgba(255,255,255,0.7)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'all 0.25s ease' }} />
+              <span
+                key={dotIdx}
+                style={{
+                  width: dotIdx === imgIdx ? '16px' : '5px',
+                  height: '5px',
+                  borderRadius: '3px',
+                  background: dotIdx === imgIdx ? BRAND_COLOR : 'rgba(255,255,255,0.7)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  transition: 'all 0.25s ease',
+                }}
+              />
             ))}
           </div>
         )}
@@ -470,13 +582,62 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
         {/* Quick Size Picker Overlay */}
         {showQuickAdd && (
           <div
-            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(0,0,0,0.08)', padding: '14px 12px 12px', zIndex: 20, display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 -4px 20px rgba(0,0,0,0.12)' }}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: 'rgba(255,255,255,0.98)',
+              backdropFilter: 'blur(12px)',
+              borderTop: '1px solid rgba(0,0,0,0.08)',
+              padding: '14px 12px 12px',
+              zIndex: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              boxShadow: '0 -4px 20px rgba(0,0,0,0.12)',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '-0.025em', color: '#000000' }}>SELECT SIZE</span>
-              <button type="button" onClick={() => setShowQuickAdd(false)} style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer', color: '#888', display: 'flex', alignItems: 'center' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              <span
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '-0.025em',
+                  color: '#000000',
+                }}
+              >
+                SELECT SIZE
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowQuickAdd(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '2px',
+                  cursor: 'pointer',
+                  color: '#888',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -485,27 +646,76 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
                   key={variant.id}
                   type="button"
                   disabled={!isAvailable || addedVariantId === variant.id}
-                  onClick={() => { if (isAvailable) handleAddToCart(variant); }}
+                  onClick={() => {
+                    if (isAvailable) handleAddToCart(variant);
+                  }}
                   style={{
                     flex: sizeVariants.length === 1 ? '1 0 100%' : '1 0 calc(25% - 6px)',
-                    minWidth: '40px', height: '36px', padding: '0 6px',
-                    background: addedVariantId === variant.id ? BRAND_COLOR : isAvailable ? '#ffffff' : '#f5f5f7',
-                    color: addedVariantId === variant.id ? '#ffffff' : isAvailable ? '#000000' : '#b0b0b5',
-                    border: addedVariantId === variant.id ? `1.5px solid ${BRAND_COLOR}` : isAvailable ? '1.5px solid #000000' : '1px solid rgba(0,0,0,0.12)',
+                    minWidth: '40px',
+                    height: '36px',
+                    padding: '0 6px',
+                    background:
+                      addedVariantId === variant.id
+                        ? BRAND_COLOR
+                        : isAvailable
+                          ? '#ffffff'
+                          : '#f5f5f7',
+                    color:
+                      addedVariantId === variant.id
+                        ? '#ffffff'
+                        : isAvailable
+                          ? '#000000'
+                          : '#b0b0b5',
+                    border:
+                      addedVariantId === variant.id
+                        ? `1.5px solid ${BRAND_COLOR}`
+                        : isAvailable
+                          ? '1.5px solid #000000'
+                          : '1px solid rgba(0,0,0,0.12)',
                     borderRadius: '2px',
-                    fontFamily: 'var(--font-heading)', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '-0.025em',
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    letterSpacing: '-0.025em',
                     cursor: isAvailable ? 'pointer' : 'not-allowed',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     textDecoration: isAvailable ? 'none' : 'line-through',
                     opacity: isAvailable ? 1 : 0.6,
                     transition: 'all 0.15s ease',
                   }}
-                  onMouseEnter={(e) => { if (isAvailable && addedVariantId !== variant.id) { e.currentTarget.style.backgroundColor = BRAND_COLOR; e.currentTarget.style.borderColor = BRAND_COLOR; e.currentTarget.style.color = '#ffffff'; } }}
-                  onMouseLeave={(e) => { if (isAvailable && addedVariantId !== variant.id) { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.borderColor = '#000000'; e.currentTarget.style.color = '#000000'; } }}
+                  onMouseEnter={(e) => {
+                    if (isAvailable && addedVariantId !== variant.id) {
+                      e.currentTarget.style.backgroundColor = BRAND_COLOR;
+                      e.currentTarget.style.borderColor = BRAND_COLOR;
+                      e.currentTarget.style.color = '#ffffff';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (isAvailable && addedVariantId !== variant.id) {
+                      e.currentTarget.style.backgroundColor = '#ffffff';
+                      e.currentTarget.style.borderColor = '#000000';
+                      e.currentTarget.style.color = '#000000';
+                    }
+                  }}
                 >
                   {addedVariantId === variant.id ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                  ) : sizeLabel}
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    sizeLabel
+                  )}
                 </button>
               ))}
             </div>
@@ -514,23 +724,71 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
       </div>
 
       {/* Product Meta Row */}
-      <div style={{ paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+      <div
+        style={{
+          paddingTop: '14px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: '12px',
+        }}
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {/* Tag / Colour */}
-          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.6875rem', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#8e8e93' }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: '0.6875rem',
+              fontWeight: 400,
+              textTransform: 'uppercase',
+              letterSpacing: '-0.01em',
+              color: '#8e8e93',
+            }}
+          >
             {item.colourName || item.tag}
           </span>
           {/* Title */}
-          <Link href={item.targetHref} style={{ fontFamily: 'var(--font-heading)', fontSize: '0.8125rem', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#000000', textDecoration: 'none', lineHeight: 1.3 }}>
+          <Link
+            href={item.targetHref}
+            style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: '0.8125rem',
+              fontWeight: 400,
+              textTransform: 'uppercase',
+              letterSpacing: '-0.01em',
+              color: '#000000',
+              textDecoration: 'none',
+              lineHeight: 1.3,
+            }}
+          >
             {item.title}
           </Link>
           {/* Price */}
-          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.875rem', fontWeight: 400, letterSpacing: '-0.01em', color: BRAND_COLOR, marginTop: '2px' }}>
+          <span
+            style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: '0.875rem',
+              fontWeight: 400,
+              letterSpacing: '-0.01em',
+              color: BRAND_COLOR,
+              marginTop: '2px',
+            }}
+          >
             ₹ {item.price}
           </span>
           {/* Only Few Left — dynamic, only when ≤5 in stock */}
           {item.isFewLeft && (
-            <span style={{ fontFamily: 'var(--font-heading)', fontSize: '0.625rem', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '-0.01em', color: '#a0a0b2', marginTop: '1px' }}>
+            <span
+              style={{
+                fontFamily: 'var(--font-heading)',
+                fontSize: '0.625rem',
+                fontWeight: 400,
+                textTransform: 'uppercase',
+                letterSpacing: '-0.01em',
+                color: '#a0a0b2',
+                marginTop: '1px',
+              }}
+            >
               ONLY FEW LEFT
             </span>
           )}
@@ -546,7 +804,9 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
             background: showQuickAdd ? BRAND_COLOR : 'none',
             border: 'none',
             color: showQuickAdd ? '#ffffff' : isHovered ? '#3425b8' : BRAND_COLOR,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             padding: '4px',
             borderRadius: showQuickAdd ? '50%' : '0',
             cursor: 'pointer',
@@ -555,7 +815,15 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
             transform: showQuickAdd ? 'rotate(45deg)' : isHovered ? 'scale(1.2)' : 'scale(1)',
           }}
         >
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <svg
+            width="26"
+            height="26"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
             <line x1="12" y1="4" x2="12" y2="20" />
             <line x1="4" y1="12" x2="20" y2="12" />
           </svg>
@@ -588,23 +856,35 @@ export default function ShopProductsClient({ initialProducts }: Props) {
   // Derived filter options
   const categories = useMemo(() => {
     const set = new Set<string>();
-    allItems.forEach((i) => { if (i.productType) set.add(i.productType); });
+    allItems.forEach((i) => {
+      if (i.productType) set.add(i.productType);
+    });
     return Array.from(set).sort();
   }, [allItems]);
 
   const fits = useMemo(() => {
     const set = new Set<string>();
-    allItems.forEach((i) => { if (i.fit) set.add(i.fit.toUpperCase()); });
+    allItems.forEach((i) => {
+      if (i.fit) set.add(i.fit.toUpperCase());
+    });
     return Array.from(set).sort();
   }, [allItems]);
 
   // Apply filters + sort
   const filteredItems = useMemo(() => {
     let result = [...allItems];
-    if (selectedCategory !== 'ALL') result = result.filter((i) => i.productType.toLowerCase() === selectedCategory.toLowerCase());
-    if (selectedFit !== 'ALL') result = result.filter((i) => i.fit.toUpperCase() === selectedFit.toUpperCase());
-    if (sortBy === 'price-asc') result.sort((a, b) => parseInt(a.price.replace(/,/g, ''), 10) - parseInt(b.price.replace(/,/g, ''), 10));
-    else if (sortBy === 'price-desc') result.sort((a, b) => parseInt(b.price.replace(/,/g, ''), 10) - parseInt(a.price.replace(/,/g, ''), 10));
+    if (selectedCategory !== 'ALL')
+      result = result.filter((i) => i.productType.toLowerCase() === selectedCategory.toLowerCase());
+    if (selectedFit !== 'ALL')
+      result = result.filter((i) => i.fit.toUpperCase() === selectedFit.toUpperCase());
+    if (sortBy === 'price-asc')
+      result.sort(
+        (a, b) => parseInt(a.price.replace(/,/g, ''), 10) - parseInt(b.price.replace(/,/g, ''), 10)
+      );
+    else if (sortBy === 'price-desc')
+      result.sort(
+        (a, b) => parseInt(b.price.replace(/,/g, ''), 10) - parseInt(a.price.replace(/,/g, ''), 10)
+      );
     else if (sortBy === 'name-asc') result.sort((a, b) => a.title.localeCompare(b.title));
     else if (sortBy === 'name-desc') result.sort((a, b) => b.title.localeCompare(a.title));
     return result;
@@ -615,7 +895,6 @@ export default function ShopProductsClient({ initialProducts }: Props) {
 
   return (
     <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh' }}>
-
       {/* ── Responsive styles ── */}
       <style>{`
         .shop-container-pad {
@@ -736,10 +1015,29 @@ export default function ShopProductsClient({ initialProducts }: Props) {
 
       {/* ── Page Title ── */}
       <div className="shop-container-pad shop-title-section">
-        <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.625rem, 3vw, 2.25rem)', fontWeight: 900, letterSpacing: '-0.01em', textTransform: 'uppercase', color: '#000000', margin: '0 0 6px', lineHeight: 1.1 }}>
+        <h1
+          style={{
+            fontFamily: 'var(--font-heading)',
+            fontSize: 'clamp(1.625rem, 3vw, 2.25rem)',
+            fontWeight: 900,
+            letterSpacing: '-0.01em',
+            textTransform: 'uppercase',
+            color: '#000000',
+            margin: '0 0 6px',
+            lineHeight: 1.1,
+          }}
+        >
           ALL PRODUCTS
         </h1>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.9375rem', color: '#444444', margin: 0, lineHeight: 1.5 }}>
+        <p
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.9375rem',
+            color: '#444444',
+            margin: 0,
+            lineHeight: 1.5,
+          }}
+        >
           Our first drop is here — limited pieces, made to move with you.
         </p>
       </div>
@@ -750,34 +1048,67 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           <button
             onClick={() => setSortOpen((p) => !p)}
             style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
               padding: '10px 14px',
               border: '1px solid #c0c0c0',
               background: '#ffffff',
               cursor: 'pointer',
-              fontFamily: 'var(--font-heading)', fontSize: '0.75rem', fontWeight: 600,
-              letterSpacing: '0.03em', color: '#000000',
-              minWidth: '180px', justifyContent: 'space-between',
+              fontFamily: 'var(--font-heading)',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              letterSpacing: '0.03em',
+              color: '#000000',
+              minWidth: '180px',
+              justifyContent: 'space-between',
             }}
           >
             <span>{selectedSortLabel}</span>
             <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-              <path d="M1 1L5 5L9 1" stroke="#000000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M1 1L5 5L9 1"
+                stroke="#000000"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </button>
           {sortOpen && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, background: '#ffffff', border: '1px solid #c0c0c0', borderTop: 'none', minWidth: '210px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                zIndex: 50,
+                background: '#ffffff',
+                border: '1px solid #c0c0c0',
+                borderTop: 'none',
+                minWidth: '210px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+              }}
+            >
               {SORT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => { setSortBy(opt.value); setSortOpen(false); }}
+                  onClick={() => {
+                    setSortBy(opt.value);
+                    setSortOpen(false);
+                  }}
                   style={{
-                    display: 'block', width: '100%', padding: '10px 14px',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    fontFamily: 'var(--font-heading)', fontSize: '0.75rem',
+                    display: 'block',
+                    width: '100%',
+                    padding: '10px 14px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '0.75rem',
                     fontWeight: sortBy === opt.value ? 700 : 400,
                     color: sortBy === opt.value ? BRAND_COLOR : '#222222',
-                    textAlign: 'left', letterSpacing: '0.02em',
+                    textAlign: 'left',
+                    letterSpacing: '0.02em',
                   }}
                 >
                   {opt.label}
@@ -792,8 +1123,26 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       <main className="shop-container-pad shop-main-section">
         {filteredItems.length === 0 ? (
           <div style={{ padding: '80px 20px', textAlign: 'center', border: '1px solid #e5e5e5' }}>
-            <p style={{ fontSize: '1.125rem', fontWeight: 700, margin: '0 0 6px', fontFamily: 'var(--font-heading)' }}>No products found</p>
-            <p style={{ fontSize: '0.875rem', color: '#666', margin: 0, fontFamily: 'var(--font-body)' }}>Check back soon for new drops.</p>
+            <p
+              style={{
+                fontSize: '1.125rem',
+                fontWeight: 700,
+                margin: '0 0 6px',
+                fontFamily: 'var(--font-heading)',
+              }}
+            >
+              No products found
+            </p>
+            <p
+              style={{
+                fontSize: '0.875rem',
+                color: '#666',
+                margin: 0,
+                fontFamily: 'var(--font-body)',
+              }}
+            >
+              Check back soon for new drops.
+            </p>
           </div>
         ) : (
           <div className="shop-grid">
@@ -805,10 +1154,26 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       </main>
 
       {/* ── FAQ Section ── */}
-      <section className="shop-container-pad" style={{ paddingBottom: 'clamp(48px, 8vw, 80px)', background: '#ffffff' }}>
+      <section
+        className="shop-container-pad"
+        style={{ paddingBottom: 'clamp(48px, 8vw, 80px)', background: '#ffffff' }}
+      >
         <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.5rem, 2.5vw, 2rem)', fontWeight: 900, textTransform: 'uppercase', textAlign: 'center', letterSpacing: '0.02em', margin: '0 0 40px', lineHeight: 1.25 }}>
-            FREQUENTLY ASKED<br />QUESTIONS
+          <h2
+            style={{
+              fontFamily: 'var(--font-heading)',
+              fontSize: 'clamp(1.5rem, 2.5vw, 2rem)',
+              fontWeight: 900,
+              textTransform: 'uppercase',
+              textAlign: 'center',
+              letterSpacing: '0.02em',
+              margin: '0 0 40px',
+              lineHeight: 1.25,
+            }}
+          >
+            FREQUENTLY ASKED
+            <br />
+            QUESTIONS
           </h2>
           <div style={{ borderTop: '1px solid #e5e5e5' }}>
             {FAQ_ITEMS.map((item, idx) => (
@@ -827,7 +1192,6 @@ export default function ShopProductsClient({ initialProducts }: Props) {
 
       {/* ── Trust Badges (Always in a single 3-column row) ── */}
       <TrustBadgesBar className="shop-container-pad" />
-
     </div>
   );
 }

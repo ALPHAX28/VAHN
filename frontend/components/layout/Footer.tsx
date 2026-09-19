@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useState } from 'react';
 
 const QUICK_LINKS = [
@@ -14,6 +14,7 @@ const SUPPORT_LINKS = [
   { label: 'Order Tracking', href: '/track' },
   { label: 'Shipping & Returns', href: '/pages/shipping' },
   { label: 'Contact Us', href: '/pages/contact' },
+  { label: 'FAQs', href: '/pages/faq' },
 ];
 
 export default function Footer() {
@@ -88,7 +89,9 @@ export default function Footer() {
                       transition: 'color 0.15s ease',
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.72)')}
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.72)')
+                    }
                   >
                     {link.label}
                   </Link>
@@ -136,7 +139,9 @@ export default function Footer() {
                       transition: 'color 0.15s ease',
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.72)')}
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.color = 'rgba(255, 255, 255, 0.72)')
+                    }
                   >
                     {link.label}
                   </Link>
@@ -227,7 +232,15 @@ export default function Footer() {
         </div>
 
         {/* Right Group: Logo + Early Access Text + Form */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', maxWidth: '440px' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            width: '100%',
+            maxWidth: '440px',
+          }}
+        >
           {/* Official VAHN Logo */}
           <Link
             href="/"

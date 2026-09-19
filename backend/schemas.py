@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import List, Optional, TypeVar
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
@@ -722,6 +722,7 @@ class OrderItemSchema(BaseModel):
     productTitle: str
     variantTitle: str
     imageUrl: Optional[str] = None
+    image_url: Optional[str] = None
     price: Money
     quantity: int
 
@@ -1347,6 +1348,14 @@ class ContactMessageCreate(BaseModel):
         if any(scheme in trimmed.lower() for scheme in ['http://', 'https://', 'www.']):
             raise ValueError("Links/URLs are not permitted in messages.")
         return trimmed
+
+    @model_validator(mode='after')
+    def check_order_number_required(self):
+        norm = (self.subject or "").strip().lower()
+        if norm in ("order", "return", "order tracking / status", "return or exchange") or "tracking" in norm or "return" in norm:
+            if not self.order_number or not self.order_number.strip():
+                raise ValueError("Order number is required for order tracking, returns, and exchanges.")
+        return self
 
 
 class ContactMessageUpdate(BaseModel):

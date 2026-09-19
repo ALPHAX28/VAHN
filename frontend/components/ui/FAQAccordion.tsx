@@ -36,28 +36,50 @@ function parseFAQs(html: string): { question: string; answer: string }[] {
 // Default FAQs if page has no content
 const DEFAULT_FAQS = [
   {
-    question: 'What is VAHN?',
-    answer: '<p>VAHN is a premium bespoke teamwear brand crafting exceptional sportswear for clubs, academies, and brands worldwide. We specialise in fully customised kits with no minimum order quantity.</p>',
+    question: 'What does VAHN make?',
+    answer:
+      '<p>Right now, jerseys built for the way you actually play. This is our first drop. More performance apparel is coming soon.</p>',
   },
   {
-    question: 'How do I place a bespoke order?',
-    answer: '<p>Contact us via our contact page or download our catalogue to see our full range of customisation options. Our team will guide you through the design process from concept to delivery.</p>',
+    question: 'Are the jerseys unisex?',
+    answer:
+      '<p>Yes. Every VAHN jersey is designed with a versatile, athletic silhouette crafted for everyone.</p>',
   },
   {
-    question: 'What is the minimum order quantity?',
-    answer: '<p>We have no minimum order quantity for bespoke teamwear. Whether you need 1 item or 1,000, we can accommodate your order.</p>',
+    question: 'How does the fit run?',
+    answer:
+      '<p>Relaxed, not oversized. If you are between sizes, we recommend sizing down for a closer athletic fit, or choosing your true size for the intended relaxed drape.</p>',
   },
   {
-    question: 'How long does production take?',
-    answer: '<p>Standard production times are 3-4 weeks from artwork approval. Rush orders may be available — please contact us to discuss your timeline.</p>',
+    question: 'What fabric are the jerseys crafted from?',
+    answer:
+      '<p>100% micro-yarn polyester at 155 GSM. Engineered with high-performance moisture management that pulls sweat away from the skin, paired with micro-ventilation mesh across high-heat zones for airflow.</p>',
   },
   {
-    question: 'Do you ship internationally?',
-    answer: '<p>Yes, we ship worldwide. Shipping costs and estimated delivery times will be provided at checkout.</p>',
+    question: 'Can I wear VAHN on the pitch, or is it lifestyle streetwear?',
+    answer:
+      '<p>Both. VAHN bridges high performance and streetwear. Whether it is competitive turf football, Sunday cricket, or casual wear, our kits are built to perform and look sharp anywhere.</p>',
+  },
+  {
+    question: 'Is this a limited drop? Will it restock?',
+    answer:
+      '<p>Our core releases are strictly limited edition. Once a colorway or drop sells out, it will not be restocked in the same specification. You can sign up for restock notifications on any product page.</p>',
+  },
+  {
+    question: 'Do you ship across India? How long does delivery take?',
+    answer:
+      '<p>Yes, we offer pan-India delivery across all serviceable PIN codes via Shiprocket express logistics. Standard delivery takes 5–7 business days.</p>',
+  },
+  {
+    question: 'What is your return & exchange policy?',
+    answer:
+      '<p>We offer a hassle-free 10-day exchange and return window for unworn items in original packaging with tags intact. Please visit our <a href="/pages/shipping" style="color: #4232d9; text-decoration: underline;">Shipping & Returns page</a> for full details.</p>',
   },
 ];
 
-interface Props { bodyHtml?: string; }
+interface Props {
+  bodyHtml?: string;
+}
 
 export default function FAQAccordion({ bodyHtml }: Props) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -79,16 +101,20 @@ export default function FAQAccordion({ bodyHtml }: Props) {
               aria-expanded={openIndex === i}
             >
               <span>{item.question}</span>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
                 <line x1="10" y1="3" x2="10" y2="17" />
                 <line x1="3" y1="10" x2="17" y2="10" />
               </svg>
             </button>
             <div className="faq-answer">
-              <div
-                className="faq-answer-inner"
-                dangerouslySetInnerHTML={{ __html: item.answer }}
-              />
+              <div className="faq-answer-inner" dangerouslySetInnerHTML={{ __html: item.answer }} />
             </div>
           </div>
         ))}
