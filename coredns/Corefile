@@ -1,8 +1,10 @@
-dev-admin.vahnsports.com:53 admin.vahnsports.com:53 admin-dev.vahnsports.com:53 {
+dev-admin.vahnsports.com:53 admin.vahnsports.com:53 admin-dev.vahnsports.com:53 logs.vahnsports.com:53 vpn.vahnsports.com:53 {
     hosts {
         10.8.0.1 dev-admin.vahnsports.com
         10.8.0.1 admin.vahnsports.com
         10.8.0.1 admin-dev.vahnsports.com
+        10.8.0.1 logs.vahnsports.com
+        10.8.0.1 vpn.vahnsports.com
     }
     cache 30
     reload
