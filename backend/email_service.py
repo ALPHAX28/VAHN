@@ -2,7 +2,7 @@ import os
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
-from typing import Optional
+from typing import Any, List, Optional
 
 from dotenv import load_dotenv
 
@@ -31,17 +31,49 @@ def _get_ses_client():
         return None
 
 
-def _send_email(to_email: str, subject: str, html_content: str, text_content: Optional[str] = None, reply_to: Optional[str] = None) -> bool:
+def _send_email(
+    to_email: str,
+    subject: str,
+    html_content: str,
+    text_content: Optional[str] = None,
+    reply_to: Optional[str] = None,
+    attachments: Optional[List[Any]] = None,
+) -> bool:
     """
     Central Email Dispatcher for VAHN using Amazon SES.
     1. Uses Amazon SES SMTP (smtplib) with configured IAM SES credentials for instant, verified delivery.
-    2. Uses native Amazon SES API if explicit AWS_SES_ACCESS_KEY_ID is provided.
+    2. Uses native Amazon SES API if explicit AWS_SES_ACCESS_KEY_ID is provided (send_raw_email if attachments).
     3. In local development with no credentials, logs message to console and returns True.
     """
     from_email = os.getenv("EMAILS_FROM_EMAIL", "noreply@vahnsports.com").strip()
     from_name = os.getenv("EMAILS_FROM_NAME", "VAHN Official").strip()
     source_address = f"{from_name} <{from_email}>" if from_name else from_email
     plain_text = text_content or subject
+
+    # Construct complete MIME EmailMessage
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = source_address
+    msg["To"] = to_email
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    msg.set_content(plain_text)
+    msg.add_alternative(html_content, subtype="html")
+
+    if attachments:
+        for att in attachments:
+            try:
+                if isinstance(att, (tuple, list)) and len(att) >= 2:
+                    filename = att[0]
+                    content_bytes = att[1]
+                    mime_type = att[2] if len(att) > 2 else "application/pdf"
+                    if "/" in mime_type:
+                        maintype, subtype = mime_type.split("/", 1)
+                    else:
+                        maintype, subtype = "application", "octet-stream"
+                    msg.add_attachment(content_bytes, maintype=maintype, subtype=subtype, filename=filename)
+            except Exception as e:
+                print(f"[EMAIL SERVICE WARNING] Failed to attach file {att}: {e}")
 
     # ------------------------------------------------------------
     # Method 1: Amazon SES SMTP (Primary Dispatcher)
@@ -53,25 +85,17 @@ def _send_email(to_email: str, subject: str, html_content: str, text_content: Op
 
     if smtp_user and smtp_password and not smtp_user.startswith("your_"):
         try:
-            msg = EmailMessage()
-            msg["Subject"] = subject
-            msg["From"] = source_address
-            msg["To"] = to_email
-            if reply_to:
-                msg["Reply-To"] = reply_to
-            msg.set_content(plain_text)
-            msg.add_alternative(html_content, subtype="html")
-
             with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
                 server.starttls()
                 server.login(smtp_user, smtp_password)
                 server.send_message(msg)
 
-            print(f"[EMAIL SERVICE] Email successfully sent to {to_email} via Amazon SES SMTP.")
+            att_count = len(attachments) if attachments else 0
+            print(f"[EMAIL SERVICE] Email successfully sent to {to_email} via Amazon SES SMTP (Attachments: {att_count}).")
             return True
         except Exception as e:
             print(f"[EMAIL SERVICE ERROR] Failed to send email via Amazon SES SMTP: {e}")
-            # Try fallback to SES API if configured below
+            # Fallback to SES API if configured below
 
     # ------------------------------------------------------------
     # Method 2: Amazon SES Direct HTTPS API (boto3 fallback)
@@ -79,23 +103,33 @@ def _send_email(to_email: str, subject: str, html_content: str, text_content: Op
     ses_client = _get_ses_client()
     if ses_client is not None:
         try:
-            send_kwargs = {
-                "Source": source_address,
-                "Destination": {"ToAddresses": [to_email]},
-                "Message": {
-                    "Subject": {"Data": subject, "Charset": "UTF-8"},
-                    "Body": {
-                        "Html": {"Data": html_content, "Charset": "UTF-8"},
-                        "Text": {"Data": plain_text, "Charset": "UTF-8"},
+            if attachments:
+                raw_response = ses_client.send_raw_email(
+                    Source=source_address,
+                    Destinations=[to_email],
+                    RawMessage={"Data": msg.as_bytes()}
+                )
+                message_id = raw_response.get("MessageId", "N/A")
+                print(f"[EMAIL SERVICE] Raw email with attachments sent to {to_email} via Amazon SES API (MessageId: {message_id})")
+                return True
+            else:
+                send_kwargs = {
+                    "Source": source_address,
+                    "Destination": {"ToAddresses": [to_email]},
+                    "Message": {
+                        "Subject": {"Data": subject, "Charset": "UTF-8"},
+                        "Body": {
+                            "Html": {"Data": html_content, "Charset": "UTF-8"},
+                            "Text": {"Data": plain_text, "Charset": "UTF-8"},
+                        },
                     },
-                },
-            }
-            if reply_to:
-                send_kwargs["ReplyToAddresses"] = [reply_to]
-            response = ses_client.send_email(**send_kwargs)
-            message_id = response.get("MessageId", "N/A")
-            print(f"[EMAIL SERVICE] Email successfully sent to {to_email} via Amazon SES API (MessageId: {message_id})")
-            return True
+                }
+                if reply_to:
+                    send_kwargs["ReplyToAddresses"] = [reply_to]
+                response = ses_client.send_email(**send_kwargs)
+                message_id = response.get("MessageId", "N/A")
+                print(f"[EMAIL SERVICE] Email successfully sent to {to_email} via Amazon SES API (MessageId: {message_id})")
+                return True
         except Exception as e:
             print(f"[EMAIL SERVICE ERROR] Amazon SES API send failed: {e}")
             return False
@@ -103,7 +137,8 @@ def _send_email(to_email: str, subject: str, html_content: str, text_content: Op
     # ------------------------------------------------------------
     # Method 3: Local Dev Mode (Credentials not set)
     # ------------------------------------------------------------
-    print("[EMAIL SERVICE - Amazon SES (Local Dev Mode)] AWS SES credentials / SMTP credentials not set in .env. Email logged above.")
+    att_count = len(attachments) if attachments else 0
+    print(f"[EMAIL SERVICE - Amazon SES (Local Dev Mode)] AWS SES credentials / SMTP credentials not set in .env. Email to {to_email} with subject '{subject}' logged (Attachments: {att_count}).")
     return True
 
 
@@ -151,26 +186,60 @@ def send_otp_email(to_email: str, otp_code: str, subject: str = "Your VAHN Verif
     )
 
 
-def send_order_confirmation_email(to_email: str, order_id: str, total_amount: float, currency: str = "INR", items_summary: Optional[list] = None) -> bool:
+def _format_items_table_html(items_summary: Optional[Any] = None, currency: str = "INR") -> str:
+    """
+    Safely builds an HTML table rows string from items_summary,
+    which can be a list of dicts, a raw string, or None.
+    """
+    if not items_summary:
+        return ""
+    if isinstance(items_summary, str):
+        return f'<tr><td colspan="2" style="padding: 10px 0; border-bottom: 1px solid #eeeeee; color: #444444;">{items_summary}</td></tr>'
+
+    rows = []
+    if isinstance(items_summary, list):
+        for item in items_summary:
+            if isinstance(item, dict):
+                title = item.get("title") or item.get("product_title") or "Product"
+                variant = item.get("variant") or item.get("variant_title") or ""
+                variant_text = f" ({variant})" if variant and variant.lower() != "default title" else ""
+                quantity = item.get("quantity") or 1
+                price = item.get("price") or 0.0
+                try:
+                    price_val = float(price)
+                except (ValueError, TypeError):
+                    price_val = 0.0
+                rows.append(f"""
+                <tr>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #eeeeee; color: #333333;">
+                    <strong>{title}</strong>{variant_text} &times; {quantity}
+                  </td>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #eeeeee; text-align: right; color: #111111; font-weight: 600;">
+                    {currency} {price_val:.2f}
+                  </td>
+                </tr>
+                """)
+            elif isinstance(item, str):
+                rows.append(f'<tr><td colspan="2" style="padding: 10px 0; border-bottom: 1px solid #eeeeee; color: #444444;">{item}</td></tr>')
+    return "".join(rows)
+
+
+def send_order_confirmation_email(
+    to_email: str,
+    order_id: str,
+    total_amount: float,
+    currency: str = "INR",
+    items_summary: Optional[Any] = None,
+    customer_name: str = "",
+) -> bool:
     """
     Sends an Order Confirmation email asynchronously using Amazon SES.
     """
     site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
     logo_url = f"{site_url}/assets/logo.png"
 
-    items_html = ""
-    if items_summary:
-        for item in items_summary:
-            items_html += f"""
-            <tr>
-              <td style="padding: 10px 0; border-bottom: 1px solid #eeeeee;">
-                <strong>{item.get('title', 'Product')}</strong> ({item.get('variant', 'Default')}) x {item.get('quantity', 1)}
-              </td>
-              <td style="padding: 10px 0; border-bottom: 1px solid #eeeeee; text-align: right;">
-                {currency} {item.get('price', 0.0):.2f}
-              </td>
-            </tr>
-            """
+    name_greeting = f"Dear {customer_name}," if customer_name else "Thank you for shopping with VAHN."
+    items_html = _format_items_table_html(items_summary, currency)
 
     html_content = f"""
     <!DOCTYPE html>
@@ -181,27 +250,35 @@ def send_order_confirmation_email(to_email: str, order_id: str, total_amount: fl
     </head>
     <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 40px 20px;">
       <div style="max-width: 550px; margin: 0 auto; background: #ffffff; padding: 40px; border: 1px solid #e2e2e2;">
-        <div style="text-align: center; margin-bottom: 12px;">
+        <div style="text-align: center; margin-bottom: 16px;">
           <img src="{logo_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; border: 0; outline: none; text-decoration: none; color: #111111; font-size: 20px; font-weight: 800; letter-spacing: 0.2em;" />
         </div>
-        <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 32px;">Order Confirmed #{order_id}</p>
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="background: #111111; color: #ffffff; font-size: 11px; font-weight: 800; padding: 5px 14px; letter-spacing: 0.15em; text-transform: uppercase;">ORDER CONFIRMED</span>
+        </div>
+        <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 28px;">Order #{order_id}</p>
 
-        <p style="font-size: 15px; color: #444444; line-height: 1.6;">Thank you for shopping with VAHN. We have received your order and are preparing it for dispatch.</p>
+        <p style="font-size: 15px; color: #222222; font-weight: 600; line-height: 1.6; margin-bottom: 8px;">{name_greeting}</p>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6; margin-top: 0;">We have received your order and payment. Our fulfillment team is now preparing your items with precision.</p>
 
         <table style="width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 14px; color: #333333;">
           <thead>
             <tr style="border-bottom: 2px solid #111111; text-align: left;">
-              <th style="padding-bottom: 8px;">Item</th>
-              <th style="padding-bottom: 8px; text-align: right;">Price</th>
+              <th style="padding-bottom: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #777777;">Item</th>
+              <th style="padding-bottom: 8px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #777777;">Price</th>
             </tr>
           </thead>
           <tbody>
-            {items_html or '<tr><td colspan="2" style="padding: 12px 0;">Order details processed.</td></tr>'}
+            {items_html or '<tr><td colspan="2" style="padding: 12px 0; color: #666666;">Order details confirmed.</td></tr>'}
           </tbody>
         </table>
 
         <div style="text-align: right; margin-top: 16px; font-size: 16px; font-weight: 800; color: #111111;">
           Total Paid: {currency} {total_amount:.2f}
+        </div>
+
+        <div style="text-align: center; margin: 32px 0 16px;">
+          <a href="{site_url}/orders" style="background: #111111; color: #ffffff; text-decoration: none; font-size: 12px; font-weight: 800; padding: 14px 28px; letter-spacing: 0.15em; text-transform: uppercase; display: inline-block;">VIEW YOUR ORDER &rarr;</a>
         </div>
 
         <hr style="border: none; border-top: 1px solid #eeeeee; margin: 32px 0;">
@@ -212,16 +289,522 @@ def send_order_confirmation_email(to_email: str, order_id: str, total_amount: fl
     """
 
     print("\n==========================================")
-    print(f"  [ORDER EMAIL RECIPIENT]: {to_email}")
+    print(f"  [ORDER CONFIRMATION RECIPIENT]: {to_email}")
     print(f"  [ORDER ID]: {order_id}")
     print(f"  [TOTAL AMOUNT]: {currency} {total_amount:.2f}")
     print("==========================================\n")
 
     return _send_email(
         to_email=to_email,
-        subject=f"Order Confirmation #{order_id} - VAHN Official",
+        subject=f"Order Confirmed #{order_id} - VAHN Official",
         html_content=html_content,
-        text_content=f"Thank you for your order #{order_id}! Total amount: {currency} {total_amount:.2f}"
+        text_content=f"Thank you for your order #{order_id}! Total amount: {currency} {total_amount:.2f}. View at: {site_url}/orders"
+    )
+
+
+def send_payment_failed_email(
+    to_email: str,
+    order_id: str,
+    retry_url: str,
+    failure_reason: str = "",
+    customer_name: str = "",
+) -> bool:
+    """
+    Sends a Payment Failed notification email with a direct retry link via Amazon SES.
+    """
+    if not to_email:
+        return False
+
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+    name_greeting = f"Dear {customer_name}," if customer_name else "Hello,"
+
+    reason_markup = f"""
+    <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 14px 18px; margin: 20px 0; color: #991b1b; font-size: 13px;">
+      <strong>Note:</strong> {failure_reason}
+    </div>
+    """ if failure_reason else ""
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Payment Incomplete: Order #{order_id}</title>
+    </head>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 40px 20px;">
+      <div style="max-width: 550px; margin: 0 auto; background: #ffffff; padding: 40px; border: 1px solid #e2e2e2;">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; border: 0; outline: none; text-decoration: none; color: #111111; font-size: 20px; font-weight: 800; letter-spacing: 0.2em;" />
+        </div>
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="background: #ef4444; color: #ffffff; font-size: 11px; font-weight: 800; padding: 5px 14px; letter-spacing: 0.15em; text-transform: uppercase;">PAYMENT NOT COMPLETED</span>
+        </div>
+        <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 28px;">Order #{order_id}</p>
+
+        <p style="font-size: 15px; color: #222222; font-weight: 600; line-height: 1.6; margin-bottom: 8px;">{name_greeting}</p>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6; margin-top: 0;">We noticed your payment attempt for order <strong>#{order_id}</strong> could not be completed. Your items are temporarily reserved so you won't lose them.</p>
+
+        {reason_markup}
+
+        <p style="font-size: 14px; color: #555555; line-height: 1.6;">You can securely retry your payment using UPI, Credit/Debit Cards, or Netbanking by clicking the button below:</p>
+
+        <div style="text-align: center; margin: 32px 0 24px;">
+          <a href="{retry_url}" style="background: #111111; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; padding: 16px 32px; letter-spacing: 0.15em; text-transform: uppercase; display: inline-block;">RETRY PAYMENT NOW &rarr;</a>
+        </div>
+
+        <p style="font-size: 12px; color: #888888; line-height: 1.5; text-align: center;">If money was debited from your bank account, it will automatically reverse within 3&ndash;5 business days, or your order status will automatically update upon payment capture.</p>
+
+        <hr style="border: none; border-top: 1px solid #eeeeee; margin: 32px 0;">
+        <p style="font-size: 11px; color: #aaaaaa; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    print("\n==========================================")
+    print(f"  [PAYMENT FAILED EMAIL RECIPIENT]: {to_email}")
+    print(f"  [ORDER ID]: {order_id}")
+    print(f"  [RETRY URL]: {retry_url}")
+    print("==========================================\n")
+
+    return _send_email(
+        to_email=to_email,
+        subject=f"Action Required: Complete Your Payment for Order #{order_id} - VAHN",
+        html_content=html_content,
+        text_content=f"Your payment for order #{order_id} was not completed. You can securely complete your payment here: {retry_url}"
+    )
+
+
+def send_order_dispatched_email(
+    to_email: str,
+    order_id: str,
+    courier_name: str,
+    awb_code: str,
+    tracking_url: str = "",
+    invoice_pdf_bytes: Optional[bytes] = None,
+    customer_name: str = "",
+    items_summary: Optional[Any] = None,
+) -> bool:
+    """
+    Sends an Order Dispatched / AWB generated email with tracking link
+    and attaches official Tax Invoice PDF if available via Amazon SES.
+    """
+    if not to_email:
+        return False
+
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+    name_greeting = f"Dear {customer_name}," if customer_name else "Hello,"
+
+    live_tracking_url = tracking_url or f"{site_url}/orders"
+    invoice_notice = """
+    <div style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 12px 16px; margin: 20px 0; color: #166534; font-size: 13px;">
+      <strong>Tax Invoice Attached:</strong> Your official Tax Invoice PDF is attached to this email for your records.
+    </div>
+    """ if invoice_pdf_bytes else ""
+
+    items_html = _format_items_table_html(items_summary)
+    items_section = f"""
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; color: #333333;">
+      <thead>
+        <tr style="border-bottom: 2px solid #111111; text-align: left;">
+          <th style="padding-bottom: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #777777;">Dispatched Item</th>
+          <th style="padding-bottom: 8px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #777777;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {items_html}
+      </tbody>
+    </table>
+    """ if items_html else ""
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Order Dispatched #{order_id}</title>
+    </head>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 40px 20px;">
+      <div style="max-width: 550px; margin: 0 auto; background: #ffffff; padding: 40px; border: 1px solid #e2e2e2;">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; border: 0; outline: none; text-decoration: none; color: #111111; font-size: 20px; font-weight: 800; letter-spacing: 0.2em;" />
+        </div>
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="background: #2563eb; color: #ffffff; font-size: 11px; font-weight: 800; padding: 5px 14px; letter-spacing: 0.15em; text-transform: uppercase;">ORDER DISPATCHED</span>
+        </div>
+        <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 28px;">Order #{order_id}</p>
+
+        <p style="font-size: 15px; color: #222222; font-weight: 600; line-height: 1.6; margin-bottom: 8px;">{name_greeting}</p>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6; margin-top: 0;">Great news! Your package has been dispatched from our fulfillment center and is on its way to you.</p>
+
+        <!-- Tracking Card -->
+        <div style="background: #fbfbfb; border: 1px solid #eeeeee; padding: 20px; margin: 24px 0;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #888888; text-transform: uppercase; font-size: 11px; font-weight: 600; width: 120px;">Courier Partner</td>
+              <td style="padding: 6px 0; color: #111111; font-weight: 700;">{courier_name or 'Shiprocket Express'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #888888; text-transform: uppercase; font-size: 11px; font-weight: 600;">AWB / Tracking #</td>
+              <td style="padding: 6px 0; color: #111111; font-weight: 800; letter-spacing: 0.05em;">{awb_code or 'Pending Scan'}</td>
+            </tr>
+          </table>
+        </div>
+
+        {items_section}
+        {invoice_notice}
+
+        <div style="text-align: center; margin: 32px 0 20px;">
+          <a href="{live_tracking_url}" style="background: #111111; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; padding: 16px 32px; letter-spacing: 0.15em; text-transform: uppercase; display: inline-block;">TRACK SHIPMENT LIVE &rarr;</a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #eeeeee; margin: 32px 0;">
+        <p style="font-size: 11px; color: #aaaaaa; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    attachments_payload = None
+    if invoice_pdf_bytes:
+        attachments_payload = [{
+            "filename": f"Tax_Invoice_{order_id}.pdf",
+            "data": invoice_pdf_bytes,
+            "content_type": "application/pdf"
+        }]
+
+    print("\n==========================================")
+    print(f"  [DISPATCH EMAIL RECIPIENT]: {to_email}")
+    print(f"  [ORDER ID]: {order_id}")
+    print(f"  [COURIER]: {courier_name} | [AWB]: {awb_code}")
+    print(f"  [ATTACHED INVOICE]: {'Yes' if invoice_pdf_bytes else 'No'}")
+    print("==========================================\n")
+
+    return _send_email(
+        to_email=to_email,
+        subject=f"Dispatched: Your VAHN Order #{order_id} is on the way!",
+        html_content=html_content,
+        text_content=f"Your VAHN order #{order_id} has been dispatched with {courier_name} (AWB: {awb_code}). Track here: {live_tracking_url}",
+        attachments=attachments_payload
+    )
+
+
+def send_out_for_delivery_email(
+    to_email: str,
+    order_id: str,
+    courier_name: str,
+    awb_code: str,
+    tracking_url: str = "",
+    customer_name: str = "",
+) -> bool:
+    """
+    Sends an Out for Delivery notification email to customer via Amazon SES.
+    """
+    if not to_email:
+        return False
+
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+    name_greeting = f"Dear {customer_name}," if customer_name else "Hello,"
+    live_tracking_url = tracking_url or f"{site_url}/orders"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Out for Delivery: Order #{order_id}</title>
+    </head>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 40px 20px;">
+      <div style="max-width: 550px; margin: 0 auto; background: #ffffff; padding: 40px; border: 1px solid #e2e2e2;">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; border: 0; outline: none; text-decoration: none; color: #111111; font-size: 20px; font-weight: 800; letter-spacing: 0.2em;" />
+        </div>
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="background: #f59e0b; color: #ffffff; font-size: 11px; font-weight: 800; padding: 5px 14px; letter-spacing: 0.15em; text-transform: uppercase;">OUT FOR DELIVERY TODAY</span>
+        </div>
+        <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 28px;">Order #{order_id}</p>
+
+        <p style="font-size: 15px; color: #222222; font-weight: 600; line-height: 1.6; margin-bottom: 8px;">{name_greeting}</p>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6; margin-top: 0;">Get ready! Your VAHN shipment is out with our delivery agent and will be delivered to your address today.</p>
+
+        <!-- Tracking Card -->
+        <div style="background: #fefce8; border: 1px solid #fef08a; padding: 18px; margin: 24px 0;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #854d0e; text-transform: uppercase; font-size: 11px; font-weight: 600; width: 120px;">Courier Partner</td>
+              <td style="padding: 6px 0; color: #111111; font-weight: 700;">{courier_name or 'Shiprocket'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #854d0e; text-transform: uppercase; font-size: 11px; font-weight: 600;">AWB Number</td>
+              <td style="padding: 6px 0; color: #111111; font-weight: 800;">{awb_code}</td>
+            </tr>
+          </table>
+        </div>
+
+        <p style="font-size: 13px; color: #666666; line-height: 1.6;">Please ensure you or an authorized person is available to receive the delivery. In case the delivery agent requests an OTP, it will be sent to your registered mobile number.</p>
+
+        <div style="text-align: center; margin: 32px 0 20px;">
+          <a href="{live_tracking_url}" style="background: #111111; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; padding: 16px 32px; letter-spacing: 0.15em; text-transform: uppercase; display: inline-block;">TRACK AGENT LIVE &rarr;</a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #eeeeee; margin: 32px 0;">
+        <p style="font-size: 11px; color: #aaaaaa; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    print("\n==========================================")
+    print(f"  [OUT FOR DELIVERY EMAIL RECIPIENT]: {to_email}")
+    print(f"  [ORDER ID]: {order_id}")
+    print(f"  [AWB]: {awb_code}")
+    print("==========================================\n")
+
+    return _send_email(
+        to_email=to_email,
+        subject=f"Out for Delivery: Order #{order_id} arrives today! - VAHN",
+        html_content=html_content,
+        text_content=f"Your VAHN order #{order_id} is out for delivery today via {courier_name} (AWB: {awb_code}). Track here: {live_tracking_url}"
+    )
+
+
+def send_order_delivered_email(
+    to_email: str,
+    order_id: str,
+    courier_name: str = "",
+    awb_code: str = "",
+    customer_name: str = "",
+) -> bool:
+    """
+    Sends an Order Delivered confirmation email to customer via Amazon SES.
+    """
+    if not to_email:
+        return False
+
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+    name_greeting = f"Dear {customer_name}," if customer_name else "Hello,"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Delivered: Order #{order_id}</title>
+    </head>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 40px 20px;">
+      <div style="max-width: 550px; margin: 0 auto; background: #ffffff; padding: 40px; border: 1px solid #e2e2e2;">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; border: 0; outline: none; text-decoration: none; color: #111111; font-size: 20px; font-weight: 800; letter-spacing: 0.2em;" />
+        </div>
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="background: #16a34a; color: #ffffff; font-size: 11px; font-weight: 800; padding: 5px 14px; letter-spacing: 0.15em; text-transform: uppercase;">ORDER DELIVERED</span>
+        </div>
+        <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 28px;">Order #{order_id}</p>
+
+        <p style="font-size: 15px; color: #222222; font-weight: 600; line-height: 1.6; margin-bottom: 8px;">{name_greeting}</p>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6; margin-top: 0;">Your VAHN parcel has been successfully delivered! We hope you love your new sportswear pieces.</p>
+
+        <div style="background: #fbfbfb; border: 1px solid #eeeeee; padding: 18px; margin: 24px 0; font-size: 13px; color: #444444; line-height: 1.6;">
+          <strong style="color: #111111; display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px;">Fit &amp; Sizing Guarantee</strong>
+          If you need a different size or wish to request an exchange, you can submit a request directly through your account dashboard within 7 days of delivery.
+        </div>
+
+        <div style="text-align: center; margin: 32px 0 20px;">
+          <a href="{site_url}/orders" style="background: #111111; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; padding: 16px 32px; letter-spacing: 0.15em; text-transform: uppercase; display: inline-block;">MANAGE ORDER / EXCHANGES &rarr;</a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #eeeeee; margin: 32px 0;">
+        <p style="font-size: 11px; color: #aaaaaa; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    print("\n==========================================")
+    print(f"  [DELIVERED EMAIL RECIPIENT]: {to_email}")
+    print(f"  [ORDER ID]: {order_id}")
+    print(f"  [AWB]: {awb_code or 'N/A'}")
+    print("==========================================\n")
+
+    return _send_email(
+        to_email=to_email,
+        subject=f"Delivered: Your VAHN Order #{order_id} has arrived!",
+        html_content=html_content,
+        text_content=f"Your VAHN order #{order_id} has been delivered! View order or request exchange at: {site_url}/orders"
+    )
+
+
+def send_order_cancelled_email(
+    to_email: str,
+    order_id: str,
+    reason: str = "",
+    is_prepaid: bool = False,
+    refund_info: str = "",
+    customer_name: str = "",
+) -> bool:
+    """
+    Sends an Order Cancelled notification email to customer via Amazon SES.
+    """
+    if not to_email:
+        return False
+
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+    name_greeting = f"Dear {customer_name}," if customer_name else "Hello,"
+
+    reason_markup = f"""
+    <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 14px 18px; margin: 20px 0; color: #991b1b; font-size: 13px;">
+      <strong>Reason for Cancellation:</strong> {reason}
+    </div>
+    """ if reason else ""
+
+    refund_markup = ""
+    if is_prepaid:
+        refund_markup = f"""
+        <div style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 14px 18px; margin: 20px 0; color: #166534; font-size: 13px;">
+          <strong>Prepaid Refund Notice:</strong> Since this order was paid online, a full refund has been initiated to your original payment method. {refund_info or 'It typically reflects in your bank account or card within 5–7 business days.'}
+        </div>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Order Cancelled: #{order_id}</title>
+    </head>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 40px 20px;">
+      <div style="max-width: 550px; margin: 0 auto; background: #ffffff; padding: 40px; border: 1px solid #e2e2e2;">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; border: 0; outline: none; text-decoration: none; color: #111111; font-size: 20px; font-weight: 800; letter-spacing: 0.2em;" />
+        </div>
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="background: #000000; color: #ffffff; font-size: 11px; font-weight: 800; padding: 5px 14px; letter-spacing: 0.15em; text-transform: uppercase;">ORDER CANCELLED</span>
+        </div>
+        <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 28px;">Order #{order_id}</p>
+
+        <p style="font-size: 15px; color: #222222; font-weight: 600; line-height: 1.6; margin-bottom: 8px;">{name_greeting}</p>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6; margin-top: 0;">This email confirms that your order <strong>#{order_id}</strong> has been cancelled.</p>
+
+        {reason_markup}
+        {refund_markup}
+
+        <p style="font-size: 13px; color: #666666; line-height: 1.6; margin-top: 24px;">If you have any questions or did not authorize this cancellation, please contact our support team immediately.</p>
+
+        <div style="text-align: center; margin: 32px 0 20px;">
+          <a href="{site_url}" style="background: #111111; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; padding: 16px 32px; letter-spacing: 0.15em; text-transform: uppercase; display: inline-block;">CONTINUE SHOPPING &rarr;</a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #eeeeee; margin: 32px 0;">
+        <p style="font-size: 11px; color: #aaaaaa; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    print("\n==========================================")
+    print(f"  [CANCELLED EMAIL RECIPIENT]: {to_email}")
+    print(f"  [ORDER ID]: {order_id}")
+    print(f"  [REASON]: {reason or 'N/A'}")
+    print("==========================================\n")
+
+    return _send_email(
+        to_email=to_email,
+        subject=f"Notice: Order #{order_id} has been cancelled - VAHN",
+        html_content=html_content,
+        text_content=f"Your VAHN order #{order_id} has been cancelled. Reason: {reason or 'Customer/Admin request'}."
+    )
+
+
+def send_refund_initiated_email(
+    to_email: str,
+    order_id: str,
+    refund_amount: float,
+    refund_id: str = "",
+    currency: str = "INR",
+    customer_name: str = "",
+) -> bool:
+    """
+    Sends a Refund Initiated notification email with banking timeline via Amazon SES.
+    """
+    if not to_email:
+        return False
+
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+    name_greeting = f"Dear {customer_name}," if customer_name else "Hello,"
+
+    ref_line = f"""
+    <tr>
+      <td style="padding: 6px 0; color: #888888; text-transform: uppercase; font-size: 11px; font-weight: 600; width: 140px;">Refund Reference</td>
+      <td style="padding: 6px 0; color: #111111; font-weight: 700; font-family: monospace;">{refund_id}</td>
+    </tr>
+    """ if refund_id else ""
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Refund Initiated: Order #{order_id}</title>
+    </head>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 40px 20px;">
+      <div style="max-width: 550px; margin: 0 auto; background: #ffffff; padding: 40px; border: 1px solid #e2e2e2;">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; border: 0; outline: none; text-decoration: none; color: #111111; font-size: 20px; font-weight: 800; letter-spacing: 0.2em;" />
+        </div>
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="background: #16a34a; color: #ffffff; font-size: 11px; font-weight: 800; padding: 5px 14px; letter-spacing: 0.15em; text-transform: uppercase;">REFUND INITIATED</span>
+        </div>
+        <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 28px;">Order #{order_id}</p>
+
+        <p style="font-size: 15px; color: #222222; font-weight: 600; line-height: 1.6; margin-bottom: 8px;">{name_greeting}</p>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6; margin-top: 0;">We have successfully processed a refund for your order <strong>#{order_id}</strong>.</p>
+
+        <!-- Refund Card -->
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 20px; margin: 24px 0;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #166534; text-transform: uppercase; font-size: 11px; font-weight: 600; width: 140px;">Refund Amount</td>
+              <td style="padding: 6px 0; color: #111111; font-weight: 800; font-size: 16px;">{currency} {refund_amount:.2f}</td>
+            </tr>
+            {ref_line}
+            <tr>
+              <td style="padding: 6px 0; color: #166534; text-transform: uppercase; font-size: 11px; font-weight: 600;">Settlement Speed</td>
+              <td style="padding: 6px 0; color: #333333; font-weight: 600;">5&ndash;7 Business Days (UPI/Bank)</td>
+            </tr>
+          </table>
+        </div>
+
+        <p style="font-size: 13px; color: #666666; line-height: 1.6;">The refund is issued directly through Razorpay to your original mode of payment (UPI / Netbanking / Debit or Credit Card). You will also receive an SMS/email from Razorpay and your issuing bank once the credits post.</p>
+
+        <div style="text-align: center; margin: 32px 0 20px;">
+          <a href="{site_url}/orders" style="background: #111111; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; padding: 16px 32px; letter-spacing: 0.15em; text-transform: uppercase; display: inline-block;">CHECK ORDER STATUS &rarr;</a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #eeeeee; margin: 32px 0;">
+        <p style="font-size: 11px; color: #aaaaaa; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    print("\n==========================================")
+    print(f"  [REFUND INITIATED RECIPIENT]: {to_email}")
+    print(f"  [ORDER ID]: {order_id}")
+    print(f"  [REFUND AMOUNT]: {currency} {refund_amount:.2f}")
+    print(f"  [REFUND ID]: {refund_id or 'N/A'}")
+    print("==========================================\n")
+
+    return _send_email(
+        to_email=to_email,
+        subject=f"Refund Initiated: {currency} {refund_amount:.2f} for Order #{order_id} - VAHN",
+        html_content=html_content,
+        text_content=f"Your refund of {currency} {refund_amount:.2f} for order #{order_id} has been processed (Ref: {refund_id}). It will credit within 5-7 business days."
     )
 
 

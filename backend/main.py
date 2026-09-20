@@ -14,8 +14,9 @@ import logging
 import secrets
 import uuid
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
+import httpx
 from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -52,8 +53,14 @@ from email_service import (
     send_account_suspended_email,
     send_contact_inquiry_notification,
     send_contact_inquiry_receipt,
+    send_order_cancelled_email,
     send_order_confirmation_email,
+    send_order_delivered_email,
+    send_order_dispatched_email,
     send_otp_email,
+    send_out_for_delivery_email,
+    send_payment_failed_email,
+    send_refund_initiated_email,
     send_restock_notification_email,
 )
 from storage import storage
@@ -1263,6 +1270,61 @@ def resolve_shipping_address(address_id: Optional[int], shipping_address: Option
         "phone": "+91 9876543210"
     }
 
+
+def get_order_customer_info(order: models.Order, db: Session) -> Tuple[Optional[str], str]:
+    """
+    Extracts the customer's email address and friendly name from an Order,
+    resolving across guest_email, user relationship, and shipping_address.
+    """
+    resolved_email: Optional[str] = str(order.guest_email).strip() if order.guest_email else None
+    resolved_name: str = str(order.guest_name).strip() if order.guest_name else ""
+
+    if not resolved_email and order.user_id:
+        user = db.query(models.User).filter_by(id=order.user_id).first()
+        if user:
+            if user.email:
+                resolved_email = str(user.email).strip()
+            if not resolved_name and user.full_name:
+                resolved_name = str(user.full_name).strip()
+
+    if not resolved_email and isinstance(order.shipping_address, dict):
+        addr_email = order.shipping_address.get("email")
+        if addr_email:
+            resolved_email = str(addr_email).strip()
+        if not resolved_name:
+            addr_name = order.shipping_address.get("name")
+            if addr_name:
+                resolved_name = str(addr_name).strip()
+
+    if resolved_email:
+        clean_email = resolved_email.lower()
+        resolved_email = clean_email if "@" in clean_email else None
+
+    final_name = resolved_name if resolved_name else "Athlete"
+    return resolved_email, final_name
+
+
+def fetch_shiprocket_invoice_pdf_bytes(shiprocket_order_id: Optional[str]) -> Optional[bytes]:
+    """
+    Attempts to generate and download the tax invoice PDF bytes from Shiprocket.
+    Returns bytes if successfully fetched, or None if unavailable/failed.
+    """
+    if not shiprocket_order_id:
+        return None
+    try:
+        inv_res = shiprocket_service.generate_order_invoice(shiprocket_order_id)
+        raw_url = inv_res.get("invoice_url")
+        if raw_url:
+            clean_url = shiprocket_service.sanitize_shiprocket_url(raw_url)
+            with httpx.Client(timeout=15.0) as client:
+                resp = client.get(clean_url)
+                if resp.status_code == 200 and resp.content:
+                    return resp.content
+    except Exception as e:
+        logger.warning(f"Could not download Shiprocket invoice PDF for {shiprocket_order_id}: {e}")
+    return None
+
+
 def _async_create_shiprocket_order(order_id: str):
     """Background task to create Shiprocket forward shipment and assign AWB."""
     db = next(get_db())
@@ -1287,9 +1349,39 @@ def _async_create_shiprocket_order(order_id: str):
                         "activity": "Order Confirmed & Manifest Generated for Dispatch",
                         "location": "VAHN Warehouse"
                     }
-                ]
+                ],
+                "emails_sent": {"dispatched": True}
             }
             db.commit()
+
+            # Trigger Order Dispatched email with Tax Invoice PDF attached
+            try:
+                target_email, cust_name = get_order_customer_info(order, db)
+                if target_email and order.shiprocket_awb:
+                    pdf_bytes = fetch_shiprocket_invoice_pdf_bytes(order.shiprocket_order_id)
+                    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+                    track_url = f"{site_url}/track?q={order.shiprocket_awb}"
+                    items_sum = [
+                        {
+                            "title": i.product_title or "Product",
+                            "variant": i.variant_title or "Default",
+                            "quantity": i.quantity,
+                            "price": i.price_amount
+                        }
+                        for i in (order.items or [])
+                    ]
+                    send_order_dispatched_email(
+                        to_email=target_email,
+                        order_id=order.id,
+                        courier_name=order.shiprocket_courier_name or "Shiprocket Express",
+                        awb_code=order.shiprocket_awb,
+                        tracking_url=track_url,
+                        invoice_pdf_bytes=pdf_bytes,
+                        customer_name=cust_name,
+                        items_summary=items_sum
+                    )
+            except Exception as em_err:
+                logger.warning(f"Failed to send dispatch email for order {order.id}: {em_err}")
     except Exception as e:
         logger.error(f"Error in background Shiprocket forward shipment for {order_id}: {e}")
     finally:
@@ -1489,14 +1581,16 @@ def razorpay_verify_payment(
     db.refresh(order)
 
     # Send Order Confirmation Email
-    if current_user.email:
+    target_email, cust_name = get_order_customer_info(order, db)
+    if target_email:
         background_tasks.add_task(
             send_order_confirmation_email,
-            to_email=current_user.email,
+            to_email=target_email,
             order_id=order.id,
             total_amount=order.total_amount,
             currency=order.currency,
-            items_summary=items_summary
+            items_summary=items_summary,
+            customer_name=cust_name
         )
 
     return build_order_schema(order)
@@ -1505,6 +1599,7 @@ def razorpay_verify_payment(
 @app.post("/api/payments/razorpay/record-failure", response_model=schemas.OrderSchema)
 def razorpay_record_failure(
     payload: schemas.RazorpayRecordFailureRequest,
+    background_tasks: BackgroundTasks,
     current_user: Optional[models.User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1592,6 +1687,27 @@ def razorpay_record_failure(
                     existing.guest_phone = cust_phone
                 if not existing.shipping_address and shipping_payload:
                     existing.shipping_address = resolve_shipping_address(None, shipping_payload, current_user, db)
+
+                # Send payment failed email once
+                t_data = dict(existing.tracking_data or {})
+                emails_sent = t_data.setdefault("emails_sent", {})
+                if not emails_sent.get("payment_failed"):
+                    emails_sent["payment_failed"] = True
+                    existing.tracking_data = t_data
+                    target_email, c_name = get_order_customer_info(existing, db)
+                    if target_email:
+                        site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+                        retry_url = f"{site_url}/checkout/failed?order_id={existing.id}"
+                        reason = existing.cancellation_reason
+                        background_tasks.add_task(
+                            send_payment_failed_email,
+                            to_email=target_email,
+                            order_id=existing.id,
+                            retry_url=retry_url,
+                            failure_reason=reason,
+                            customer_name=c_name
+                        )
+
                 db.commit()
                 db.refresh(existing)
             return build_order_schema(existing)
@@ -1631,7 +1747,8 @@ def razorpay_record_failure(
         total_amount=total_amount,
         currency="INR",
         shipping_address=final_address,
-        shipping_status="UNFULFILLED"
+        shipping_status="UNFULFILLED",
+        tracking_data={"emails_sent": {"payment_failed": True}}
     )
     db.add(order)
     db.flush()
@@ -1654,6 +1771,21 @@ def razorpay_record_failure(
     # Note: We intentionally DO NOT delete cart.items on failure so cart is preserved!
     db.commit()
     db.refresh(order)
+
+    # Send Payment Failed email with direct retry link
+    target_email, c_name = get_order_customer_info(order, db)
+    if target_email:
+        site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+        retry_url = f"{site_url}/checkout/failed?order_id={order.id}"
+        reason = order.cancellation_reason
+        background_tasks.add_task(
+            send_payment_failed_email,
+            to_email=target_email,
+            order_id=order.id,
+            retry_url=retry_url,
+            failure_reason=reason,
+            customer_name=c_name
+        )
 
     return build_order_schema(order)
 
@@ -2114,7 +2246,7 @@ def magic_checkout_order(
     db.refresh(order)
 
     # Send confirmation email
-    target_email = cust_email or (user.email if user else None)
+    target_email, cust_friendly_name = get_order_customer_info(order, db)
     if target_email:
         background_tasks.add_task(
             send_order_confirmation_email,
@@ -2122,7 +2254,8 @@ def magic_checkout_order(
             order_id=order.id,
             total_amount=order.total_amount,
             currency=order.currency,
-            items_summary=items_summary
+            items_summary=items_summary,
+            customer_name=cust_friendly_name
         )
 
     return build_order_schema(order)
@@ -2219,6 +2352,31 @@ def execute_order_cancellation(
 
     db.commit()
     db.refresh(order)
+
+    # Email notification to customer: Order Cancelled (+ Refund Initiated if applicable)
+    try:
+        target_email, c_name = get_order_customer_info(order, db)
+        if target_email:
+            is_prepaid = (order.payment_status == "REFUNDED" or order.refund_status == "REFUNDED")
+            send_order_cancelled_email(
+                to_email=target_email,
+                order_id=order.id,
+                reason=order.cancellation_reason or "Customer or Admin request",
+                is_prepaid=is_prepaid,
+                customer_name=c_name
+            )
+            if is_prepaid and order.refund_amount and order.refund_amount > 0:
+                send_refund_initiated_email(
+                    to_email=target_email,
+                    order_id=order.id,
+                    refund_amount=order.refund_amount,
+                    refund_id=order.razorpay_refund_id or "",
+                    currency=order.currency or "INR",
+                    customer_name=c_name
+                )
+    except Exception as em_err:
+        logger.warning(f"Failed to send cancellation/refund email for order {order.id}: {em_err}")
+
     return order
 
 
@@ -2713,16 +2871,25 @@ def confirm_retry_payment(
     db.refresh(order)
 
     # Send Order Confirmation Email
-    target_email = order.guest_email or (current_user.email if current_user else None)
+    target_email, cust_name = get_order_customer_info(order, db)
     if target_email:
-        items_summary = ", ".join(f"{i.product_title} ({i.quantity}x)" for i in (order.items or []))
+        items_summary = [
+            {
+                "title": i.product_title or "Product",
+                "variant": i.variant_title or "Default",
+                "quantity": i.quantity,
+                "price": i.price_amount
+            }
+            for i in (order.items or [])
+        ]
         background_tasks.add_task(
             send_order_confirmation_email,
             to_email=target_email,
             order_id=order.id,
             total_amount=order.total_amount,
             currency=order.currency,
-            items_summary=items_summary
+            items_summary=items_summary,
+            customer_name=cust_name
         )
 
     return build_order_schema(order)
@@ -2749,6 +2916,20 @@ def cancel_pending_order(
     order.cancellation_reason = payload.reason or "Customer abandoned or cancelled payment."
     db.commit()
     db.refresh(order)
+
+    # Email notification for cancelled pending order
+    try:
+        target_email, cust_name = get_order_customer_info(order, db)
+        if target_email:
+            send_order_cancelled_email(
+                to_email=target_email,
+                order_id=order.id,
+                reason=order.cancellation_reason,
+                is_prepaid=False,
+                customer_name=cust_name
+            )
+    except Exception as em_err:
+        logger.warning(f"Failed to send cancellation email for pending order {order.id}: {em_err}")
 
     return {"success": True, "message": "Order cancelled successfully.", "order_id": order_id}
 
@@ -2996,9 +3177,49 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
 
             if order.status != "CANCELLED":
                 order.shipping_status = current_status
+                t_data = dict(order.tracking_data or {})
+                emails_sent = t_data.setdefault("emails_sent", {})
+
+                target_email, cust_name = get_order_customer_info(order, db)
+                site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+                awb_val = order.shiprocket_awb or awb
+                courier_val = order.shiprocket_courier_name or "Shiprocket"
+                track_url = f"{site_url}/track?q={awb_val}" if awb_val else f"{site_url}/orders"
+
+                if current_status in ("OUT_FOR_DELIVERY", "OUT FOR DELIVERY") and not emails_sent.get("out_for_delivery"):
+                    emails_sent["out_for_delivery"] = True
+                    order.tracking_data = t_data
+                    if target_email:
+                        try:
+                            send_out_for_delivery_email(
+                                to_email=target_email,
+                                order_id=order.id,
+                                courier_name=courier_val,
+                                awb_code=awb_val,
+                                tracking_url=track_url,
+                                customer_name=cust_name
+                            )
+                        except Exception as e_ofd:
+                            logger.warning(f"Failed to send OFD email for {order.id}: {e_ofd}")
+
                 if current_status == "DELIVERED":
                     order.status = "DELIVERED"
                     order.delivered_at = datetime.utcnow()
+                    if not emails_sent.get("delivered"):
+                        emails_sent["delivered"] = True
+                        order.tracking_data = t_data
+                        if target_email:
+                            try:
+                                send_order_delivered_email(
+                                    to_email=target_email,
+                                    order_id=order.id,
+                                    courier_name=courier_val,
+                                    awb_code=awb_val,
+                                    customer_name=cust_name
+                                )
+                            except Exception as e_del:
+                                logger.warning(f"Failed to send delivered email for {order.id}: {e_del}")
+
                 db.commit()
                 return {"status": "forward_updated", "order_id": order.id}
 
@@ -3040,6 +3261,21 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
                         rev_order.refunded_at = datetime.utcnow()
                         rev_order.razorpay_refund_id = rfnd_id
                         rev_order.return_status = "REFUND_INITIATED"
+
+                        # Send refund initiated email on reverse pickup scan
+                        try:
+                            r_email, r_name = get_order_customer_info(rev_order, db)
+                            if r_email:
+                                send_refund_initiated_email(
+                                    to_email=r_email,
+                                    order_id=rev_order.id,
+                                    refund_amount=rev_order.total_amount,
+                                    refund_id=rfnd_id or "",
+                                    currency=rev_order.currency or "INR",
+                                    customer_name=r_name
+                                )
+                        except Exception as em_err:
+                            logger.warning(f"Failed to send refund email on reverse pickup for {rev_order.id}: {em_err}")
 
                         # Restock returned inventory
                         for item in (rev_order.items or []):
@@ -4174,7 +4410,45 @@ def admin_ship_order(
     order.tracking_url = f"/track?q={order.shiprocket_awb}" if order.shiprocket_awb else None
     order.shipping_status = "SHIPPED"
     order.status = "SHIPPED"
+
+    t_data = dict(order.tracking_data or {})
+    emails_sent = t_data.setdefault("emails_sent", {})
+    already_sent = emails_sent.get("dispatched", False)
+    if not already_sent:
+        emails_sent["dispatched"] = True
+        order.tracking_data = t_data
+
     db.commit()
+
+    if not already_sent:
+        try:
+            target_email, cust_name = get_order_customer_info(order, db)
+            if target_email and order.shiprocket_awb:
+                pdf_bytes = fetch_shiprocket_invoice_pdf_bytes(order.shiprocket_order_id)
+                site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+                track_url = f"{site_url}/track?q={order.shiprocket_awb}"
+                items_sum = [
+                    {
+                        "title": i.product_title or "Product",
+                        "variant": i.variant_title or "Default",
+                        "quantity": i.quantity,
+                        "price": i.price_amount
+                    }
+                    for i in (order.items or [])
+                ]
+                send_order_dispatched_email(
+                    to_email=target_email,
+                    order_id=order.id,
+                    courier_name=order.shiprocket_courier_name or "Shiprocket Express",
+                    awb_code=order.shiprocket_awb,
+                    tracking_url=track_url,
+                    invoice_pdf_bytes=pdf_bytes,
+                    customer_name=cust_name,
+                    items_summary=items_sum
+                )
+        except Exception as em_err:
+            logger.warning(f"Failed to send dispatch email on admin ship for order {order.id}: {em_err}")
+
     return {
         "message": "Shipment initiated successfully via Shiprocket",
         "order_id": order.id,
@@ -4358,6 +4632,22 @@ def admin_refund_order(
                     var.inventory_quantity += item.quantity
 
     db.commit()
+
+    # Trigger Refund Initiated email notification to customer
+    try:
+        r_email, r_name = get_order_customer_info(order, db)
+        if r_email:
+            send_refund_initiated_email(
+                to_email=r_email,
+                order_id=order.id,
+                refund_amount=refund_amount,
+                refund_id=order.razorpay_refund_id or "",
+                currency=order.currency or "INR",
+                customer_name=r_name
+            )
+    except Exception as em_err:
+        logger.warning(f"Failed to send admin refund email for {order.id}: {em_err}")
+
     return {
         "message": f"Refund of INR {refund_amount:.2f} processed successfully",
         "refund_id": order.razorpay_refund_id,
