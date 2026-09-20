@@ -407,85 +407,75 @@ export default function AdminOrderDetailPage() {
       )}
 
       {/* Header Title & Nav */}
-      <div className="vahn-no-print" style={{ marginBottom: 20 }}>
-        <button
-          onClick={() => router.push('/admin/orders')}
-          className="admin-btn-inline-link"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            marginBottom: 8,
-            fontSize: '0.8125rem',
-            color: 'var(--admin-text-secondary)',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontWeight: 600,
-            padding: 0,
-          }}
-        >
-          ← Back to Orders
-        </button>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            flexWrap: 'wrap',
-            gap: 12,
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h1
-                className="admin-page-title"
-                style={{ fontSize: '1.75rem', fontWeight: 900, margin: 0 }}
-              >
-                {order.id}
-              </h1>
-              <span
-                style={{
-                  fontSize: '0.7rem',
-                  fontWeight: 800,
-                  background: order.is_guest ? '#e0e0e0' : '#000',
-                  color: order.is_guest ? '#333' : '#fff',
-                  padding: '3px 8px',
-                  borderRadius: '0px',
-                  textTransform: 'uppercase',
-                }}
-              >
-                {order.is_guest ? 'GUEST ORDER' : 'REGISTERED ATHLETE'}
-              </span>
-            </div>
-            <p className="admin-page-subtitle" style={{ marginTop: 6 }}>
-              Created on{' '}
-              {new Date(order.created_at).toLocaleString('en-IN', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              })}
-            </p>
+      <div className="admin-page-header">
+        <div>
+          <button
+            onClick={() => router.push('/admin/orders')}
+            className="admin-btn-inline-link"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              marginBottom: 8,
+              fontSize: '0.8125rem',
+              color: 'var(--admin-text-secondary)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
+              padding: 0,
+            }}
+          >
+            ← Back to Orders
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h1
+              className="admin-page-title"
+              style={{ fontSize: '1.75rem', fontWeight: 900, margin: 0 }}
+            >
+              {order.id}
+            </h1>
+            <span
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: 800,
+                background: order.is_guest ? '#e0e0e0' : '#000',
+                color: order.is_guest ? '#333' : '#fff',
+                padding: '3px 8px',
+                borderRadius: '0px',
+                textTransform: 'uppercase',
+              }}
+            >
+              {order.is_guest ? 'GUEST ORDER' : 'REGISTERED ATHLETE'}
+            </span>
           </div>
+          <p className="admin-page-subtitle" style={{ marginTop: 6 }}>
+            Created on{' '}
+            {new Date(order.created_at).toLocaleString('en-IN', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })}
+          </p>
+        </div>
 
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {order.shiprocket_awb && (
-              <a
-                href={getPublicTrackingUrl(order.shiprocket_awb)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="admin-btn admin-btn--secondary"
-                style={{
-                  textDecoration: 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <TruckIcon size={14} color="#000" />
-                Public Tracking Portal →
-              </a>
-            )}
-          </div>
+        <div className="admin-header-actions">
+          {order.shiprocket_awb && (
+            <a
+              href={getPublicTrackingUrl(order.shiprocket_awb)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="admin-btn admin-btn--secondary"
+              style={{
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <TruckIcon size={14} color="#000" />
+              Public Tracking Portal →
+            </a>
+          )}
         </div>
       </div>
 
