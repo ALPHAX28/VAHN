@@ -8,7 +8,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
 
 export const metadata: Metadata = {
-  title: { default: 'VAHN — Bespoke Teamwear', template: '%s | VAHN' },
+  title: { default: 'VAHN™ | Sportswear | Activewear', template: '%s | VAHN' },
   description:
     'VAHN is a premium bespoke teamwear brand crafting exceptional sportswear for clubs, academies, and brands worldwide.',
   keywords: ['teamwear', 'sportswear', 'bespoke', 'football', 'kit', 'VAHN'],

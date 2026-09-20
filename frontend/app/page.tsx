@@ -9,7 +9,7 @@ import MarqueeStrip from '@/components/home/MarqueeStrip';
 import { getProducts } from '@/lib/api';
 
 export const metadata: Metadata = {
-  title: 'VAHN — This is VAHN',
+  title: { absolute: 'VAHN™ | Sportswear | Activewear' },
   description:
     'Premium performance sportswear crafted for athletes. Discover the VAHN collection — Tops, Jerseys, and more. This is where it starts.',
 };
