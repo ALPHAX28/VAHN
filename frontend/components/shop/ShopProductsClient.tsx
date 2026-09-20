@@ -40,7 +40,6 @@ const FAQ_ITEMS = [
   {
     q: 'HOW DOES THE FIT RUN?',
     a: "Relaxed, not oversized. If you're between sizes, we'd recommend sizing down for a fitted look or staying true to size for the intended relaxed drape.",
-    link: { label: 'Size Chart', href: '/pages/size-chart' },
   },
   {
     q: 'WHAT FABRIC ARE THE JERSEYS MADE FROM?',
