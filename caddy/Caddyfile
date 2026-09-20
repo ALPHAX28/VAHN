@@ -112,7 +112,7 @@ dev-admin.vahnsports.com, admin-dev.vahnsports.com {
 }
 
 # 5. Monitoring & Centralized Logs Subdomain (https://logs.vahnsports.com) — VPN RESTRICTED
-logs.vahnsports.com, dev-logs.vahnsports.com {
+logs.vahnsports.com {
 	encode gzip zstd
 
 	# ── VAHN IN-HOUSE VPN ACCESS CONTROL ──
