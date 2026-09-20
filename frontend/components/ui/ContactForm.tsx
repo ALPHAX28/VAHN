@@ -229,12 +229,20 @@ export default function ContactForm() {
       <div className="form-group">
         <label className="form-label" htmlFor="phone">Phone *</label>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <div style={{ position: 'relative', width: '130px', flexShrink: 0 }}>
+          <div style={{ width: '145px', flexShrink: 0 }}>
             <select
               id="countryCode"
               name="countryCode"
               className="input"
-              style={{ width: '100%', paddingRight: '26px', cursor: 'pointer' }}
+              style={{
+                width: '100%',
+                padding: '0 26px 0 10px',
+                fontSize: '0.8125rem',
+                backgroundColor: '#ffffff',
+                cursor: 'pointer',
+                backgroundPosition: 'right 8px center',
+                backgroundSize: '12px 12px',
+              }}
               value={formData.countryCode}
               onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
             >
@@ -242,23 +250,6 @@ export default function ContactForm() {
                 <option key={c.code} value={c.code}>{c.label}</option>
               ))}
             </select>
-            <div
-              style={{
-                position: 'absolute',
-                right: '8px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#555',
-              }}
-            >
-              <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </div>
           </div>
           <input
             id="phone"
@@ -278,13 +269,13 @@ export default function ContactForm() {
 
       <div className="form-group">
         <label className="form-label" htmlFor="subject">Subject *</label>
-        <div style={{ position: 'relative', width: '100%' }}>
+        <div style={{ width: '100%' }}>
           <select
             id="subject"
             name="subject"
             className="input"
             required
-            style={{ width: '100%', paddingRight: '38px', cursor: 'pointer' }}
+            style={{ width: '100%', cursor: 'pointer' }}
             value={formData.subject}
             onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
           >
@@ -294,23 +285,6 @@ export default function ContactForm() {
             <option value="wholesale">Wholesale</option>
             <option value="other">Other</option>
           </select>
-          <div
-            style={{
-              position: 'absolute',
-              right: '14px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              pointerEvents: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#222',
-            }}
-          >
-            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </div>
         </div>
         {errors.subject && <span style={{ color: '#d93025', fontSize: '0.75rem' }}>{errors.subject}</span>}
       </div>

@@ -120,7 +120,7 @@ export default function OrdersPage() {
                   </strong>
                   <Link href={`/account/orders/${order.id}`} className="btn btn-secondary order-view-btn" style={{ fontSize: "0.78rem", display: "inline-flex", alignItems: "center" }} onClick={e => e.stopPropagation()}>
                     <span>View Order Details</span>
-                    <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="btn-checkout-arrow" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="9 18 15 12 9 6" />
                     </svg>
                   </Link>

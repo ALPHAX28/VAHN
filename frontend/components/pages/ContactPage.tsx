@@ -828,17 +828,19 @@ export default function ContactPage() {
                     Phone Number *
                   </label>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <div style={{ position: 'relative', width: '140px', flexShrink: 0 }}>
+                    <div style={{ width: '145px', flexShrink: 0 }}>
                       <select
                         id="countryCode"
                         name="countryCode"
                         className="input"
                         style={{
                           width: '100%',
-                          padding: '0 26px 0 8px',
+                          padding: '0 26px 0 10px',
                           fontSize: '0.8125rem',
                           backgroundColor: '#ffffff',
                           cursor: 'pointer',
+                          backgroundPosition: 'right 8px center',
+                          backgroundSize: '12px 12px',
                         }}
                         value={formData.countryCode}
                         onChange={(e) =>
@@ -852,23 +854,6 @@ export default function ContactPage() {
                           </option>
                         ))}
                       </select>
-                      <div
-                        style={{
-                          position: 'absolute',
-                          right: '8px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          pointerEvents: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#555',
-                        }}
-                      >
-                        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="6 9 12 15 18 9" />
-                        </svg>
-                      </div>
                     </div>
                     <input
                       id="phone"
@@ -961,7 +946,6 @@ export default function ContactPage() {
                       required
                       style={{
                         width: '100%',
-                        paddingRight: '38px',
                         cursor: 'pointer',
                         borderColor: errors.subject ? '#d93025' : undefined,
                         boxShadow: errors.subject ? '0 0 0 1px #d93025' : undefined,
@@ -977,23 +961,6 @@ export default function ContactPage() {
                       <option value="product">Product &amp; Sizing Question</option>
                       <option value="other">General Feedback / Other</option>
                     </select>
-                    <div
-                      style={{
-                        position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        pointerEvents: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#222',
-                      }}
-                    >
-                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg>
-                    </div>
                   </div>
                   {errors.subject && (
                     <span

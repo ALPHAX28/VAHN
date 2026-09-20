@@ -4604,6 +4604,14 @@ a:active .btn-checkout-arrow,
   transition: color 0.35s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
+.order-view-btn svg,
+.order-view-btn .btn-checkout-arrow {
+  position: relative;
+  z-index: 2;
+  color: #111111;
+  transition: transform 0.25s ease, color 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
 .order-view-btn::before {
   content: '';
   position: absolute;
@@ -4628,6 +4636,12 @@ a:active .btn-checkout-arrow,
 
 .order-view-btn:hover span {
   color: #ffffff !important;
+}
+
+.order-view-btn:hover svg,
+.order-view-btn:hover .btn-checkout-arrow {
+  color: #ffffff !important;
+  transform: translateX(3px);
 }
 
 .order-view-btn:hover::before {
