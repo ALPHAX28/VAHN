@@ -1,30 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import PhoneInput from '@/components/ui/PhoneInput';
 import { getApiBaseUrl } from '@/lib/api/client';
-
-const COUNTRY_CODES = [
-  { code: '+91', label: '🇮🇳 +91 (IN)' },
-  { code: '+1', label: '🇺🇸 +1 (US/CA)' },
-  { code: '+44', label: '🇬🇧 +44 (UK)' },
-  { code: '+971', label: '🇦🇪 +971 (AE)' },
-  { code: '+61', label: '🇦🇺 +61 (AU)' },
-  { code: '+65', label: '🇸🇬 +65 (SG)' },
-  { code: '+49', label: '🇩🇪 +49 (DE)' },
-  { code: '+33', label: '🇫🇷 +33 (FR)' },
-  { code: '+81', label: '🇯🇵 +81 (JP)' },
-  { code: '+966', label: '🇸🇦 +966 (SA)' },
-  { code: '+974', label: '🇶🇦 +974 (QA)' },
-  { code: '+965', label: '🇰🇼 +965 (KW)' },
-  { code: '+64', label: '🇳🇿 +64 (NZ)' },
-  { code: '+880', label: '🇧🇩 +880 (BD)' },
-  { code: '+977', label: '🇳🇵 +977 (NP)' },
-  { code: '+94', label: '🇱🇰 +94 (LK)' },
-  { code: '+86', label: '🇨🇳 +86 (CN)' },
-  { code: '+39', label: '🇮🇹 +39 (IT)' },
-  { code: '+34', label: '🇪🇸 +34 (ES)' },
-  { code: '+31', label: '🇳🇱 +31 (NL)' },
-];
 
 interface FormState {
   firstName: string;
@@ -228,42 +206,25 @@ export default function ContactForm() {
 
       <div className="form-group">
         <label className="form-label" htmlFor="phone">Phone *</label>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <div style={{ width: '145px', flexShrink: 0 }}>
-            <select
-              id="countryCode"
-              name="countryCode"
-              className="input"
-              style={{
-                width: '100%',
-                padding: '0 26px 0 10px',
-                fontSize: '0.8125rem',
-                backgroundColor: '#ffffff',
-                cursor: 'pointer',
-                backgroundPosition: 'right 8px center',
-                backgroundSize: '12px 12px',
-              }}
-              value={formData.countryCode}
-              onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
-            >
-              {COUNTRY_CODES.map((c) => (
-                <option key={c.code} value={c.code}>{c.label}</option>
-              ))}
-            </select>
-          </div>
-          <input
-            id="phone"
-            name="phone"
-            type="tel"
-            required
-            aria-required="true"
-            className="input"
-            placeholder="98765 43210"
-            style={{ flex: 1 }}
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/[^\d\s-]/g, '') })}
-          />
-        </div>
+        <PhoneInput
+          id="phone"
+          name="phone"
+          countryCode={formData.countryCode}
+          phone={formData.phone}
+          onCountryCodeChange={(code) => setFormData((prev) => ({ ...prev, countryCode: code }))}
+          onPhoneChange={(phone) => {
+            setFormData((prev) => ({ ...prev, phone }));
+            if (errors.phone) {
+              setErrors((prev) => {
+                const next = { ...prev };
+                delete next.phone;
+                return next;
+              });
+            }
+          }}
+          error={errors.phone}
+          required
+        />
         {errors.phone && <span style={{ color: '#d93025', fontSize: '0.75rem' }}>{errors.phone}</span>}
       </div>
 

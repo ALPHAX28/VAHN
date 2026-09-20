@@ -5,6 +5,7 @@ import type React from 'react';
 import { useState } from 'react';
 import PolicyTabs from '@/components/ui/PolicyTabs';
 import TrustBadgesBar from '@/components/ui/TrustBadgesBar';
+import PhoneInput from '@/components/ui/PhoneInput';
 import { getApiBaseUrl } from '@/lib/api/client';
 
 interface FormState {
@@ -39,29 +40,6 @@ const initialFormData: FormState = {
   subject: '',
   message: '',
 };
-
-const COUNTRY_CODES = [
-  { code: '+91', label: '🇮🇳 +91 (IN)' },
-  { code: '+1', label: '🇺🇸 +1 (US/CA)' },
-  { code: '+44', label: '🇬🇧 +44 (UK)' },
-  { code: '+971', label: '🇦🇪 +971 (AE)' },
-  { code: '+61', label: '🇦🇺 +61 (AU)' },
-  { code: '+65', label: '🇸🇬 +65 (SG)' },
-  { code: '+49', label: '🇩🇪 +49 (DE)' },
-  { code: '+33', label: '🇫🇷 +33 (FR)' },
-  { code: '+81', label: '🇯🇵 +81 (JP)' },
-  { code: '+966', label: '🇸🇦 +966 (SA)' },
-  { code: '+974', label: '🇶🇦 +974 (QA)' },
-  { code: '+965', label: '🇰🇼 +965 (KW)' },
-  { code: '+64', label: '🇳🇿 +64 (NZ)' },
-  { code: '+880', label: '🇧🇩 +880 (BD)' },
-  { code: '+977', label: '🇳🇵 +977 (NP)' },
-  { code: '+94', label: '🇱🇰 +94 (LK)' },
-  { code: '+86', label: '🇨🇳 +86 (CN)' },
-  { code: '+39', label: '🇮🇹 +39 (IT)' },
-  { code: '+34', label: '🇪🇸 +34 (ES)' },
-  { code: '+31', label: '🇳🇱 +31 (NL)' },
-];
 
 const containsEmoji = (str: string): boolean => {
   return /[\p{Extended_Pictographic}\p{Emoji_Presentation}]|\uFE0F/u.test(str);
@@ -192,9 +170,9 @@ export default function ContactPage() {
     }
   };
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhoneValueChange = (val: string) => {
     // SCRUM-76: strictly strip spaces and non-digits; SCRUM-78: character limit
-    let digits = e.target.value.replace(/\D/g, '');
+    let digits = val.replace(/\D/g, '');
     if (formData.countryCode === '+91') {
       digits = digits.slice(0, 10);
     } else {
@@ -827,54 +805,19 @@ export default function ContactPage() {
                   <label className="form-label" htmlFor="phone">
                     Phone Number *
                   </label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <div style={{ width: '145px', flexShrink: 0 }}>
-                      <select
-                        id="countryCode"
-                        name="countryCode"
-                        className="input"
-                        style={{
-                          width: '100%',
-                          padding: '0 26px 0 10px',
-                          fontSize: '0.8125rem',
-                          backgroundColor: '#ffffff',
-                          cursor: 'pointer',
-                          backgroundPosition: 'right 8px center',
-                          backgroundSize: '12px 12px',
-                        }}
-                        value={formData.countryCode}
-                        onChange={(e) =>
-                          setFormData((prev) => ({ ...prev, countryCode: e.target.value }))
-                        }
-                        aria-label="Country Code"
-                      >
-                        {COUNTRY_CODES.map((item) => (
-                          <option key={item.code} value={item.code}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      inputMode="numeric"
-                      required
-                      aria-required="true"
-                      className="input"
-                      maxLength={formData.countryCode === '+91' ? 10 : 15}
-                      placeholder={formData.countryCode === '+91' ? '9876543210' : 'Phone number'}
-                      style={{
-                        flex: 1,
-                        borderColor: errors.phone ? '#d93025' : undefined,
-                        boxShadow: errors.phone ? '0 0 0 1px #d93025' : undefined,
-                      }}
-                      value={formData.phone}
-                      onChange={handlePhoneChange}
-                      onBlur={() => handleBlur('phone')}
-                    />
-                  </div>
+                  <PhoneInput
+                    id="phone"
+                    name="phone"
+                    countryCode={formData.countryCode}
+                    phone={formData.phone}
+                    onCountryCodeChange={(code) =>
+                      setFormData((prev) => ({ ...prev, countryCode: code }))
+                    }
+                    onPhoneChange={handlePhoneValueChange}
+                    onBlur={() => handleBlur('phone')}
+                    error={errors.phone}
+                    required
+                  />
                   {errors.phone && (
                     <span
                       style={{
