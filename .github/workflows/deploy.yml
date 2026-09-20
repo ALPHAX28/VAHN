@@ -200,7 +200,7 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
             sleep 6
             docker exec vahn-backend-prod python -m alembic upgrade head
-            docker exec vahn-caddy-prod caddy reload --config /etc/caddy/Caddyfile || true
+            docker restart vahn-caddy-prod || true
 
             # Ensure centralized logging & monitoring stack is running
             docker compose -f docker-compose.logging.yml up -d --force-recreate --remove-orphans || true
