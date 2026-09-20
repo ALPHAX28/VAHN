@@ -397,25 +397,17 @@ input, textarea, select {
 
 .pick-your-side-panel .pick-your-side-img-default {
   opacity: 1;
-  transform: scale(1);
-  transition: transform 0.75s cubic-bezier(0.25, 1, 0.5, 1) !important;
   z-index: 1;
 }
 
 .pick-your-side-panel .pick-your-side-img-hover {
   opacity: 0;
-  transform: scale(1.05);
-  transition: opacity 0.65s cubic-bezier(0.25, 1, 0.5, 1), transform 0.75s cubic-bezier(0.25, 1, 0.5, 1) !important;
+  transition: opacity 0.3s ease !important;
   z-index: 2;
-}
-
-.pick-your-side-panel:hover .pick-your-side-img-default {
-  transform: scale(1.04) !important;
 }
 
 .pick-your-side-panel:hover .pick-your-side-img-hover {
   opacity: 1 !important;
-  transform: scale(1) !important;
 }
 
 .pick-your-side-panel:hover .pick-your-side-btn {
