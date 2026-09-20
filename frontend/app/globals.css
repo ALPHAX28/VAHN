@@ -1478,7 +1478,7 @@ select.input::-ms-expand {
 }
 
 .cart-shipping-notice {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-body), Georgia, 'Times New Roman', serif;
   font-size: 0.85rem;
   color: #767676;
   margin: 0 0 20px 0;
@@ -1518,7 +1518,7 @@ select.input::-ms-expand {
   width: 100%;
   background: none;
   border: none;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-body), Georgia, 'Times New Roman', serif;
   font-size: 0.875rem;
   color: #666666;
   text-align: center;
