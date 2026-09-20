@@ -135,7 +135,24 @@ logs.vahnsports.com, dev-logs.vahnsports.com {
 	}
 }
 
-# 6. Direct VPN IP Admin Access (https://10.8.0.1)
+# 6. WireGuard VPN Web Admin UI (https://vpn.vahnsports.com)
+vpn.vahnsports.com {
+	encode gzip zstd
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	handle {
+		reverse_proxy vahn-vpn:51821
+	}
+}
+
+# 7. Direct VPN IP Admin Access (https://10.8.0.1)
 https://10.8.0.1 {
 	tls internal
 	encode gzip zstd
