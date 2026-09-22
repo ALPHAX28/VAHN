@@ -1321,7 +1321,7 @@ export default function CheckoutPage() {
                 background: placingOrder ? '#888' : '#4233d7',
                 color: '#fff',
                 border: 'none',
-                padding: '13px 20px',
+                padding: '12px 18px',
                 fontSize: '0.92rem',
                 fontWeight: 800,
                 textTransform: 'uppercase',
@@ -1330,23 +1330,103 @@ export default function CheckoutPage() {
                 borderRadius: '2px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
+                justifyContent: 'space-between',
                 gap: '8px',
                 transition: 'background 0.2s ease',
               }}
             >
               {placingOrder ? (
-                <span>Connecting to Gateway...</span>
+                <span style={{ width: '100%', textAlign: 'center' }}>Connecting to Gateway...</span>
               ) : (
                 <>
-                  <Image
-                    src="/assets/Fast-checkout.png"
-                    alt="Fast Checkout"
-                    width={15}
-                    height={18}
-                    style={{ width: 'auto', height: '18px', objectFit: 'contain' }}
-                  />
-                  <span>PAY ₹ {grandTotal.toLocaleString('en-IN')}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Image
+                      src="/assets/Fast-checkout.png"
+                      alt="Fast Checkout"
+                      width={15}
+                      height={18}
+                      style={{ width: 'auto', height: '18px', objectFit: 'contain' }}
+                    />
+                    <span>PAY ₹ {grandTotal.toLocaleString('en-IN')}</span>
+                  </div>
+
+                  {/* Overlapping Payment App Badges: Paytm, PhonePe, GPay */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 25,
+                        height: 25,
+                        borderRadius: '50%',
+                        background: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+                        zIndex: 1,
+                        padding: '3px',
+                      }}
+                    >
+                      <Image
+                        src="/assets/paytm_icon.svg"
+                        alt="Paytm"
+                        width={18}
+                        height={10}
+                        style={{ width: '16px', height: 'auto', objectFit: 'contain' }}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        width: 25,
+                        height: 25,
+                        borderRadius: '50%',
+                        background: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+                        marginLeft: '-6px',
+                        zIndex: 2,
+                        padding: '3px',
+                      }}
+                    >
+                      <Image
+                        src="/assets/phonepe_icon.svg"
+                        alt="PhonePe"
+                        width={13}
+                        height={15}
+                        style={{ width: 'auto', height: '13px', objectFit: 'contain' }}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        width: 25,
+                        height: 25,
+                        borderRadius: '50%',
+                        background: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
+                        marginLeft: '-6px',
+                        zIndex: 3,
+                        padding: '3px',
+                      }}
+                    >
+                      <Image
+                        src="/assets/gpay_icon.svg"
+                        alt="Google Pay"
+                        width={14}
+                        height={14}
+                        style={{ width: '13px', height: '13px', objectFit: 'contain' }}
+                      />
+                    </div>
+                  </div>
                 </>
               )}
             </button>
