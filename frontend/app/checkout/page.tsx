@@ -17,7 +17,6 @@ import {
   PhoneIcon,
   ShieldCheckIcon,
   ShoppingBagIcon,
-  SparklesIcon,
   TruckIcon,
   UserIcon,
 } from '@/components/icons/Icons';
@@ -88,8 +87,12 @@ export default function CheckoutPage() {
     }
 
     // Cleanly purge corrupted scripts and detached containers
-    allScripts.forEach((s) => s.remove());
-    document.querySelectorAll('.razorpay-container').forEach((el) => el.remove());
+    allScripts.forEach((s) => {
+      s.remove();
+    });
+    document.querySelectorAll('.razorpay-container').forEach((el) => {
+      el.remove();
+    });
     try {
       delete (window as any).Razorpay;
     } catch {
@@ -128,33 +131,8 @@ export default function CheckoutPage() {
     ensureFreshRazorpaySdk(!user);
   }, [user, isAuthLoading, ensureFreshRazorpaySdk]);
 
-  // Load addresses if logged in
-  useEffect(() => {
-    if (token) {
-      loadAddresses();
-    }
-  }, [token]);
-
-  async function loadAddresses() {
-    if (!token) return;
-    setLoadingAddresses(true);
-    try {
-      const data = await getUserAddresses(token);
-      setAddresses(data);
-      if (data.length > 0) {
-        const defaultAddr = data.find((a) => a.is_default) || data[0];
-        setSelectedAddressId(defaultAddr.id);
-        handleCheckPincode(defaultAddr.pincode);
-      }
-    } catch {
-      // Ignored
-    } finally {
-      setLoadingAddresses(false);
-    }
-  }
-
   // Live Pincode Serviceability Check
-  async function handleCheckPincode(pin: string) {
+  const handleCheckPincode = useCallback(async (pin: string) => {
     const cleanPin = pin.trim();
     if (cleanPin.length !== 6 || !/^\d{6}$/.test(cleanPin)) {
       setServiceability(null);
@@ -182,10 +160,36 @@ export default function CheckoutPage() {
     } finally {
       setCheckingPincode(false);
     }
-  }
+  }, []);
+
+  const loadAddresses = useCallback(async () => {
+    if (!token) return;
+    setLoadingAddresses(true);
+    try {
+      const data = await getUserAddresses(token);
+      setAddresses(data);
+      if (data.length > 0) {
+        const defaultAddr = data.find((a) => a.is_default) || data[0];
+        setSelectedAddressId(defaultAddr.id);
+        handleCheckPincode(defaultAddr.pincode);
+      }
+    } catch {
+      // Ignored
+    } finally {
+      setLoadingAddresses(false);
+    }
+  }, [token, handleCheckPincode]);
+
+  // Load addresses if logged in
+  useEffect(() => {
+    if (token) {
+      loadAddresses();
+    }
+  }, [token, loadAddresses]);
 
   // Calculate pricing
   const cartLines = cart?.lines.edges.map((e) => e.node) || [];
+  const totalQuantity = cartLines.reduce((sum, line) => sum + line.quantity, 0);
   const subtotal = cartLines.reduce(
     (sum, line) => sum + parseFloat(line.merchandise.price.amount) * line.quantity,
     0
@@ -529,7 +533,18 @@ export default function CheckoutPage() {
           }}
         >
           <span>Explore Collection</span>
-          <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            aria-hidden="true"
+            className="btn-checkout-arrow"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </Link>
@@ -541,41 +556,29 @@ export default function CheckoutPage() {
     <div
       className="checkout-container"
       style={{
-        maxWidth: 1200,
-        margin: '40px auto 100px',
-        padding: '0 24px',
+        maxWidth: 1040,
+        margin: '30px auto 90px',
+        padding: '0 20px',
         fontFamily: 'var(--font-ui)',
       }}
     >
       {/* Header */}
-      <div
-        style={{
-          borderBottom: '2px solid #000',
-          paddingBottom: '16px',
-          marginBottom: '36px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'baseline',
-          flexWrap: 'wrap',
-          gap: '12px',
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: 'clamp(1.6rem, 3vw, 2.2rem)',
-              fontWeight: 900,
-              textTransform: 'uppercase',
-              letterSpacing: '-0.03em',
-              margin: 0,
-            }}
-          >
-            Secure Checkout
-          </h1>
-          <p style={{ color: '#666', fontSize: '0.85rem', margin: '4px 0 0' }}>
-            100% Secure Prepaid Payment
-          </p>
-        </div>
+      <div style={{ textAlign: 'center', marginBottom: '36px', marginTop: '10px' }}>
+        <h1
+          style={{
+            fontSize: 'clamp(1.4rem, 2.5vw, 1.85rem)',
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '0.01em',
+            margin: 0,
+            color: '#000',
+          }}
+        >
+          CHECKOUT
+        </h1>
+        <p style={{ color: '#666', fontSize: '0.825rem', margin: '6px 0 0' }}>
+          UPI, cards and netbanking accepted. Secure and encrypted.
+        </p>
       </div>
 
       {/* Error Alert */}
@@ -656,13 +659,13 @@ export default function CheckoutPage() {
         }
       `}</style>
 
-      {/* Main Grid: Responsive 2-column layout on desktop (1fr 420px), single-column on mobile */}
+      {/* Main Grid: Responsive 2-column layout on desktop (1fr 440px), single-column on mobile */}
       <div
         className="checkout-main-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 420px',
-          gap: '36px',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 440px)',
+          gap: '32px',
           alignItems: 'start',
         }}
       >
@@ -760,11 +763,18 @@ export default function CheckoutPage() {
                   {addresses.map((addr) => {
                     const isSelected = selectedAddressId === addr.id;
                     return (
+                      // biome-ignore lint/a11y/noStaticElementInteractions: address card selection
                       <div
                         key={addr.id}
                         onClick={() => {
                           setSelectedAddressId(addr.id);
                           handleCheckPincode(addr.pincode);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            setSelectedAddressId(addr.id);
+                            handleCheckPincode(addr.pincode);
+                          }
                         }}
                         style={{
                           border: isSelected ? '2px solid #4232d9' : '1px solid #e0e0e0',
@@ -896,45 +906,48 @@ export default function CheckoutPage() {
           </div>
         ) : (
           /* Simple & Elegant Guest Checkout Details */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {/* Interactive Delivery Speed & PIN Code Estimator */}
             <div
               className="checkout-card"
               style={{
-                border: '1px solid #e0e0e0',
-                borderRadius: '0px',
+                border: '1px solid #e5e5e5',
+                borderRadius: '2px',
                 padding: '24px',
                 background: '#fff',
               }}
             >
-              <div
-                style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}
+              <h3
+                style={{
+                  fontSize: '0.92rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.01em',
+                  margin: '0 0 6px',
+                  color: '#000',
+                }}
               >
-                <TruckIcon size={18} color="#000" />
-                <h3
-                  style={{
-                    fontSize: '1.05rem',
-                    fontWeight: 900,
-                    textTransform: 'uppercase',
-                    letterSpacing: '-0.02em',
-                    margin: 0,
-                  }}
-                >
-                  Estimated Delivery Timeline
-                </h3>
-              </div>
-              <p style={{ fontSize: '0.82rem', color: '#666', margin: '0 0 14px' }}>
+                Estimated Delivery Timeline
+              </h3>
+              <p
+                style={{ fontSize: '0.78rem', color: '#666', margin: '0 0 16px', lineHeight: 1.4 }}
+              >
                 Check courier transit days and serviceability for your postal PIN code:
               </p>
 
               <div
                 className="checkout-pincode-form"
-                style={{ display: 'flex', gap: '10px', maxWidth: '420px', marginBottom: '12px' }}
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  maxWidth: '100%',
+                  marginBottom: serviceability || checkingPincode ? '12px' : '0',
+                }}
               >
                 <input
                   type="text"
                   maxLength={6}
-                  placeholder="Enter 6-digit PIN code"
+                  placeholder="Enter your 6-digit PIN Code"
                   value={guestPincodeInput}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '');
@@ -945,11 +958,12 @@ export default function CheckoutPage() {
                   }}
                   style={{
                     flex: 1,
-                    padding: '10px 14px',
-                    border: '1px solid #ccc',
-                    fontSize: '0.9rem',
+                    padding: '9px 12px',
+                    border: '1px solid #d9d9d9',
+                    fontSize: '0.8rem',
+                    color: '#333',
                     outline: 'none',
-                    borderRadius: '0px',
+                    borderRadius: '2px',
                   }}
                 />
                 <button
@@ -958,17 +972,22 @@ export default function CheckoutPage() {
                   disabled={checkingPincode || guestPincodeInput.length !== 6}
                   className="checkout-pincode-btn"
                   style={{
-                    background: guestPincodeInput.length === 6 ? '#000' : '#999',
+                    background: '#4233d7',
                     color: '#fff',
                     border: 'none',
-                    padding: '10px 20px',
-                    fontSize: '0.8rem',
-                    fontWeight: 800,
+                    padding: '9px 20px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
                     textTransform: 'uppercase',
                     letterSpacing: '0.02em',
-                    cursor: guestPincodeInput.length === 6 ? 'pointer' : 'not-allowed',
-                    borderRadius: '0px',
+                    cursor:
+                      guestPincodeInput.length === 6 && !checkingPincode
+                        ? 'pointer'
+                        : 'not-allowed',
+                    borderRadius: '2px',
                     whiteSpace: 'nowrap',
+                    opacity: guestPincodeInput.length === 6 ? 1 : 0.85,
+                    transition: 'background 0.2s ease',
                   }}
                 >
                   {checkingPincode ? 'Checking...' : 'Check Delivery'}
@@ -977,32 +996,38 @@ export default function CheckoutPage() {
 
               {/* Serviceability Result */}
               {checkingPincode ? (
-                <div style={{ fontSize: '0.82rem', color: '#666', fontStyle: 'italic' }}>
-                  Checking Shiprocket courier coverage...
+                <div
+                  style={{
+                    fontSize: '0.78rem',
+                    color: '#666',
+                    fontStyle: 'italic',
+                    marginTop: '10px',
+                  }}
+                >
+                  Checking courier coverage...
                 </div>
               ) : serviceability ? (
                 <div
                   style={{
-                    padding: '12px 14px',
+                    marginTop: '12px',
+                    padding: '8px 12px',
                     background: serviceability.serviceable ? '#f6ffed' : '#fff2f0',
                     border: `1px solid ${serviceability.serviceable ? '#b7eb8f' : '#ffccc7'}`,
-                    fontSize: '0.82rem',
-                    color: serviceability.serviceable ? '#237804' : '#cf1322',
+                    fontSize: '0.74rem',
+                    color: serviceability.serviceable ? '#389e0d' : '#cf1322',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '10px',
-                    borderRadius: '0px',
+                    gap: '6px',
+                    borderRadius: '2px',
                   }}
                 >
-                  {serviceability.serviceable ? (
-                    <CheckIcon size={16} color="#52c41a" />
-                  ) : (
-                    <AlertCircleIcon size={16} color="#cf1322" />
-                  )}
+                  <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>
+                    {serviceability.serviceable ? '✓' : '✕'}
+                  </span>
                   <div>
-                    <span style={{ fontWeight: 700 }}>
+                    <span>
                       {serviceability.serviceable
-                        ? `Delivery available to ${serviceability.city ? `${serviceability.city}, ${serviceability.state} (PIN ${serviceability.pincode})` : `PIN ${serviceability.pincode}`} via ${serviceability.courier_name || 'Express Courier'} (Est. ${serviceability.estimated_days || `${serviceability.estimated_delivery_days || 3} business days`})`
+                        ? `Delivery available${serviceability.city ? ` to ${serviceability.city.toUpperCase()}${serviceability.state ? `, ${serviceability.state.toUpperCase()}` : ''}` : ''} (PIN ${serviceability.pincode}) via ${serviceability.courier_name || 'Ekart Logistics Air'} (Est. ${serviceability.estimated_days || `${serviceability.estimated_delivery_days || 3} business days`})`
                         : serviceability.message ||
                           `Delivery is not serviceable to PIN ${serviceability.pincode}`}
                     </span>
@@ -1015,16 +1040,17 @@ export default function CheckoutPage() {
             <div
               className="checkout-signin-strip"
               style={{
-                border: '1px solid #e0e0e0',
-                background: '#fafafa',
-                padding: '14px 20px',
+                border: '1px solid #e5e5e5',
+                background: '#fff',
+                padding: '10px 16px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '12px',
+                borderRadius: '2px',
               }}
             >
-              <span style={{ fontSize: '0.82rem', color: '#555' }}>
+              <span style={{ fontSize: '0.74rem', color: '#666' }}>
                 Already have a VAHN Athlete account?
               </span>
               <button
@@ -1033,20 +1059,15 @@ export default function CheckoutPage() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#4232d9',
-                  fontWeight: 700,
-                  fontSize: '0.82rem',
+                  color: '#4233d7',
+                  fontWeight: 600,
+                  fontSize: '0.74rem',
                   cursor: 'pointer',
                   textDecoration: 'underline',
                   padding: 0,
-                  display: 'inline-flex',
-                  alignItems: 'center',
                 }}
               >
-                <span>Sign In for Saved Addresses</span>
-                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
+                Sign In for Saved Addresses
               </button>
             </div>
           </div>
@@ -1057,8 +1078,8 @@ export default function CheckoutPage() {
           <div
             className="checkout-card checkout-summary-card"
             style={{
-              border: '1px solid #e0e0e0',
-              borderRadius: '0px',
+              border: '1px solid #e5e5e5',
+              borderRadius: '2px',
               padding: '24px',
               background: '#fff',
               position: 'sticky',
@@ -1067,16 +1088,15 @@ export default function CheckoutPage() {
           >
             <h2
               style={{
-                fontSize: '1.1rem',
-                fontWeight: 900,
+                fontSize: '0.95rem',
+                fontWeight: 800,
                 textTransform: 'uppercase',
-                letterSpacing: '-0.02em',
-                margin: '0 0 16px',
-                borderBottom: '1px solid #f0f0f0',
-                paddingBottom: '12px',
+                letterSpacing: '0.01em',
+                margin: '0 0 20px',
+                color: '#000',
               }}
             >
-              Order Summary ({cartLines.length} item{cartLines.length > 1 ? 's' : ''})
+              Order Summary ({totalQuantity} {totalQuantity === 1 ? 'Item' : 'Items'})
             </h2>
 
             {/* Cart Items list */}
@@ -1084,83 +1104,138 @@ export default function CheckoutPage() {
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '14px',
-                maxHeight: '320px',
+                maxHeight: '380px',
                 overflowY: 'auto',
-                marginBottom: '20px',
+                marginBottom: '16px',
                 paddingRight: '4px',
               }}
             >
-              {cartLines.map((line) => (
-                <div
-                  key={line.id}
-                  style={{
-                    display: 'flex',
-                    gap: '12px',
-                    alignItems: 'center',
-                    borderBottom: '1px solid #f5f5f5',
-                    paddingBottom: '12px',
-                  }}
-                >
+              {cartLines.map((line) => {
+                const colorOption = line.merchandise.selectedOptions?.find((opt) =>
+                  /colou?r/i.test(opt.name)
+                )?.value;
+                const sizeOption = line.merchandise.selectedOptions?.find((opt) =>
+                  /size/i.test(opt.name)
+                )?.value;
+
+                let displayColor = colorOption;
+                let displaySize = sizeOption;
+                if (
+                  !displayColor &&
+                  !displaySize &&
+                  line.merchandise.title &&
+                  line.merchandise.title !== 'Default Title'
+                ) {
+                  const parts = line.merchandise.title.split('/').map((p) => p.trim());
+                  if (parts.length === 2) {
+                    displayColor = parts[0];
+                    displaySize = parts[1];
+                  } else {
+                    displayColor = line.merchandise.title;
+                  }
+                }
+
+                const imageUrl =
+                  line.merchandise.image?.url || line.merchandise.product.featuredImage?.url;
+
+                return (
                   <div
+                    key={line.id}
                     style={{
-                      position: 'relative',
-                      width: 54,
-                      height: 54,
-                      flexShrink: 0,
-                      background: '#f7f7f7',
-                      border: '1px solid #eee',
+                      display: 'flex',
+                      gap: '16px',
+                      alignItems: 'flex-start',
+                      borderBottom: '1px solid #eeeeee',
+                      paddingBottom: '16px',
+                      marginBottom: '16px',
                     }}
                   >
-                    {line.merchandise.product.featuredImage ? (
-                      <Image
-                        src={line.merchandise.product.featuredImage.url}
-                        alt={line.merchandise.product.title}
-                        fill
-                        sizes="54px"
-                        style={{ objectFit: 'cover' }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.65rem',
-                          color: '#999',
-                        }}
-                      >
-                        VAHN
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        fontWeight: 700,
-                        fontSize: '0.85rem',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
+                        position: 'relative',
+                        width: 60,
+                        height: 75,
+                        flexShrink: 0,
+                        background: '#f7f7f7',
                       }}
                     >
-                      {line.merchandise.product.title}
+                      {imageUrl ? (
+                        <Image
+                          src={imageUrl}
+                          alt={line.merchandise.product.title}
+                          fill
+                          sizes="60px"
+                          style={{ objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.65rem',
+                            color: '#999',
+                          }}
+                        >
+                          VAHN
+                        </div>
+                      )}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#666' }}>
-                      {line.merchandise.title !== 'Default Title' ? line.merchandise.title : ''} •
-                      Qty: {line.quantity}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                          gap: '8px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            fontSize: '0.78rem',
+                            textTransform: 'uppercase',
+                            color: '#000',
+                            lineHeight: 1.3,
+                            letterSpacing: '0.01em',
+                          }}
+                        >
+                          {line.merchandise.product.title}
+                        </div>
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            fontSize: '0.82rem',
+                            whiteSpace: 'nowrap',
+                            color: '#000',
+                            textAlign: 'right',
+                          }}
+                        >
+                          ₹{' '}
+                          {(
+                            parseFloat(line.merchandise.price.amount) * line.quantity
+                          ).toLocaleString('en-IN')}
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: '0.72rem',
+                          color: '#777',
+                          marginTop: '6px',
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {displayColor && <div>Colour: {displayColor}</div>}
+                        {displaySize && <div>Size: {displaySize}</div>}
+                        <div>Quantity: {line.quantity}</div>
+                      </div>
                     </div>
                   </div>
-                  <div style={{ fontWeight: 800, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-                    ₹
-                    {(parseFloat(line.merchandise.price.amount) * line.quantity).toLocaleString(
-                      'en-IN'
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Calculations */}
@@ -1168,34 +1243,54 @@ export default function CheckoutPage() {
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '10px',
-                fontSize: '0.85rem',
-                color: '#555',
-                borderBottom: '1px solid #f0f0f0',
-                paddingBottom: '16px',
-                marginBottom: '16px',
+                gap: '8px',
+                fontSize: '0.78rem',
+                color: '#777',
+                borderBottom: '1px solid #e5e5e5',
+                paddingBottom: '14px',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Subtotal</span>
-                <span>₹{subtotal.toLocaleString('en-IN')}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Shipping</span>
-                <span style={{ color: shippingFee === 0 ? '#52c41a' : '#000', fontWeight: 700 }}>
-                  {shippingFee === 0 ? 'FREE' : `₹${shippingFee.toLocaleString('en-IN')}`}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <span style={{ textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  SUBTOTAL
+                </span>
+                <span style={{ color: '#000', fontWeight: 600 }}>
+                  ₹ {subtotal.toLocaleString('en-IN')}
                 </span>
               </div>
               <div
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  fontSize: '0.75rem',
-                  color: '#888',
+                  alignItems: 'center',
                 }}
               >
-                <span>Estimated GST Included</span>
-                <span>₹{estimatedTax.toLocaleString('en-IN')}</span>
+                <span style={{ textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  SHIPPING
+                </span>
+                <span style={{ color: shippingFee === 0 ? '#4233d7' : '#000', fontWeight: 700 }}>
+                  {shippingFee === 0 ? 'FREE' : `₹ ${shippingFee.toLocaleString('en-IN')}`}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <span style={{ textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  ESTIMATED GST INCLUDED
+                </span>
+                <span style={{ color: '#000', fontWeight: 600 }}>
+                  ₹ {estimatedTax.toLocaleString('en-IN')}
+                </span>
               </div>
             </div>
 
@@ -1204,79 +1299,15 @@ export default function CheckoutPage() {
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'baseline',
-                fontWeight: 900,
-                fontSize: '1.2rem',
-                marginBottom: '24px',
+                alignItems: 'center',
+                fontWeight: 800,
+                fontSize: '0.95rem',
+                padding: '16px 0',
+                color: '#000',
               }}
             >
-              <span style={{ textTransform: 'uppercase' }}>Total</span>
-              <span style={{ color: '#4232d9' }}>₹{grandTotal.toLocaleString('en-IN')}</span>
-            </div>
-
-            {/* Free Shipping Progress Bar */}
-            <div
-              style={{
-                background: subtotal >= 1999 ? '#f6ffed' : '#fbfbfe',
-                border: `1px solid ${subtotal >= 1999 ? '#b7eb8f' : '#ecebf8'}`,
-                padding: '14px',
-                marginBottom: '20px',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  marginBottom: '8px',
-                  color: subtotal >= 1999 ? '#237804' : '#333',
-                }}
-              >
-                <span>
-                  {subtotal >= 1999 ? '✓ Free Express Shipping Unlocked' : 'Free Express Shipping'}
-                </span>
-                <span style={{ color: '#4232d9' }}>
-                  {subtotal >= 1999 ? 'FREE' : `₹${subtotal.toLocaleString('en-IN')} / ₹1,999`}
-                </span>
-              </div>
-              <div
-                style={{
-                  height: '6px',
-                  width: '100%',
-                  background: '#e8e7f2',
-                  borderRadius: '3px',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    height: '100%',
-                    width: `${Math.min(100, Math.round((subtotal / 1999) * 100))}%`,
-                    background: subtotal >= 1999 ? '#52c41a' : '#4232d9',
-                    transition: 'width 0.3s ease',
-                  }}
-                />
-              </div>
-              <div
-                style={{
-                  fontSize: '0.73rem',
-                  color: '#666',
-                  marginTop: '7px',
-                  textAlign: 'center',
-                }}
-              >
-                {subtotal >= 1999 ? (
-                  <span style={{ color: '#237804', fontWeight: 700 }}>
-                    Your order qualifies for complimentary priority express shipping!
-                  </span>
-                ) : (
-                  <>
-                    Add <strong>₹{(1999 - subtotal).toLocaleString('en-IN')}</strong> more to unlock{' '}
-                    <strong>FREE SHIPPING</strong>
-                  </>
-                )}
-              </div>
+              <span style={{ textTransform: 'uppercase', letterSpacing: '0.02em' }}>TOTAL</span>
+              <span style={{ fontWeight: 800 }}>₹ {grandTotal.toLocaleString('en-IN')}</span>
             </div>
 
             {/* Pay Button */}
@@ -1287,37 +1318,35 @@ export default function CheckoutPage() {
               className="checkout-pay-btn"
               style={{
                 width: '100%',
-                background: placingOrder ? '#666' : '#4232d9',
+                background: placingOrder ? '#888' : '#4233d7',
                 color: '#fff',
                 border: 'none',
-                padding: '16px 20px',
-                fontSize: '0.95rem',
-                fontWeight: 900,
+                padding: '13px 20px',
+                fontSize: '0.92rem',
+                fontWeight: 800,
                 textTransform: 'uppercase',
-                letterSpacing: '0.02em',
+                letterSpacing: '0.04em',
                 cursor: placingOrder ? 'not-allowed' : 'pointer',
-                borderRadius: '0px',
+                borderRadius: '2px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '10px',
-                boxShadow: '0 4px 14px rgba(66, 50, 217, 0.25)',
-                transition: 'all 0.2s ease',
+                gap: '8px',
+                transition: 'background 0.2s ease',
               }}
             >
               {placingOrder ? (
                 <span>Connecting to Gateway...</span>
-              ) : user ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span>Pay ₹{grandTotal.toLocaleString('en-IN')} via Razorpay</span>
-                  <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </span>
               ) : (
                 <>
-                  <SparklesIcon size={18} color="#fff" />
-                  <span>Pay ₹{grandTotal.toLocaleString('en-IN')} with Magic Checkout</span>
+                  <Image
+                    src="/assets/Fast-checkout.png"
+                    alt="Fast Checkout"
+                    width={15}
+                    height={18}
+                    style={{ width: 'auto', height: '18px', objectFit: 'contain' }}
+                  />
+                  <span>PAY ₹ {grandTotal.toLocaleString('en-IN')}</span>
                 </>
               )}
             </button>
@@ -1328,32 +1357,28 @@ export default function CheckoutPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
-                marginTop: '14px',
+                marginTop: '12px',
                 fontSize: '0.74rem',
-                color: '#555',
+                color: '#777',
               }}
             >
-              <ShieldCheckIcon size={15} color="#52c41a" />
-              <span>
-                {user
-                  ? '256-Bit SSL Encrypted Razorpay Gateway (Cards, UPI, Netbanking)'
-                  : '1-Click Razorpay Magic Checkout — SSL Encrypted'}
-              </span>
+              <ShieldCheckIcon size={14} color="#52c41a" />
+              <span>Checkout in seconds · UPI & cards</span>
             </div>
 
             {/* Trust badges */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
-                gap: '8px',
-                marginTop: '14px',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '10px',
+                marginTop: '16px',
               }}
             >
               {[
-                { icon: <LockIcon size={14} color="#4232d9" />, label: 'Secure Payment' },
-                { icon: <TruckIcon size={14} color="#4232d9" />, label: 'Pan India Shipping' },
-                { icon: <PackageIcon size={14} color="#4232d9" />, label: '10-Day Returns' },
+                { icon: <LockIcon size={16} color="#4233d7" />, label: 'SECURE PAYMENT' },
+                { icon: <TruckIcon size={16} color="#4233d7" />, label: 'PAN INDIA SHIPPING' },
+                { icon: <PackageIcon size={16} color="#4233d7" />, label: '10-DAY RETURNS' },
               ].map(({ icon, label }) => (
                 <div
                   key={label}
@@ -1361,17 +1386,19 @@ export default function CheckoutPage() {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '5px',
-                    padding: '10px 6px',
-                    background: '#f7f6ff',
-                    border: '1px solid #e8e4ff',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '12px 6px',
+                    background: '#f9f9fd',
+                    border: '1px solid #e8e8f0',
                     borderRadius: '4px',
-                    fontSize: '0.65rem',
+                    fontSize: '0.62rem',
                     fontWeight: 700,
-                    color: '#333',
+                    color: '#222',
                     textAlign: 'center',
                     textTransform: 'uppercase',
                     letterSpacing: '0.02em',
+                    minHeight: '62px',
                   }}
                 >
                   {icon}
