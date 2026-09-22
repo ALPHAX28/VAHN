@@ -82,19 +82,6 @@ export default async function PageRoute({ params }: Props) {
           }}
         >
           <div style={{ maxWidth: '960px', margin: '0 auto' }}>
-            <p
-              style={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                color: '#4232d9',
-                marginBottom: '16px',
-              }}
-            >
-              Customer Care &bull; FAQs
-            </p>
             <h1
               style={{
                 fontFamily: 'var(--font-heading)',
@@ -123,7 +110,7 @@ export default async function PageRoute({ params }: Props) {
         <div
           style={{ maxWidth: '640px', margin: '0 auto', padding: 'clamp(48px, 8vw, 80px) 24px' }}
         >
-          <FAQAccordion bodyHtml={page?.body} />
+          <FAQAccordion bodyHtml={page?.body} hideHeader />
         </div>
 
         <TrustBadgesBar />
