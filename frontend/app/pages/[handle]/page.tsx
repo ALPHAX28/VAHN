@@ -121,7 +121,7 @@ export default async function PageRoute({ params }: Props) {
         </section>
 
         <div
-          style={{ maxWidth: '840px', margin: '0 auto', padding: 'clamp(40px, 5vw, 64px) 24px' }}
+          style={{ maxWidth: '640px', margin: '0 auto', padding: 'clamp(48px, 8vw, 80px) 24px' }}
         >
           <FAQAccordion bodyHtml={page?.body} />
         </div>
