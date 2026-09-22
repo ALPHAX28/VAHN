@@ -184,15 +184,25 @@ export default function CartDrawer() {
               <div>
                 <p
                   style={{
-                    fontWeight: 700,
-                    fontSize: '1rem',
+                    fontFamily: 'var(--font-heading)',
+                    fontWeight: 800,
+                    fontSize: '1.1rem',
+                    letterSpacing: '-0.01em',
                     textTransform: 'uppercase',
                     marginBottom: '6px',
+                    color: '#000000',
                   }}
                 >
                   Your cart is empty
                 </p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--color-grey-dark)' }}>
+                <p
+                  style={{
+                    fontFamily: 'var(--font-ui), sans-serif',
+                    fontSize: '0.85rem',
+                    color: 'var(--color-grey-dark)',
+                    margin: 0,
+                  }}
+                >
                   Add items to get started.
                 </p>
               </div>
@@ -334,7 +344,12 @@ export default function CartDrawer() {
             >
               {checkoutLoading ? 'PROCESSING...' : 'PROCEED TO CHECKOUT'}
             </button>
-            <button type="button" onClick={closeCart} className="cart-continue-btn">
+            <button
+              type="button"
+              onClick={closeCart}
+              className="cart-continue-btn"
+              style={{ marginTop: '8px', fontSize: '0.75rem' }}
+            >
               Continue Shopping
             </button>
           </div>

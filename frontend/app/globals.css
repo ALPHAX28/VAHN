@@ -1510,18 +1510,20 @@ select.input::-ms-expand {
   width: 100%;
   background: none;
   border: none;
-  font-family: var(--font-body), Georgia, 'Times New Roman', serif;
-  font-size: 0.875rem;
+  font-family: var(--font-ui), var(--font-heading), sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: #666666;
   text-align: center;
-  margin-top: 14px;
+  margin-top: 8px;
   cursor: pointer;
-  padding: 6px 0;
+  padding: 4px 0;
   transition: color 0.15s ease;
 }
 
 .cart-continue-btn:hover {
   color: #000000;
+  text-decoration: underline;
 }
 
 /* ---- Footer ---- */
