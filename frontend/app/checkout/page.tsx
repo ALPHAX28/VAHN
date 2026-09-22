@@ -4,13 +4,21 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import AddressModal from '@/components/address/AddressModal';
 import {
   AlertCircleIcon,
+  BriefcaseIcon,
+  CheckIcon,
+  EditIcon,
+  HomeIcon,
   LockIcon,
+  MapPinIcon,
   PackageIcon,
+  PhoneIcon,
   ShieldCheckIcon,
   ShoppingBagIcon,
   TruckIcon,
+  UserIcon,
 } from '@/components/icons/Icons';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
@@ -35,10 +43,15 @@ export default function CheckoutPage() {
   const { cart, clearCart } = useCart();
   const router = useRouter();
 
-  // Delivery address & PIN state
+  // Logged-in address state
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
-  const [pincodeInput, setPincodeInput] = useState('');
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
+
+  // Guest checkout state
+  const [guestPincodeInput, setGuestPincodeInput] = useState('');
 
   // Serviceability check state
   const [serviceability, setServiceability] = useState<ServiceabilityResponse | null>(null);
@@ -118,6 +131,21 @@ export default function CheckoutPage() {
     ensureFreshRazorpaySdk(!user);
   }, [user, isAuthLoading, ensureFreshRazorpaySdk]);
 
+  const getEstimatedDeliveryText = (res: ServiceabilityResponse) => {
+    if (!res.serviceable) {
+      return res.message || `Delivery is not available for PIN ${res.pincode}`;
+    }
+    const rawDays =
+      res.estimated_days && res.estimated_days !== 'N/A'
+        ? res.estimated_days
+        : res.estimated_delivery_days
+          ? `${res.estimated_delivery_days}`
+          : '3';
+    const daysStr = String(rawDays).trim();
+    const formatted = /day/i.test(daysStr) ? daysStr : `${daysStr} business days`;
+    return `Estimated Delivery: ${formatted}`;
+  };
+
   // Live Pincode Serviceability Check
   const handleCheckPincode = useCallback(async (pin: string) => {
     const cleanPin = pin.trim();
@@ -151,19 +179,19 @@ export default function CheckoutPage() {
 
   const loadAddresses = useCallback(async () => {
     if (!token) return;
+    setLoadingAddresses(true);
     try {
       const data = await getUserAddresses(token);
       setAddresses(data);
       if (data.length > 0) {
         const defaultAddr = data.find((a) => a.is_default) || data[0];
         setSelectedAddressId(defaultAddr.id);
-        if (defaultAddr.pincode) {
-          setPincodeInput(defaultAddr.pincode);
-          handleCheckPincode(defaultAddr.pincode);
-        }
+        handleCheckPincode(defaultAddr.pincode);
       }
     } catch {
       // Ignored
+    } finally {
+      setLoadingAddresses(false);
     }
   }, [token, handleCheckPincode]);
 
@@ -242,27 +270,24 @@ export default function CheckoutPage() {
     let customerPhone = '';
 
     if (user && token) {
-      if (selectedAddr) {
-        customerName =
-          `${selectedAddr.first_name} ${selectedAddr.last_name}`.trim() || user.full_name;
-        customerEmail = selectedAddr.email || user.email || '';
-        customerPhone = selectedAddr.phone || user.phone || '';
-        shippingPayload = {
-          name: customerName,
-          phone: customerPhone,
-          address: `${selectedAddr.house_flat_no || ''} ${selectedAddr.street_address}`.trim(),
-          apartment: selectedAddr.apartment || selectedAddr.building_name || '',
-          city: selectedAddr.city,
-          state: selectedAddr.state,
-          pincode: selectedAddr.pincode,
-          country: selectedAddr.country || 'India',
-        };
-      } else {
-        customerName = user.full_name || '';
-        customerEmail = user.email || '';
-        customerPhone = user.phone || '';
-        shippingPayload = null;
+      if (!selectedAddressId || !selectedAddr) {
+        setError('Please select a delivery address.');
+        return;
       }
+      customerName =
+        `${selectedAddr.first_name} ${selectedAddr.last_name}`.trim() || user.full_name;
+      customerEmail = selectedAddr.email || user.email || '';
+      customerPhone = selectedAddr.phone || user.phone || '';
+      shippingPayload = {
+        name: customerName,
+        phone: customerPhone,
+        address: `${selectedAddr.house_flat_no || ''} ${selectedAddr.street_address}`.trim(),
+        apartment: selectedAddr.apartment || selectedAddr.building_name || '',
+        city: selectedAddr.city,
+        state: selectedAddr.state,
+        pincode: selectedAddr.pincode,
+        country: selectedAddr.country || 'India',
+      };
     } else {
       // Guest: Razorpay Magic Checkout collects all contact & address details.
       // Backend fetches name, email, phone, and shipping address from the Razorpay
@@ -659,134 +684,366 @@ export default function CheckoutPage() {
           alignItems: 'start',
         }}
       >
-        {/* Left Column: Estimated Delivery Timeline (For both Logged-In and Guest scenarios) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* Interactive Delivery Speed & PIN Code Estimator */}
-          <div
-            className="checkout-card"
-            style={{
-              border: '1px solid #e5e5e5',
-              borderRadius: '2px',
-              padding: '24px',
-              background: '#fff',
-            }}
-          >
-            <h3
-              style={{
-                fontSize: '0.92rem',
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '0.01em',
-                margin: '0 0 6px',
-                color: '#000',
-              }}
-            >
-              Estimated Delivery Timeline
-            </h3>
-            <p style={{ fontSize: '0.78rem', color: '#666', margin: '0 0 16px', lineHeight: 1.4 }}>
-              Check courier transit days and serviceability for your postal PIN code:
-            </p>
-
+        {/* Left Column: Logged-in Address Manager OR Revamped Guest Checkout Hub */}
+        {user ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* 1. Delivery Details Section */}
             <div
-              className="checkout-pincode-form"
+              className="checkout-card"
               style={{
-                display: 'flex',
-                gap: '8px',
-                maxWidth: '100%',
-                marginBottom: serviceability || checkingPincode ? '12px' : '0',
+                border: '1px solid #e0e0e0',
+                borderRadius: '0px',
+                padding: '24px',
+                background: '#fff',
               }}
             >
-              <input
-                type="text"
-                maxLength={6}
-                placeholder="Enter your 6-digit PIN Code"
-                value={pincodeInput}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '');
-                  setPincodeInput(val);
-                  if (val.length === 6) {
-                    handleCheckPincode(val);
-                  }
-                }}
+              <div
                 style={{
-                  flex: 1,
-                  padding: '9px 12px',
-                  border: '1px solid #d9d9d9',
-                  fontSize: '0.8rem',
-                  color: '#333',
-                  outline: 'none',
-                  borderRadius: '2px',
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => handleCheckPincode(pincodeInput)}
-                disabled={checkingPincode || pincodeInput.length !== 6}
-                className="checkout-pincode-btn"
-                style={{
-                  background: '#4233d7',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '9px 20px',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.02em',
-                  cursor: pincodeInput.length === 6 && !checkingPincode ? 'pointer' : 'not-allowed',
-                  borderRadius: '2px',
-                  whiteSpace: 'nowrap',
-                  opacity: pincodeInput.length === 6 ? 1 : 0.85,
-                  transition: 'background 0.2s ease',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '20px',
+                  borderBottom: '1px solid #f0f0f0',
+                  paddingBottom: '12px',
                 }}
               >
-                {checkingPincode ? 'Checking...' : 'Check Delivery'}
-              </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <MapPinIcon size={20} color="#000" />
+                  <h2
+                    style={{
+                      fontSize: '1.1rem',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      letterSpacing: '-0.02em',
+                      margin: 0,
+                    }}
+                  >
+                    Delivery Address
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingAddress(null);
+                    setShowAddressModal(true);
+                  }}
+                  style={{
+                    background: '#000',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '6px 14px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                    borderRadius: '0px',
+                  }}
+                >
+                  + Add New Address
+                </button>
+              </div>
+
+              {/* Saved Address Selector */}
+              {loadingAddresses ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                  Loading saved addresses...
+                </div>
+              ) : addresses.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                  <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '16px' }}>
+                    No saved addresses found. Add an address to proceed.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setEditingAddress(null);
+                      setShowAddressModal(true);
+                    }}
+                    style={{
+                      background: '#4232d9',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '10px 24px',
+                      fontSize: '0.85rem',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                      borderRadius: '0px',
+                    }}
+                  >
+                    Add Delivery Address
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {addresses.map((addr) => {
+                    const isSelected = selectedAddressId === addr.id;
+                    return (
+                      // biome-ignore lint/a11y/noStaticElementInteractions: address card selection
+                      <div
+                        key={addr.id}
+                        onClick={() => {
+                          setSelectedAddressId(addr.id);
+                          handleCheckPincode(addr.pincode);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            setSelectedAddressId(addr.id);
+                            handleCheckPincode(addr.pincode);
+                          }
+                        }}
+                        style={{
+                          border: isSelected ? '2px solid #4232d9' : '1px solid #e0e0e0',
+                          background: isSelected ? 'rgba(66, 50, 217, 0.03)' : '#fff',
+                          borderRadius: '0px',
+                          padding: '16px',
+                          cursor: 'pointer',
+                          transition: 'border 0.2s ease',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: '6px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input
+                              type="radio"
+                              name="selected_address"
+                              checked={isSelected}
+                              onChange={() => {
+                                setSelectedAddressId(addr.id);
+                                handleCheckPincode(addr.pincode);
+                              }}
+                              style={{ accentColor: '#4232d9', cursor: 'pointer' }}
+                            />
+                            <span
+                              style={{
+                                fontWeight: 800,
+                                fontSize: '0.9rem',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {addr.first_name} {addr.last_name}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                background: '#f0f0f0',
+                                padding: '2px 6px',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {addr.label || 'HOME'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingAddress(addr);
+                              setShowAddressModal(true);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#666',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              textDecoration: 'underline',
+                            }}
+                          >
+                            Edit
+                          </button>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '0.85rem',
+                            color: '#444',
+                            lineHeight: 1.5,
+                            marginLeft: '24px',
+                          }}
+                        >
+                          {addr.house_flat_no ? `${addr.house_flat_no}, ` : ''}
+                          {addr.street_address}
+                          {addr.apartment ? `, ${addr.apartment}` : ''}
+                          <br />
+                          {addr.city}, {addr.state} - <strong>{addr.pincode}</strong>
+                          <br />
+                          <span style={{ color: '#777' }}>Phone: {addr.phone}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Logged-In Pincode Serviceability Indicator */}
+              <div style={{ marginTop: '16px' }}>
+                {checkingPincode ? (
+                  <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                    Verifying courier serviceability with Shiprocket...
+                  </div>
+                ) : serviceability ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      background: serviceability.serviceable ? '#f6ffed' : '#fff2f0',
+                      border: `1px solid ${serviceability.serviceable ? '#b7eb8f' : '#ffccc7'}`,
+                      fontSize: '0.8rem',
+                      color: serviceability.serviceable ? '#389e0d' : '#cf1322',
+                      fontWeight: 600,
+                      borderRadius: '0px',
+                    }}
+                  >
+                    {serviceability.serviceable ? (
+                      <TruckIcon size={16} />
+                    ) : (
+                      <AlertCircleIcon size={16} color="#cf1322" />
+                    )}
+                    <span>{getEstimatedDeliveryText(serviceability)}</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Simple & Elegant Guest Checkout Details */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Interactive Delivery Speed & PIN Code Estimator */}
+            <div
+              className="checkout-card"
+              style={{
+                border: '1px solid #e5e5e5',
+                borderRadius: '2px',
+                padding: '24px',
+                background: '#fff',
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: '0.92rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.01em',
+                  margin: '0 0 6px',
+                  color: '#000',
+                }}
+              >
+                Estimated Delivery Timeline
+              </h3>
+              <p
+                style={{ fontSize: '0.78rem', color: '#666', margin: '0 0 16px', lineHeight: 1.4 }}
+              >
+                Check courier transit days and serviceability for your postal PIN code:
+              </p>
+
+              <div
+                className="checkout-pincode-form"
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  maxWidth: '100%',
+                  marginBottom: serviceability || checkingPincode ? '12px' : '0',
+                }}
+              >
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="Enter your 6-digit PIN Code"
+                  value={guestPincodeInput}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setGuestPincodeInput(val);
+                    if (val.length === 6) {
+                      handleCheckPincode(val);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '9px 12px',
+                    border: '1px solid #d9d9d9',
+                    fontSize: '0.8rem',
+                    color: '#333',
+                    outline: 'none',
+                    borderRadius: '2px',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCheckPincode(guestPincodeInput)}
+                  disabled={checkingPincode || guestPincodeInput.length !== 6}
+                  className="checkout-pincode-btn"
+                  style={{
+                    background: '#4233d7',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '9px 20px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.02em',
+                    cursor:
+                      guestPincodeInput.length === 6 && !checkingPincode
+                        ? 'pointer'
+                        : 'not-allowed',
+                    borderRadius: '2px',
+                    whiteSpace: 'nowrap',
+                    opacity: guestPincodeInput.length === 6 ? 1 : 0.85,
+                    transition: 'background 0.2s ease',
+                  }}
+                >
+                  {checkingPincode ? 'Checking...' : 'Check Delivery'}
+                </button>
+              </div>
+
+              {/* Serviceability Result */}
+              {checkingPincode ? (
+                <div
+                  style={{
+                    fontSize: '0.78rem',
+                    color: '#666',
+                    fontStyle: 'italic',
+                    marginTop: '10px',
+                  }}
+                >
+                  Checking courier coverage...
+                </div>
+              ) : serviceability ? (
+                <div
+                  style={{
+                    marginTop: '12px',
+                    padding: '8px 12px',
+                    background: serviceability.serviceable ? '#f6ffed' : '#fff2f0',
+                    border: `1px solid ${serviceability.serviceable ? '#b7eb8f' : '#ffccc7'}`,
+                    fontSize: '0.74rem',
+                    color: serviceability.serviceable ? '#389e0d' : '#cf1322',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderRadius: '2px',
+                  }}
+                >
+                  <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>
+                    {serviceability.serviceable ? '✓' : '✕'}
+                  </span>
+                  <div>
+                    <span style={{ fontWeight: 600 }}>
+                      {getEstimatedDeliveryText(serviceability)}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
-            {/* Serviceability Result */}
-            {checkingPincode ? (
-              <div
-                style={{
-                  fontSize: '0.78rem',
-                  color: '#666',
-                  fontStyle: 'italic',
-                  marginTop: '10px',
-                }}
-              >
-                Checking courier coverage...
-              </div>
-            ) : serviceability ? (
-              <div
-                style={{
-                  marginTop: '12px',
-                  padding: '8px 12px',
-                  background: serviceability.serviceable ? '#f6ffed' : '#fff2f0',
-                  border: `1px solid ${serviceability.serviceable ? '#b7eb8f' : '#ffccc7'}`,
-                  fontSize: '0.74rem',
-                  color: serviceability.serviceable ? '#389e0d' : '#cf1322',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  borderRadius: '2px',
-                }}
-              >
-                <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>
-                  {serviceability.serviceable ? '✓' : '✕'}
-                </span>
-                <div>
-                  <span>
-                    {serviceability.serviceable
-                      ? `Delivery available${serviceability.city ? ` to ${serviceability.city.toUpperCase()}${serviceability.state ? `, ${serviceability.state.toUpperCase()}` : ''}` : ''} (PIN ${serviceability.pincode}) via ${serviceability.courier_name || 'Ekart Logistics Air'} (Est. ${serviceability.estimated_days || `${serviceability.estimated_delivery_days || 3} business days`})`
-                      : serviceability.message ||
-                        `Delivery is not serviceable to PIN ${serviceability.pincode}`}
-                  </span>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Returning Athlete Sign-In Strip (Only for Guest Users) */}
-          {!user && (
+            {/* 3. Returning Athlete Sign-In Strip */}
             <div
               className="checkout-signin-strip"
               style={{
@@ -817,11 +1074,11 @@ export default function CheckoutPage() {
                   padding: 0,
                 }}
               >
-                Sign In
+                Sign In for Saved Addresses
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Right Column: Order Summary & Pay CTA */}
         <div>
@@ -1239,6 +1496,20 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Address Modal (for logged-in users) */}
+      {showAddressModal && token && (
+        <AddressModal
+          token={token}
+          isOpen={showAddressModal}
+          initialAddress={editingAddress}
+          onClose={() => setShowAddressModal(false)}
+          onSuccess={() => {
+            setShowAddressModal(false);
+            loadAddresses();
+          }}
+        />
+      )}
     </div>
   );
 }
