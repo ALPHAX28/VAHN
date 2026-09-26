@@ -248,17 +248,40 @@ export default function SchedulePickupWizardModal({
     return '2-4 Days';
   };
 
-  // Carrier initials for logo avatar
+  // Carrier initials for logo avatar fallback
   const getCarrierBadge = (name: string) => {
-    const lower = name.toLowerCase();
+    const lower = (name || '').toLowerCase();
     if (lower.includes('amazon')) return { initials: 'AMZ', bg: '#ff9900', color: '#000000' };
     if (lower.includes('dtdc')) return { initials: 'DTDC', bg: '#003399', color: '#ffffff' };
     if (lower.includes('shadowfax')) return { initials: 'SF', bg: '#10b981', color: '#ffffff' };
     if (lower.includes('delhivery')) return { initials: 'DLV', bg: '#ef4444', color: '#ffffff' };
-    if (lower.includes('xpressbees')) return { initials: 'XB', bg: '#f59e0b', color: '#000000' };
+    if (lower.includes('xpressbees') || lower.includes('xpress bees'))
+      return { initials: 'XB', bg: '#f59e0b', color: '#000000' };
     if (lower.includes('smartr')) return { initials: 'SMR', bg: '#6366f1', color: '#ffffff' };
-    if (lower.includes('blue dart')) return { initials: 'BD', bg: '#dc2626', color: '#ffffff' };
-    return { initials: name.slice(0, 3).toUpperCase(), bg: '#475569', color: '#ffffff' };
+    if (lower.includes('blue dart') || lower.includes('bluedart'))
+      return { initials: 'BD', bg: '#dc2626', color: '#ffffff' };
+    if (lower.includes('ecom express') || lower.includes('ecomexpress'))
+      return { initials: 'ECE', bg: '#2563eb', color: '#ffffff' };
+    return { initials: (name || 'EXP').slice(0, 3).toUpperCase(), bg: '#475569', color: '#ffffff' };
+  };
+
+  // Official carrier brand logo path
+  const getCarrierLogo = (name: string, remoteUrl?: string): string => {
+    const lower = (name || '').toLowerCase();
+    if (lower.includes('amazon')) return '/couriers/amazon.png';
+    if (lower.includes('dtdc')) return '/couriers/dtdc.png';
+    if (lower.includes('blue dart') || lower.includes('bluedart')) return '/couriers/bluedart.svg';
+    if (lower.includes('delhivery')) return '/couriers/delhivery.png';
+    if (lower.includes('xpressbees') || lower.includes('xpress bees'))
+      return '/couriers/xpressbees.webp';
+    if (lower.includes('shadowfax')) return '/couriers/shadowfax.svg';
+    if (lower.includes('smartr')) return '/couriers/smartr.webp';
+    if (lower.includes('ecom express') || lower.includes('ecomexpress'))
+      return '/couriers/ecomexpress.svg';
+    if (remoteUrl && !remoteUrl.includes('kr-shipmultichannel-mum/courier_logo/')) {
+      return remoteUrl;
+    }
+    return '';
   };
 
   // Submit pickup scheduling
@@ -948,6 +971,7 @@ export default function SchedulePickupWizardModal({
                       const isSelected = selectedCourierId === c.courier_company_id;
                       const isRecommended = c.is_recommended;
                       const badge = getCarrierBadge(c.courier_name);
+                      const logoUrl = getCarrierLogo(c.courier_name, c.courier_logo_url);
                       const ratingVal = (c.rating || 4.7).toFixed(1);
 
                       return (
@@ -1020,41 +1044,57 @@ export default function SchedulePickupWizardModal({
                                   flexShrink: 0,
                                 }}
                               />
-                              {c.courier_logo_url ? (
-                                // biome-ignore lint/performance/noImgElement: dynamic external carrier logo from Shiprocket
-                                <img
-                                  src={c.courier_logo_url}
-                                  alt={c.courier_name}
-                                  style={{
-                                    width: '44px',
-                                    height: '32px',
-                                    objectFit: 'contain',
-                                    flexShrink: 0,
-                                  }}
-                                  onError={(e) => {
-                                    (e.target as HTMLElement).style.display = 'none';
-                                    const sibling = (e.target as HTMLElement).nextElementSibling;
-                                    if (sibling) (sibling as HTMLElement).style.display = 'flex';
-                                  }}
-                                />
-                              ) : null}
+                              {/* Provider Brand Logo */}
                               <div
                                 style={{
-                                  width: '38px',
-                                  height: '38px',
+                                  width: '46px',
+                                  height: '34px',
                                   borderRadius: '6px',
-                                  background: badge.bg,
-                                  color: badge.color,
-                                  display: c.courier_logo_url ? 'none' : 'flex',
+                                  background: '#ffffff',
+                                  border: '1px solid #e2e8f0',
+                                  display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  fontSize: '0.72rem',
-                                  fontWeight: 900,
+                                  padding: '2px 4px',
                                   flexShrink: 0,
-                                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                                  overflow: 'hidden',
                                 }}
                               >
-                                {badge.initials}
+                                {logoUrl ? (
+                                  // biome-ignore lint/performance/noImgElement: carrier brand logo
+                                  <img
+                                    src={logoUrl}
+                                    alt={c.courier_name}
+                                    style={{
+                                      maxWidth: '100%',
+                                      maxHeight: '100%',
+                                      objectFit: 'contain',
+                                      display: 'block',
+                                    }}
+                                    onError={(e) => {
+                                      (e.target as HTMLElement).style.display = 'none';
+                                      const sibling = (e.target as HTMLElement).nextElementSibling;
+                                      if (sibling) (sibling as HTMLElement).style.display = 'flex';
+                                    }}
+                                  />
+                                ) : null}
+                                <div
+                                  style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    borderRadius: '4px',
+                                    background: badge.bg,
+                                    color: badge.color,
+                                    display: logoUrl ? 'none' : 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.70rem',
+                                    fontWeight: 800,
+                                  }}
+                                >
+                                  {badge.initials}
+                                </div>
                               </div>
                               <div style={{ minWidth: 0 }}>
                                 <div
@@ -1254,8 +1294,53 @@ export default function SchedulePickupWizardModal({
                   >
                     Step 2: Select Date of Pickup
                   </h3>
-                  <p style={{ margin: 0, fontSize: '0.84rem', color: '#64748b' }}>
-                    Selected Courier:{' '}
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '0.84rem',
+                      color: '#64748b',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <span>Selected Courier:</span>
+                    {selectedCourier && (
+                      <span
+                        style={{
+                          width: '34px',
+                          height: '24px',
+                          borderRadius: '4px',
+                          background: '#ffffff',
+                          border: '1px solid #e2e8f0',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '1px 3px',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {getCarrierLogo(
+                          selectedCourier.courier_name,
+                          selectedCourier.courier_logo_url
+                        ) ? (
+                          // biome-ignore lint/performance/noImgElement: carrier brand logo
+                          <img
+                            src={getCarrierLogo(
+                              selectedCourier.courier_name,
+                              selectedCourier.courier_logo_url
+                            )}
+                            alt={selectedCourier.courier_name}
+                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: '0.60rem', fontWeight: 800 }}>
+                            {getCarrierBadge(selectedCourier.courier_name).initials}
+                          </span>
+                        )}
+                      </span>
+                    )}
                     <strong style={{ color: '#4f46e5' }}>
                       {selectedCourier?.courier_name || 'Selected Partner'}
                     </strong>{' '}
@@ -1808,8 +1893,45 @@ export default function SchedulePickupWizardModal({
                     >
                       Logistics Partner & Schedule
                     </div>
-                    <div style={{ marginBottom: 6 }}>
+                    <div
+                      style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
                       <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Courier: </span>
+                      {selectedCourier && (
+                        <span
+                          style={{
+                            width: '34px',
+                            height: '24px',
+                            borderRadius: '4px',
+                            background: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '1px 3px',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {getCarrierLogo(
+                            selectedCourier.courier_name,
+                            selectedCourier.courier_logo_url
+                          ) ? (
+                            // biome-ignore lint/performance/noImgElement: carrier brand logo
+                            <img
+                              src={getCarrierLogo(
+                                selectedCourier.courier_name,
+                                selectedCourier.courier_logo_url
+                              )}
+                              alt={selectedCourier.courier_name}
+                              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: '0.60rem', fontWeight: 800 }}>
+                              {getCarrierBadge(selectedCourier.courier_name).initials}
+                            </span>
+                          )}
+                        </span>
+                      )}
                       <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>
                         {selectedCourier?.courier_name || 'Selected Partner'}
                       </strong>

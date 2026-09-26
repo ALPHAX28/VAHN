@@ -440,7 +440,28 @@ def get_available_couriers_for_order(
                 except Exception:
                     others = {}
                 is_auto_pickup = bool(others.get("auto_pickup") == 1)
-                logo_url = others.get("courier_logo_url") or ""
+                raw_logo_url = others.get("courier_logo_url") or ""
+                # Map authentic local courier logos for seamless frontend presentation
+                if any(k in c_name_lower for k in ["amazon"]):
+                    logo_url = "/couriers/amazon.png"
+                elif any(k in c_name_lower for k in ["dtdc"]):
+                    logo_url = "/couriers/dtdc.png"
+                elif any(k in c_name_lower for k in ["blue dart", "bluedart"]):
+                    logo_url = "/couriers/bluedart.svg"
+                elif any(k in c_name_lower for k in ["delhivery"]):
+                    logo_url = "/couriers/delhivery.png"
+                elif any(k in c_name_lower for k in ["xpressbees", "xpress"]):
+                    logo_url = "/couriers/xpressbees.webp"
+                elif any(k in c_name_lower for k in ["shadowfax"]):
+                    logo_url = "/couriers/shadowfax.svg"
+                elif any(k in c_name_lower for k in ["smartr"]):
+                    logo_url = "/couriers/smartr.webp"
+                elif any(k in c_name_lower for k in ["ecom express", "ecomexpress"]):
+                    logo_url = "/couriers/ecomexpress.svg"
+                elif raw_logo_url and "kr-shipmultichannel-mum/courier_logo/" not in raw_logo_url:
+                    logo_url = raw_logo_url
+                else:
+                    logo_url = ""
 
                 # Expected pickup text
                 if is_auto_pickup:
