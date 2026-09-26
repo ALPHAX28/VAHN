@@ -473,6 +473,11 @@ export const getAdminOrderShippingLabel = (token: string, orderId: string) =>
 export const getAdminOrderInvoice = (token: string, orderId: string) =>
   adminFetch<{ invoice_url?: string; message?: string }>(`/admin/orders/${orderId}/invoice`, token);
 
+export const getAdminOrderManifest = (token: string, orderId: string) =>
+  adminFetch<{ success: boolean; manifest_url?: string; message?: string }>(`/admin/orders/${orderId}/manifest`, token);
+
+
+
 export const scheduleAdminOrderPickup = (
   token: string,
   orderId: string,

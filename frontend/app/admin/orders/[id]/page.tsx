@@ -19,6 +19,7 @@ import {
   dispatchAdminOrderReplacement,
   getAdminOrder,
   getAdminOrderInvoice,
+  getAdminOrderManifest,
   getAdminOrderShippingLabel,
   refreshAdminOrderTracking,
   refundAdminOrder,
@@ -58,6 +59,7 @@ export default function AdminOrderDetailPage() {
     return d.toISOString().split('T')[0];
   });
   const [schedulingPickup, setSchedulingPickup] = useState(false);
+  const [downloadingManifest, setDownloadingManifest] = useState(false);
   const [showCancelShipmentModal, setShowCancelShipmentModal] = useState(false);
   const [cancelShipmentReason, setCancelShipmentReason] = useState('');
   const [cancellingShipment, setCancellingShipment] = useState(false);
@@ -280,6 +282,24 @@ export default function AdminOrderDetailPage() {
     }
   }
 
+  async function handleDownloadManifest() {
+    if (!adminToken || !order) return;
+    setDownloadingManifest(true);
+    setError('');
+    try {
+      const res = await getAdminOrderManifest(adminToken, order.id);
+      if (res.manifest_url) {
+        window.open(res.manifest_url, '_blank');
+      } else {
+        setError(res.message || 'Manifest is still being generated in Shiprocket. Please try again in a moment.');
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to download manifest.');
+    } finally {
+      setDownloadingManifest(false);
+    }
+  }
+
   async function handleCancelShipment() {
     if (!adminToken || !order) return;
     setCancellingShipment(true);
@@ -361,10 +381,20 @@ export default function AdminOrderDetailPage() {
   const addr = order.shipping_address || {};
 
   const isPickupScheduled = Boolean(
-    (order as any).tracking_data?.pickup_scheduled ||
-      (order as any).tracking_data?.pickup_token ||
-      order.shipping_status === 'PICKUP_SCHEDULED'
+    order.tracking_data?.pickup_scheduled ||
+      order.tracking_data?.pickup_token ||
+      order.shipping_status === 'PICKUP_SCHEDULED' ||
+      order.shipping_status === 'PICKUP_QUEUED'
   );
+
+  const pickupScheduledDate: string | null =
+    order.tracking_data?.pickup_scheduled_date || null;
+  const pickupToken: string | null = order.tracking_data?.pickup_token || null;
+  // Use live tracking courier_name if available (most accurate from Shiprocket)
+  const displayCourierName: string | null =
+    order.tracking_data?.courier_name || order.shiprocket_courier_name || null;
+
+
 
   return (
     <div className="admin-page">
@@ -626,9 +656,10 @@ export default function AdminOrderDetailPage() {
                     >
                       {isPaymentFailed
                         ? 'None (Payment Incomplete)'
-                        : order.shiprocket_courier_name || 'Assigned on Dispatch'}
+                        : displayCourierName || 'Assigned on Dispatch'}
                     </strong>
                   </div>
+
 
                   <div>
                     <span
@@ -1037,38 +1068,135 @@ export default function AdminOrderDetailPage() {
                     </button>
                   ) : (
                     <>
-                      {/* Schedule Pickup Action */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setError('');
-                          const today = new Date().toISOString().split('T')[0];
-                          const tomorrow = new Date(Date.now() + 86400000)
-                            .toISOString()
-                            .split('T')[0];
-                          if (pickupDate < today || pickupDate > tomorrow) {
-                            setPickupDate(tomorrow);
-                          }
-                          setShowPickupModal(true);
-                        }}
-                        disabled={order.status === 'CANCELLED' || order.status === 'REFUNDED'}
-                        style={{
-                          background: isPickupScheduled ? '#059669' : '#4232d9',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '8px 18px',
-                          fontWeight: 800,
-                          fontSize: '0.8rem',
-                          cursor: 'pointer',
-                          textTransform: 'uppercase',
-                          borderRadius: '0px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                        }}
-                      >
-                        {isPickupScheduled ? 'Pickup Scheduled ✓' : 'Schedule Pickup →'}
-                      </button>
+                      {/* ── Pickup Status Section ── */}
+                      {isPickupScheduled ? (
+                        /* Pickup Already Scheduled: show info card + manifest download */
+                        <div
+                          style={{
+                            background: '#f0fdf4',
+                            border: '1px solid #86efac',
+                            borderLeft: '4px solid #16a34a',
+                            padding: '10px 14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: 10,
+                            flex: 1,
+                            minWidth: 0,
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                            <span style={{ fontSize: '1.1rem', lineHeight: 1, marginTop: 1 }}>✅</span>
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: '0.78rem',
+                                  fontWeight: 800,
+                                  color: '#15803d',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.04em',
+                                  marginBottom: 4,
+                                }}
+                              >
+                                Pickup Scheduled with Courier
+                              </div>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  flexWrap: 'wrap',
+                                  gap: '8px 20px',
+                                  fontSize: '0.8rem',
+                                  color: '#166534',
+                                }}
+                              >
+                                {pickupScheduledDate && (
+                                  <span>
+                                    <strong>Date:</strong>{' '}
+                                    {new Date(pickupScheduledDate).toLocaleDateString('en-IN', {
+                                      weekday: 'short',
+                                      day: 'numeric',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })}
+                                  </span>
+                                )}
+                                {pickupToken && (
+                                  <span>
+                                    <strong>Token:</strong>{' '}
+                                    <span style={{ fontFamily: 'monospace' }}>{pickupToken}</span>
+                                  </span>
+                                )}
+                                {displayCourierName && (
+                                  <span>
+                                    <strong>Courier:</strong> {displayCourierName}
+                                  </span>
+                                )}
+                                {order.shiprocket_shipment_id && (
+                                  <span>
+                                    <strong>Shipment ID:</strong>{' '}
+                                    <span style={{ fontFamily: 'monospace' }}>
+                                      {order.shiprocket_shipment_id}
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleDownloadManifest}
+                            disabled={downloadingManifest}
+                            style={{
+                              background: '#16a34a',
+                              color: '#fff',
+                              border: 'none',
+                              padding: '7px 14px',
+                              fontWeight: 800,
+                              fontSize: '0.75rem',
+                              cursor: downloadingManifest ? 'not-allowed' : 'pointer',
+                              textTransform: 'uppercase',
+                              borderRadius: '0px',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {downloadingManifest ? 'Generating...' : '📋 Download Manifest'}
+                          </button>
+                        </div>
+                      ) : (
+                        /* Pickup NOT yet scheduled: show Schedule Pickup button */
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setError('');
+                            const today = new Date().toISOString().split('T')[0];
+                            const tomorrow = new Date(Date.now() + 86400000)
+                              .toISOString()
+                              .split('T')[0];
+                            if (pickupDate < today || pickupDate > tomorrow) {
+                              setPickupDate(tomorrow);
+                            }
+                            setShowPickupModal(true);
+                          }}
+                          disabled={order.status === 'CANCELLED' || order.status === 'REFUNDED'}
+                          style={{
+                            background: '#4232d9',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '8px 18px',
+                            fontWeight: 800,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            textTransform: 'uppercase',
+                            borderRadius: '0px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          Schedule Pickup →
+                        </button>
+                      )}
 
                       {/* Download Label Action */}
                       <button
@@ -1133,6 +1261,7 @@ export default function AdminOrderDetailPage() {
                       )}
                     </>
                   )}
+
                 </div>
               </div>
             );

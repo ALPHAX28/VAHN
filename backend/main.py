@@ -4299,6 +4299,10 @@ def admin_refresh_order_tracking(
                     order.tracking_data = merged_td
                     if curr_st and order.status != "CANCELLED" and order.shipping_status != "CANCELLED":
                         order.shipping_status = str(curr_st).upper()
+                    # Sync the authoritative courier name from Shiprocket live tracking
+                    live_courier = live_track.get("courier_name")
+                    if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
+                        order.shiprocket_courier_name = live_courier
         except Exception as e:
             logger.warning(f"Error refreshing tracking for order {order.id}: {e}")
 
@@ -4538,6 +4542,37 @@ def admin_schedule_pickup(
     db.commit()
 
     return pickup_res
+
+@app.get("/api/admin/orders/{order_id}/manifest")
+def admin_get_manifest(
+    order_id: str,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Generates or retrieves the Shiprocket manifest PDF for an order's shipment.
+    The manifest is required for the courier partner to collect the package.
+    """
+    order = db.query(models.Order).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not order.shiprocket_shipment_id:
+        raise HTTPException(status_code=400, detail="No Shiprocket shipment ID found for this order. Dispatch the shipment first.")
+    if order.payment_status == "FAILED":
+        raise HTTPException(status_code=400, detail="Cannot generate manifest for an order with failed payment.")
+
+    # Check if already cached in tracking_data
+    t_data = dict(order.tracking_data or {})
+    cached_manifest = shiprocket_service.sanitize_shiprocket_url(t_data.get("manifest_url", ""))
+    if cached_manifest:
+        return {"success": True, "manifest_url": cached_manifest, "message": "Manifest retrieved from cache"}
+
+    manifest_res = shiprocket_service.generate_manifest(order.shiprocket_shipment_id)
+    if manifest_res.get("success") and manifest_res.get("manifest_url"):
+        # Cache the manifest URL in tracking_data
+        t_data["manifest_url"] = manifest_res["manifest_url"]
+        order.tracking_data = t_data
+        db.commit()
+    return manifest_res
 
 @app.post("/api/admin/orders/{order_id}/cancel-shipment", response_model=schemas.AdminOrderSchema)
 def admin_cancel_shipment(

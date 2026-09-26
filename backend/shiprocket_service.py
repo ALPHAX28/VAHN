@@ -733,6 +733,44 @@ def generate_label(shipment_id: Any) -> Dict[str, Any]:
     return generate_shipping_label(shipment_id)
 
 
+def generate_manifest(shipment_id: Any) -> Dict[str, Any]:
+    """
+    Generates and retrieves a downloadable manifest PDF URL from Shiprocket.
+    The manifest is required for courier handover; it must be generated after
+    scheduling pickup and shown to the courier partner on collection.
+    """
+    token = get_auth_token()
+    if not token:
+        raise ValueError("Shiprocket authentication failed.")
+
+    clean_id = int(str(shipment_id).strip()) if str(shipment_id).isdigit() else shipment_id
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            res = client.post(
+                f"{BASE_URL}/manifests/generate",
+                json={"shipment_id": [clean_id]},
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            if res.status_code == 200:
+                data = res.json()
+                manifest_url = sanitize_shiprocket_url(data.get("manifest_url", ""))
+                return {
+                    "success": True,
+                    "manifest_url": manifest_url,
+                    "message": data.get("message") or "Manifest generated successfully"
+                }
+            else:
+                try:
+                    err_data = res.json()
+                    err_msg = err_data.get("message") or f"Failed to generate manifest ({res.status_code})"
+                except Exception:
+                    err_msg = f"Failed to generate manifest ({res.status_code}): {res.text}"
+                return {"success": False, "manifest_url": "", "message": err_msg}
+    except Exception as e:
+        logger.warning(f"Failed to generate manifest for shipment {shipment_id}: {e}")
+        return {"success": False, "manifest_url": "", "message": str(e)}
+
+
 def generate_order_invoice(order_id: Any) -> Dict[str, Any]:
     """Generates and retrieves official downloadable Tax Invoice URL from Shiprocket."""
     token = get_auth_token()
