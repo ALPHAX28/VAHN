@@ -416,6 +416,24 @@ def get_available_couriers_for_order(
                                 pickup_days_window = 2
                                 pickup_rule_desc = "Must ship within 2 days (Today or Tomorrow)"
 
+                            raw_rating = c.get("rating")
+                            try:
+                                rating_val = round(float(raw_rating), 1) if raw_rating is not None else 4.5
+                            except Exception:
+                                rating_val = 4.5
+
+                            raw_rto = c.get("rto_charges")
+                            try:
+                                rto_val = round(float(raw_rto), 1) if raw_rto is not None else 70.0
+                            except Exception:
+                                rto_val = 70.0
+
+                            is_recommended = bool(
+                                c.get("recommended_lt") == 1
+                                or c.get("recommended") == 1
+                                or "recommended" in str(c.get("reason", "")).lower()
+                            )
+
                             result.append({
                                 "courier_company_id": c.get("courier_company_id"),
                                 "courier_name": c_name,
@@ -424,11 +442,15 @@ def get_available_couriers_for_order(
                                 "etd": c.get("etd"),
                                 "city": c.get("city"),
                                 "state": c.get("state"),
+                                "rating": rating_val,
+                                "rto_charges": rto_val,
+                                "cutoff_time": str(c.get("cutoff_time") or "11:00"),
+                                "is_recommended": is_recommended,
                                 "pickup_constraint": pickup_constraint,
                                 "pickup_days_window": pickup_days_window,
                                 "pickup_rule_description": pickup_rule_desc,
                                 "is_surface": bool(c.get("is_surface")),
-                                "min_weight": float(c.get("min_weight") or 0),
+                                "min_weight": float(c.get("min_weight") or 0.5),
                                 "charge_weight": float(c.get("charge_weight") or weight),
                             })
                         result.sort(key=lambda x: (x["rate"], x["estimated_delivery_days"] or 99))
@@ -439,13 +461,17 @@ def get_available_couriers_for_order(
     # Standard fallback courier options when API is unreachable or returns 0 results
     fallback_couriers = [
         {
-            "courier_company_id": 1,
-            "courier_name": "Delhivery Surface",
-            "rate": 54.0,
-            "estimated_delivery_days": 3,
-            "etd": None,
+            "courier_company_id": 58,
+            "courier_name": "Shadowfax Surface",
+            "rate": 98.72,
+            "estimated_delivery_days": 5,
+            "etd": "In 5 Days",
             "city": None,
             "state": None,
+            "rating": 4.8,
+            "rto_charges": 70.0,
+            "cutoff_time": "11:00",
+            "is_recommended": True,
             "pickup_constraint": "within_2_days",
             "pickup_days_window": 2,
             "pickup_rule_description": "Must ship within 2 days (Today or Tomorrow)",
@@ -454,73 +480,74 @@ def get_available_couriers_for_order(
             "charge_weight": weight,
         },
         {
-            "courier_company_id": 14,
-            "courier_name": "Shadowfax Surface",
-            "rate": 46.0,
-            "estimated_delivery_days": 4,
-            "etd": None,
+            "courier_company_id": 51,
+            "courier_name": "Xpressbees Surface",
+            "rate": 93.72,
+            "estimated_delivery_days": 5,
+            "etd": "In 5 Days",
             "city": None,
             "state": None,
+            "rating": 4.6,
+            "rto_charges": 65.0,
+            "cutoff_time": "11:00",
+            "is_recommended": False,
             "pickup_constraint": "within_2_days",
             "pickup_days_window": 2,
             "pickup_rule_description": "Must ship within 2 days (Today or Tomorrow)",
+            "is_surface": True,
+            "min_weight": 0.5,
+            "charge_weight": weight,
+        },
+        {
+            "courier_company_id": 1,
+            "courier_name": "Delhivery Surface",
+            "rate": 99.72,
+            "estimated_delivery_days": 6,
+            "etd": "In 6 Days",
+            "city": None,
+            "state": None,
+            "rating": 4.7,
+            "rto_charges": 75.0,
+            "cutoff_time": "11:00",
+            "is_recommended": False,
+            "pickup_constraint": "within_2_days",
+            "pickup_days_window": 2,
+            "pickup_rule_description": "Must ship within 2 days (Today or Tomorrow)",
+            "is_surface": True,
+            "min_weight": 0.5,
+            "charge_weight": weight,
+        },
+        {
+            "courier_company_id": 4,
+            "courier_name": "DTDC Surface",
+            "rate": 166.22,
+            "estimated_delivery_days": 6,
+            "etd": "In 6 Days",
+            "city": None,
+            "state": None,
+            "rating": 4.7,
+            "rto_charges": 83.5,
+            "cutoff_time": "12:00",
+            "is_recommended": False,
+            "pickup_constraint": "anytime",
+            "pickup_days_window": 7,
+            "pickup_rule_description": "Flexible: Ship anytime within 7 days",
             "is_surface": True,
             "min_weight": 0.5,
             "charge_weight": weight,
         },
         {
             "courier_company_id": 2,
-            "courier_name": "Blue Dart Express",
-            "rate": 88.0,
-            "estimated_delivery_days": 2,
-            "etd": None,
-            "city": None,
-            "state": None,
-            "pickup_constraint": "within_2_days",
-            "pickup_days_window": 2,
-            "pickup_rule_description": "Must ship within 2 days (Today or Tomorrow)",
-            "is_surface": False,
-            "min_weight": 0.5,
-            "charge_weight": weight,
-        },
-        {
-            "courier_company_id": 4,
-            "courier_name": "DTDC Air",
-            "rate": 68.0,
-            "estimated_delivery_days": 3,
-            "etd": None,
-            "city": None,
-            "state": None,
-            "pickup_constraint": "anytime",
-            "pickup_days_window": 7,
-            "pickup_rule_description": "Flexible: Ship anytime within 7 days",
-            "is_surface": False,
-            "min_weight": 0.5,
-            "charge_weight": weight,
-        },
-        {
-            "courier_company_id": 10,
-            "courier_name": "Xpressbees Surface",
-            "rate": 50.0,
+            "courier_name": "DTDC Air 500gm",
+            "rate": 195.32,
             "estimated_delivery_days": 4,
-            "etd": None,
+            "etd": "In 4 Days",
             "city": None,
             "state": None,
-            "pickup_constraint": "within_2_days",
-            "pickup_days_window": 2,
-            "pickup_rule_description": "Must ship within 2 days (Today or Tomorrow)",
-            "is_surface": True,
-            "min_weight": 0.5,
-            "charge_weight": weight,
-        },
-        {
-            "courier_company_id": 25,
-            "courier_name": "Smartr Logistics",
-            "rate": 72.0,
-            "estimated_delivery_days": 2,
-            "etd": None,
-            "city": None,
-            "state": None,
+            "rating": 4.9,
+            "rto_charges": 112.6,
+            "cutoff_time": "14:00",
+            "is_recommended": False,
             "pickup_constraint": "anytime",
             "pickup_days_window": 7,
             "pickup_rule_description": "Flexible: Ship anytime within 7 days",
@@ -627,7 +654,12 @@ def create_forward_shipment(
     order: Any,
     items: Optional[List[Any]] = None,
     pickup_location: Optional[str] = None,
-    db: Optional[Session] = None
+    db: Optional[Session] = None,
+    weight: float = 0.5,
+    length: float = 15.0,
+    breadth: float = 15.0,
+    height: float = 5.0,
+    courier_id: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Creates an ad-hoc order on Shiprocket and assigns an AWB courier code dynamically.
@@ -701,10 +733,10 @@ def create_forward_shipment(
         "shipping_charges": float(getattr(order, "shipping_amount", 0.0) or 0.0),
         "total_discount": float(getattr(order, "discount_amount", 0.0) or 0.0),
         "sub_total": float(getattr(order, "subtotal_amount", 0.0) or (order.total_amount - (getattr(order, "shipping_amount", 0.0) or 0.0))),
-        "length": 15,
-        "breadth": 15,
-        "height": 5,
-        "weight": 0.5
+        "length": round(float(length), 1),
+        "breadth": round(float(breadth), 1),
+        "height": round(float(height), 1),
+        "weight": round(float(weight), 3)
     }
 
     with httpx.Client(timeout=45.0) as client:
@@ -749,9 +781,12 @@ def create_forward_shipment(
         # Step 2: If AWB code is not yet assigned, try to assign or fetch from show endpoint
         if sr_shipment_id and not awb_code:
             try:
+                awb_payload: Dict[str, Any] = {"shipment_id": sr_shipment_id}
+                if courier_id:
+                    awb_payload["courier_id"] = int(str(courier_id).strip()) if str(courier_id).isdigit() else courier_id
                 awb_res = client.post(
                     f"{BASE_URL}/courier/assign/awb",
-                    json={"shipment_id": sr_shipment_id},
+                    json=awb_payload,
                     headers={"Authorization": f"Bearer {token}"}
                 )
                 if awb_res.status_code == 200:

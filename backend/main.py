@@ -4517,11 +4517,14 @@ def admin_schedule_pickup(
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    order = db.query(models.Order).filter_by(id=order_id).first()
+    order = db.query(models.Order).options(
+        selectinload(models.Order.items),
+        selectinload(models.Order.user)
+    ).filter_by(id=order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if not order.shiprocket_shipment_id:
-        raise HTTPException(status_code=400, detail="Cannot schedule pickup: Order has no Shiprocket shipment ID")
+    if order.status in ["CANCELLED", "REFUNDED"]:
+        raise HTTPException(status_code=400, detail=f"Cannot schedule pickup for order with status {order.status}")
     if order.payment_status == "FAILED":
         raise HTTPException(status_code=400, detail="Cannot schedule pickup: Order payment has failed.")
 
@@ -4534,7 +4537,32 @@ def admin_schedule_pickup(
 
     t_data = dict(order.tracking_data or {})
 
-    # Step A: If a specific courier was selected, reassign AWB before scheduling
+    # Step 1: If forward shipment has not been created yet in Shiprocket, create it now
+    if not order.shiprocket_shipment_id or not order.shiprocket_awb or order.shipping_status == "CANCELLED":
+        try:
+            sr_res = shiprocket_service.create_forward_shipment(
+                order=order,
+                items=order.items or [],
+                db=db,
+                weight=pkg_weight or 0.5,
+                length=pkg_length or 15.0,
+                breadth=pkg_breadth or 15.0,
+                height=pkg_height or 5.0,
+                courier_id=courier_id
+            )
+            order.shiprocket_order_id = sr_res.get("shiprocket_order_id") or sr_res.get("order_id")
+            order.shiprocket_shipment_id = sr_res.get("shiprocket_shipment_id") or sr_res.get("shipment_id")
+            order.shiprocket_awb = sr_res.get("shiprocket_awb") or sr_res.get("awb_code")
+            order.shiprocket_courier_name = sr_res.get("shiprocket_courier_name") or sr_res.get("courier_name")
+            order.tracking_url = f"/track?q={order.shiprocket_awb}" if order.shiprocket_awb else None
+        except Exception as e:
+            logger.error(f"Shipment creation failed in schedule pickup for order {order.id}: {e}")
+            raise HTTPException(status_code=400, detail=f"Failed to generate shipment in Shiprocket: {str(e)}")
+
+    if not order.shiprocket_shipment_id:
+        raise HTTPException(status_code=400, detail="Cannot schedule pickup: Order has no Shiprocket shipment ID")
+
+    # Step 2: If a specific courier was selected, ensure AWB is assigned / reassigned to chosen courier
     if courier_id:
         try:
             awb_res = shiprocket_service.reassign_courier_awb(
@@ -4544,14 +4572,16 @@ def admin_schedule_pickup(
             if awb_res.get("success") and awb_res.get("awb_code"):
                 order.shiprocket_awb = awb_res["awb_code"]
                 order.shiprocket_courier_name = awb_res.get("courier_name") or order.shiprocket_courier_name
+                order.tracking_url = f"/track?q={order.shiprocket_awb}"
                 t_data["courier_name"] = order.shiprocket_courier_name
                 t_data["courier_company_id"] = courier_id
-                logger.info(f"Reassigned AWB for order {order.id} to courier {awb_res.get('courier_name')} (ID: {courier_id}), new AWB: {awb_res['awb_code']}")
+                logger.info(f"Assigned/Reassigned AWB for order {order.id} to courier {order.shiprocket_courier_name} (ID: {courier_id}), new AWB: {awb_res['awb_code']}")
             else:
-                logger.warning(f"Courier reassignment non-fatal for order {order.id}: {awb_res.get('message')}")
+                logger.warning(f"Courier reassignment note for order {order.id}: {awb_res.get('message')}")
         except Exception as e:
             logger.warning(f"Courier reassignment failed for order {order.id}: {e}")
 
+    # Step 3: Update package dimensions if provided
     if (
         pkg_weight is not None
         and pkg_length is not None
@@ -4567,12 +4597,10 @@ def admin_schedule_pickup(
                 breadth=pkg_breadth,
                 height=pkg_height
             )
-            # Store dims in tracking_data for the UI summary
             t_data["package_weight"] = pkg_weight
             t_data["package_length"] = pkg_length
             t_data["package_breadth"] = pkg_breadth
             t_data["package_height"] = pkg_height
-            # Compute volumetric weight (L x B x H / 5000)
             vol_weight = round((pkg_length * pkg_breadth * pkg_height) / 5000.0, 3)
             applied_weight = round(max(pkg_weight, vol_weight), 3)
             t_data["package_volumetric_weight"] = vol_weight
@@ -4582,13 +4610,14 @@ def admin_schedule_pickup(
         except Exception as e:
             logger.warning(f"Package dims update failed for order {order.id}: {e}")
 
-    # Step C: Schedule the actual courier pickup
+    # Step 4: Schedule the actual courier pickup
     pickup_res = shiprocket_service.schedule_courier_pickup(order.shiprocket_shipment_id, pickup_date)
 
     if not pickup_res.get("success") or pickup_res.get("pickup_status") != 1:
         err_msg = pickup_res.get("message") or "Courier partner rejected pickup scheduling request."
         raise HTTPException(status_code=400, detail=err_msg)
 
+    # Step 5: Update tracking metadata and order status
     t_data["pickup_scheduled"] = True
     t_data["pickup_status"] = "SCHEDULED"
     if pickup_date:
@@ -4599,16 +4628,55 @@ def admin_schedule_pickup(
         t_data["pickup_scheduled_date"] = pickup_res.get("pickup_scheduled_date")
     if pickup_res.get("courier_name"):
         t_data["courier_name"] = pickup_res.get("courier_name")
-    order.tracking_data = t_data
+        order.shiprocket_courier_name = pickup_res.get("courier_name")
 
-    if order.shipping_status in ("UNFULFILLED", "MANIFEST_GENERATED", "SHIPPED"):
-        order.shipping_status = "PICKUP_SCHEDULED"
+    order.tracking_data = t_data
+    order.shipping_status = "PICKUP_SCHEDULED"
+    order.status = "SHIPPED"
+
+    emails_sent = t_data.setdefault("emails_sent", {})
+    already_sent = emails_sent.get("dispatched", False)
+    if not already_sent:
+        emails_sent["dispatched"] = True
+
     db.commit()
+
+    # Step 6: Dispatch customer email confirmation if not already sent
+    if not already_sent:
+        try:
+            target_email, cust_name = get_order_customer_info(order, db)
+            if target_email and order.shiprocket_awb:
+                pdf_bytes = fetch_shiprocket_invoice_pdf_bytes(order.shiprocket_order_id)
+                site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+                track_url = f"{site_url}/track?q={order.shiprocket_awb}"
+                items_sum = [
+                    {
+                        "title": i.product_title or "Product",
+                        "variant": i.variant_title or "Default",
+                        "quantity": i.quantity,
+                        "price": i.price_amount
+                    }
+                    for i in (order.items or [])
+                ]
+                send_order_dispatched_email(
+                    to_email=target_email,
+                    order_id=order.id,
+                    courier_name=order.shiprocket_courier_name or "Shiprocket Express",
+                    awb_code=order.shiprocket_awb,
+                    tracking_url=track_url,
+                    invoice_pdf_bytes=pdf_bytes,
+                    customer_name=cust_name,
+                    items_summary=items_sum
+                )
+        except Exception as em_err:
+            logger.warning(f"Failed to send dispatch email on pickup schedule for order {order.id}: {em_err}")
 
     return {
         **pickup_res,
         "awb_code": order.shiprocket_awb,
         "courier_name": order.shiprocket_courier_name,
+        "status": order.status,
+        "shipping_status": order.shipping_status,
         "package_weight": pkg_weight,
         "package_length": pkg_length,
         "package_breadth": pkg_breadth,
@@ -4623,18 +4691,19 @@ def admin_get_available_couriers(
 ):
     """
     Returns available courier partners from Shiprocket for this order's delivery pincode.
-    Used by the 3-step pickup wizard Step 1 to show live-synced courier options.
+    Can be called before or after dispatch to show live-synced courier options, rates,
+    ratings, and pickup availability rules.
     """
-    order = db.query(models.Order).filter_by(id=order_id).first()
+    order = db.query(models.Order).options(
+        selectinload(models.Order.user)
+    ).filter_by(id=order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if not order.shiprocket_shipment_id:
-        raise HTTPException(status_code=400, detail="Dispatch the shipment first to get courier options.")
 
     addr = order.shipping_address or {}
     delivery_pincode = str(addr.get("postalCode") or addr.get("pincode") or addr.get("pin_code") or "").strip()
     if not delivery_pincode or len(delivery_pincode) != 6 or not delivery_pincode.isdigit():
-        raise HTTPException(status_code=400, detail="Cannot determine delivery pincode from order address.")
+        raise HTTPException(status_code=400, detail="Cannot determine 6-digit delivery pincode from order address.")
 
     # Use stored package weight if available, default 0.5kg
     t_data = order.tracking_data or {}
@@ -4647,17 +4716,37 @@ def admin_get_available_couriers(
         db=db
     )
 
-    # Mark currently assigned courier
+    # Mark currently assigned courier if one was already assigned
     current_awb = order.shiprocket_awb or ""
     current_courier_name = (order.shiprocket_courier_name or "").strip().lower()
     for c in couriers:
         c["is_current"] = bool(
-            c.get("courier_name", "").strip().lower() == current_courier_name
+            current_courier_name and c.get("courier_name", "").strip().lower() == current_courier_name
         )
 
     pickup_wh = shiprocket_service.get_primary_warehouse(db)
 
-    # Include order context for wizard initialization
+    # Include order details for the wizard sidebar
+    order_details = {
+        "order_id": order.id,
+        "pickup_from": {
+            "pincode": pickup_wh.get("pin_code") or "110019",
+            "city": pickup_wh.get("city") or "Delhi",
+            "state": pickup_wh.get("state") or "Delhi",
+        },
+        "deliver_to": {
+            "pincode": delivery_pincode,
+            "city": addr.get("city") or "",
+            "state": addr.get("province") or addr.get("state") or "",
+            "address1": addr.get("address") or addr.get("address1") or "",
+        },
+        "order_value": float(order.total_amount or 0.0),
+        "payment_mode": "Prepaid" if order.payment_method != "COD" else "COD",
+        "applicable_weight": stored_weight,
+        "customer_name": order.guest_name or (order.user.full_name if order.user else (addr.get("name") or "Customer")),
+        "customer_phone": order.guest_phone or (order.user.phone if order.user else (addr.get("phone") or "")),
+    }
+
     return {
         "couriers": couriers,
         "current_awb": current_awb,
@@ -4670,6 +4759,7 @@ def admin_get_available_couriers(
             "height": t_data.get("package_height"),
         },
         "pickup_warehouse": pickup_wh,
+        "order_details": order_details,
     }
 
 @app.get("/api/admin/orders/{order_id}/manifest")

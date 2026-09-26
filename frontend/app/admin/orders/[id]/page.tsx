@@ -239,8 +239,6 @@ export default function AdminOrderDetailPage() {
     }
   }
 
-
-
   async function handleDownloadManifest() {
     if (!adminToken || !order) return;
     setDownloadingManifest(true);
@@ -250,7 +248,10 @@ export default function AdminOrderDetailPage() {
       if (res.manifest_url) {
         window.open(res.manifest_url, '_blank');
       } else {
-        setError(res.message || 'Manifest is still being generated in Shiprocket. Please try again in a moment.');
+        setError(
+          res.message ||
+            'Manifest is still being generated in Shiprocket. Please try again in a moment.'
+        );
       }
     } catch (e: any) {
       setError(e?.message || 'Failed to download manifest.');
@@ -346,14 +347,11 @@ export default function AdminOrderDetailPage() {
       order.shipping_status === 'PICKUP_QUEUED'
   );
 
-  const pickupScheduledDate: string | null =
-    order.tracking_data?.pickup_scheduled_date || null;
+  const pickupScheduledDate: string | null = order.tracking_data?.pickup_scheduled_date || null;
   const pickupToken: string | null = order.tracking_data?.pickup_token || null;
   // Use live tracking courier_name if available (most accurate from Shiprocket)
   const displayCourierName: string | null =
     order.tracking_data?.courier_name || order.shiprocket_courier_name || null;
-
-
 
   return (
     <div className="admin-page">
@@ -618,7 +616,6 @@ export default function AdminOrderDetailPage() {
                         : displayCourierName || 'Assigned on Dispatch'}
                     </strong>
                   </div>
-
 
                   <div>
                     <span
@@ -1005,10 +1002,11 @@ export default function AdminOrderDetailPage() {
                   ) : !order.shiprocket_awb ? (
                     <button
                       type="button"
-                      onClick={handleDispatchShipment}
-                      disabled={
-                        dispatching || order.status === 'CANCELLED' || order.status === 'REFUNDED'
-                      }
+                      onClick={() => {
+                        setError('');
+                        setShowPickupModal(true);
+                      }}
+                      disabled={order.status === 'CANCELLED' || order.status === 'REFUNDED'}
                       style={{
                         background: '#4232d9',
                         color: '#fff',
@@ -1016,14 +1014,15 @@ export default function AdminOrderDetailPage() {
                         padding: '10px 20px',
                         fontWeight: 800,
                         fontSize: '0.82rem',
-                        cursor: dispatching ? 'not-allowed' : 'pointer',
+                        cursor: 'pointer',
                         textTransform: 'uppercase',
                         borderRadius: '0px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
                       }}
                     >
-                      {dispatching
-                        ? 'Contacting Shiprocket...'
-                        : 'Dispatch Shipment & Generate AWB →'}
+                      <span>📦</span> Dispatch Shipment & Schedule Pickup →
                     </button>
                   ) : (
                     <>
@@ -1046,7 +1045,9 @@ export default function AdminOrderDetailPage() {
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                            <span style={{ fontSize: '1.1rem', lineHeight: 1, marginTop: 1 }}>✅</span>
+                            <span style={{ fontSize: '1.1rem', lineHeight: 1, marginTop: 1 }}>
+                              ✅
+                            </span>
                             <div>
                               <div
                                 style={{
@@ -1213,7 +1214,6 @@ export default function AdminOrderDetailPage() {
                       )}
                     </>
                   )}
-
                 </div>
               </div>
             );
@@ -2035,7 +2035,7 @@ export default function AdminOrderDetailPage() {
                       <strong style={{ color: '#111' }}>
                         {order.payment_method?.toUpperCase().includes('RAZORPAY')
                           ? 'RAZORPAY'
-                          : (order.payment_method || 'RAZORPAY')}
+                          : order.payment_method || 'RAZORPAY'}
                       </strong>
                     </div>
                     <div>

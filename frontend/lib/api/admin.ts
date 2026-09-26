@@ -4,8 +4,8 @@
  * Uses adminToken from AdminAuthContext.
  */
 
-import { getApiBaseUrl } from "./client";
-import { WarehouseLocation } from "./types";
+import { getApiBaseUrl } from './client';
+import type { WarehouseLocation } from './types';
 
 // ============================================================
 // Type Definitions
@@ -65,8 +65,6 @@ export interface AdminProductDetail extends AdminProductSummary {
   product_details?: string | null;
   updated_at: string | null;
 }
-
-
 
 export interface AdminOrder {
   id: string;
@@ -204,7 +202,6 @@ export interface AdminUserDetail extends AdminUser {
   orders: AdminUserOrder[];
 }
 
-
 export interface AdminReview {
   id: number;
   product_id: number;
@@ -282,25 +279,21 @@ export interface PaginatedResponse<T> {
   total_pages: number;
 }
 
-import { clientCache } from "./cache";
+import { clientCache } from './cache';
 
 // ============================================================
 // Core Fetch Helper
 // ============================================================
 
-async function adminFetch<T>(
-  path: string,
-  token: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const method = (options.method || "GET").toUpperCase();
+async function adminFetch<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase();
   const baseUrl = getApiBaseUrl();
 
   const networkFetcher = async (): Promise<T> => {
     const res = await fetch(`${baseUrl}${path}`, {
       ...options,
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
         ...(options.headers || {}),
       },
@@ -308,12 +301,14 @@ async function adminFetch<T>(
 
     const data = await res.json();
     if (!res.ok) {
-      if (res.status === 401 && typeof window !== "undefined") {
+      if (res.status === 401 && typeof window !== 'undefined') {
         try {
-          localStorage.removeItem("vahn_admin_token");
-          localStorage.removeItem("vahn_admin_user");
-        } catch { /* ignore */ }
-        if (!window.location.pathname.startsWith("/admin/login")) {
+          localStorage.removeItem('vahn_admin_token');
+          localStorage.removeItem('vahn_admin_user');
+        } catch {
+          /* ignore */
+        }
+        if (!window.location.pathname.startsWith('/admin/login')) {
           window.location.href = `/admin/login?expired=1&returnTo=${encodeURIComponent(window.location.pathname)}`;
         }
       }
@@ -323,14 +318,14 @@ async function adminFetch<T>(
   };
 
   // If GET request, use SWR client cache for instant 0ms response!
-  if (method === "GET") {
+  if (method === 'GET') {
     const cacheKey = `admin:${token.slice(0, 10)}:${path}`;
     return clientCache.fetchWithCache<T>(cacheKey, networkFetcher);
   }
 
   // For mutations (POST, PUT, DELETE), execute network call and invalidate cache!
   const result = await networkFetcher();
-  clientCache.invalidate("admin:");
+  clientCache.invalidate('admin:');
   return result;
 }
 
@@ -339,17 +334,20 @@ async function adminFetch<T>(
 // ============================================================
 
 export const getDashboardStats = (token: string) =>
-  adminFetch<DashboardStats>("/admin/dashboard/stats", token);
+  adminFetch<DashboardStats>('/admin/dashboard/stats', token);
 
 // ============================================================
 // Products
 // ============================================================
 
-export const getAdminProducts = (token: string, params?: { page?: number; search?: string; available_only?: boolean }) => {
+export const getAdminProducts = (
+  token: string,
+  params?: { page?: number; search?: string; available_only?: boolean }
+) => {
   const q = new URLSearchParams();
-  if (params?.page) q.set("page", String(params.page));
-  if (params?.search) q.set("search", params.search);
-  if (params?.available_only !== undefined) q.set("available_only", String(params.available_only));
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.search) q.set('search', params.search);
+  if (params?.available_only !== undefined) q.set('available_only', String(params.available_only));
   return adminFetch<PaginatedResponse<AdminProductSummary>>(`/admin/products?${q}`, token);
 };
 
@@ -357,26 +355,45 @@ export const getAdminProduct = (token: string, id: number) =>
   adminFetch<AdminProductDetail>(`/admin/products/${id}`, token);
 
 export const createAdminProduct = (token: string, data: object) =>
-  adminFetch<AdminProductDetail>("/admin/products", token, { method: "POST", body: JSON.stringify(data) });
+  adminFetch<AdminProductDetail>('/admin/products', token, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 
 export const updateAdminProduct = (token: string, id: number, data: object) =>
-  adminFetch<AdminProductDetail>(`/admin/products/${id}`, token, { method: "PUT", body: JSON.stringify(data) });
+  adminFetch<AdminProductDetail>(`/admin/products/${id}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 
 export const deleteAdminProduct = (token: string, id: number, hard = false) =>
-  adminFetch<{ message: string }>(`/admin/products/${id}?hard_delete=${hard}`, token, { method: "DELETE" });
+  adminFetch<{ message: string }>(`/admin/products/${id}?hard_delete=${hard}`, token, {
+    method: 'DELETE',
+  });
 
 // ============================================================
 // Variants
 // ============================================================
 
 export const addVariant = (token: string, productId: number, data: object) =>
-  adminFetch<AdminVariant>(`/admin/products/${productId}/variants`, token, { method: "POST", body: JSON.stringify(data) });
+  adminFetch<AdminVariant>(`/admin/products/${productId}/variants`, token, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 
 export const updateVariant = (token: string, productId: number, variantId: string, data: object) =>
-  adminFetch<AdminVariant>(`/admin/products/${productId}/variants/${encodeURIComponent(variantId)}`, token, { method: "PUT", body: JSON.stringify(data) });
+  adminFetch<AdminVariant>(
+    `/admin/products/${productId}/variants/${encodeURIComponent(variantId)}`,
+    token,
+    { method: 'PUT', body: JSON.stringify(data) }
+  );
 
 export const deleteVariant = (token: string, productId: number, variantId: string) =>
-  adminFetch<{ message: string }>(`/admin/products/${productId}/variants/${encodeURIComponent(variantId)}`, token, { method: "DELETE" });
+  adminFetch<{ message: string }>(
+    `/admin/products/${productId}/variants/${encodeURIComponent(variantId)}`,
+    token,
+    { method: 'DELETE' }
+  );
 
 // ============================================================
 // Colour Groups
@@ -386,13 +403,26 @@ export const getColourGroups = (token: string, productId: number) =>
   adminFetch<ColourGroup[]>(`/admin/products/${productId}/colour-groups`, token);
 
 export const createColourGroup = (token: string, productId: number, data: object) =>
-  adminFetch<ColourGroup>(`/admin/products/${productId}/colour-groups`, token, { method: "POST", body: JSON.stringify(data) });
+  adminFetch<ColourGroup>(`/admin/products/${productId}/colour-groups`, token, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 
-export const updateColourGroup = (token: string, productId: number, groupId: number, data: object) =>
-  adminFetch<ColourGroup>(`/admin/products/${productId}/colour-groups/${groupId}`, token, { method: "PUT", body: JSON.stringify(data) });
+export const updateColourGroup = (
+  token: string,
+  productId: number,
+  groupId: number,
+  data: object
+) =>
+  adminFetch<ColourGroup>(`/admin/products/${productId}/colour-groups/${groupId}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 
 export const deleteColourGroup = (token: string, productId: number, groupId: number) =>
-  adminFetch<{ message: string }>(`/admin/products/${productId}/colour-groups/${groupId}`, token, { method: "DELETE" });
+  adminFetch<{ message: string }>(`/admin/products/${productId}/colour-groups/${groupId}`, token, {
+    method: 'DELETE',
+  });
 
 // ============================================================
 // Collections
@@ -400,23 +430,35 @@ export const deleteColourGroup = (token: string, productId: number, groupId: num
 
 export const getAdminCollections = (token: string, params?: { page?: number; search?: string }) => {
   const q = new URLSearchParams();
-  if (params?.page) q.set("page", String(params.page));
-  if (params?.search) q.set("search", params.search);
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.search) q.set('search', params.search);
   return adminFetch<PaginatedResponse<AdminCollection>>(`/admin/collections?${q}`, token);
 };
 
 export const createAdminCollection = (token: string, data: object) =>
-  adminFetch<{ id: number; handle: string; title: string; message: string }>("/admin/collections", token, { method: "POST", body: JSON.stringify(data) });
+  adminFetch<{ id: number; handle: string; title: string; message: string }>(
+    '/admin/collections',
+    token,
+    { method: 'POST', body: JSON.stringify(data) }
+  );
 
 export const updateAdminCollection = (token: string, id: number, data: object) =>
-  adminFetch<{ message: string }>(`/admin/collections/${id}`, token, { method: "PUT", body: JSON.stringify(data) });
+  adminFetch<{ message: string }>(`/admin/collections/${id}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 
 export const deleteAdminCollection = (token: string, id: number) =>
-  adminFetch<{ message: string }>(`/admin/collections/${id}`, token, { method: "DELETE" });
+  adminFetch<{ message: string }>(`/admin/collections/${id}`, token, { method: 'DELETE' });
 
-export const manageCollectionProducts = (token: string, collectionId: number, productIds: number[], action: "attach" | "detach") =>
+export const manageCollectionProducts = (
+  token: string,
+  collectionId: number,
+  productIds: number[],
+  action: 'attach' | 'detach'
+) =>
   adminFetch<{ message: string }>(`/admin/collections/${collectionId}/products`, token, {
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify({ product_ids: productIds, action }),
   });
 
@@ -436,12 +478,12 @@ export const getAdminOrders = (
   }
 ) => {
   const q = new URLSearchParams();
-  if (params?.page) q.set("page", String(params.page));
-  if (params?.status) q.set("status", params.status);
-  if (params?.shipping_status) q.set("shipping_status", params.shipping_status);
-  if (params?.return_status) q.set("return_status", params.return_status);
-  if (params?.payment_status) q.set("payment_status", params.payment_status);
-  if (params?.search) q.set("search", params.search);
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.status) q.set('status', params.status);
+  if (params?.shipping_status) q.set('shipping_status', params.shipping_status);
+  if (params?.return_status) q.set('return_status', params.return_status);
+  if (params?.payment_status) q.set('payment_status', params.payment_status);
+  if (params?.search) q.set('search', params.search);
   return adminFetch<PaginatedResponse<AdminOrderSummary>>(`/admin/orders?${q}`, token);
 };
 
@@ -449,10 +491,17 @@ export const getAdminOrder = (token: string, id: string) =>
   adminFetch<AdminOrder>(`/admin/orders/${id}`, token);
 
 export const refreshAdminOrderTracking = (token: string, orderId: string) =>
-  adminFetch<AdminOrder>(`/admin/orders/${orderId}/refresh-tracking`, token, { method: "POST" });
+  adminFetch<AdminOrder>(`/admin/orders/${orderId}/refresh-tracking`, token, { method: 'POST' });
 
-export const updateOrderStatus = (token: string, id: string, data: { status?: string; refund_status?: string; refund_note?: string }) =>
-  adminFetch<{ message: string }>(`/admin/orders/${id}/status`, token, { method: "PUT", body: JSON.stringify(data) });
+export const updateOrderStatus = (
+  token: string,
+  id: string,
+  data: { status?: string; refund_status?: string; refund_note?: string }
+) =>
+  adminFetch<{ message: string }>(`/admin/orders/${id}/status`, token, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 
 export const shipAdminOrder = (token: string, orderId: string, pickupLocation?: string) =>
   adminFetch<{
@@ -463,7 +512,7 @@ export const shipAdminOrder = (token: string, orderId: string, pickupLocation?: 
     courier_name?: string;
     shipping_status: string;
   }>(`/admin/orders/${orderId}/ship`, token, {
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify({ pickup_location: pickupLocation }),
   });
 
@@ -474,9 +523,10 @@ export const getAdminOrderInvoice = (token: string, orderId: string) =>
   adminFetch<{ invoice_url?: string; message?: string }>(`/admin/orders/${orderId}/invoice`, token);
 
 export const getAdminOrderManifest = (token: string, orderId: string) =>
-  adminFetch<{ success: boolean; manifest_url?: string; message?: string }>(`/admin/orders/${orderId}/manifest`, token);
-
-
+  adminFetch<{ success: boolean; manifest_url?: string; message?: string }>(
+    `/admin/orders/${orderId}/manifest`,
+    token
+  );
 
 export const scheduleAdminOrderPickup = (
   token: string,
@@ -498,7 +548,7 @@ export const scheduleAdminOrderPickup = (
     awb_code?: string;
     message?: string;
   }>(`/admin/orders/${orderId}/pickup`, token, {
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify(data || {}),
   });
 
@@ -508,7 +558,11 @@ export interface CourierOption {
   rate: number;
   estimated_delivery_days: number | null;
   etd: string | null;
-  pickup_constraint?: "within_2_days" | "anytime";
+  rating?: number;
+  rto_charges?: number;
+  cutoff_time?: string;
+  is_recommended?: boolean;
+  pickup_constraint?: 'within_2_days' | 'anytime';
   pickup_days_window: number;
   pickup_rule_description?: string;
   is_surface: boolean;
@@ -532,6 +586,26 @@ export interface PickupWarehouseInfo {
   is_primary?: boolean;
 }
 
+export interface AvailableCouriersOrderDetails {
+  order_id: string;
+  pickup_from: {
+    pincode: string;
+    city: string;
+    state: string;
+  };
+  deliver_to: {
+    pincode: string;
+    city: string;
+    state: string;
+    address1?: string;
+  };
+  order_value: number;
+  payment_mode: string;
+  applicable_weight: number;
+  customer_name?: string;
+  customer_phone?: string;
+}
+
 export interface AvailableCouriersResponse {
   couriers: CourierOption[];
   current_awb: string;
@@ -544,11 +618,11 @@ export interface AvailableCouriersResponse {
     height: number | null;
   };
   pickup_warehouse?: PickupWarehouseInfo | null;
+  order_details?: AvailableCouriersOrderDetails | null;
 }
 
 export const getAvailableCouriersForOrder = (token: string, orderId: string) =>
   adminFetch<AvailableCouriersResponse>(`/admin/orders/${orderId}/available-couriers`, token);
-
 
 export const cancelAdminOrderShipment = (
   token: string,
@@ -556,7 +630,7 @@ export const cancelAdminOrderShipment = (
   data?: { reason?: string }
 ) =>
   adminFetch<AdminOrder>(`/admin/orders/${orderId}/cancel-shipment`, token, {
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify(data || {}),
   });
 
@@ -571,7 +645,7 @@ export const refundAdminOrder = (
     order_id: string;
     refund_status: string;
   }>(`/admin/orders/${orderId}/refund`, token, {
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify(data),
   });
 
@@ -581,7 +655,7 @@ export const dispatchAdminOrderReplacement = (
   data: { awb_code?: string; courier_name?: string; tracking_url?: string }
 ) =>
   adminFetch<AdminOrder>(`/admin/orders/${orderId}/dispatch-replacement`, token, {
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify(data),
   });
 
@@ -590,11 +664,11 @@ export const dispatchAdminOrderReplacement = (
 // ============================================================
 
 export const getAdminWarehouses = (token: string) =>
-  adminFetch<WarehouseLocation[]>("/admin/logistics/warehouses", token);
+  adminFetch<WarehouseLocation[]>('/admin/logistics/warehouses', token);
 
 export const syncAdminWarehouses = (token: string) =>
-  adminFetch<WarehouseLocation[]>("/admin/logistics/warehouses/sync", token, {
-    method: "POST",
+  adminFetch<WarehouseLocation[]>('/admin/logistics/warehouses/sync', token, {
+    method: 'POST',
   });
 
 export const createAdminWarehouse = (
@@ -613,75 +687,97 @@ export const createAdminWarehouse = (
     is_primary?: boolean;
   }
 ) =>
-  adminFetch<WarehouseLocation>("/admin/logistics/warehouses", token, {
-    method: "POST",
+  adminFetch<WarehouseLocation>('/admin/logistics/warehouses', token, {
+    method: 'POST',
     body: JSON.stringify(data),
   });
 
 export const setPrimaryAdminWarehouse = (token: string, warehouseId: number) =>
   adminFetch<WarehouseLocation>(`/admin/logistics/warehouses/${warehouseId}/set-primary`, token, {
-    method: "PUT",
+    method: 'PUT',
   });
 
 export const deleteAdminWarehouse = (token: string, warehouseId: number) =>
   adminFetch<{ message: string }>(`/admin/logistics/warehouses/${warehouseId}`, token, {
-    method: "DELETE",
+    method: 'DELETE',
   });
 
 // ============================================================
 // Users
 // ============================================================
 
-export const getAdminUsers = (token: string, params?: { page?: number; search?: string; role?: string }) => {
+export const getAdminUsers = (
+  token: string,
+  params?: { page?: number; search?: string; role?: string }
+) => {
   const q = new URLSearchParams();
-  if (params?.page) q.set("page", String(params.page));
-  if (params?.search) q.set("search", params.search);
-  if (params?.role !== undefined) q.set("role", params.role);
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.search) q.set('search', params.search);
+  if (params?.role !== undefined) q.set('role', params.role);
   return adminFetch<PaginatedResponse<AdminUser>>(`/admin/users?${q}`, token);
 };
 
 export const getAdminUser = (token: string, id: number) =>
   adminFetch<AdminUserDetail>(`/admin/users/${id}`, token);
 
-
 export const suspendUser = (token: string, id: number, reason?: string) =>
-  adminFetch<{ message: string }>(`/admin/users/${id}/suspend`, token, { method: "PUT", body: JSON.stringify({ reason }) });
+  adminFetch<{ message: string }>(`/admin/users/${id}/suspend`, token, {
+    method: 'PUT',
+    body: JSON.stringify({ reason }),
+  });
 
 export const reactivateUser = (token: string, id: number) =>
-  adminFetch<{ message: string }>(`/admin/users/${id}/reactivate`, token, { method: "PUT" });
+  adminFetch<{ message: string }>(`/admin/users/${id}/reactivate`, token, { method: 'PUT' });
 
 export const deleteAdminUser = (token: string, id: number) =>
-  adminFetch<{ message: string }>(`/admin/users/${id}`, token, { method: "DELETE" });
+  adminFetch<{ message: string }>(`/admin/users/${id}`, token, { method: 'DELETE' });
 
 // ============================================================
 // Reviews
 // ============================================================
 
-export const getAdminReviews = (token: string, params?: { page?: number; search?: string; is_hidden?: boolean; rating?: number }) => {
+export const getAdminReviews = (
+  token: string,
+  params?: { page?: number; search?: string; is_hidden?: boolean; rating?: number }
+) => {
   const q = new URLSearchParams();
-  if (params?.page) q.set("page", String(params.page));
-  if (params?.search) q.set("search", params.search);
-  if (params?.is_hidden !== undefined) q.set("is_hidden", String(params.is_hidden));
-  if (params?.rating !== undefined) q.set("rating", String(params.rating));
+  if (params?.page) q.set('page', String(params.page));
+  if (params?.search) q.set('search', params.search);
+  if (params?.is_hidden !== undefined) q.set('is_hidden', String(params.is_hidden));
+  if (params?.rating !== undefined) q.set('rating', String(params.rating));
   return adminFetch<PaginatedResponse<AdminReview>>(`/admin/reviews?${q}`, token);
 };
 
-export const getProductReviews = (token: string, productId: number, page = 1, rating?: number, is_hidden?: boolean) => {
+export const getProductReviews = (
+  token: string,
+  productId: number,
+  page = 1,
+  rating?: number,
+  is_hidden?: boolean
+) => {
   const q = new URLSearchParams({ page: String(page) });
-  if (rating !== undefined) q.set("rating", String(rating));
-  if (is_hidden !== undefined) q.set("is_hidden", String(is_hidden));
-  return adminFetch<PaginatedResponse<AdminReview>>(`/admin/products/${productId}/reviews?${q}`, token);
+  if (rating !== undefined) q.set('rating', String(rating));
+  if (is_hidden !== undefined) q.set('is_hidden', String(is_hidden));
+  return adminFetch<PaginatedResponse<AdminReview>>(
+    `/admin/products/${productId}/reviews?${q}`,
+    token
+  );
 };
 
-
 export const createAdminReview = (token: string, productId: number, data: object) =>
-  adminFetch<AdminReview>(`/admin/products/${productId}/reviews`, token, { method: "POST", body: JSON.stringify(data) });
+  adminFetch<AdminReview>(`/admin/products/${productId}/reviews`, token, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 
 export const updateAdminReview = (token: string, id: number, data: object) =>
-  adminFetch<{ message: string }>(`/admin/reviews/${id}`, token, { method: "PUT", body: JSON.stringify(data) });
+  adminFetch<{ message: string }>(`/admin/reviews/${id}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 
 export const deleteAdminReview = (token: string, id: number) =>
-  adminFetch<{ message: string }>(`/admin/reviews/${id}`, token, { method: "DELETE" });
+  adminFetch<{ message: string }>(`/admin/reviews/${id}`, token, { method: 'DELETE' });
 
 export interface PresignedUrlResponse {
   provider: string;
@@ -696,32 +792,45 @@ export const getS3PresignedUrl = (
   token: string,
   params: { filename: string; mime_type: string; folder?: string }
 ) =>
-  adminFetch<PresignedUrlResponse>("/admin/media/presigned-url", token, {
-    method: "POST",
+  adminFetch<PresignedUrlResponse>('/admin/media/presigned-url', token, {
+    method: 'POST',
     body: JSON.stringify(params),
   });
 
 export const getAdminMedia = (token: string, page = 1) =>
   adminFetch<PaginatedResponse<MediaAsset>>(`/admin/media?page=${page}`, token);
 
-export const confirmMediaAsset = (token: string, data: { url: string; key?: string; size?: number; mime_type?: string; alt_text?: string; provider?: string }) =>
-  adminFetch<MediaAsset>("/admin/media/confirm", token, { method: "POST", body: JSON.stringify(data) });
+export const confirmMediaAsset = (
+  token: string,
+  data: {
+    url: string;
+    key?: string;
+    size?: number;
+    mime_type?: string;
+    alt_text?: string;
+    provider?: string;
+  }
+) =>
+  adminFetch<MediaAsset>('/admin/media/confirm', token, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 
 export const deleteMediaAsset = (token: string, id: number) =>
-  adminFetch<{ message: string }>(`/admin/media/${id}`, token, { method: "DELETE" });
+  adminFetch<{ message: string }>(`/admin/media/${id}`, token, { method: 'DELETE' });
 
 export const uploadMediaDirect = async (
   token: string,
   file: File,
-  folder: string = "products"
+  folder: string = 'products'
 ): Promise<{ url: string; key: string; name: string; size: number }> => {
   const baseUrl = getApiBaseUrl();
   const formData = new FormData();
-  formData.append("file", file);
-  formData.append("folder", folder);
+  formData.append('file', file);
+  formData.append('folder', folder);
 
   const res = await fetch(`${baseUrl}/admin/media/upload`, {
-    method: "POST",
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -729,7 +838,7 @@ export const uploadMediaDirect = async (
   });
 
   if (!res.ok) {
-    let errDetail = "Upload failed";
+    let errDetail = 'Upload failed';
     try {
       const err = await res.json();
       errDetail = err.detail || err.message || errDetail;
@@ -741,4 +850,3 @@ export const uploadMediaDirect = async (
 
   return res.json();
 };
-
