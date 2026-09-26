@@ -661,9 +661,32 @@ export default function SchedulePickupWizardModal({
                   fontSize: '0.86rem',
                   fontWeight: 800,
                   color: '#0f172a',
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: '6px',
+                  flexWrap: 'wrap',
                 }}
               >
-                {(backendOrderDetails?.applicable_weight ?? billedWeight).toFixed(1)} Kg
+                <span>
+                  {billedWeight < 10
+                    ? Number(billedWeight.toFixed(3))
+                    : billedWeight.toLocaleString('en-IN', { maximumFractionDigits: 3 })}{' '}
+                  Kg
+                </span>
+                {volumetricWeight > deadWeight && (
+                  <span
+                    style={{
+                      fontSize: '0.64rem',
+                      fontWeight: 700,
+                      color: '#4f46e5',
+                      background: '#ede9fe',
+                      padding: '1px 5px',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    Volumetric
+                  </span>
+                )}
               </div>
             </div>
 

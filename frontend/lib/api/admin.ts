@@ -625,8 +625,22 @@ export interface AvailableCouriersResponse {
   order_details?: AvailableCouriersOrderDetails | null;
 }
 
-export const getAvailableCouriersForOrder = (token: string, orderId: string) =>
-  adminFetch<AvailableCouriersResponse>(`/admin/orders/${orderId}/available-couriers`, token);
+export const getAvailableCouriersForOrder = (
+  token: string,
+  orderId: string,
+  params?: { weight?: number; length?: number; breadth?: number; height?: number }
+) => {
+  const query = new URLSearchParams();
+  if (params?.weight) query.set('weight', params.weight.toString());
+  if (params?.length) query.set('length', params.length.toString());
+  if (params?.breadth) query.set('breadth', params.breadth.toString());
+  if (params?.height) query.set('height', params.height.toString());
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  return adminFetch<AvailableCouriersResponse>(
+    `/admin/orders/${orderId}/available-couriers${qs}`,
+    token
+  );
+};
 
 export const cancelAdminOrderShipment = (
   token: string,

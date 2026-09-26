@@ -4686,6 +4686,10 @@ def admin_schedule_pickup(
 @app.get("/api/admin/orders/{order_id}/available-couriers")
 def admin_get_available_couriers(
     order_id: str,
+    weight: Optional[float] = None,
+    length: Optional[float] = None,
+    breadth: Optional[float] = None,
+    height: Optional[float] = None,
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
@@ -4705,9 +4709,15 @@ def admin_get_available_couriers(
     if not delivery_pincode or len(delivery_pincode) != 6 or not delivery_pincode.isdigit():
         raise HTTPException(status_code=400, detail="Cannot determine 6-digit delivery pincode from order address.")
 
-    # Use stored package weight if available, default 0.5kg
+    # Calculate volumetric weight if dimensions provided
+    vol_w = 0.0
+    if length and breadth and height and length > 0 and breadth > 0 and height > 0:
+        vol_w = round((float(length) * float(breadth) * float(height)) / 5000.0, 3)
+
+    # Use provided weight if passed, else stored package weight, default 0.5kg
     t_data = order.tracking_data or {}
-    stored_weight = float(t_data.get("package_weight") or 0.5)
+    base_dead_w = float(weight) if (weight is not None and weight > 0) else float(t_data.get("package_weight") or 0.5)
+    stored_weight = round(max(base_dead_w, vol_w), 3)
 
     order_val = float(order.total_amount or 3010.0)
     try:
