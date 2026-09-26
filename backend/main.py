@@ -4403,26 +4403,32 @@ def admin_ship_order(
     if order.payment_status == "FAILED":
         raise HTTPException(status_code=400, detail="Cannot ship order: Payment has failed and funds were not captured.")
 
-    # Check if shipment already created in Shiprocket
-    if not order.shiprocket_shipment_id or not order.shiprocket_awb or order.shipping_status == "CANCELLED":
-        sr_res = shiprocket_service.create_forward_shipment(order, order.items or [], pickup_location=pickup_location, db=db)
-        order.shiprocket_order_id = sr_res.get("shiprocket_order_id") or sr_res.get("order_id")
-        order.shiprocket_shipment_id = sr_res.get("shiprocket_shipment_id") or sr_res.get("shipment_id")
-        order.shiprocket_awb = sr_res.get("shiprocket_awb") or sr_res.get("awb_code")
-        order.shiprocket_courier_name = sr_res.get("shiprocket_courier_name") or sr_res.get("courier_name")
+    try:
+        # Check if shipment already created in Shiprocket
+        if not order.shiprocket_shipment_id or not order.shiprocket_awb or order.shipping_status == "CANCELLED":
+            sr_res = shiprocket_service.create_forward_shipment(order, order.items or [], pickup_location=pickup_location, db=db)
+            order.shiprocket_order_id = sr_res.get("shiprocket_order_id") or sr_res.get("order_id")
+            order.shiprocket_shipment_id = sr_res.get("shiprocket_shipment_id") or sr_res.get("shipment_id")
+            order.shiprocket_awb = sr_res.get("shiprocket_awb") or sr_res.get("awb_code")
+            order.shiprocket_courier_name = sr_res.get("shiprocket_courier_name") or sr_res.get("courier_name")
 
-    order.tracking_url = f"/track?q={order.shiprocket_awb}" if order.shiprocket_awb else None
-    order.shipping_status = "SHIPPED"
-    order.status = "SHIPPED"
+        order.tracking_url = f"/track?q={order.shiprocket_awb}" if order.shiprocket_awb else None
+        order.shipping_status = "SHIPPED"
+        order.status = "SHIPPED"
 
-    t_data = dict(order.tracking_data or {})
-    emails_sent = t_data.setdefault("emails_sent", {})
-    already_sent = emails_sent.get("dispatched", False)
-    if not already_sent:
-        emails_sent["dispatched"] = True
-        order.tracking_data = t_data
+        t_data = dict(order.tracking_data or {})
+        emails_sent = t_data.setdefault("emails_sent", {})
+        already_sent = emails_sent.get("dispatched", False)
+        if not already_sent:
+            emails_sent["dispatched"] = True
+            order.tracking_data = t_data
 
-    db.commit()
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Shipment dispatch failed for order {order_id}: {e}")
+        raise HTTPException(status_code=400, detail=f"Logistics dispatch error: {str(e)}")
 
     if not already_sent:
         try:

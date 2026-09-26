@@ -707,42 +707,92 @@ def create_forward_shipment(
         "weight": 0.5
     }
 
-    with httpx.Client(timeout=20.0) as client:
-        res = client.post(f"{BASE_URL}/orders/create/adhoc", json=payload, headers={"Authorization": f"Bearer {token}"})
-        if res.status_code not in (200, 201):
-            err_msg = res.json().get("message", res.text) if res.text else f"HTTP {res.status_code}"
-            raise ValueError(f"Shiprocket order creation failed: {err_msg}")
-
-        order_data = res.json()
-        sr_order_id = str(order_data.get("order_id", ""))
-        sr_shipment_id = str(order_data.get("shipment_id", ""))
-
-        # Assign live courier AWB
-        awb_res = client.post(
-            f"{BASE_URL}/courier/assign/awb",
-            json={"shipment_id": sr_shipment_id},
-            headers={"Authorization": f"Bearer {token}"}
-        )
+    with httpx.Client(timeout=45.0) as client:
+        sr_order_id = ""
+        sr_shipment_id = ""
         awb_code = ""
         courier_name = "Assigned Courier"
-        if awb_res.status_code == 200:
-            awb_data = awb_res.json().get("response", {}).get("data", {})
-            awb_code = str(awb_data.get("awb_code", ""))
-            courier_name = awb_data.get("courier_name", "Express Courier")
-        else:
-            logger.warning(f"Shiprocket AWB assignment returned {awb_res.status_code}: {awb_res.text}")
 
-        logger.info(f"Created live Shiprocket forward shipment: AWB {awb_code} for order {order.id}")
+        res = client.post(f"{BASE_URL}/orders/create/adhoc", json=payload, headers={"Authorization": f"Bearer {token}"})
+        if res.status_code in (200, 201):
+            order_data = res.json()
+            sr_order_id = str(order_data.get("order_id", ""))
+            sr_shipment_id = str(order_data.get("shipment_id", ""))
+        else:
+            # If order creation failed (e.g. order already exists in Shiprocket), re-link existing order
+            try:
+                search_res = client.get(
+                    f"{BASE_URL}/orders",
+                    params={"search": str(order.id)},
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                if search_res.status_code == 200:
+                    found_orders = search_res.json().get("data", [])
+                    matched = next((o for o in found_orders if str(o.get("channel_order_id")) == str(order.id)), None)
+                    if matched:
+                        sr_order_id = str(matched.get("id", ""))
+                        shipments = matched.get("shipments") or []
+                        if isinstance(shipments, list) and shipments:
+                            sr_shipment_id = str(shipments[0].get("id", ""))
+                        elif isinstance(shipments, dict):
+                            sr_shipment_id = str(shipments.get("id", ""))
+                        awb_code = str(matched.get("awb_code") or "")
+                        courier_name = str(matched.get("courier_name") or "Express Courier")
+                        logger.info(f"Re-linked existing Shiprocket order {sr_order_id}, shipment {sr_shipment_id} for order {order.id}")
+            except Exception as search_err:
+                logger.warning(f"Error searching existing Shiprocket order: {search_err}")
+
+            if not sr_order_id or not sr_shipment_id:
+                err_msg = res.json().get("message", res.text) if res.text else f"HTTP {res.status_code}"
+                raise ValueError(f"Shiprocket order creation failed: {err_msg}")
+
+        # Step 2: If AWB code is not yet assigned, try to assign or fetch from show endpoint
+        if sr_shipment_id and not awb_code:
+            try:
+                awb_res = client.post(
+                    f"{BASE_URL}/courier/assign/awb",
+                    json={"shipment_id": sr_shipment_id},
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                if awb_res.status_code == 200:
+                    awb_data = awb_res.json().get("response", {}).get("data", {})
+                    awb_code = str(awb_data.get("awb_code", ""))
+                    courier_name = str(awb_data.get("courier_name") or "Express Courier")
+                else:
+                    logger.warning(f"Shiprocket AWB assignment returned {awb_res.status_code}: {awb_res.text}")
+            except (httpx.TimeoutException, httpx.RequestError) as awb_err:
+                logger.warning(f"Shiprocket AWB assign timed out or failed on the wire: {awb_err}. Checking order status...")
+
+        # If awb_code is still empty, double check orders/show to see if it was assigned in background
+        if sr_order_id and not awb_code:
+            try:
+                show_res = client.get(
+                    f"{BASE_URL}/orders/show/{sr_order_id}",
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                if show_res.status_code == 200:
+                    show_data = show_res.json().get("data", {})
+                    s_info = show_data.get("shipments")
+                    if isinstance(s_info, dict):
+                        awb_code = str(s_info.get("awb") or "")
+                        courier_name = str(s_info.get("courier") or courier_name)
+                    elif isinstance(s_info, list) and s_info:
+                        awb_code = str(s_info[0].get("awb") or "")
+                        courier_name = str(s_info[0].get("courier") or courier_name)
+            except Exception as show_err:
+                logger.warning(f"Error checking Shiprocket order show: {show_err}")
+
+        logger.info(f"Created/linked live Shiprocket forward shipment: Order {sr_order_id}, Shipment {sr_shipment_id}, AWB {awb_code} for order {order.id}")
         return {
             "order_id": sr_order_id,
             "shipment_id": sr_shipment_id,
             "awb_code": awb_code,
-            "courier_name": courier_name,
+            "courier_name": courier_name if awb_code else (order.shiprocket_courier_name or "Select via Pickup Wizard"),
             "shiprocket_order_id": sr_order_id,
             "shiprocket_shipment_id": sr_shipment_id,
             "shiprocket_awb": awb_code,
-            "shiprocket_courier_name": courier_name,
-            "shipping_status": "MANIFEST_GENERATED"
+            "shiprocket_courier_name": courier_name if awb_code else (order.shiprocket_courier_name or "Select via Pickup Wizard"),
+            "shipping_status": "MANIFEST_GENERATED" if awb_code else "READY_FOR_PICKUP"
         }
 
 
