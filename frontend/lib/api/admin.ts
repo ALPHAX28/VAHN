@@ -481,18 +481,74 @@ export const getAdminOrderManifest = (token: string, orderId: string) =>
 export const scheduleAdminOrderPickup = (
   token: string,
   orderId: string,
-  data?: { pickup_date?: string }
+  data?: {
+    pickup_date?: string;
+    courier_id?: number | null;
+    weight?: number | null;
+    length?: number | null;
+    breadth?: number | null;
+    height?: number | null;
+  }
 ) =>
   adminFetch<{
     success: boolean;
     pickup_status?: number;
     pickup_token?: string;
     courier_name?: string;
+    awb_code?: string;
     message?: string;
   }>(`/admin/orders/${orderId}/pickup`, token, {
     method: "POST",
     body: JSON.stringify(data || {}),
   });
+
+export interface CourierOption {
+  courier_company_id: number;
+  courier_name: string;
+  rate: number;
+  estimated_delivery_days: number | null;
+  etd: string | null;
+  pickup_constraint?: "within_2_days" | "anytime";
+  pickup_days_window: number;
+  pickup_rule_description?: string;
+  is_surface: boolean;
+  min_weight: number;
+  charge_weight: number;
+  is_current: boolean;
+}
+
+export interface PickupWarehouseInfo {
+  id?: string;
+  pickup_location?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  address_2?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pin_code?: string;
+  is_primary?: boolean;
+}
+
+export interface AvailableCouriersResponse {
+  couriers: CourierOption[];
+  current_awb: string;
+  current_courier_name: string | null;
+  delivery_pincode: string;
+  stored_weight: number;
+  stored_dims: {
+    length: number | null;
+    breadth: number | null;
+    height: number | null;
+  };
+  pickup_warehouse?: PickupWarehouseInfo | null;
+}
+
+export const getAvailableCouriersForOrder = (token: string, orderId: string) =>
+  adminFetch<AvailableCouriersResponse>(`/admin/orders/${orderId}/available-couriers`, token);
+
 
 export const cancelAdminOrderShipment = (
   token: string,

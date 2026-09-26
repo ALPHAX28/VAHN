@@ -643,7 +643,13 @@ class AdminDispatchReplacementRequest(BaseModel):
     tracking_url: Optional[str] = None
 
 class AdminSchedulePickupRequest(BaseModel):
-    pickup_date: Optional[str] = None  # YYYY-MM-DD format
+    pickup_date: Optional[str] = None       # YYYY-MM-DD format
+    courier_id: Optional[int] = None        # Shiprocket courier_company_id to (re)assign
+    weight: Optional[float] = None          # Dead weight in kg
+    length: Optional[float] = None          # Package length in cm
+    breadth: Optional[float] = None         # Package breadth in cm
+    height: Optional[float] = None          # Package height in cm
+
 
 class AdminCancelShipmentRequest(BaseModel):
     reason: Optional[str] = "Shipment cancelled by administrator"

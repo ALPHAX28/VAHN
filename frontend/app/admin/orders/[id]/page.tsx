@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import AdminBadge from '@/components/admin/AdminBadge';
+import SchedulePickupWizardModal from '@/components/admin/SchedulePickupWizardModal';
 import {
   CheckIcon,
   MapPinIcon,
@@ -23,7 +24,6 @@ import {
   getAdminOrderShippingLabel,
   refreshAdminOrderTracking,
   refundAdminOrder,
-  scheduleAdminOrderPickup,
   shipAdminOrder,
   updateOrderStatus,
 } from '@/lib/api/admin';
@@ -53,12 +53,6 @@ export default function AdminOrderDetailPage() {
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [downloadingBoth, setDownloadingBoth] = useState(false);
   const [showPickupModal, setShowPickupModal] = useState(false);
-  const [pickupDate, setPickupDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
-  });
-  const [schedulingPickup, setSchedulingPickup] = useState(false);
   const [downloadingManifest, setDownloadingManifest] = useState(false);
   const [showCancelShipmentModal, setShowCancelShipmentModal] = useState(false);
   const [cancelShipmentReason, setCancelShipmentReason] = useState('');
@@ -245,42 +239,7 @@ export default function AdminOrderDetailPage() {
     }
   }
 
-  async function handleSchedulePickup() {
-    if (!adminToken || !order) return;
-    const todayStr = new Date().toISOString().split('T')[0];
-    const tomorrowDate = new Date();
-    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-    const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
 
-    if (pickupDate < todayStr || pickupDate > tomorrowStr) {
-      setError(
-        'Courier partners only accept pickups scheduled for Today or Tomorrow (the immediate next business day). Future dates beyond tomorrow are not supported.'
-      );
-      return;
-    }
-
-    setSchedulingPickup(true);
-    setError('');
-    try {
-      const res = await scheduleAdminOrderPickup(adminToken, order.id, { pickup_date: pickupDate });
-      if (res.success && res.pickup_status === 1) {
-        setSuccess(res.message || 'Pickup scheduled successfully with courier partner!');
-        setShowPickupModal(false);
-        const updated = await getAdminOrder(adminToken, order.id);
-        setOrder(updated);
-        setTimeout(() => setSuccess(''), 5000);
-      } else {
-        setError(res.message || 'Failed to schedule courier pickup.');
-      }
-    } catch (e: any) {
-      setError(
-        e?.message ||
-          'Courier partner rejected pickup scheduling. Couriers only support pickup manifests for Today or Tomorrow.'
-      );
-    } finally {
-      setSchedulingPickup(false);
-    }
-  }
 
   async function handleDownloadManifest() {
     if (!adminToken || !order) return;
@@ -1169,13 +1128,6 @@ export default function AdminOrderDetailPage() {
                           type="button"
                           onClick={() => {
                             setError('');
-                            const today = new Date().toISOString().split('T')[0];
-                            const tomorrow = new Date(Date.now() + 86400000)
-                              .toISOString()
-                              .split('T')[0];
-                            if (pickupDate < today || pickupDate > tomorrow) {
-                              setPickupDate(tomorrow);
-                            }
                             setShowPickupModal(true);
                           }}
                           disabled={order.status === 'CANCELLED' || order.status === 'REFUNDED'}
@@ -2560,267 +2512,19 @@ export default function AdminOrderDetailPage() {
         </div>
       )}
 
-      {/* SCHEDULE PICKUP MODAL */}
-      {showPickupModal && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0,0,0,0.65)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '20px',
+      {/* SCHEDULE PICKUP WIZARD MODAL */}
+      {order && (
+        <SchedulePickupWizardModal
+          isOpen={showPickupModal}
+          onClose={() => setShowPickupModal(false)}
+          order={order}
+          adminToken={adminToken || ''}
+          onPickupScheduled={(updated) => {
+            setOrder(updated);
+            setSuccess('Pickup scheduled successfully with courier partner!');
+            setTimeout(() => setSuccess(''), 5000);
           }}
-        >
-          <div
-            style={{
-              background: '#fff',
-              width: '100%',
-              maxWidth: '520px',
-              padding: '28px',
-              boxShadow:
-                '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 16,
-              }}
-            >
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: '1.1rem',
-                  fontWeight: 900,
-                  textTransform: 'uppercase',
-                }}
-              >
-                Schedule Courier Pickup
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowPickupModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '1.3rem',
-                  cursor: 'pointer',
-                  color: '#666',
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div
-              style={{
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                padding: '14px 16px',
-                marginBottom: 20,
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginBottom: 8,
-                  fontSize: '0.82rem',
-                }}
-              >
-                <span style={{ color: '#64748b', fontWeight: 600 }}>Order ID:</span>
-                <strong style={{ color: '#0f172a' }}>#{order.id}</strong>
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginBottom: 8,
-                  fontSize: '0.82rem',
-                }}
-              >
-                <span style={{ color: '#64748b', fontWeight: 600 }}>Courier Partner:</span>
-                <strong style={{ color: '#0f172a' }}>
-                  {order.shiprocket_courier_name || 'Express Courier'}
-                </strong>
-              </div>
-              <div
-                style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}
-              >
-                <span style={{ color: '#64748b', fontWeight: 600 }}>AWB Tracking Number:</span>
-                <strong style={{ fontFamily: 'monospace', color: '#4232d9' }}>
-                  {order.shiprocket_awb}
-                </strong>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '0.82rem',
-                  fontWeight: 800,
-                  textTransform: 'uppercase',
-                  marginBottom: 8,
-                }}
-              >
-                Select Pickup Date
-              </label>
-              {(() => {
-                const today = new Date().toISOString().split('T')[0];
-                const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-                return (
-                  <>
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                      {[
-                        { label: 'Today (Earliest)', val: today },
-                        { label: 'Tomorrow (Next Business Day)', val: tomorrow },
-                      ].map((p) => (
-                        <button
-                          key={p.val}
-                          type="button"
-                          onClick={() => setPickupDate(p.val)}
-                          style={{
-                            flex: 1,
-                            padding: '10px 8px',
-                            fontSize: '0.78rem',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            border:
-                              pickupDate === p.val ? '2px solid #4232d9' : '1px solid #d1d5db',
-                            background: pickupDate === p.val ? '#eef2ff' : '#fff',
-                            color: pickupDate === p.val ? '#4232d9' : '#374151',
-                          }}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                    <input
-                      type="date"
-                      value={pickupDate}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val > tomorrow) {
-                          setPickupDate(tomorrow);
-                        } else if (val < today) {
-                          setPickupDate(today);
-                        } else {
-                          setPickupDate(val);
-                        }
-                      }}
-                      min={today}
-                      max={tomorrow}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        fontSize: '0.88rem',
-                        border: '1px solid #d1d5db',
-                        fontFamily: 'inherit',
-                      }}
-                    />
-                  </>
-                );
-              })()}
-            </div>
-
-            <div
-              style={{
-                fontSize: '0.78rem',
-                color: '#475569',
-                marginBottom: 16,
-                lineHeight: 1.45,
-                background: '#f8fafc',
-                padding: '10px 12px',
-                borderLeft: '3px solid #3b82f6',
-              }}
-            >
-              💡 <strong>Courier SLA Window:</strong> Indian courier partners (Shadowfax, Delhivery,
-              etc.) only accept pickup allocations for <strong>Today</strong> or{' '}
-              <strong>Tomorrow</strong>. Manifests requested for dates beyond tomorrow are rejected
-              by courier routing systems.
-            </div>
-
-            {isPickupScheduled && (
-              <div
-                style={{
-                  background: '#ecfdf5',
-                  border: '1px solid #10b981',
-                  color: '#065f46',
-                  padding: '10px 14px',
-                  fontSize: '0.82rem',
-                  marginBottom: 16,
-                  lineHeight: 1.4,
-                }}
-              >
-                ✓ <strong>Pickup is confirmed</strong>{' '}
-                {(order as any).tracking_data?.pickup_token
-                  ? `(Token: ${(order as any).tracking_data.pickup_token})`
-                  : ''}
-                . Select a date below to reschedule if needed.
-              </div>
-            )}
-
-            {error && (
-              <div
-                style={{
-                  background: '#fef2f2',
-                  border: '1px solid #f87171',
-                  color: '#b91c1c',
-                  padding: '10px 14px',
-                  fontSize: '0.82rem',
-                  marginBottom: 16,
-                  lineHeight: 1.4,
-                }}
-              >
-                ⚠️ <strong>Pickup Scheduling Error:</strong> {error}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => setShowPickupModal(false)}
-                style={{
-                  background: '#fff',
-                  border: '1px solid #d1d5db',
-                  padding: '10px 18px',
-                  fontSize: '0.82rem',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSchedulePickup}
-                disabled={schedulingPickup}
-                style={{
-                  background: '#4232d9',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '10px 22px',
-                  fontSize: '0.82rem',
-                  fontWeight: 800,
-                  cursor: schedulingPickup ? 'not-allowed' : 'pointer',
-                  textTransform: 'uppercase',
-                }}
-              >
-                {schedulingPickup ? 'Scheduling...' : 'Confirm & Schedule Pickup →'}
-              </button>
-            </div>
-          </div>
-        </div>
+        />
       )}
 
       {/* CANCEL SHIPMENT MODAL */}
