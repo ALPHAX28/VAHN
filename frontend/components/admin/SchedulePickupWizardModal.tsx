@@ -49,9 +49,9 @@ export default function SchedulePickupWizardModal({
   const [selectedCourierId, setSelectedCourierId] = useState<number | null>(null);
   const [pickupDate, setPickupDate] = useState<string>('');
   const [deadWeight, setDeadWeight] = useState<number>(0.5);
-  const [length, setLength] = useState<number>(31);
-  const [breadth, setBreadth] = useState<number>(41);
-  const [height, setHeight] = useState<number>(2);
+  const [length, setLength] = useState<number>(15);
+  const [breadth, setBreadth] = useState<number>(15);
+  const [height, setHeight] = useState<number>(5);
 
   // Submission state
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -80,13 +80,24 @@ export default function SchedulePickupWizardModal({
           setBackendOrderDetails(res.order_details);
         }
 
-        // Initialize package details from stored dims or default
+        // Initialize package details from stored dims or default 15x15x5
         if (res.stored_weight && res.stored_weight > 0) {
           setDeadWeight(res.stored_weight);
         }
-        if (res.stored_dims?.length) setLength(res.stored_dims.length);
-        if (res.stored_dims?.breadth) setBreadth(res.stored_dims.breadth);
-        if (res.stored_dims?.height) setHeight(res.stored_dims.height);
+        if (
+          res.stored_dims?.length &&
+          res.stored_dims?.breadth &&
+          res.stored_dims?.height &&
+          !(
+            res.stored_dims.length === 31 &&
+            res.stored_dims.breadth === 41 &&
+            res.stored_dims.height === 2
+          )
+        ) {
+          setLength(res.stored_dims.length);
+          setBreadth(res.stored_dims.breadth);
+          setHeight(res.stored_dims.height);
+        }
 
         // Select recommended courier, current courier if matches, or first courier
         const recMatch = res.couriers.find((c) => c.is_recommended);
@@ -210,27 +221,31 @@ export default function SchedulePickupWizardModal({
 
   // Helper expected delivery date string
   const getDeliveryDateString = (c: CourierOption) => {
-    if (c.etd) return c.etd;
+    if (c.etd) {
+      try {
+        const d = new Date(c.etd);
+        if (!Number.isNaN(d.getTime())) {
+          return d.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          });
+        }
+      } catch {
+        // fallback
+      }
+      return c.etd;
+    }
     if (c.estimated_delivery_days) {
       const d = new Date();
       d.setDate(d.getDate() + c.estimated_delivery_days);
-      return d.toLocaleDateString('en-IN', {
+      return d.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
       });
     }
     return '2-4 Days';
-  };
-
-  // Helper expected pickup day string
-  const getExpectedPickupString = (c: CourierOption) => {
-    const today = new Date();
-    const dayName = today.toLocaleDateString('en-IN', { weekday: 'long' });
-    if (c.cutoff_time) {
-      return `Auto-Scheduled Pickup for ${dayName}`;
-    }
-    return `Scheduled for ${dayName}`;
   };
 
   // Carrier initials for logo avatar
@@ -624,7 +639,7 @@ export default function SchedulePickupWizardModal({
                   color: '#0f172a',
                 }}
               >
-                {billedWeight.toFixed(2)} Kg
+                {(backendOrderDetails?.applicable_weight ?? billedWeight).toFixed(1)} Kg
               </div>
             </div>
 
@@ -767,25 +782,71 @@ export default function SchedulePickupWizardModal({
                   </div>
                 </div>
 
-                {/* SUB-HEADER INFO & TIPS */}
-                <div style={{ marginBottom: '14px' }}>
+                {/* COURIER COUNT */}
+                <div
+                  style={{
+                    fontSize: '0.86rem',
+                    fontWeight: 800,
+                    color: '#334155',
+                    marginBottom: '12px',
+                  }}
+                >
+                  {filteredAndSortedCouriers.length} Couriers Found
+                </div>
+
+                {/* SMARTER COURIER SELECTION WITH RADAR (AI-POWERED) BANNER */}
+                <div
+                  style={{
+                    background: '#faf8ff',
+                    border: '1px solid #e0e7ff',
+                    borderRadius: '10px',
+                    padding: '14px 18px',
+                    marginBottom: '16px',
+                  }}
+                >
                   <div
                     style={{
-                      fontSize: '0.84rem',
-                      fontWeight: 800,
-                      color: '#0f172a',
-                      marginBottom: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '6px',
                     }}
                   >
-                    {filteredAndSortedCouriers.length} Couriers Found
+                    <span style={{ fontSize: '0.90rem', fontWeight: 800, color: '#1e1b4b' }}>
+                      Smarter Courier Selection with Radar
+                    </span>
+                    <span
+                      style={{
+                        background: '#6366f1',
+                        color: '#ffffff',
+                        fontSize: '0.62rem',
+                        fontWeight: 800,
+                        padding: '2px 7px',
+                        borderRadius: '4px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      AI-POWERED
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.78rem',
+                      color: '#4338ca',
+                      marginBottom: '4px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Uses real-time data of millions of shipments to measure:
                   </div>
                   <div
                     style={{
                       fontSize: '0.74rem',
-                      color: '#6366f1',
+                      color: '#4338ca',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '2px',
+                      gap: '3px',
                     }}
                   >
                     <div>• Current Stress at delivery pincode level for each courier.</div>
@@ -793,28 +854,33 @@ export default function SchedulePickupWizardModal({
                   </div>
                 </div>
 
-                {/* TABLE HEADERS (MATCHING SCREENSHOT) */}
+                {/* TABLE HEADERS */}
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'minmax(220px, 2fr) 110px 140px 110px 100px 90px 100px',
-                    padding: '8px 14px',
-                    fontSize: '0.72rem',
+                    gridTemplateColumns: 'minmax(240px, 2.5fr) 130px 170px 120px 110px 110px',
+                    padding: '10px 16px',
+                    fontSize: '0.74rem',
                     fontWeight: 700,
                     color: '#64748b',
                     borderBottom: '1px solid #e2e8f0',
                     background: '#f8fafc',
                     alignItems: 'center',
-                    gap: '8px',
+                    gap: '10px',
+                    borderRadius: '6px 6px 0 0',
                   }}
                 >
                   <div>Courier Partner</div>
                   <div style={{ textAlign: 'center' }}>Rating (Radar)</div>
                   <div>Expected Pickup</div>
                   <div>Estimated Delivery</div>
-                  <div style={{ textAlign: 'center' }}>Chargeable Wt</div>
-                  <div style={{ textAlign: 'right' }}>Charges</div>
-                  <div style={{ textAlign: 'center' }}>Action</div>
+                  <div style={{ textAlign: 'center' }}>
+                    Chargeable Weight{' '}
+                    <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>ⓘ</span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    Charges <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>ⓘ</span>
+                  </div>
                 </div>
 
                 {/* LOADING STATE */}
@@ -880,20 +946,27 @@ export default function SchedulePickupWizardModal({
                       const ratingVal = (c.rating || 4.7).toFixed(1);
 
                       return (
+                        // biome-ignore lint/a11y/noStaticElementInteractions: courier card selection
                         <div
                           key={c.courier_company_id}
+                          onClick={() => setSelectedCourierId(c.courier_company_id)}
                           style={{
                             border: isSelected
                               ? '2px solid #6366f1'
                               : isRecommended
-                                ? '1.5px solid #c7d2fe'
+                                ? '1.5px solid #818cf8'
                                 : '1px solid #e2e8f0',
                             borderRadius: '8px',
                             background: isSelected ? '#f5f3ff' : '#ffffff',
-                            padding: '12px 14px',
+                            padding: '14px 16px',
                             position: 'relative',
                             transition: 'all 0.15s ease',
-                            boxShadow: isSelected ? '0 4px 12px rgba(99, 102, 241, 0.12)' : 'none',
+                            boxShadow: isSelected
+                              ? '0 4px 12px rgba(99, 102, 241, 0.12)'
+                              : isRecommended
+                                ? '0 2px 8px rgba(129, 140, 248, 0.1)'
+                                : 'none',
+                            cursor: 'pointer',
                           }}
                         >
                           {/* Recommended Ribbon Pill */}
@@ -902,14 +975,14 @@ export default function SchedulePickupWizardModal({
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '4px',
+                                gap: '5px',
                                 background: '#7c3aed',
                                 color: '#ffffff',
-                                fontSize: '0.68rem',
+                                fontSize: '0.70rem',
                                 fontWeight: 800,
-                                padding: '2px 8px',
+                                padding: '3px 10px',
                                 borderRadius: '12px',
-                                marginBottom: '8px',
+                                marginBottom: '10px',
                               }}
                             >
                               <span>★</span> Recommended
@@ -920,18 +993,19 @@ export default function SchedulePickupWizardModal({
                             style={{
                               display: 'grid',
                               gridTemplateColumns:
-                                'minmax(220px, 2fr) 110px 140px 110px 100px 90px 100px',
+                                'minmax(240px, 2.5fr) 130px 170px 120px 110px 110px',
                               alignItems: 'center',
-                              gap: '8px',
+                              gap: '10px',
                             }}
                           >
                             {/* Column 1: Courier Logo, Name & Subtitle */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                               <input
                                 type="radio"
                                 name="courier_selection"
                                 checked={isSelected}
                                 onChange={() => setSelectedCourierId(c.courier_company_id)}
+                                onClick={(e) => e.stopPropagation()}
                                 style={{
                                   cursor: 'pointer',
                                   accentColor: '#4f46e5',
@@ -940,6 +1014,24 @@ export default function SchedulePickupWizardModal({
                                   flexShrink: 0,
                                 }}
                               />
+                              {c.courier_logo_url ? (
+                                // biome-ignore lint/performance/noImgElement: dynamic external carrier logo from Shiprocket
+                                <img
+                                  src={c.courier_logo_url}
+                                  alt={c.courier_name}
+                                  style={{
+                                    width: '44px',
+                                    height: '32px',
+                                    objectFit: 'contain',
+                                    flexShrink: 0,
+                                  }}
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                    const sibling = (e.target as HTMLElement).nextElementSibling;
+                                    if (sibling) (sibling as HTMLElement).style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
                               <div
                                 style={{
                                   width: '38px',
@@ -947,7 +1039,7 @@ export default function SchedulePickupWizardModal({
                                   borderRadius: '6px',
                                   background: badge.bg,
                                   color: badge.color,
-                                  display: 'flex',
+                                  display: c.courier_logo_url ? 'none' : 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   fontSize: '0.72rem',
@@ -964,7 +1056,7 @@ export default function SchedulePickupWizardModal({
                                     fontSize: '0.88rem',
                                     fontWeight: 800,
                                     color: '#0f172a',
-                                    lineHeight: 1.2,
+                                    lineHeight: 1.25,
                                   }}
                                 >
                                   {c.courier_name}
@@ -974,11 +1066,14 @@ export default function SchedulePickupWizardModal({
                                     fontSize: '0.72rem',
                                     color: '#64748b',
                                     marginTop: '3px',
+                                    lineHeight: 1.4,
                                   }}
                                 >
-                                  <span>{c.is_surface ? 'Surface' : 'Air'}</span>
-                                  <span> | Min-wt: {c.min_weight || 0.5} Kg</span>
-                                  <span> | RTO: ₹{c.rto_charges || 70}</span>
+                                  <div>
+                                    <span>{c.is_surface ? 'Surface' : 'Air'}</span>
+                                    <span> | Min-weight: {c.min_weight || 0.5} Kg</span>
+                                  </div>
+                                  <div>RTO Charges: ₹{c.rto_charges ?? 70}</div>
                                 </div>
                               </div>
                             </div>
@@ -994,16 +1089,16 @@ export default function SchedulePickupWizardModal({
                             >
                               <div
                                 style={{
-                                  width: '32px',
-                                  height: '32px',
+                                  width: '36px',
+                                  height: '36px',
                                   borderRadius: '50%',
-                                  border: '2px solid #22c55e',
+                                  border: '2.5px solid #22c55e',
                                   background: '#f0fdf4',
                                   color: '#15803d',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  fontSize: '0.82rem',
+                                  fontSize: '0.86rem',
                                   fontWeight: 900,
                                 }}
                               >
@@ -1013,7 +1108,7 @@ export default function SchedulePickupWizardModal({
                                 style={{
                                   fontSize: '0.62rem',
                                   color: '#64748b',
-                                  marginTop: '2px',
+                                  marginTop: '3px',
                                 }}
                               >
                                 Radar
@@ -1022,31 +1117,65 @@ export default function SchedulePickupWizardModal({
 
                             {/* Column 3: Expected Pickup */}
                             <div>
+                              {c.is_auto_pickup ? (
+                                <>
+                                  <div
+                                    style={{
+                                      fontSize: '0.74rem',
+                                      fontWeight: 700,
+                                      color: '#0284c7',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                  >
+                                    <span>⏱</span> Auto-Scheduled Pickup
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: '0.78rem',
+                                      fontWeight: 800,
+                                      color: '#0f172a',
+                                      marginTop: '1px',
+                                    }}
+                                  >
+                                    for{' '}
+                                    {c.expected_pickup
+                                      ? c.expected_pickup.replace(
+                                          /^Auto-Scheduled Pickup for\s*/i,
+                                          ''
+                                        )
+                                      : 'Monday'}
+                                  </div>
+                                </>
+                              ) : (
+                                <div
+                                  style={{
+                                    fontSize: '0.80rem',
+                                    fontWeight: 800,
+                                    color: '#0f172a',
+                                  }}
+                                >
+                                  {c.expected_pickup || 'Monday'}
+                                </div>
+                              )}
                               <div
                                 style={{
-                                  fontSize: '0.76rem',
-                                  fontWeight: 700,
-                                  color: '#0284c7',
-                                  display: 'flex',
+                                  display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '4px',
-                                }}
-                              >
-                                <span>🕒</span> {getExpectedPickupString(c)}
-                              </div>
-                              <div
-                                style={{
-                                  display: 'inline-block',
+                                  gap: '3px',
                                   background: '#ecfdf5',
                                   color: '#047857',
-                                  fontSize: '0.65rem',
+                                  fontSize: '0.64rem',
                                   fontWeight: 700,
-                                  padding: '2px 6px',
+                                  padding: '2px 7px',
                                   borderRadius: '4px',
-                                  marginTop: '3px',
+                                  marginTop: '4px',
                                 }}
                               >
-                                Pickup by Shiprocket
+                                Pickup by{' '}
+                                <span style={{ color: '#7c3aed', fontWeight: 900 }}>▷</span>{' '}
+                                Shiprocket
                               </div>
                             </div>
 
@@ -1077,39 +1206,22 @@ export default function SchedulePickupWizardModal({
                             <div style={{ textAlign: 'right' }}>
                               <div
                                 style={{
-                                  fontSize: '0.96rem',
+                                  fontSize: '1rem',
                                   fontWeight: 900,
                                   color: '#0f172a',
                                 }}
                               >
-                                ₹{c.rate.toFixed(2)}
+                                ₹{c.rate.toFixed(2)}{' '}
+                                <span
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    color: '#94a3b8',
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  ⓘ
+                                </span>
                               </div>
-                            </div>
-
-                            {/* Column 7: Action Button */}
-                            <div style={{ textAlign: 'center' }}>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedCourierId(c.courier_company_id);
-                                  setCurrentStep(2);
-                                }}
-                                style={{
-                                  background: isSelected ? '#4f46e5' : '#6366f1',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  padding: '7px 12px',
-                                  borderRadius: '6px',
-                                  fontWeight: 800,
-                                  fontSize: '0.75rem',
-                                  cursor: 'pointer',
-                                  transition: 'background 0.15s ease',
-                                  width: '100%',
-                                }}
-                              >
-                                {isSelected ? 'Ship Now ✓' : 'Ship Now'}
-                              </button>
                             </div>
                           </div>
                         </div>

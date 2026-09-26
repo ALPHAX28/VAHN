@@ -556,12 +556,16 @@ export interface CourierOption {
   courier_company_id: number;
   courier_name: string;
   rate: number;
+  base_rate?: number;
   estimated_delivery_days: number | null;
   etd: string | null;
   rating?: number;
   rto_charges?: number;
   cutoff_time?: string;
   is_recommended?: boolean;
+  is_auto_pickup?: boolean;
+  expected_pickup?: string;
+  courier_logo_url?: string;
   pickup_constraint?: 'within_2_days' | 'anytime';
   pickup_days_window: number;
   pickup_rule_description?: string;

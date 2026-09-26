@@ -4709,12 +4709,18 @@ def admin_get_available_couriers(
     t_data = order.tracking_data or {}
     stored_weight = float(t_data.get("package_weight") or 0.5)
 
-    couriers = shiprocket_service.get_available_couriers_for_order(
-        delivery_pincode=delivery_pincode,
-        weight=stored_weight,
-        order_id=order.shiprocket_order_id,
-        db=db
-    )
+    order_val = float(order.total_amount or 3010.0)
+    try:
+        couriers = shiprocket_service.get_available_couriers_for_order(
+            delivery_pincode=delivery_pincode,
+            weight=stored_weight,
+            order_id=order.shiprocket_order_id,
+            declared_value=order_val,
+            db=db
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch live courier rates from Shiprocket for order {order.id}: {e}")
+        raise HTTPException(status_code=400, detail=f"Shiprocket serviceability error: {str(e)}")
 
     # Mark currently assigned courier if one was already assigned
     current_awb = order.shiprocket_awb or ""
