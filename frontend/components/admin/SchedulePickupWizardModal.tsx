@@ -365,8 +365,8 @@ export default function SchedulePickupWizardModal({
       <div
         style={{
           background: '#ffffff',
-          width: '100%',
-          maxWidth: '1160px',
+          width: '96vw',
+          maxWidth: '1240px',
           maxHeight: '94vh',
           display: 'flex',
           flexDirection: 'column',
@@ -491,15 +491,16 @@ export default function SchedulePickupWizardModal({
           {/* LEFT SIDEBAR: ORDER DETAILS (MATCHING SCREENSHOT) */}
           <div
             style={{
-              width: '240px',
-              minWidth: '240px',
+              width: '215px',
+              minWidth: '215px',
               background: '#f8fafc',
               borderRight: '1px solid #e2e8f0',
-              padding: '20px 18px',
+              padding: '18px 16px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '18px',
+              gap: '16px',
               overflowY: 'auto',
+              flexShrink: 0,
             }}
           >
             <div>
@@ -662,8 +663,10 @@ export default function SchedulePickupWizardModal({
           <div
             style={{
               flex: 1,
-              padding: '24px 28px',
+              minWidth: 0,
+              padding: '18px 22px',
               overflowY: 'auto',
+              overflowX: 'hidden',
               background: '#ffffff',
             }}
           >
@@ -858,16 +861,19 @@ export default function SchedulePickupWizardModal({
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'minmax(240px, 2.5fr) 130px 170px 120px 110px 110px',
-                    padding: '10px 16px',
+                    gridTemplateColumns:
+                      'minmax(190px, 2fr) 70px minmax(135px, 1.2fr) 95px 80px 95px',
+                    padding: '10px 14px',
                     fontSize: '0.74rem',
                     fontWeight: 700,
                     color: '#64748b',
-                    borderBottom: '1px solid #e2e8f0',
+                    border: '1px solid transparent',
                     background: '#f8fafc',
                     alignItems: 'center',
                     gap: '10px',
-                    borderRadius: '6px 6px 0 0',
+                    borderRadius: '6px',
+                    boxSizing: 'border-box',
+                    marginBottom: '8px',
                   }}
                 >
                   <div>Courier Partner</div>
@@ -875,10 +881,9 @@ export default function SchedulePickupWizardModal({
                   <div>Expected Pickup</div>
                   <div>Estimated Delivery</div>
                   <div style={{ textAlign: 'center' }}>
-                    Chargeable Weight{' '}
-                    <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>ⓘ</span>
+                    Chargeable Wt <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>ⓘ</span>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     Charges <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>ⓘ</span>
                   </div>
                 </div>
@@ -952,21 +957,22 @@ export default function SchedulePickupWizardModal({
                           onClick={() => setSelectedCourierId(c.courier_company_id)}
                           style={{
                             border: isSelected
-                              ? '2px solid #6366f1'
+                              ? '1.5px solid #4f46e5'
                               : isRecommended
                                 ? '1.5px solid #818cf8'
                                 : '1px solid #e2e8f0',
                             borderRadius: '8px',
                             background: isSelected ? '#f5f3ff' : '#ffffff',
-                            padding: '14px 16px',
+                            padding: '12px 14px',
                             position: 'relative',
                             transition: 'all 0.15s ease',
                             boxShadow: isSelected
-                              ? '0 4px 12px rgba(99, 102, 241, 0.12)'
+                              ? '0 0 0 1px #4f46e5, 0 4px 12px rgba(99, 102, 241, 0.12)'
                               : isRecommended
                                 ? '0 2px 8px rgba(129, 140, 248, 0.1)'
                                 : 'none',
                             cursor: 'pointer',
+                            boxSizing: 'border-box',
                           }}
                         >
                           {/* Recommended Ribbon Pill */}
@@ -993,7 +999,7 @@ export default function SchedulePickupWizardModal({
                             style={{
                               display: 'grid',
                               gridTemplateColumns:
-                                'minmax(240px, 2.5fr) 130px 170px 120px 110px 110px',
+                                'minmax(190px, 2fr) 70px minmax(135px, 1.2fr) 95px 80px 95px',
                               alignItems: 'center',
                               gap: '10px',
                             }}
@@ -1089,16 +1095,16 @@ export default function SchedulePickupWizardModal({
                             >
                               <div
                                 style={{
-                                  width: '36px',
-                                  height: '36px',
+                                  width: '32px',
+                                  height: '32px',
                                   borderRadius: '50%',
-                                  border: '2.5px solid #22c55e',
+                                  border: '2px solid #22c55e',
                                   background: '#f0fdf4',
                                   color: '#15803d',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  fontSize: '0.86rem',
+                                  fontSize: '0.82rem',
                                   fontWeight: 900,
                                 }}
                               >
@@ -1106,9 +1112,9 @@ export default function SchedulePickupWizardModal({
                               </div>
                               <div
                                 style={{
-                                  fontSize: '0.62rem',
+                                  fontSize: '0.60rem',
                                   color: '#64748b',
-                                  marginTop: '3px',
+                                  marginTop: '2px',
                                 }}
                               >
                                 Radar
@@ -1206,9 +1212,10 @@ export default function SchedulePickupWizardModal({
                             <div style={{ textAlign: 'right' }}>
                               <div
                                 style={{
-                                  fontSize: '1rem',
+                                  fontSize: '0.98rem',
                                   fontWeight: 900,
                                   color: '#0f172a',
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
                                 ₹{c.rate.toFixed(2)}{' '}
