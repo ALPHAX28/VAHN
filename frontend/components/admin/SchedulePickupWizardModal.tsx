@@ -1455,39 +1455,28 @@ export default function SchedulePickupWizardModal({
                     border: '1px solid #e2e8f0',
                     borderRadius: '8px',
                     padding: '14px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
                   }}
                 >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: '0.72rem',
-                        textTransform: 'uppercase',
-                        color: '#64748b',
-                        fontWeight: 700,
-                      }}
-                    >
-                      Confirmed Pickup Schedule
-                    </div>
-                    <div style={{ fontSize: '1rem', fontWeight: 900, color: '#0f172a' }}>
-                      {formatReadableDate(pickupDate)}
-                    </div>
-                  </div>
-                  <span
+                  <div
                     style={{
-                      background: '#4f46e5',
-                      color: '#ffffff',
-                      padding: '5px 12px',
-                      fontSize: '0.75rem',
-                      fontWeight: 800,
+                      fontSize: '0.72rem',
                       textTransform: 'uppercase',
-                      borderRadius: '4px',
+                      color: '#64748b',
+                      fontWeight: 700,
                     }}
                   >
-                    Ready for Specs →
-                  </span>
+                    Confirmed Pickup Schedule
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '1rem',
+                      fontWeight: 900,
+                      color: '#0f172a',
+                      marginTop: '2px',
+                    }}
+                  >
+                    {formatReadableDate(pickupDate)}
+                  </div>
                 </div>
               </div>
             )}
