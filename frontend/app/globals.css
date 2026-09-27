@@ -6823,6 +6823,62 @@ a:active .btn-checkout-arrow,
   .admin-breadcrumb-item:not(:last-child) { display: none !important; }
 }
 
+/* ---- Shipment Action Buttons Toolbar ---- */
+/* Desktop: natural flex-row with auto-margin cancel on the right */
+.admin-shipment-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-top: 1px solid #eee;
+  padding-top: 14px;
+  align-items: center;
+}
+
+.admin-shipment-btn {
+  white-space: nowrap;
+}
+
+/* Tablet & Mobile: switch to a 2-column grid */
+@media (max-width: 768px) {
+  .admin-shipment-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding-top: 12px;
+  }
+
+  .admin-shipment-btn {
+    width: 100% !important;
+    justify-content: center;
+    text-align: center;
+    padding: 11px 10px !important;
+    font-size: 0.75rem !important;
+    /* Reset the marginLeft: auto used by cancel button on desktop */
+    margin-left: 0 !important;
+  }
+
+  /* Schedule Pickup / Dispatch button spans full width (col 1+2) */
+  .admin-shipment-btn--primary {
+    grid-column: 1 / -1;
+    font-size: 0.78rem !important;
+  }
+
+  /* Cancel button — no longer needs to be pushed right */
+  .admin-shipment-btn--danger {
+    border-color: #dc2626 !important;
+  }
+}
+
+@media (max-width: 420px) {
+  /* On very small screens, stack all buttons single column */
+  .admin-shipment-actions {
+    grid-template-columns: 1fr;
+  }
+  .admin-shipment-btn--primary {
+    grid-column: 1;
+  }
+}
+
 /* ---- Image Reordering Controls & Badges ---- */
 .admin-reorder-grid {
   display: flex;

@@ -946,14 +946,7 @@ export default function AdminOrderDetailPage() {
                 )}
 
                 <div
-                  style={{
-                    display: 'flex',
-                    gap: '10px',
-                    flexWrap: 'wrap',
-                    borderTop: '1px solid #eee',
-                    paddingTop: 14,
-                    alignItems: 'center',
-                  }}
+                  className="admin-shipment-actions"
                 >
                   {isPaymentFailed ? (
                     <div
@@ -1007,6 +1000,7 @@ export default function AdminOrderDetailPage() {
                         setShowPickupModal(true);
                       }}
                       disabled={order.status === 'CANCELLED' || order.status === 'REFUNDED'}
+                      className="admin-shipment-btn admin-shipment-btn--primary"
                       style={{
                         background: '#4232d9',
                         color: '#fff',
@@ -1132,6 +1126,7 @@ export default function AdminOrderDetailPage() {
                             setShowPickupModal(true);
                           }}
                           disabled={order.status === 'CANCELLED' || order.status === 'REFUNDED'}
+                          className="admin-shipment-btn admin-shipment-btn--primary"
                           style={{
                             background: '#4232d9',
                             color: '#fff',
@@ -1156,6 +1151,7 @@ export default function AdminOrderDetailPage() {
                         type="button"
                         onClick={handleDownloadLabel}
                         disabled={downloadingLabel}
+                        className="admin-shipment-btn"
                         style={{
                           background: '#000',
                           color: '#fff',
@@ -1176,6 +1172,7 @@ export default function AdminOrderDetailPage() {
                         type="button"
                         onClick={handleDownloadInvoice}
                         disabled={downloadingInvoice}
+                        className="admin-shipment-btn"
                         style={{
                           background: '#fff',
                           color: '#000',
@@ -1196,6 +1193,7 @@ export default function AdminOrderDetailPage() {
                         <button
                           type="button"
                           onClick={() => setShowCancelShipmentModal(true)}
+                          className="admin-shipment-btn admin-shipment-btn--danger"
                           style={{
                             background: '#fff',
                             color: '#dc2626',
