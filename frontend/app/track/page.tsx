@@ -16,6 +16,7 @@ import {
 } from '@/components/icons/Icons';
 import { getPublicOrderInvoice, getPublicTracking } from '@/lib/api';
 import type { TrackingInfo } from '@/lib/api/types';
+import { prettifyActivityLabel, prettifyShipStatus } from '@/lib/shipStatus';
 
 function TrackingContent() {
   const searchParams = useSearchParams();
@@ -1218,7 +1219,7 @@ function TrackingContent() {
                 const reversedScans = [...rawScans].reverse();
                 reversedScans.forEach((s) => {
                   checkpoints.push({
-                    title: s.activity || 'Shipment Scan',
+                    title: prettifyActivityLabel(s.activity) || 'Shipment Update',
                     location: s.location || undefined,
                     timestamp: s.date || undefined,
                   });

@@ -10,6 +10,7 @@ import {
   MapPinIcon, PrinterIcon, PackageIcon, TruckIcon,
   SparklesIcon, CheckIcon, PhoneIcon, ChevronLeftIcon, XIcon
 } from "@/components/icons/Icons";
+import { prettifyShipStatus, prettifyActivityLabel } from "@/lib/shipStatus";
 
 import { toast } from "sonner";
 
@@ -971,7 +972,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: "0.85rem", fontWeight: 900, textTransform: "uppercase", color: "#000" }}>
-                      {order.shippingStatus || "SHIPPED"}
+                      {prettifyShipStatus(order.shippingStatus || order.status)}
                     </span>
                     {forwardCurrentLoc && (
                       <span
@@ -1550,7 +1551,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                         textTransform: "uppercase",
                       }}
                     >
-                      {order.shippingStatus || order.status}
+                      {prettifyShipStatus(order.shippingStatus || order.status)}
                     </span>
                   </div>
 
@@ -1689,7 +1690,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                               <div style={{ paddingBottom: 20, flex: 1 }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
                                   <span style={{ fontSize: "0.88rem", fontWeight: 900, color: isLatest ? "#4232d9" : "#000" }}>
-                                    {scan.activity}
+                                    {prettifyActivityLabel(scan.activity)}
                                   </span>
                                   <span style={{ fontSize: "0.72rem", color: "#888", fontWeight: 600 }}>
                                     {scan.date || "Recorded"}
