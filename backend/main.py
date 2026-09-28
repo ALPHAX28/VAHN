@@ -81,9 +81,74 @@ async def _db_heartbeat_loop():
         except Exception:
             pass
 
+
+async def _shiprocket_status_sync_loop():
+    """
+    Background polling loop that runs every 10 minutes.
+    Fetches all active (non-cancelled, non-delivered) orders that have a Shiprocket AWB
+    and checks their live status from Shiprocket. If Shiprocket shows the order as
+    cancelled/revoked, automatically triggers execute_order_cancellation so our DB stays
+    in sync without relying on Shiprocket webhooks being perfectly configured.
+    """
+    # Wait 60s after startup before first poll so server is fully initialised
+    await asyncio.sleep(60)
+    while True:
+        try:
+            db = next(get_db())
+            try:
+                active_orders = (
+                    db.query(models.Order)
+                    .options(selectinload(models.Order.items))
+                    .filter(
+                        models.Order.shiprocket_awb.isnot(None),
+                        models.Order.shiprocket_awb != "",
+                        models.Order.status.notin_(["CANCELLED", "DELIVERED", "REFUNDED"]),
+                    )
+                    .all()
+                )
+                logger.info(f"[SR Sync] Polling {len(active_orders)} active Shiprocket orders for status sync.")
+                for order in active_orders:
+                    try:
+                        live = shiprocket_service.track_awb(order.shiprocket_awb)
+                        if not live or not isinstance(live, dict):
+                            continue
+                        curr_st = live.get("current_status") or ""
+                        curr_code = live.get("current_status_id") or live.get("status_code")
+                        if is_shiprocket_cancelled(curr_st, curr_code):
+                            logger.info(
+                                f"[SR Sync] Order {order.id} (AWB={order.shiprocket_awb}) is CANCELLED in Shiprocket "
+                                f"(status='{curr_st}', code={curr_code}). Auto-cancelling in app."
+                            )
+                            execute_order_cancellation(
+                                order=order,
+                                db=db,
+                                reason=f"Auto-synced cancellation from Shiprocket: {curr_st}",
+                                cancel_in_shiprocket=False,
+                                refund_note="Automated refund: order cancelled in Shiprocket dashboard"
+                            )
+                        else:
+                            # Also keep shipping_status and tracking_data in sync
+                            if curr_st and order.status != "CANCELLED":
+                                order.shipping_status = str(curr_st).upper()
+                                merged = dict(order.tracking_data or {})
+                                merged.update(live)
+                                order.tracking_data = merged
+                    except Exception as e_ord:
+                        logger.warning(f"[SR Sync] Error syncing order {order.id}: {e_ord}")
+                db.commit()
+            finally:
+                db.close()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"[SR Sync] Unexpected error in status sync loop: {e}")
+        # Poll every 10 minutes
+        await asyncio.sleep(600)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     heartbeat_task = asyncio.create_task(_db_heartbeat_loop())
+    sr_sync_task = asyncio.create_task(_shiprocket_status_sync_loop())
     try:
         from sqlalchemy import text
         with database.SessionLocal() as s:
@@ -93,10 +158,12 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Could not auto-sanitize product shipping rates: {e}")
     yield
     heartbeat_task.cancel()
-    try:
-        await heartbeat_task
-    except Exception:
-        pass
+    sr_sync_task.cancel()
+    for t in (heartbeat_task, sr_sync_task):
+        try:
+            await t
+        except Exception:
+            pass
 
 root_path = "/api/backend" if os.getenv("VERCEL") else ""
 app = FastAPI(
@@ -2263,11 +2330,13 @@ def magic_checkout_order(
 
 def is_shiprocket_cancelled(status_str: Optional[str], status_code: Optional[Any] = None) -> bool:
     """Helper to detect cancellation statuses from Shiprocket webhooks or API responses."""
+    # Status code 5 = Cancelled, 6 = RTO Initiated (also means shipment won't be delivered)
     if status_code in (5, "5"):
         return True
     if not status_str:
         return False
     normalized = str(status_str).strip().upper()
+    # Exact and partial patterns seen in real Shiprocket responses / dashboard
     cancellation_indicators = [
         "CANCEL",
         "CANCELED",
@@ -2278,6 +2347,21 @@ def is_shiprocket_cancelled(status_str: Optional[str], status_code: Optional[Any
         "CANCELED BY SHIPPER",
         "CANCELLED BEFORE DISPATCH",
         "CANCELED BEFORE DISPATCH",
+        # Seller-initiated cancellation strings (seen in Shiprocket dashboard & webhooks)
+        "CANCELLED BY SELLER",
+        "CANCELED BY SELLER",
+        "SELLER CANCELLED",
+        "SELLER CANCELED",
+        # "Manifested - Seller cancelled the order" (exact string from screenshot)
+        "SELLER CANCELLED THE ORDER",
+        "SELLER CANCELED THE ORDER",
+        # Shiprocket revocation events
+        "SHIPMENT REVOKED",
+        "REVOKED",
+        # NDR/RTO terminal states where shipment won't reach customer
+        "LOST",
+        "DESTROYED",
+        "UNDELIVERED AND RETURNED",
     ]
     return any(ind in normalized for ind in cancellation_indicators)
 
