@@ -22,6 +22,31 @@ BASE_URL = "https://apiv2.shiprocket.in/v1/external"
 
 _cached_token: Optional[str] = None
 _token_expiry: float = 0.0
+_cached_channel_id: Optional[str] = None
+_cached_seller_location_id: Optional[str] = None
+
+# Shiprocket Exchange & Return Reason Codes
+# 25: Defective product | 26: Damaged product | 27: Wrong item sent | 28: Quality not as expected
+# 29: Size / Fit issue (Default for exchanges) | 30: Color mismatch | 31: Missing items
+# 32: Better price | 33: Customer remorse | 34: Late delivery | 35: Fabric/material issue | 36: Other
+SHIPROCKET_RETURN_REASONS: Dict[str, str] = {
+    "size": "29",
+    "fit": "29",
+    "defective": "25",
+    "defect": "25",
+    "damaged": "26",
+    "damage": "26",
+    "wrong": "27",
+    "quality": "28",
+    "color": "30",
+    "colour": "30",
+    "missing": "31",
+    "price": "32",
+    "remorse": "33",
+    "late": "34",
+    "fabric": "35",
+    "material": "35",
+}
 
 
 def is_configured() -> bool:
@@ -301,6 +326,99 @@ def check_serviceability(delivery_pincode: str, weight: float = 0.5, db: Optiona
         "message": "Logistics verification service is currently offline.",
         "pincode": clean_pincode,
         "is_cod": False
+    }
+
+
+def check_reverse_serviceability(
+    customer_pincode: str,
+    weight: float = 0.5,
+    db: Optional[Session] = None
+) -> Dict[str, Any]:
+    """
+    Checks courier partner serviceability for reverse pickup from customer PIN code to primary warehouse.
+    """
+    clean_pincode = str(customer_pincode).strip()
+    if not clean_pincode or len(clean_pincode) != 6 or not clean_pincode.isdigit() or clean_pincode.startswith("0"):
+        return {
+            "serviceable": False,
+            "estimated_days": "N/A",
+            "courier_name": None,
+            "message": "Invalid PIN code. Indian postal codes must be 6 digits and cannot start with 0.",
+            "pincode": clean_pincode,
+        }
+
+    token = get_auth_token()
+    wh = get_primary_warehouse(db)
+    warehouse_pin = wh.get("pin_code", SHIPROCKET_PICKUP_PINCODE or "110019")
+
+    if token:
+        try:
+            with httpx.Client(timeout=12.0) as client:
+                res = client.get(
+                    f"{BASE_URL}/courier/serviceability/",
+                    params={
+                        "pickup_postcode": clean_pincode,
+                        "delivery_postcode": warehouse_pin,
+                        "weight": str(weight),
+                        "cod": "0",
+                        "is_reverse": "1"
+                    },
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                if res.status_code == 200:
+                    res_data = res.json()
+                    data = res_data.get("data", {})
+                    companies = data.get("available_courier_companies", [])
+                    if companies:
+                        best = sorted(
+                            companies,
+                            key=lambda c: (
+                                int(c.get("estimated_delivery_days") or 99) if str(c.get("estimated_delivery_days", "")).isdigit() else 99,
+                                float(c.get("rate") or 9999)
+                            )
+                        )[0]
+                        est_days = best.get("estimated_delivery_days")
+                        return {
+                            "serviceable": True,
+                            "estimated_days": f"{est_days} business days" if est_days else "3-5 business days",
+                            "courier_name": best.get("courier_name", "Shiprocket Reverse"),
+                            "shipping_rate": float(best.get("rate", 0)),
+                            "pincode": clean_pincode
+                        }
+                    else:
+                        api_msg = res_data.get("message")
+                        return {
+                            "serviceable": False,
+                            "estimated_days": "N/A",
+                            "courier_name": None,
+                            "message": api_msg or "Reverse pickup is not available by courier partners for this PIN code.",
+                            "pincode": clean_pincode
+                        }
+                else:
+                    err_msg = res.json().get("message", "Reverse pickup is not available for this PIN code.")
+                    return {
+                        "serviceable": False,
+                        "estimated_days": "N/A",
+                        "courier_name": None,
+                        "message": err_msg,
+                        "pincode": clean_pincode
+                    }
+        except Exception as e:
+            logger.warning(f"Shiprocket reverse serviceability check error: {e}")
+            return {
+                "serviceable": False,
+                "estimated_days": "N/A",
+                "courier_name": None,
+                "message": f"Logistics network error: {str(e)}",
+                "pincode": clean_pincode
+            }
+
+    return {
+        "serviceable": False,
+        "estimated_days": "N/A",
+        "courier_name": None,
+        "message": "Logistics verification service is currently offline.",
+        "pincode": clean_pincode
     }
 
 
@@ -993,6 +1111,311 @@ def create_reverse_pickup(
             }
         else:
             raise ValueError(f"Shiprocket reverse pickup failed: {res.text}")
+
+
+def get_channel_id() -> str:
+    """Fetches and caches the active custom channel ID from Shiprocket."""
+    global _cached_channel_id
+    if _cached_channel_id:
+        return _cached_channel_id
+
+    token = get_auth_token()
+    if token:
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                res = client.get(f"{BASE_URL}/channels", headers={"Authorization": f"Bearer {token}"})
+                if res.status_code == 200:
+                    channels = res.json().get("data", [])
+                    for ch in channels:
+                        if ch.get("status") == "Active":
+                            _cached_channel_id = str(ch.get("id"))
+                            return _cached_channel_id
+        except Exception as e:
+            logger.warning(f"Could not fetch channel ID from Shiprocket: {e}")
+
+    # Fallback to verified active VAHN custom channel ID
+    return "10365865"
+
+
+def get_seller_location_id(db: Optional[Session] = None) -> str:
+    """
+    Resolves the numeric warehouse location ID required by Shiprocket order creation endpoints.
+    Prioritizes DB WarehouseLocation.shiprocket_pickup_id, then queries Shiprocket pickup locations API.
+    """
+    global _cached_seller_location_id
+    if _cached_seller_location_id:
+        return _cached_seller_location_id
+
+    # 1. Check database for primary warehouse location with a valid numeric shiprocket_pickup_id
+    close_db = False
+    if db is None:
+        try:
+            db = database.SessionLocal()
+            close_db = True
+        except Exception:
+            pass
+
+    if db:
+        try:
+            wh = db.query(models.WarehouseLocation).filter(
+                models.WarehouseLocation.is_primary == True,
+                models.WarehouseLocation.pickup_location != "Primary",
+                models.WarehouseLocation.phone != ""
+            ).first()
+            if not wh:
+                wh = db.query(models.WarehouseLocation).first()
+            if wh and wh.shiprocket_pickup_id and str(wh.shiprocket_pickup_id).strip().isdigit():
+                _cached_seller_location_id = str(wh.shiprocket_pickup_id).strip()
+                return _cached_seller_location_id
+        except Exception as e:
+            logger.debug(f"DB lookup for warehouse location ID failed: {e}")
+        finally:
+            if close_db:
+                db.close()
+
+    # 2. Query Shiprocket registered pickup locations API
+    locations = fetch_shiprocket_pickup_locations()
+    target_loc = SHIPROCKET_PICKUP_LOCATION or "Home"
+    for loc in locations:
+        if loc.get("status") == 1 and loc.get("pickup_location") == target_loc:
+            _cached_seller_location_id = str(loc.get("id"))
+            return _cached_seller_location_id
+
+    # If exact nickname not matched, pick first active verified location
+    for loc in locations:
+        if loc.get("status") == 1 and str(loc.get("phone", "")).strip():
+            _cached_seller_location_id = str(loc.get("id"))
+            return _cached_seller_location_id
+
+    # 3. Known fallback for Home warehouse
+    return "110332741"
+
+
+def map_return_reason_id(reason: Optional[str]) -> str:
+    """Maps free-text return/exchange reason to Shiprocket numeric return reason ID."""
+    if not reason:
+        return "29"
+    r = reason.lower()
+    for key, code in SHIPROCKET_RETURN_REASONS.items():
+        if key in r:
+            return code
+    return "29"
+
+
+def _split_name(full_name: Optional[str]) -> tuple[str, str]:
+    """Splits full customer name into first and last name safely."""
+    parts = (full_name or "Customer").strip().split(maxsplit=1)
+    first_name = parts[0] if parts else "Customer"
+    last_name = parts[1] if len(parts) > 1 else first_name
+    return first_name, last_name
+
+
+def _clean_phone(raw_phone: Optional[str]) -> str:
+    """Cleans phone numbers to ensure standard 10-digit format for Indian telecom."""
+    cleaned = re.sub(r"[^\d]", "", str(raw_phone or ""))
+    if cleaned.startswith("91") and len(cleaned) == 12:
+        cleaned = cleaned[2:]
+    elif cleaned.startswith("0") and len(cleaned) == 11:
+        cleaned = cleaned[1:]
+    return cleaned if len(cleaned) == 10 else "9876543210"
+
+
+def create_exchange_order(
+    order: Any,
+    original_item: Optional[Any] = None,
+    replacement_variant: Optional[Any] = None,
+    return_reason: str = "Size Mismatch",
+    pickup_address: Optional[Dict[str, Any]] = None,
+    db: Optional[Session] = None,
+) -> Dict[str, Any]:
+    """
+    Creates an automated paired Exchange Order on Shiprocket (POST /orders/create/exchange).
+    Simultaneously books reverse return pickup from customer and forward replacement shipment from warehouse,
+    configuring Doorstep QC inspection flags. Gracefully falls back to create_reverse_pickup() on any failure.
+    """
+    token = get_auth_token()
+    if not token:
+        logger.warning("Shiprocket authentication offline during exchange creation; using fallback.")
+        return create_reverse_pickup(order, return_reason=return_reason, db=db)
+
+    # 1. Resolve customer pickup/shipping addresses
+    addr = pickup_address or (order.shipping_address if isinstance(order.shipping_address, dict) else {})
+    raw_name = (
+        (order.user.full_name if order.user and order.user.full_name else None)
+        or order.guest_name
+        or addr.get("name")
+        or "Customer"
+    )
+    first_name, last_name = _split_name(raw_name)
+
+    raw_phone = (
+        (order.user.phone if order.user and order.user.phone else None)
+        or order.guest_phone
+        or addr.get("phone")
+        or "9876543210"
+    )
+    phone = _clean_phone(raw_phone)
+
+    email = (
+        (order.user.email if order.user and order.user.email else None)
+        or order.guest_email
+        or addr.get("email")
+        or "customer@vahnsports.com"
+    )
+
+    street_addr = addr.get("address") or addr.get("streetAddress") or "Customer Address"
+    city = addr.get("city") or "Delhi"
+    state = addr.get("state") or "Delhi"
+    country = addr.get("country") or "India"
+    pincode = str(addr.get("postalCode") or addr.get("pincode") or "110001").strip()
+
+    # 2. Resolve warehouse location IDs & channels
+    seller_loc_id = get_seller_location_id(db)
+    channel_id = get_channel_id()
+    reason_id = map_return_reason_id(return_reason)
+
+    # 3. Resolve original and replacement items
+    if original_item is None and hasattr(order, "items") and order.items:
+        original_item = order.items[0]
+
+    orig_name = original_item.product_title if original_item else "Apparel Item"
+    orig_sku = getattr(original_item, "variant_id", None) or getattr(original_item, "id", "SKU-001")
+    orig_price = float(getattr(original_item, "price_amount", 0.0) or (order.total_amount if order else 500.0))
+    orig_img = getattr(original_item, "image_url", None) or "https://vahnsports.com/logo.png"
+
+    rep_name = f"{orig_name} ({replacement_variant.title})" if replacement_variant else f"{orig_name} (Exchange)"
+    rep_sku = getattr(replacement_variant, "id", f"EXC-{orig_sku}")
+    rep_size = getattr(replacement_variant, "title", "M")
+
+    order_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    exchange_order_id = f"EXC-{order.id}"
+    return_order_id = f"RET-{order.id}"
+
+    payload = {
+        "order_items": [
+            {
+                "name": orig_name,
+                "selling_price": f"{orig_price:.2f}",
+                "units": "1",
+                "hsn": "610910",
+                "sku": str(orig_sku),
+                "tax": "",
+                "discount": "",
+                "brand": "VAHN",
+                "color": "",
+                "exchange_item_id": str(rep_sku),
+                "exchange_item_name": rep_name,
+                "exchange_item_sku": str(rep_sku),
+                "qc_enable": True,
+                "qc_product_name": orig_name,
+                "qc_product_image": orig_img,
+                "qc_brand": "VAHN",
+                "qc_color": "",
+                "qc_size": str(rep_size),
+                "accessories": "",
+                "qc_used_check": "1",
+                "qc_sealtag_check": "1",
+                "qc_brand_box": "1",
+                "qc_check_damaged_product": "yes",
+            }
+        ],
+        "buyer_pickup_first_name": first_name,
+        "buyer_pickup_last_name": last_name,
+        "buyer_pickup_email": email,
+        "buyer_pickup_address": street_addr,
+        "buyer_pickup_address_2": "",
+        "buyer_pickup_city": city,
+        "buyer_pickup_state": state,
+        "buyer_pickup_country": country,
+        "buyer_pickup_phone": phone,
+        "buyer_pickup_pincode": pincode,
+        "buyer_shipping_first_name": first_name,
+        "buyer_shipping_last_name": last_name,
+        "buyer_shipping_email": email,
+        "buyer_shipping_address": street_addr,
+        "buyer_shipping_address_2": "",
+        "buyer_shipping_city": city,
+        "buyer_shipping_state": state,
+        "buyer_shipping_country": country,
+        "buyer_shipping_phone": phone,
+        "buyer_shipping_pincode": pincode,
+        "seller_pickup_location_id": str(seller_loc_id),
+        "seller_shipping_location_id": str(seller_loc_id),
+        "exchange_order_id": exchange_order_id,
+        "return_order_id": return_order_id,
+        "payment_method": "prepaid",
+        "order_date": order_date,
+        "channel_id": channel_id,
+        "existing_order_id": "",
+        "return_reason": reason_id,
+        "sub_total": f"{orig_price:.2f}",
+        "shipping_charges": "0",
+        "giftwrap_charges": "0",
+        "total_discount": "0",
+        "transaction_charges": "0",
+        "exchange_length": "15",
+        "exchange_breadth": "15",
+        "exchange_height": "5",
+        "exchange_weight": "0.5",
+        "return_length": "15.00",
+        "return_breadth": "15.00",
+        "return_height": "5.00",
+        "return_weight": "0.500",
+        "qc_check": "true",
+    }
+
+    try:
+        with httpx.Client(timeout=18.0) as client:
+            res = client.post(
+                f"{BASE_URL}/orders/create/exchange",
+                json=payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if res.status_code in (200, 201):
+                data = res.json().get("data", {})
+                fwd = data.get("forward_orders", {})
+                ret = data.get("return_orders", {})
+                logger.info(
+                    f"Successfully created paired Shiprocket exchange order: fwd_id={fwd.get('order_id')}, "
+                    f"ret_id={ret.get('order_id')}"
+                )
+                return {
+                    "is_native_exchange": True,
+                    "reverse_shipment_id": str(ret.get("shipment_id", "")),
+                    "reverse_order_id": str(ret.get("order_id", "")),
+                    "reverse_awb": str(ret.get("awb_code", "")),
+                    "reverse_courier_name": ret.get("courier_name") or "Shiprocket Reverse",
+                    "reverse_status": "PICKUP_SCHEDULED",
+                    "replacement_shipment_id": str(fwd.get("shipment_id", "")),
+                    "replacement_order_id": str(fwd.get("order_id", "")),
+                    "replacement_awb": str(fwd.get("awb_code", "")),
+                    "replacement_courier_name": fwd.get("courier_name") or "Shiprocket Express",
+                    "replacement_status": "PICKUP_SCHEDULED",
+                    "raw_response": data,
+                }
+            else:
+                logger.warning(
+                    f"Shiprocket native exchange API returned {res.status_code}: {res.text}. "
+                    f"Executing graceful fallback to create_reverse_pickup()."
+                )
+    except Exception as exc:
+        logger.error(f"Error during Shiprocket create_exchange_order: {exc}. Executing graceful fallback.")
+
+    # Graceful fallback to reverse pickup creation
+    rev_res = create_reverse_pickup(order, return_reason=return_reason, db=db)
+    return {
+        "is_native_exchange": False,
+        "reverse_shipment_id": rev_res.get("reverse_shipment_id", ""),
+        "reverse_order_id": "",
+        "reverse_awb": rev_res.get("reverse_awb", ""),
+        "reverse_courier_name": rev_res.get("reverse_courier_name", "Shiprocket Reverse"),
+        "reverse_status": rev_res.get("reverse_status", "PICKUP_SCHEDULED"),
+        "replacement_shipment_id": "",
+        "replacement_order_id": "",
+        "replacement_awb": "",
+        "replacement_courier_name": "",
+        "replacement_status": "PICKUP_SCHEDULED",
+    }
 
 
 def sanitize_shiprocket_url(url: Optional[str]) -> str:

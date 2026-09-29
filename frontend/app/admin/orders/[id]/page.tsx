@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import AdminBadge from '@/components/admin/AdminBadge';
 import SchedulePickupWizardModal from '@/components/admin/SchedulePickupWizardModal';
 import {
@@ -22,6 +23,7 @@ import {
   getAdminOrderInvoice,
   getAdminOrderManifest,
   getAdminOrderShippingLabel,
+  notifyAdminOrderReturn,
   refreshAdminOrderTracking,
   refundAdminOrder,
   shipAdminOrder,
@@ -69,6 +71,15 @@ export default function AdminOrderDetailPage() {
   const [replacementAwbInput, setReplacementAwbInput] = useState('');
   const [replacementCourierInput, setReplacementCourierInput] = useState('Blue Dart Air');
 
+  // Customer Return Notification Modal
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [notifyType, setNotifyType] = useState<
+    'UPDATE' | 'PICKUP_REMINDER' | 'VERIFIED' | 'CUSTOM'
+  >('UPDATE');
+  const [notifySubject, setNotifySubject] = useState('');
+  const [notifyCustomMessage, setNotifyCustomMessage] = useState('');
+  const [notifyingCustomer, setNotifyingCustomer] = useState(false);
+
   async function handleDispatchReplacement() {
     if (!adminToken || !order) return;
     if (!replacementAwbInput) {
@@ -85,11 +96,34 @@ export default function AdminOrderDetailPage() {
       });
       setOrder(res);
       setSuccess(`Replacement shipment marked as dispatched (AWB: ${replacementAwbInput})!`);
+      toast.success(
+        `Replacement dispatched (AWB: ${replacementAwbInput}). Customer notified via email.`
+      );
       setTimeout(() => setSuccess(''), 4000);
     } catch (e: any) {
       setError(e?.message || 'Failed to dispatch replacement.');
+      toast.error(e?.message || 'Failed to dispatch replacement.');
     } finally {
       setDispatchingReplacement(false);
+    }
+  }
+
+  async function handleNotifyCustomer() {
+    if (!adminToken || !order) return;
+    setNotifyingCustomer(true);
+    try {
+      const res = await notifyAdminOrderReturn(adminToken, order.id, {
+        notification_type: notifyType,
+        custom_message: notifyCustomMessage || undefined,
+        subject: notifySubject || undefined,
+      });
+      toast.success(res.message || 'Customer notified successfully via email!');
+      setShowNotifyModal(false);
+      setNotifyCustomMessage('');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to send notification to customer.');
+    } finally {
+      setNotifyingCustomer(false);
     }
   }
 
@@ -945,9 +979,7 @@ export default function AdminOrderDetailPage() {
                   </div>
                 )}
 
-                <div
-                  className="admin-shipment-actions"
-                >
+                <div className="admin-shipment-actions">
                   {isPaymentFailed ? (
                     <div
                       style={{
@@ -1274,6 +1306,35 @@ export default function AdminOrderDetailPage() {
                       </h2>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotifyType('UPDATE');
+                          setNotifySubject(
+                            isReplacement
+                              ? `Update on your Size Exchange for Order #${order.id}`
+                              : `Update on your Return Request for Order #${order.id}`
+                          );
+                          setNotifyCustomMessage('');
+                          setShowNotifyModal(true);
+                        }}
+                        style={{
+                          background: '#fff',
+                          border: `1px solid ${isReplacement ? '#7c3aed' : '#d46b08'}`,
+                          color: isReplacement ? '#7c3aed' : '#d46b08',
+                          padding: '5px 12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          borderRadius: '0px',
+                          textTransform: 'uppercase',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        ✉ Notify Customer
+                      </button>
                       {order.reverse_awb && (
                         <button
                           type="button"
@@ -2504,6 +2565,312 @@ export default function AdminOrderDetailPage() {
                 {processingRefund
                   ? 'Processing Refund...'
                   : `Refund ₹${refundAmount.toLocaleString('en-IN')} →`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NOTIFY CUSTOMER MODAL */}
+      {showNotifyModal && order && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.65)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={() => setShowNotifyModal(false)}
+        >
+          <div
+            style={{
+              background: '#fff',
+              maxWidth: 540,
+              width: '100%',
+              padding: '28px',
+              borderRadius: '0px',
+              border: '2px solid #000',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                marginBottom: 14,
+              }}
+            >
+              <div>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    color: order.return_type === 'REPLACEMENT' ? '#7c3aed' : '#d46b08',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  Customer Communication Dispatch
+                </span>
+                <h3
+                  style={{
+                    fontSize: '1.25rem',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    margin: '2px 0 0',
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  Notify Customer #{order.id}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNotifyModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.4rem',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  color: '#999',
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Recipient Details Preview Card */}
+            <div
+              style={{
+                background: '#f9fafb',
+                border: '1px solid #e5e7eb',
+                padding: '12px 14px',
+                marginBottom: 18,
+                fontSize: '0.8rem',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 8,
+              }}
+            >
+              <div>
+                <span
+                  style={{
+                    color: '#6b7280',
+                    fontSize: '0.72rem',
+                    textTransform: 'uppercase',
+                    display: 'block',
+                    fontWeight: 700,
+                  }}
+                >
+                  Recipient Email
+                </span>
+                <strong style={{ color: '#111', wordBreak: 'break-all' }}>
+                  {order.guest_email || order.user_email || 'No email on file'}
+                </strong>
+              </div>
+              <div>
+                <span
+                  style={{
+                    color: '#6b7280',
+                    fontSize: '0.72rem',
+                    textTransform: 'uppercase',
+                    display: 'block',
+                    fontWeight: 700,
+                  }}
+                >
+                  Customer Phone
+                </span>
+                <strong style={{ color: '#111' }}>
+                  {order.guest_phone || (order.shipping_address as any)?.phone || '—'}
+                </strong>
+              </div>
+            </div>
+
+            {/* Preset Message Type Selector */}
+            <div style={{ marginBottom: 16 }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  marginBottom: 8,
+                }}
+              >
+                Notification Reason / Template
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                {[
+                  {
+                    type: 'UPDATE',
+                    label: 'Logistics Update',
+                    desc: 'Courier milestones & transit updates',
+                    defaultSubject: `Update on your ${order.return_type === 'REPLACEMENT' ? 'Size Exchange' : 'Return'} - Order #${order.id}`,
+                  },
+                  {
+                    type: 'PICKUP_REMINDER',
+                    label: 'Doorstep Pickup Reminder',
+                    desc: 'Pack item securely with tags intact',
+                    defaultSubject: `Doorstep Pickup Reminder for Order #${order.id}`,
+                  },
+                  {
+                    type: 'VERIFIED',
+                    label: 'Return Inspected',
+                    desc: 'Item received & verified at warehouse',
+                    defaultSubject: `Return Parcel Received & Verified - Order #${order.id}`,
+                  },
+                  {
+                    type: 'CUSTOM',
+                    label: 'Custom Communication',
+                    desc: 'Custom message from VAHN support',
+                    defaultSubject: `Important update regarding your Order #${order.id}`,
+                  },
+                ].map((item) => {
+                  const isSelected = notifyType === item.type;
+                  return (
+                    <button
+                      key={item.type}
+                      type="button"
+                      onClick={() => {
+                        setNotifyType(item.type as any);
+                        setNotifySubject(item.defaultSubject);
+                        if (item.type === 'PICKUP_REMINDER' && !notifyCustomMessage) {
+                          setNotifyCustomMessage(
+                            'Please keep the item safely packed in its original carton with all tags intact. The courier executive will collect it from your shipping address.'
+                          );
+                        } else if (item.type === 'VERIFIED' && !notifyCustomMessage) {
+                          setNotifyCustomMessage(
+                            'Your return shipment has been received at our warehouse and successfully verified by our QA team.'
+                          );
+                        }
+                      }}
+                      style={{
+                        textAlign: 'left',
+                        padding: '10px 12px',
+                        border: isSelected ? '2px solid #000' : '1px solid #d1d5db',
+                        background: isSelected ? '#f3f4f6' : '#fff',
+                        cursor: 'pointer',
+                        borderRadius: '0px',
+                      }}
+                    >
+                      <div
+                        style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}
+                      >
+                        {item.label}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: 2 }}>
+                        {item.desc}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Email Subject Line */}
+            <div style={{ marginBottom: 14 }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  marginBottom: 6,
+                }}
+              >
+                Email Subject Line *
+              </label>
+              <input
+                type="text"
+                value={notifySubject}
+                onChange={(e) => setNotifySubject(e.target.value)}
+                placeholder="Enter subject line for the email notification..."
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #ccc',
+                  borderRadius: '0px',
+                  fontSize: '0.85rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Custom Notes / Message Body */}
+            <div style={{ marginBottom: 20 }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  marginBottom: 6,
+                }}
+              >
+                Custom Message / Instructions to Customer
+              </label>
+              <textarea
+                rows={4}
+                value={notifyCustomMessage}
+                onChange={(e) => setNotifyCustomMessage(e.target.value)}
+                placeholder="Type additional details, courier handover instructions, or updates that will be included in the email..."
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #ccc',
+                  borderRadius: '0px',
+                  fontSize: '0.85rem',
+                  outline: 'none',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowNotifyModal(false)}
+                disabled={notifyingCustomer}
+                style={{
+                  background: '#fff',
+                  border: '1px solid #ccc',
+                  padding: '10px 18px',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  borderRadius: '0px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleNotifyCustomer}
+                disabled={notifyingCustomer || !notifySubject.trim()}
+                style={{
+                  background: '#000',
+                  color: '#fff',
+                  border: '2px solid #000',
+                  padding: '10px 22px',
+                  fontSize: '0.8rem',
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  cursor: notifyingCustomer || !notifySubject.trim() ? 'not-allowed' : 'pointer',
+                  borderRadius: '0px',
+                  opacity: notifyingCustomer || !notifySubject.trim() ? 0.6 : 1,
+                }}
+              >
+                {notifyingCustomer ? 'Dispatching Email...' : 'Send Notification Email →'}
               </button>
             </div>
           </div>

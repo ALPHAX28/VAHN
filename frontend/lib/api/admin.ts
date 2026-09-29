@@ -868,3 +868,36 @@ export const uploadMediaDirect = async (
 
   return res.json();
 };
+
+export const notifyAdminOrderReturn = async (
+  token: string,
+  orderId: string,
+  payload: {
+    notification_type?: string;
+    custom_message?: string;
+    subject?: string;
+  }
+): Promise<{ status: string; message: string }> => {
+  const baseUrl = getApiBaseUrl();
+  const res = await fetch(`${baseUrl}/admin/orders/${orderId}/notify-return`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errDetail = 'Failed to send return notification';
+    try {
+      const err = await res.json();
+      errDetail = err.detail || err.message || errDetail;
+    } catch {
+      errDetail = `Request failed with HTTP ${res.status}`;
+    }
+    throw new Error(errDetail);
+  }
+
+  return res.json();
+};

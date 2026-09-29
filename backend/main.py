@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Any, List, Optional, Tuple
 
 import httpx
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -61,7 +61,10 @@ from email_service import (
     send_out_for_delivery_email,
     send_payment_failed_email,
     send_refund_initiated_email,
+    send_replacement_dispatched_email,
     send_restock_notification_email,
+    send_return_requested_email,
+    send_return_status_update_email,
 )
 from storage import storage
 
@@ -1032,6 +1035,7 @@ def build_order_schema(order: models.Order) -> schemas.OrderSchema:
         trackingUrl=order.tracking_url,
         trackingData=order.tracking_data or {},
         deliveredAt=order.delivered_at.strftime("%b %d, %Y") if order.delivered_at else None,
+        deliveredAtIso=order.delivered_at.isoformat() if order.delivered_at else None,
         returnStatus=order.return_status or "NONE",
         returnType=order.return_type or "RETURN",
         returnReason=order.return_reason,
@@ -1463,6 +1467,43 @@ def check_pincode_serviceability(payload: schemas.ShiprocketServiceabilityReques
         estimated_days=result.get("estimated_days", "N/A"),
         courier_name=result.get("courier_name"),
         pincode=payload.pincode,
+        is_cod=False,
+        shipping_rate=result.get("shipping_rate"),
+        etd=result.get("etd"),
+        message=result.get("message"),
+        city=result.get("city"),
+        state=result.get("state")
+    )
+
+# 1b. Check Reverse Pickup PIN Code Serviceability (Public POST & GET)
+@app.post("/api/shipping/reverse-serviceability", response_model=schemas.ShiprocketServiceabilityResponse)
+def check_reverse_pincode_serviceability_post(payload: schemas.ShiprocketServiceabilityRequest, db: Session = Depends(get_db)):
+    result = shiprocket_service.check_reverse_serviceability(payload.pincode, payload.weight or 0.5, db=db)
+    return schemas.ShiprocketServiceabilityResponse(
+        serviceable=result.get("serviceable", False),
+        estimated_days=result.get("estimated_days", "N/A"),
+        courier_name=result.get("courier_name"),
+        pincode=payload.pincode,
+        is_cod=False,
+        shipping_rate=result.get("shipping_rate"),
+        etd=result.get("etd"),
+        message=result.get("message"),
+        city=result.get("city"),
+        state=result.get("state")
+    )
+
+@app.get("/api/shipping/reverse-serviceability", response_model=schemas.ShiprocketServiceabilityResponse)
+def get_reverse_pincode_serviceability(
+    pincode: str = Query(..., min_length=6, max_length=6, description="6-digit Indian PIN code"),
+    weight: float = Query(0.5, ge=0.1, le=50.0, description="Estimated parcel weight in kg"),
+    db: Session = Depends(get_db)
+):
+    result = shiprocket_service.check_reverse_serviceability(pincode, weight, db=db)
+    return schemas.ShiprocketServiceabilityResponse(
+        serviceable=result.get("serviceable", False),
+        estimated_days=result.get("estimated_days", "N/A"),
+        courier_name=result.get("courier_name"),
+        pincode=pincode,
         is_cod=False,
         shipping_rate=result.get("shipping_rate"),
         etd=result.get("etd"),
@@ -2607,6 +2648,17 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         "label_url": label_url,
         "pickup_status": pickup_status,
         "pickup_scheduled_date": pickup_scheduled_date,
+        "return_type": order.return_type or "RETURN",
+        "return_reason": order.return_reason,
+        "return_notes": order.return_notes,
+        "return_requested_at": order.return_requested_at.strftime("%b %d, %Y") if order.return_requested_at else None,
+        "replacement_status": order.replacement_status or "NONE",
+        "replacement_variant_id": order.replacement_variant_id,
+        "replacement_variant_title": order.replacement_variant_title,
+        "replacement_awb": order.replacement_awb,
+        "replacement_courier_name": order.replacement_courier_name,
+        "replacement_tracking_url": order.replacement_tracking_url,
+        "delivered_at_iso": order.delivered_at.isoformat() if order.delivered_at else None,
     }
     return schemas.OrderTrackingResponse.model_validate(tracking_payload)
 
@@ -3018,17 +3070,63 @@ def cancel_pending_order(
     return {"success": True, "message": "Order cancelled successfully.", "order_id": order_id}
 
 # 8. Customer 10-Day Return & Replacement / Exchange Options
+def verify_order_access(order: models.Order, user: Optional[models.User], email: Optional[str] = None, phone: Optional[str] = None) -> bool:
+    """Verifies that the caller has authorization to view or initiate returns for an order."""
+    if user:
+        if getattr(user, "role", "") == "admin":
+            return True
+        if order.user_id and order.user_id == user.id:
+            return True
+
+    order_emails = set()
+    if order.guest_email:
+        order_emails.add(str(order.guest_email).strip().lower())
+    if order.user and order.user.email:
+        order_emails.add(str(order.user.email).strip().lower())
+    if isinstance(order.shipping_address, dict) and order.shipping_address.get("email"):
+        order_emails.add(str(order.shipping_address["email"]).strip().lower())
+
+    if email and str(email).strip().lower() in order_emails:
+        return True
+
+    order_phones = set()
+    if order.guest_phone:
+        p = re.sub(r"\D", "", str(order.guest_phone))[-10:]
+        if len(p) == 10:
+            order_phones.add(p)
+    if order.user and order.user.phone:
+        p = re.sub(r"\D", "", str(order.user.phone))[-10:]
+        if len(p) == 10:
+            order_phones.add(p)
+    if isinstance(order.shipping_address, dict) and order.shipping_address.get("phone"):
+        p = re.sub(r"\D", "", str(order.shipping_address["phone"]))[-10:]
+        if len(p) == 10:
+            order_phones.add(p)
+
+    if phone:
+        input_phone = re.sub(r"\D", "", str(phone))[-10:]
+        if len(input_phone) == 10 and input_phone in order_phones:
+            return True
+
+    return False
+
+
 @app.get("/api/orders/{order_id}/exchange-options", response_model=schemas.OrderExchangeOptionsResponse)
 def get_order_exchange_options(
     order_id: str,
-    current_user: models.User = Depends(get_current_user),
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    current_user: Optional[models.User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
     order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found.")
-    if order.user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Unauthorized.")
+    if not verify_order_access(order, current_user, email, phone):
+        raise HTTPException(
+            status_code=401,
+            detail="Please provide the email or mobile number associated with this order to view return & exchange options."
+        )
 
     items_res = []
     for item in (order.items or []):
@@ -3089,15 +3187,18 @@ def get_order_exchange_options(
 def request_order_return(
     order_id: str,
     payload: schemas.OrderReturnRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: Optional[models.User] = Depends(get_optional_current_user),
     db: Session = Depends(get_db)
 ):
     order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found.")
 
-    if order.user_id != current_user.id and current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Unauthorized.")
+    if not verify_order_access(order, current_user, payload.customer_email, payload.customer_phone):
+        raise HTTPException(
+            status_code=401,
+            detail="Please provide the email or mobile number associated with this order to initiate a return or exchange."
+        )
 
     if order.status != "DELIVERED":
         raise HTTPException(status_code=400, detail="Returns or exchanges can only be requested after the order has been delivered.")
@@ -3132,28 +3233,44 @@ def request_order_return(
         order.return_type = "REPLACEMENT"
         order.replacement_variant_id = rep_variant.id
         order.replacement_variant_title = rep_variant.title
-        order.replacement_status = "PICKUP_SCHEDULED"
-        pickup_reason = f"Size Replacement: Exchange for {rep_variant.title} - {payload.reason}"
         scan_activity = f"Replacement Requested (Exchange for {rep_variant.title}) & Reverse Pickup Scheduled"
+
+        # Resolve original line item being exchanged
+        orig_item = None
+        if payload.order_item_id:
+            orig_item = next((it for it in (order.items or []) if str(it.id) == str(payload.order_item_id)), None)
+        if not orig_item and order.items:
+            orig_item = order.items[0]
+
+        # Call Shiprocket Native Paired Exchange Orders API (POST /orders/create/exchange)
+        sr_res = shiprocket_service.create_exchange_order(
+            order=order,
+            original_item=orig_item,
+            replacement_variant=rep_variant,
+            return_reason=payload.reason,
+            pickup_address=payload.pickup_address,
+            db=db
+        )
+        order.replacement_shipment_id = sr_res.get("replacement_shipment_id")
+        order.replacement_awb = sr_res.get("replacement_awb")
+        order.replacement_courier_name = sr_res.get("replacement_courier_name")
+        order.replacement_status = sr_res.get("replacement_status", "PICKUP_SCHEDULED")
     else:
         order.return_type = "RETURN"
         order.replacement_status = "NONE"
-        pickup_reason = payload.reason
         scan_activity = f"Return Requested ({payload.reason}) & Reverse Pickup Scheduled"
-
-    # Automated Reverse Pickup Creation on Shiprocket
-    rev_res = shiprocket_service.create_reverse_pickup(order, return_reason=pickup_reason)
+        sr_res = shiprocket_service.create_reverse_pickup(order, return_reason=payload.reason, db=db)
 
     order.return_status = "PICKUP_SCHEDULED"
     order.return_reason = payload.reason
     order.return_notes = payload.notes
     order.return_requested_at = datetime.utcnow()
-    order.reverse_shipment_id = rev_res.get("reverse_shipment_id")
-    order.reverse_awb = rev_res.get("reverse_awb")
-    order.reverse_courier_name = rev_res.get("reverse_courier_name")
+    order.reverse_shipment_id = sr_res.get("reverse_shipment_id")
+    order.reverse_awb = sr_res.get("reverse_awb")
+    order.reverse_courier_name = sr_res.get("reverse_courier_name")
     order.reverse_tracking_data = {
-        "awb": rev_res.get("reverse_awb"),
-        "courier_name": rev_res.get("reverse_courier_name"),
+        "awb": sr_res.get("reverse_awb"),
+        "courier_name": sr_res.get("reverse_courier_name"),
         "current_status": "PICKUP_SCHEDULED",
         "scans": [
             {
@@ -3165,6 +3282,33 @@ def request_order_return(
     }
     db.commit()
     db.refresh(order)
+
+    # Send Return / Exchange Confirmation Email
+    try:
+        cust_email = (
+            (order.user.email if order.user else None)
+            or order.guest_email
+            or ((order.shipping_address or {}).get("email") if isinstance(order.shipping_address, dict) else None)
+            or payload.customer_email
+        )
+        cust_name = (
+            (order.user.full_name or order.user.username if order.user else None)
+            or order.guest_name
+            or ((order.shipping_address or {}).get("name") if isinstance(order.shipping_address, dict) else "")
+        )
+        if cust_email:
+            send_return_requested_email(
+                to_email=cust_email,
+                order_id=order.id,
+                customer_name=cust_name or "",
+                return_type=order.return_type or "RETURN",
+                reason=payload.reason or "",
+                replacement_title=order.replacement_variant_title or "",
+                reverse_awb=order.reverse_awb or "",
+                reverse_courier_name=order.reverse_courier_name or "",
+            )
+    except Exception as em_err:
+        logger.warning(f"Failed to send return confirmation email for order {order.id}: {em_err}")
 
     return build_order_schema(order)
 
@@ -5102,7 +5246,87 @@ def dispatch_order_replacement(
 
     db.commit()
     db.refresh(order)
+
+    # Automated Replacement Dispatched Email to Customer
+    try:
+        cust_email = (
+            (order.user.email if order.user else None)
+            or order.guest_email
+            or ((order.shipping_address or {}).get("email") if isinstance(order.shipping_address, dict) else None)
+        )
+        cust_name = (
+            (order.user.full_name or order.user.username if order.user else None)
+            or order.guest_name
+            or ((order.shipping_address or {}).get("name") if isinstance(order.shipping_address, dict) else "")
+        )
+        if cust_email:
+            send_replacement_dispatched_email(
+                to_email=cust_email,
+                order_id=order.id,
+                replacement_title=order.replacement_variant_title or "Replacement Item",
+                courier_name=order.replacement_courier_name or "Shiprocket Express",
+                awb_code=order.replacement_awb or "",
+                tracking_url=order.replacement_tracking_url or "",
+                customer_name=cust_name or "",
+            )
+    except Exception as em_err:
+        logger.warning(f"Failed to send replacement dispatch email for order {order.id}: {em_err}")
+
     return _admin_order_detail(order)
+
+
+@app.post("/api/admin/orders/{order_id}/notify-return")
+def admin_notify_customer_return(
+    order_id: str,
+    payload: schemas.AdminNotifyReturnRequest,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Allows admin to dispatch a return / replacement status update email directly to the customer."""
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+
+    cust_email = (
+        (order.user.email if order.user else None)
+        or order.guest_email
+        or ((order.shipping_address or {}).get("email") if isinstance(order.shipping_address, dict) else None)
+    )
+    if not cust_email:
+        raise HTTPException(status_code=400, detail="No customer email found for this order to send notification.")
+
+    cust_name = (
+        (order.user.full_name or order.user.username if order.user else None)
+        or order.guest_name
+        or ((order.shipping_address or {}).get("name") if isinstance(order.shipping_address, dict) else "")
+    )
+
+    status_to_report = (
+        order.replacement_status if order.return_type == "REPLACEMENT" and order.replacement_status != "NONE"
+        else (order.return_status or "RETURN_IN_PROGRESS")
+    )
+
+    success = send_return_status_update_email(
+        to_email=cust_email,
+        order_id=order.id,
+        customer_name=cust_name or "",
+        return_type=order.return_type or "RETURN",
+        return_status=status_to_report,
+        reverse_awb=order.reverse_awb or "",
+        reverse_courier_name=order.reverse_courier_name or "",
+        replacement_awb=order.replacement_awb or "",
+        replacement_courier_name=order.replacement_courier_name or "",
+        custom_message=payload.custom_message or "",
+        tracking_url=order.replacement_tracking_url or "",
+    )
+
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to dispatch email via email service.")
+
+    return {
+        "status": "success",
+        "message": f"Return update email dispatched to {cust_email} successfully."
+    }
 
 
 # ============================================================

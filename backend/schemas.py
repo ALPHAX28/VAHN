@@ -614,6 +614,8 @@ class OrderReturnRequest(BaseModel):
     pickup_address: Optional[dict] = None
     order_item_id: Optional[str] = None
     replacement_variant_id: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
 
 class ExchangeVariantOption(BaseModel):
     variant_id: str
@@ -638,6 +640,14 @@ class OrderExchangeOptionsResponse(BaseModel):
     items: List[ExchangeItemOption]
 
 class AdminDispatchReplacementRequest(BaseModel):
+    awb_code: Optional[str] = None
+    courier_name: Optional[str] = None
+    tracking_url: Optional[str] = None
+
+class AdminNotifyReturnRequest(BaseModel):
+    notification_type: Optional[str] = "RETURN_UPDATE"
+    custom_message: Optional[str] = None
+    subject: Optional[str] = None
     awb_code: Optional[str] = None
     courier_name: Optional[str] = None
     tracking_url: Optional[str] = None
@@ -725,6 +735,17 @@ class OrderTrackingResponse(BaseModel):
     label_url: Optional[str] = None
     pickup_status: Optional[str] = None
     pickup_scheduled_date: Optional[str] = None
+    return_type: Optional[str] = None
+    return_reason: Optional[str] = None
+    return_notes: Optional[str] = None
+    return_requested_at: Optional[str] = None
+    replacement_status: Optional[str] = None
+    replacement_variant_id: Optional[str] = None
+    replacement_variant_title: Optional[str] = None
+    replacement_awb: Optional[str] = None
+    replacement_courier_name: Optional[str] = None
+    replacement_tracking_url: Optional[str] = None
+    delivered_at_iso: Optional[str] = None
 
 class OrderItemSchema(BaseModel):
     id: str
@@ -768,6 +789,7 @@ class OrderSchema(BaseModel):
     trackingUrl: Optional[str] = None
     trackingData: Optional[dict] = None
     deliveredAt: Optional[str] = None
+    deliveredAtIso: Optional[str] = None
     returnStatus: Optional[str] = None
     returnType: Optional[str] = "RETURN"
     returnReason: Optional[str] = None

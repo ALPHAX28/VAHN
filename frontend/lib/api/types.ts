@@ -327,6 +327,17 @@ export interface TrackingInfo {
   label_url?: string | null;
   pickup_status?: string | null;
   pickup_scheduled_date?: string | null;
+  return_type?: string | null;
+  return_reason?: string | null;
+  return_notes?: string | null;
+  return_requested_at?: string | null;
+  replacement_status?: string | null;
+  replacement_variant_id?: string | null;
+  replacement_variant_title?: string | null;
+  replacement_awb?: string | null;
+  replacement_courier_name?: string | null;
+  replacement_tracking_url?: string | null;
+  delivered_at_iso?: string | null;
 }
 
 export interface RetryPaymentResponse {
@@ -454,6 +465,7 @@ export interface OrderDetail {
     [key: string]: any;
   } | null;
   deliveredAt?: string | null;
+  deliveredAtIso?: string | null;
   returnStatus?: string;
   returnType?: string | null;
   returnReason?: string | null;

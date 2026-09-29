@@ -1,14 +1,14 @@
 import { cache } from 'react';
 import { fetchAPI } from './client';
 import type {
-  Product,
+  Article,
+  Blog,
+  Cart,
   Collection,
   CollectionListItem,
-  Cart,
-  Blog,
-  Article,
-  ShopifyPage,
   Menu,
+  Product,
+  ShopifyPage,
 } from './types';
 
 // ---- Products ----
@@ -29,18 +29,21 @@ export async function getProducts(_options?: {
     return {
       products,
       hasNextPage: false,
-      endCursor: null
+      endCursor: null,
     };
   } catch {
     return {
       products: [],
       hasNextPage: false,
-      endCursor: null
+      endCursor: null,
     };
   }
 }
 
-export async function getProductRecommendations(productId: string, handle?: string): Promise<Product[]> {
+export async function getProductRecommendations(
+  productId: string,
+  handle?: string
+): Promise<Product[]> {
   const products = await fetchAPI<Product[]>('/products', { cache: 'no-store' }).catch(() => []);
   const cleanId = (id: string) => id.replace(/^gid:\/\/shopify\/Product\//, '');
   const targetId = cleanId(productId);
@@ -73,7 +76,7 @@ export async function createCart(
 ): Promise<Cart> {
   return fetchAPI<Cart>('/cart', {
     method: 'POST',
-    body: lines
+    body: lines,
   });
 }
 
@@ -83,7 +86,7 @@ export async function syncCart(
 ): Promise<Cart> {
   return fetchAPI<Cart>(`/cart/${cartId}`, {
     method: 'PUT',
-    body: lines
+    body: lines,
   });
 }
 
@@ -94,7 +97,7 @@ export async function addToCart(
   // Use first line item from request payload
   return fetchAPI<Cart>(`/cart/${cartId}/items`, {
     method: 'POST',
-    body: lines[0]
+    body: lines[0],
   });
 }
 
@@ -104,13 +107,13 @@ export async function updateCart(
 ): Promise<Cart> {
   return fetchAPI<Cart>(`/cart/${cartId}/items/${lines[0].id}`, {
     method: 'PUT',
-    body: { quantity: lines[0].quantity }
+    body: { quantity: lines[0].quantity },
   });
 }
 
 export async function removeFromCart(cartId: string, lineIds: string[]): Promise<Cart> {
   return fetchAPI<Cart>(`/cart/${cartId}/items/${lineIds[0]}`, {
-    method: 'DELETE'
+    method: 'DELETE',
   });
 }
 
@@ -132,9 +135,9 @@ export async function getBlog(
       edges: [],
       pageInfo: {
         hasNextPage: false,
-        endCursor: null
-      }
-    }
+        endCursor: null,
+      },
+    },
   };
 }
 
@@ -160,7 +163,7 @@ export async function getPage(handle: string): Promise<ShopifyPage | null> {
     handle,
     body: '<p>This is a standalone page for VAHN.</p>',
     bodySummary: 'Standalone page.',
-    seo: { title: handle, description: 'Standalone page.' }
+    seo: { title: handle, description: 'Standalone page.' },
   };
 }
 
@@ -171,8 +174,8 @@ export async function getMenu(_handle: string): Promise<Menu | null> {
     items: [
       { id: 'menu-home', title: 'Home', url: '/', items: [] },
       { id: 'menu-shop', title: 'Shop', url: '/products', items: [] },
-      { id: 'menu-about', title: 'Our Story', url: '/pages/about', items: [] }
-    ]
+      { id: 'menu-about', title: 'Our Story', url: '/pages/about', items: [] },
+    ],
   };
 }
 
@@ -181,19 +184,19 @@ export async function getMenu(_handle: string): Promise<Menu | null> {
 export async function predictiveSearch(query: string) {
   try {
     const products = await fetchAPI<Product[]>('/products');
-    const filtered = products.filter((p) =>
-      p.title.toLowerCase().includes(query.toLowerCase())
-    );
+    const filtered = products.filter((p) => p.title.toLowerCase().includes(query.toLowerCase()));
     return {
       products: filtered.map((p) => ({
         id: p.id,
         title: p.title,
         handle: p.handle,
-        featuredImage: p.featuredImage ? { url: p.featuredImage.url, altText: p.featuredImage.altText } : null,
-        priceRange: { minVariantPrice: p.priceRange.minVariantPrice }
+        featuredImage: p.featuredImage
+          ? { url: p.featuredImage.url, altText: p.featuredImage.altText }
+          : null,
+        priceRange: { minVariantPrice: p.priceRange.minVariantPrice },
       })),
       collections: [],
-      pages: []
+      pages: [],
     };
   } catch {
     return { products: [], collections: [], pages: [] };
@@ -204,52 +207,66 @@ export async function predictiveSearch(query: string) {
 
 export async function getUserAddresses(token: string): Promise<import('./types').UserAddress[]> {
   return fetchAPI<import('./types').UserAddress[]>('/user/addresses', {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export async function createUserAddress(token: string, data: Partial<import('./types').UserAddress>): Promise<import('./types').UserAddress> {
+export async function createUserAddress(
+  token: string,
+  data: Partial<import('./types').UserAddress>
+): Promise<import('./types').UserAddress> {
   return fetchAPI<import('./types').UserAddress>('/user/addresses', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    body: data
+    body: data,
   });
 }
 
-export async function updateUserAddress(token: string, addressId: number, data: Partial<import('./types').UserAddress>): Promise<import('./types').UserAddress> {
+export async function updateUserAddress(
+  token: string,
+  addressId: number,
+  data: Partial<import('./types').UserAddress>
+): Promise<import('./types').UserAddress> {
   return fetchAPI<import('./types').UserAddress>(`/user/addresses/${addressId}`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}` },
-    body: data
+    body: data,
   });
 }
-
 
 export async function setDefaultAddress(token: string, addressId: number): Promise<void> {
   return fetchAPI<void>(`/user/addresses/${addressId}/default`, {
     method: 'PUT',
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export async function deleteUserAddress(token: string, addressId: number): Promise<void> {
   return fetchAPI<void>(`/user/addresses/${addressId}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export async function getOrderDetail(token: string, orderId: string): Promise<import('./types').OrderDetail> {
+export async function getOrderDetail(
+  token: string,
+  orderId: string
+): Promise<import('./types').OrderDetail> {
   return fetchAPI<import('./types').OrderDetail>(`/orders/${orderId}`, {
-    headers: { Authorization: `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export async function checkoutCart(token: string, cartId: string, addressId?: number, shippingAddress?: any): Promise<import('./types').OrderDetail> {
+export async function checkoutCart(
+  token: string,
+  cartId: string,
+  addressId?: number,
+  shippingAddress?: any
+): Promise<import('./types').OrderDetail> {
   return fetchAPI<import('./types').OrderDetail>('/orders/checkout', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    body: { cart_id: cartId, address_id: addressId, shipping_address: shippingAddress }
+    body: { cart_id: cartId, address_id: addressId, shipping_address: shippingAddress },
   });
 }
 
@@ -277,10 +294,22 @@ export async function getActiveAnnouncements(): Promise<import('./types').Notifi
 
 // ---- Logistics, Prepaid Payments & Returns ----
 
-export async function checkShippingServiceability(pincode: string): Promise<import('./types').ServiceabilityResponse> {
+export async function checkShippingServiceability(
+  pincode: string
+): Promise<import('./types').ServiceabilityResponse> {
   return fetchAPI<import('./types').ServiceabilityResponse>('/shipping/serviceability', {
     method: 'POST',
     body: { pincode },
+  });
+}
+
+export async function checkReverseShippingServiceability(
+  pincode: string,
+  weight: number = 0.5
+): Promise<import('./types').ServiceabilityResponse> {
+  return fetchAPI<import('./types').ServiceabilityResponse>('/shipping/reverse-serviceability', {
+    method: 'POST',
+    body: { pincode, weight },
   });
 }
 
@@ -316,7 +345,13 @@ export async function verifyRazorpayPayment(
 ): Promise<{ success?: boolean; id: string; order_id: string; status?: string; message?: string }> {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  return fetchAPI<{ success?: boolean; id: string; order_id: string; status?: string; message?: string }>('/payments/razorpay/verify', {
+  return fetchAPI<{
+    success?: boolean;
+    id: string;
+    order_id: string;
+    status?: string;
+    message?: string;
+  }>('/payments/razorpay/verify', {
     method: 'POST',
     headers,
     body: payload,
@@ -341,10 +376,15 @@ export async function createMagicCheckoutOrder(payload: {
 }
 
 export async function getPublicTracking(query: string): Promise<import('./types').TrackingInfo> {
-  return fetchAPI<import('./types').TrackingInfo>(`/shipping/track/${encodeURIComponent(query.trim())}`);
+  return fetchAPI<import('./types').TrackingInfo>(
+    `/shipping/track/${encodeURIComponent(query.trim())}`
+  );
 }
 
-export async function getOrderTracking(orderId: string, token?: string): Promise<import('./types').TrackingInfo> {
+export async function getOrderTracking(
+  orderId: string,
+  token?: string
+): Promise<import('./types').TrackingInfo> {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
   return fetchAPI<import('./types').TrackingInfo>(`/orders/${orderId}/tracking`, {
@@ -358,9 +398,12 @@ export async function getCustomerOrderInvoice(
 ): Promise<{ invoice_url?: string; is_invoice_created?: boolean; message?: string }> {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  return fetchAPI<{ invoice_url?: string; is_invoice_created?: boolean; message?: string }>(`/orders/${orderId}/invoice`, {
-    headers,
-  });
+  return fetchAPI<{ invoice_url?: string; is_invoice_created?: boolean; message?: string }>(
+    `/orders/${orderId}/invoice`,
+    {
+      headers,
+    }
+  );
 }
 
 export async function getPublicOrderInvoice(
@@ -371,35 +414,54 @@ export async function getPublicOrderInvoice(
   );
 }
 
-export async function cancelOrder(orderId: string, reason?: string, token?: string): Promise<{ message: string; order_id: string; refund_id?: string; status: string }> {
+export async function cancelOrder(
+  orderId: string,
+  reason?: string,
+  token?: string
+): Promise<{ message: string; order_id: string; refund_id?: string; status: string }> {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  return fetchAPI<{ message: string; order_id: string; refund_id?: string; status: string }>(`/orders/${orderId}/cancel`, {
-    method: 'POST',
-    headers,
-    body: { reason },
-  });
+  return fetchAPI<{ message: string; order_id: string; refund_id?: string; status: string }>(
+    `/orders/${orderId}/cancel`,
+    {
+      method: 'POST',
+      headers,
+      body: { reason },
+    }
+  );
 }
 
 export async function getOrderExchangeOptions(
   orderId: string,
-  token?: string
+  token?: string,
+  email?: string,
+  phone?: string
 ): Promise<import('./types').OrderExchangeOptionsResponse> {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  return fetchAPI<import('./types').OrderExchangeOptionsResponse>(`/orders/${orderId}/exchange-options`, {
-    headers,
-  });
+  const params = new URLSearchParams();
+  if (email) params.set('email', email);
+  if (phone) params.set('phone', phone);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  return fetchAPI<import('./types').OrderExchangeOptionsResponse>(
+    `/orders/${orderId}/exchange-options${qs}`,
+    {
+      headers,
+    }
+  );
 }
 
 export async function requestOrderReturn(
   orderId: string,
   payload: {
-    action?: "RETURN" | "REPLACEMENT";
+    action?: 'RETURN' | 'REPLACEMENT';
     reason: string;
     notes?: string;
     order_item_id?: string;
     replacement_variant_id?: string;
+    pickup_address?: Record<string, unknown>;
+    customer_email?: string;
+    customer_phone?: string;
   },
   token?: string
 ): Promise<import('./types').OrderDetail> {
@@ -412,19 +474,40 @@ export async function requestOrderReturn(
   });
 }
 
-export async function recordRazorpayPaymentFailure(payload: {
-  cart_id?: string;
-  order_id?: string;
-  razorpay_order_id?: string;
-  razorpay_payment_id?: string;
-  error_code?: string;
-  error_description?: string;
-  error_reason?: string;
-  customer_name?: string;
-  customer_email?: string;
-  customer_phone?: string;
-  shipping_address?: any;
-}, token?: string): Promise<import('./types').OrderDetail> {
+export async function notifyCustomerReturn(
+  orderId: string,
+  payload: {
+    notification_type?: string;
+    custom_message?: string;
+    subject?: string;
+  },
+  token: string
+): Promise<{ status: string; message: string }> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return fetchAPI<{ status: string; message: string }>(`/admin/orders/${orderId}/notify-return`, {
+    method: 'POST',
+    headers,
+    body: payload,
+  });
+}
+
+export async function recordRazorpayPaymentFailure(
+  payload: {
+    cart_id?: string;
+    order_id?: string;
+    razorpay_order_id?: string;
+    razorpay_payment_id?: string;
+    error_code?: string;
+    error_description?: string;
+    error_reason?: string;
+    customer_name?: string;
+    customer_email?: string;
+    customer_phone?: string;
+    shipping_address?: any;
+  },
+  token?: string
+): Promise<import('./types').OrderDetail> {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
   return fetchAPI<import('./types').OrderDetail>('/payments/razorpay/record-failure', {
@@ -471,11 +554,12 @@ export async function cancelPendingOrder(
 ): Promise<{ success: boolean; message: string; order_id: string }> {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  return fetchAPI<{ success: boolean; message: string; order_id: string }>(`/orders/${orderId}/cancel-pending`, {
-    method: 'POST',
-    headers,
-    body: { reason },
-  });
+  return fetchAPI<{ success: boolean; message: string; order_id: string }>(
+    `/orders/${orderId}/cancel-pending`,
+    {
+      method: 'POST',
+      headers,
+      body: { reason },
+    }
+  );
 }
-
-

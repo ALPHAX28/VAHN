@@ -1170,3 +1170,298 @@ def send_contact_inquiry_receipt(to_email: str, customer_name: str = "", subject
         text_content=f"Dear {name}, thank you for contacting VAHN. We have received your inquiry regarding {subject_topic} and will respond within 24 hours."
     )
 
+
+def send_replacement_dispatched_email(
+    to_email: str,
+    order_id: str,
+    replacement_title: str,
+    courier_name: str,
+    awb_code: str,
+    tracking_url: str = "",
+    customer_name: str = "",
+) -> bool:
+    """
+    Sends an Exchange Replacement Dispatched email to the customer with live tracking link via Amazon SES.
+    """
+    if not to_email:
+        return False
+
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+    name_greeting = f"Dear {customer_name}," if customer_name else "Hello,"
+    live_track_url = tracking_url or f"{site_url}/track?q={awb_code or order_id}"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Replacement Dispatched - Order #{order_id}</title>
+    </head>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 40px 20px;">
+      <div style="max-width: 550px; margin: 0 auto; background: #ffffff; padding: 40px; border: 1px solid #e2e2e2;">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; border: 0; outline: none; text-decoration: none; color: #111111; font-size: 20px; font-weight: 800; letter-spacing: 0.2em;" />
+        </div>
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="background: #7c3aed; color: #ffffff; font-size: 11px; font-weight: 800; padding: 5px 14px; letter-spacing: 0.15em; text-transform: uppercase;">REPLACEMENT DISPATCHED</span>
+        </div>
+        <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 28px;">Exchange for Order #{order_id}</p>
+
+        <p style="font-size: 15px; color: #222222; font-weight: 600; line-height: 1.6; margin-bottom: 8px;">{name_greeting}</p>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6; margin-top: 0;">Great news! Your size exchange replacement parcel has been packed and dispatched from our fulfillment center.</p>
+
+        <!-- Replacement Details Card -->
+        <div style="background: #faf5ff; border: 1px solid #d8b4fe; padding: 20px; margin: 24px 0;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #7c3aed; text-transform: uppercase; font-size: 11px; font-weight: 700; width: 140px;">Replacement Item</td>
+              <td style="padding: 6px 0; color: #111111; font-weight: 800;">{replacement_title or 'Requested Replacement Size'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #7c3aed; text-transform: uppercase; font-size: 11px; font-weight: 700;">Courier Partner</td>
+              <td style="padding: 6px 0; color: #111111; font-weight: 700;">{courier_name or 'Shiprocket Express'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 0; color: #7c3aed; text-transform: uppercase; font-size: 11px; font-weight: 700;">AWB / Tracking #</td>
+              <td style="padding: 6px 0; color: #7c3aed; font-weight: 800; font-family: monospace;">{awb_code or 'Pending generation'}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="text-align: center; margin: 32px 0 20px;">
+          <a href="{live_track_url}" style="background: #7c3aed; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; padding: 16px 32px; letter-spacing: 0.15em; text-transform: uppercase; display: inline-block;">TRACK REPLACEMENT PARCEL &rarr;</a>
+        </div>
+
+        <p style="font-size: 12px; color: #777777; line-height: 1.5; text-align: center;">
+          Need assistance with your exchange? Contact our concierge at <a href="mailto:support@vahnsports.com" style="color: #111111; font-weight: 700;">support@vahnsports.com</a>.
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #eeeeee; margin: 32px 0;">
+        <p style="font-size: 11px; color: #aaaaaa; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    print("\n==========================================")
+    print(f"  [REPLACEMENT DISPATCHED RECIPIENT]: {to_email}")
+    print(f"  [ORDER ID]: {order_id}")
+    print(f"  [REPLACEMENT ITEM]: {replacement_title}")
+    print(f"  [AWB]: {awb_code} ({courier_name})")
+    print("==========================================\n")
+
+    return _send_email(
+        to_email=to_email,
+        subject=f"Your Replacement Parcel Has Been Dispatched - Order #{order_id}",
+        html_content=html_content,
+        text_content=f"{name_greeting} Your replacement item ({replacement_title}) for Order #{order_id} has been dispatched with {courier_name} (AWB: {awb_code}). Track here: {live_track_url}",
+    )
+
+
+def send_return_status_update_email(
+    to_email: str,
+    order_id: str,
+    customer_name: str = "",
+    return_type: str = "RETURN",
+    return_status: str = "UPDATED",
+    reverse_awb: str = "",
+    reverse_courier_name: str = "",
+    replacement_awb: str = "",
+    replacement_courier_name: str = "",
+    custom_message: str = "",
+    tracking_url: str = "",
+) -> bool:
+    """
+    Sends a Return or Exchange status update notification to the customer triggered by an admin via Amazon SES.
+    """
+    if not to_email:
+        return False
+
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+    name_greeting = f"Dear {customer_name}," if customer_name else "Hello,"
+    live_track_url = tracking_url or f"{site_url}/track?q={order_id}"
+
+    is_replacement = (return_type or "").upper() == "REPLACEMENT"
+    type_label = "Size Replacement & Exchange" if is_replacement else "Return & Refund"
+    badge_bg = "#7c3aed" if is_replacement else "#fa8c16"
+
+    status_formatted = return_status.replace("_", " ").upper()
+
+    notes_section = f"""
+    <div style="background: #f8fafc; border-left: 4px solid #2563eb; padding: 14px 18px; margin: 20px 0; color: #1e293b; font-size: 13px; line-height: 1.5;">
+      <strong style="display: block; margin-bottom: 4px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; color: #2563eb;">Message from Support Team:</strong>
+      {custom_message}
+    </div>
+    """ if custom_message else ""
+
+    reverse_row = f"""
+    <tr>
+      <td style="padding: 6px 0; color: #888888; text-transform: uppercase; font-size: 11px; font-weight: 600; width: 140px;">Reverse Pickup AWB</td>
+      <td style="padding: 6px 0; color: #111111; font-weight: 700; font-family: monospace;">{reverse_awb} ({reverse_courier_name or 'Shiprocket'})</td>
+    </tr>
+    """ if reverse_awb else ""
+
+    replacement_row = f"""
+    <tr>
+      <td style="padding: 6px 0; color: #7c3aed; text-transform: uppercase; font-size: 11px; font-weight: 700; width: 140px;">Replacement AWB</td>
+      <td style="padding: 6px 0; color: #111111; font-weight: 700; font-family: monospace;">{replacement_awb} ({replacement_courier_name or 'Shiprocket'})</td>
+    </tr>
+    """ if replacement_awb else ""
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Return Update: Order #{order_id}</title>
+    </head>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 40px 20px;">
+      <div style="max-width: 550px; margin: 0 auto; background: #ffffff; padding: 40px; border: 1px solid #e2e2e2;">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; border: 0; outline: none; text-decoration: none; color: #111111; font-size: 20px; font-weight: 800; letter-spacing: 0.2em;" />
+        </div>
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="background: {badge_bg}; color: #ffffff; font-size: 11px; font-weight: 800; padding: 5px 14px; letter-spacing: 0.15em; text-transform: uppercase;">{status_formatted}</span>
+        </div>
+        <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 28px;">{type_label} &bull; Order #{order_id}</p>
+
+        <p style="font-size: 15px; color: #222222; font-weight: 600; line-height: 1.6; margin-bottom: 8px;">{name_greeting}</p>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6; margin-top: 0;">Here is the latest update regarding your {type_label.lower()} for Order <strong>#{order_id}</strong>:</p>
+
+        {notes_section}
+
+        <!-- Logistics Card -->
+        <div style="background: #fbfbfb; border: 1px solid #eeeeee; padding: 20px; margin: 24px 0;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #888888; text-transform: uppercase; font-size: 11px; font-weight: 600; width: 140px;">Current Status</td>
+              <td style="padding: 6px 0; color: #111111; font-weight: 800;">{status_formatted}</td>
+            </tr>
+            {reverse_row}
+            {replacement_row}
+          </table>
+        </div>
+
+        <div style="text-align: center; margin: 32px 0 20px;">
+          <a href="{live_track_url}" style="background: #111111; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; padding: 16px 32px; letter-spacing: 0.15em; text-transform: uppercase; display: inline-block;">VIEW LIVE TRACKING &rarr;</a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #eeeeee; margin: 32px 0;">
+        <p style="font-size: 11px; color: #aaaaaa; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    return _send_email(
+        to_email=to_email,
+        subject=f"Update on your {type_label} - Order #{order_id}",
+        html_content=html_content,
+        text_content=f"{name_greeting} Here is an update regarding your {type_label} for Order #{order_id}: Current status is {status_formatted}. {custom_message} View details: {live_track_url}",
+    )
+
+
+def send_return_requested_email(
+    to_email: str,
+    order_id: str,
+    customer_name: str = "",
+    return_type: str = "RETURN",
+    reason: str = "",
+    replacement_title: str = "",
+    reverse_awb: str = "",
+    reverse_courier_name: str = "",
+    tracking_url: str = "",
+) -> bool:
+    """
+    Sends a confirmation email when a customer or guest initiates a return or exchange via Amazon SES.
+    """
+    if not to_email:
+        return False
+
+    site_url = os.getenv("FRONTEND_URL", "https://vahnsports.com").rstrip("/")
+    logo_url = f"{site_url}/assets/logo.png"
+    name_greeting = f"Dear {customer_name}," if customer_name else "Hello,"
+    live_track_url = tracking_url or f"{site_url}/track?q={order_id}"
+
+    is_replacement = (return_type or "").upper() == "REPLACEMENT"
+    type_label = "Size Replacement Request" if is_replacement else "Return & Refund Request"
+    badge_bg = "#7c3aed" if is_replacement else "#fa8c16"
+
+    replacement_row = f"""
+    <tr>
+      <td style="padding: 6px 0; color: #7c3aed; text-transform: uppercase; font-size: 11px; font-weight: 700; width: 140px;">Requested Size</td>
+      <td style="padding: 6px 0; color: #111111; font-weight: 800;">{replacement_title}</td>
+    </tr>
+    """ if is_replacement and replacement_title else ""
+
+    awb_row = f"""
+    <tr>
+      <td style="padding: 6px 0; color: #888888; text-transform: uppercase; font-size: 11px; font-weight: 600; width: 140px;">Reverse Courier</td>
+      <td style="padding: 6px 0; color: #111111; font-weight: 700;">{reverse_courier_name or 'Shiprocket Reverse Logistics'}</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px 0; color: #888888; text-transform: uppercase; font-size: 11px; font-weight: 600;">Pickup AWB</td>
+      <td style="padding: 6px 0; color: #111111; font-weight: 800; font-family: monospace;">{reverse_awb}</td>
+    </tr>
+    """ if reverse_awb else ""
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>{type_label}: Order #{order_id}</title>
+    </head>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f7f7; margin: 0; padding: 40px 20px;">
+      <div style="max-width: 550px; margin: 0 auto; background: #ffffff; padding: 40px; border: 1px solid #e2e2e2;">
+        <div style="text-align: center; margin-bottom: 16px;">
+          <img src="{logo_url}" alt="VAHN" width="120" style="height: 28px; width: auto; max-width: 140px; display: inline-block; border: 0; outline: none; text-decoration: none; color: #111111; font-size: 20px; font-weight: 800; letter-spacing: 0.2em;" />
+        </div>
+        <div style="text-align: center; margin-bottom: 24px;">
+          <span style="background: {badge_bg}; color: #ffffff; font-size: 11px; font-weight: 800; padding: 5px 14px; letter-spacing: 0.15em; text-transform: uppercase;">REQUEST CONFIRMED</span>
+        </div>
+        <p style="font-size: 13px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; color: #666666; margin-bottom: 28px;">{type_label} &bull; Order #{order_id}</p>
+
+        <p style="font-size: 15px; color: #222222; font-weight: 600; line-height: 1.6; margin-bottom: 8px;">{name_greeting}</p>
+        <p style="font-size: 14px; color: #555555; line-height: 1.6; margin-top: 0;">We have received your request for Order <strong>#{order_id}</strong>. Automated doorstep pickup has been scheduled.</p>
+
+        <div style="background: #fbfbfb; border: 1px solid #eeeeee; padding: 20px; margin: 24px 0;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr>
+              <td style="padding: 6px 0; color: #888888; text-transform: uppercase; font-size: 11px; font-weight: 600; width: 140px;">Request Type</td>
+              <td style="padding: 6px 0; color: #111111; font-weight: 800;">{type_label}</td>
+            </tr>
+            {replacement_row}
+            <tr>
+              <td style="padding: 6px 0; color: #888888; text-transform: uppercase; font-size: 11px; font-weight: 600;">Reason</td>
+              <td style="padding: 6px 0; color: #555555;">{reason or 'Customer preference'}</td>
+            </tr>
+            {awb_row}
+          </table>
+        </div>
+
+        <div style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 12px 16px; margin: 20px 0; color: #166534; font-size: 13px;">
+          <strong>Pickup Instructions:</strong> Please keep the item intact with original tags and packaging. Our courier partner will arrive at your delivery address for doorstep verification and collection.
+        </div>
+
+        <div style="text-align: center; margin: 32px 0 20px;">
+          <a href="{live_track_url}" style="background: #111111; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; padding: 16px 32px; letter-spacing: 0.15em; text-transform: uppercase; display: inline-block;">TRACK RETURN STATUS &rarr;</a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #eeeeee; margin: 32px 0;">
+        <p style="font-size: 11px; color: #aaaaaa; text-align: center; text-transform: uppercase; letter-spacing: 0.1em;">&copy; 2026 VAHN. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    return _send_email(
+        to_email=to_email,
+        subject=f"Doorstep Pickup Scheduled for your {type_label} - Order #{order_id}",
+        html_content=html_content,
+        text_content=f"{name_greeting} Your {type_label} for Order #{order_id} has been registered and doorstep pickup is scheduled{f' (AWB: {reverse_awb})' if reverse_awb else ''}. Track here: {live_track_url}",
+    )
+
+

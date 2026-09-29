@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import {
   AlertCircleIcon,
   CheckIcon,
@@ -14,9 +14,11 @@ import {
   TruckIcon,
   XIcon,
 } from '@/components/icons/Icons';
+import GuestReturnModal from '@/components/order/GuestReturnModal';
+import ReturnCountdownTimer from '@/components/order/ReturnCountdownTimer';
 import { getPublicOrderInvoice, getPublicTracking } from '@/lib/api';
 import type { TrackingInfo } from '@/lib/api/types';
-import { prettifyActivityLabel, prettifyShipStatus } from '@/lib/shipStatus';
+import { prettifyActivityLabel } from '@/lib/shipStatus';
 
 function TrackingContent() {
   const searchParams = useSearchParams();
@@ -28,15 +30,12 @@ function TrackingContent() {
   const [error, setError] = useState('');
   const [tracking, setTracking] = useState<TrackingInfo | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedReverse, setCopiedReverse] = useState(false);
+  const [copiedReplacement, setCopiedReplacement] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [showGuestReturnModal, setShowGuestReturnModal] = useState(false);
 
-  useEffect(() => {
-    if (initialQuery) {
-      handleSearch(initialQuery);
-    }
-  }, [initialQuery]);
-
-  async function handleSearch(searchCode: string) {
+  const handleSearch = useCallback(async (searchCode: string) => {
     const trimmed = searchCode.trim();
     if (!trimmed) return;
     setError('');
@@ -45,16 +44,23 @@ function TrackingContent() {
     try {
       const data = await getPublicTracking(trimmed);
       setTracking(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message;
       setError(
-        err?.message ||
+        msg ||
           'No tracking details found for this Order ID or AWB. Please verify the code and try again.'
       );
       setTracking(null);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (initialQuery) {
+      handleSearch(initialQuery);
+    }
+  }, [initialQuery, handleSearch]);
 
   function handleQueryChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
@@ -91,6 +97,20 @@ function TrackingContent() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  function handleCopyReverseAwb(awb: string) {
+    if (!awb) return;
+    navigator.clipboard.writeText(awb);
+    setCopiedReverse(true);
+    setTimeout(() => setCopiedReverse(false), 2000);
+  }
+
+  function handleCopyReplacementAwb(awb: string) {
+    if (!awb) return;
+    navigator.clipboard.writeText(awb);
+    setCopiedReplacement(true);
+    setTimeout(() => setCopiedReplacement(false), 2000);
+  }
+
   async function handleDownloadInvoice() {
     const code = tracking?.order_id || tracking?.orderId || query.trim();
     if (!code) return;
@@ -106,8 +126,9 @@ function TrackingContent() {
       } else {
         alert('Official invoice is currently generating. Please try again in a few moments.');
       }
-    } catch (err: any) {
-      alert(err?.message || 'Failed to retrieve invoice. Please try again later.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message;
+      alert(msg || 'Failed to retrieve invoice. Please try again later.');
     } finally {
       setDownloadingInvoice(false);
     }
@@ -308,11 +329,63 @@ function TrackingContent() {
     return { index: 0, badgeLabel: 'RETURN INITIATED' };
   }
 
+  function resolveReplacementMilestone(t: TrackingInfo | null): {
+    index: number;
+    badgeLabel: string;
+  } {
+    if (!t) return { index: -1, badgeLabel: 'UNKNOWN' };
+    const rawRepl = (t.replacement_status || '').toUpperCase().trim();
+    const rawReturn = (t.return_status || '').toUpperCase().trim();
+    const combined = `${rawRepl} ${rawReturn}`.replace(/[-_]/g, ' ');
+
+    if (
+      combined.includes('COMPLETED') ||
+      (combined.includes('DELIVERED') && Boolean(t.replacement_awb))
+    ) {
+      return { index: 4, badgeLabel: 'EXCHANGE COMPLETED' };
+    }
+    if (combined.includes('REPLACEMENT DISPATCHED') || t.replacement_awb) {
+      return { index: 3, badgeLabel: 'REPLACEMENT DISPATCHED' };
+    }
+    if (combined.includes('IN TRANSIT')) {
+      return { index: 2, badgeLabel: 'ORIGINAL IN TRANSIT' };
+    }
+    if (combined.includes('PICKED UP') || t.is_picked_up) {
+      return { index: 1, badgeLabel: 'ORIGINAL PICKED UP' };
+    }
+    return { index: 0, badgeLabel: 'EXCHANGE INITIATED' };
+  }
+
   const isReturn = Boolean(
     tracking?.isReturn ||
       (tracking?.return_status && tracking.return_status !== 'NONE') ||
-      tracking?.reverse_awb
+      tracking?.reverse_awb ||
+      (tracking?.replacement_status && tracking.replacement_status !== 'NONE')
   );
+
+  const isReplacement = (tracking?.return_type || '').toUpperCase() === 'REPLACEMENT';
+
+  const isDelivered = Boolean(
+    tracking?.delivered_at ||
+      tracking?.status === 'DELIVERED' ||
+      tracking?.shipping_status === 'DELIVERED'
+  );
+
+  const hasActiveReturn = Boolean(
+    (tracking?.return_status && tracking.return_status !== 'NONE') ||
+      tracking?.reverse_awb ||
+      (tracking?.replacement_status && tracking.replacement_status !== 'NONE')
+  );
+
+  const isWithin10Days = (() => {
+    if (!isDelivered || !tracking) return false;
+    const dateStr = tracking.delivered_at_iso || tracking.delivered_at;
+    if (!dateStr) return true;
+    const deliveryMs = new Date(dateStr).getTime();
+    if (Number.isNaN(deliveryMs)) return true;
+    const diffDays = (Date.now() - deliveryMs) / (1000 * 60 * 60 * 24);
+    return diffDays <= 10;
+  })();
 
   const {
     index: currentStepIndex,
@@ -321,12 +394,19 @@ function TrackingContent() {
     isPaymentFailed,
     isPaymentPending,
   } = isReturn
-    ? {
-        ...resolveReturnMilestone(tracking),
-        isCancelled: false,
-        isPaymentFailed: false,
-        isPaymentPending: false,
-      }
+    ? isReplacement
+      ? {
+          ...resolveReplacementMilestone(tracking),
+          isCancelled: false,
+          isPaymentFailed: false,
+          isPaymentPending: false,
+        }
+      : {
+          ...resolveReturnMilestone(tracking),
+          isCancelled: false,
+          isPaymentFailed: false,
+          isPaymentPending: false,
+        }
     : resolveForwardMilestone(tracking);
 
   const forwardSteps = [
@@ -355,16 +435,30 @@ function TrackingContent() {
     { key: 'REFUNDED', label: 'Refund Completed' },
   ];
 
-  const activeSteps = isReturn ? returnSteps : forwardSteps;
+  const replacementSteps = [
+    { key: 'EXCHANGE_REQUESTED', label: 'Exchange Initiated' },
+    { key: 'RETURN_PICKED_UP', label: 'Original Picked Up' },
+    { key: 'RETURN_IN_TRANSIT', label: 'In Transit' },
+    { key: 'REPLACEMENT_DISPATCHED', label: 'Replacement Sent' },
+    { key: 'COMPLETED', label: 'Completed' },
+  ];
+
+  const activeSteps = isReturn ? (isReplacement ? replacementSteps : returnSteps) : forwardSteps;
 
   const badgeBg =
-    statusBadgeLabel === 'DELIVERED' || statusBadgeLabel === 'REFUND COMPLETED'
+    statusBadgeLabel === 'DELIVERED' ||
+    statusBadgeLabel === 'REFUND COMPLETED' ||
+    statusBadgeLabel === 'EXCHANGE COMPLETED'
       ? '#16a34a'
       : isCancelled || isPaymentFailed
         ? '#dc2626'
         : isPaymentPending
           ? '#d97706'
-          : '#000';
+          : isReplacement
+            ? '#7c3aed'
+            : isReturn
+              ? '#fa8c16'
+              : '#000';
 
   const rawLocation = (tracking?.current_location || tracking?.currentLocation || '').trim();
   const isValidLocation = Boolean(
@@ -786,10 +880,7 @@ function TrackingContent() {
       </div>
 
       {/* Search Bar */}
-      <form
-        onSubmit={handleSubmit}
-        className="tracking-search-form"
-      >
+      <form onSubmit={handleSubmit} className="tracking-search-form">
         <div className="tracking-search-icon-wrapper">
           <SearchIcon size={18} color="#666" />
         </div>
@@ -810,17 +901,24 @@ function TrackingContent() {
             <XIcon size={14} color="#888" />
           </button>
         )}
-        <button
-          type="submit"
-          className="tracking-search-btn"
-          disabled={loading}
-        >
+        <button type="submit" className="tracking-search-btn" disabled={loading}>
           {loading ? (
             <span>Tracking...</span>
           ) : (
             <>
               <span>Track</span>
-              <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                aria-hidden="true"
+                className="btn-checkout-arrow"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <polyline points="9 18 15 12 9 6" />
               </svg>
             </>
@@ -857,7 +955,11 @@ function TrackingContent() {
             <div className="tracking-card-header-top">
               <div>
                 <span className="tracking-shipment-type">
-                  {tracking.isReturn ? 'Return Shipment' : 'Order Shipment'}
+                  {hasActiveReturn
+                    ? isReplacement
+                      ? 'Size Replacement & Exchange'
+                      : 'Automated Return Shipment'
+                    : 'Order Shipment'}
                 </span>
                 <h2 className="tracking-order-id">{tracking.order_id || tracking.orderId}</h2>
               </div>
@@ -1051,6 +1153,392 @@ function TrackingContent() {
               />
               <span style={{ fontWeight: 800, color: '#1e293b' }}>Current Location:</span>
               <span style={{ color: '#334155' }}>{rawLocation}</span>
+            </div>
+          )}
+
+          {/* 10-Day Return & Exchange Countdown Timer */}
+          {isDelivered && (
+            <ReturnCountdownTimer
+              deliveredAt={tracking.delivered_at}
+              deliveredAtIso={tracking.delivered_at_iso}
+              returnStatus={tracking.return_status}
+              isDelivered={isDelivered}
+            />
+          )}
+
+          {/* Guest Return / Size Exchange Initiation Card (If Delivered & No Active Return) */}
+          {isDelivered && !hasActiveReturn && isWithin10Days && (
+            <div
+              style={{
+                background: '#faf5ff',
+                border: '2px solid #7c3aed',
+                padding: '20px 24px',
+                marginBottom: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span
+                    style={{
+                      background: '#7c3aed',
+                      color: '#fff',
+                      fontSize: '0.68rem',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      padding: '3px 8px',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    VAHN 10-DAY GUARANTEE
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.05rem',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    color: '#581c87',
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  Need a Different Size or Return?
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#6b21a8', marginTop: 3 }}>
+                  Delivered on {tracking.delivered_at || 'Recently'}. Request an instant size
+                  replacement or return for a 100% refund with automated doorstep pickup.
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowGuestReturnModal(true)}
+                style={{
+                  background: '#7c3aed',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '12px 24px',
+                  fontSize: '0.82rem',
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  letterSpacing: '0.02em',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  boxShadow: '0 4px 12px rgba(124, 58, 237, 0.25)',
+                }}
+              >
+                <span>Request Return / Size Exchange</span>
+                <span style={{ fontSize: '1rem', lineHeight: 1 }}>&rarr;</span>
+              </button>
+            </div>
+          )}
+
+          {/* Active Return & Exchange Logistics Status Card */}
+          {hasActiveReturn && (
+            <div
+              style={{
+                background: isReplacement ? '#faf5ff' : '#fffaf0',
+                border: `2px solid ${isReplacement ? '#7c3aed' : '#fa8c16'}`,
+                padding: '24px 28px',
+                marginBottom: '32px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  borderBottom: `1px solid ${isReplacement ? '#e9d5ff' : '#fed7aa'}`,
+                  paddingBottom: 16,
+                  marginBottom: 18,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <PackageIcon size={24} color={isReplacement ? '#7c3aed' : '#d97706'} />
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginBottom: 2,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 900,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.06em',
+                          color: isReplacement ? '#7c3aed' : '#d97706',
+                        }}
+                      >
+                        {isReplacement ? 'Size Exchange Active' : 'Reverse Logistics Active'}
+                      </span>
+                      {isReplacement && (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            background: '#f3e8ff',
+                            color: '#6b21a8',
+                            border: '1px solid #d8b4fe',
+                            padding: '2px 8px',
+                            fontSize: '0.66rem',
+                            fontWeight: 800,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                          }}
+                        >
+                          <ShieldCheckIcon size={12} color="#7c3aed" />
+                          Doorstep QC Verified
+                        </span>
+                      )}
+                    </div>
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: '1.15rem',
+                        fontWeight: 900,
+                        textTransform: 'uppercase',
+                        letterSpacing: '-0.01em',
+                      }}
+                    >
+                      {isReplacement
+                        ? 'Size Replacement & Reverse Logistics'
+                        : 'Automated Return & 100% Refund'}
+                    </h3>
+                  </div>
+                </div>
+
+                <span
+                  style={{
+                    background: isReplacement ? '#7c3aed' : '#fa8c16',
+                    color: '#ffffff',
+                    padding: '6px 14px',
+                    fontSize: '0.75rem',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  {statusBadgeLabel}
+                </span>
+              </div>
+
+              {/* REPLACEMENT VARIANT SUMMARY (IF EXCHANGE) */}
+              {isReplacement && (
+                <div
+                  style={{
+                    background: '#f3e8ff',
+                    border: '1px solid #d8b4fe',
+                    padding: '14px 18px',
+                    marginBottom: 18,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 12,
+                  }}
+                >
+                  <div>
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 800,
+                        color: '#6b21a8',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      Requested Replacement Size
+                    </span>
+                    <div
+                      style={{
+                        fontSize: '1.05rem',
+                        fontWeight: 900,
+                        color: '#581c87',
+                        marginTop: 2,
+                      }}
+                    >
+                      {tracking.replacement_variant_title || 'New Size Reserved in Warehouse'}
+                    </div>
+                  </div>
+
+                  {tracking.replacement_awb && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div>
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            color: '#7c3aed',
+                            textTransform: 'uppercase',
+                            fontWeight: 700,
+                            display: 'block',
+                          }}
+                        >
+                          Replacement AWB ({tracking.replacement_courier_name || 'Express'})
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <strong
+                            style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#111' }}
+                          >
+                            {tracking.replacement_awb}
+                          </strong>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyReplacementAwb(tracking.replacement_awb || '')}
+                            className="tracking-copy-btn"
+                          >
+                            {copiedReplacement ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (tracking.replacement_awb) {
+                            setQuery(tracking.replacement_awb);
+                            handleSearch(tracking.replacement_awb);
+                          }
+                        }}
+                        style={{
+                          background: '#7c3aed',
+                          color: '#fff',
+                          border: 'none',
+                          padding: '8px 14px',
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          textTransform: 'uppercase',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Track Replacement &rarr;
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Doorstep Pickup Details */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: 16,
+                  fontSize: '0.85rem',
+                  marginBottom: 18,
+                }}
+              >
+                <div>
+                  <span
+                    style={{
+                      color: '#666',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      display: 'block',
+                    }}
+                  >
+                    Reverse Courier Partner
+                  </span>
+                  <strong style={{ color: '#111', fontSize: '0.9rem' }}>
+                    {tracking.reverse_courier_name || 'Shiprocket Reverse Logistics'}
+                  </strong>
+                </div>
+
+                <div>
+                  <span
+                    style={{
+                      color: '#666',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      display: 'block',
+                    }}
+                  >
+                    Reverse Pickup AWB
+                  </span>
+                  {tracking.reverse_awb ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <strong
+                        style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#111' }}
+                      >
+                        {tracking.reverse_awb}
+                      </strong>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyReverseAwb(tracking.reverse_awb || '')}
+                        className="tracking-copy-btn"
+                      >
+                        {copiedReverse ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                  ) : (
+                    <span style={{ color: '#888' }}>Pickup Scheduled (AWB Generating)</span>
+                  )}
+                </div>
+
+                <div>
+                  <span
+                    style={{
+                      color: '#666',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      display: 'block',
+                    }}
+                  >
+                    Doorstep Handover
+                  </span>
+                  <span
+                    style={{
+                      color: tracking.is_picked_up ? '#15803d' : '#b45309',
+                      fontWeight: 800,
+                    }}
+                  >
+                    {tracking.is_picked_up ? '✓ Handover Completed' : 'Awaiting Doorstep Handover'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Pickup Instructions Notice */}
+              <div
+                style={{
+                  background: '#ffffff',
+                  border: `1px solid ${isReplacement ? '#d8b4fe' : '#fed7aa'}`,
+                  padding: '12px 16px',
+                  fontSize: '0.8rem',
+                  color: '#444',
+                  lineHeight: 1.5,
+                }}
+              >
+                {tracking.is_picked_up ? (
+                  <span>
+                    ✓ Doorstep pickup verified. Your returned parcel is moving through our reverse
+                    network.
+                    {isReplacement
+                      ? ' Your replacement package will be dispatched upon receipt and inspection.'
+                      : ' Your 100% refund is issued directly via Razorpay.'}
+                  </span>
+                ) : (
+                  <span>
+                    📦 <strong>Doorstep Pickup Scheduled:</strong> A courier representative will
+                    visit your delivery address to collect the original item. Please ensure tags and
+                    original packaging are intact.
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
@@ -1334,15 +1822,15 @@ function TrackingContent() {
 
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {checkpoints.map((cp, i) => (
+                  {checkpoints.map((cp, idx) => (
                     <div
-                      key={i}
+                      key={`cp-${cp.title}-${cp.timestamp || ''}-${cp.location || ''}-${cp.description?.slice(0, 15) || ''}`}
                       style={{
                         display: 'flex',
                         alignItems: 'flex-start',
                         gap: '14px',
                         paddingBottom: '14px',
-                        borderBottom: i < checkpoints.length - 1 ? '1px solid #f8f8f8' : 'none',
+                        borderBottom: idx < checkpoints.length - 1 ? '1px solid #f8f8f8' : 'none',
                       }}
                     >
                       <div
@@ -1350,7 +1838,7 @@ function TrackingContent() {
                           width: 8,
                           height: 8,
                           background:
-                            i === 0
+                            idx === 0
                               ? isCancelled || isPaymentFailed
                                 ? '#dc2626'
                                 : isPaymentPending
@@ -1361,7 +1849,7 @@ function TrackingContent() {
                           marginTop: '5px',
                           flexShrink: 0,
                           boxShadow:
-                            i === 0
+                            idx === 0
                               ? `0 0 0 3px ${
                                   isCancelled || isPaymentFailed
                                     ? 'rgba(220,38,38,0.2)'
@@ -1387,7 +1875,7 @@ function TrackingContent() {
                               fontWeight: 800,
                               fontSize: '0.88rem',
                               textTransform: 'uppercase',
-                              color: i === 0 ? '#000' : '#444',
+                              color: idx === 0 ? '#000' : '#444',
                             }}
                           >
                             {cp.title}
@@ -1413,6 +1901,18 @@ function TrackingContent() {
               );
             })()}
           </div>
+
+          {/* Guest Return Initiation Modal */}
+          <GuestReturnModal
+            isOpen={showGuestReturnModal}
+            onClose={() => setShowGuestReturnModal(false)}
+            orderId={tracking.order_id || tracking.orderId || query.trim()}
+            tracking={tracking}
+            onSuccess={() => {
+              const code = tracking.order_id || tracking.orderId || query.trim();
+              if (code) handleSearch(code);
+            }}
+          />
         </div>
       ) : (
         /* Empty State / Helpful Information Cards */
@@ -1530,7 +2030,18 @@ function TrackingContent() {
                 }}
               >
                 <span>Contact Support</span>
-                <svg className="btn-checkout-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  aria-hidden="true"
+                  className="btn-checkout-arrow"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
               </Link>
