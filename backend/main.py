@@ -4696,8 +4696,25 @@ def admin_refresh_order_tracking(
                 merged_rev = dict(order.reverse_tracking_data or {})
                 merged_rev.update(rev_track)
                 order.reverse_tracking_data = merged_rev
+                if rev_track.get("is_picked_up"):
+                    if order.return_type == "REPLACEMENT":
+                        if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                            order.replacement_status = "PICKED_UP"
+                        order.return_status = "PICKED_UP"
+                    elif order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                        order.return_status = "PICKED_UP"
         except Exception as e:
             logger.warning(f"Error refreshing reverse tracking for order {order.id}: {e}")
+
+    if order.replacement_awb and order.replacement_awb != order.shiprocket_awb:
+        try:
+            rep_track = shiprocket_service.track_awb(order.replacement_awb)
+            if rep_track and isinstance(rep_track, dict):
+                curr_st = str(rep_track.get("current_status") or "").upper()
+                if curr_st:
+                    order.replacement_status = curr_st
+        except Exception as e:
+            logger.warning(f"Error refreshing replacement tracking for order {order.id}: {e}")
 
     try:
         db.commit()
