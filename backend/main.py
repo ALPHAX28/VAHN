@@ -2607,11 +2607,26 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         for i in (order.items or [])
     ]
 
+    def _parse_scan_ts(scan_item):
+        d_val = getattr(scan_item, "date", None)
+        if not d_val:
+            return 0.0
+        s_val = str(d_val).strip()
+        for f_fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%d-%m-%Y %H:%M:%S", "%d/%m/%Y %H:%M:%S"):
+            try:
+                return datetime.strptime(s_val[:19], f_fmt).timestamp()
+            except Exception:
+                pass
+        return 0.0
+
+    forward_scans.sort(key=_parse_scan_ts, reverse=True)
+    reverse_scans.sort(key=_parse_scan_ts, reverse=True)
+
     curr_location = None
     if forward_scans:
-        curr_location = forward_scans[-1].location
+        curr_location = forward_scans[0].location
     elif reverse_scans:
-        curr_location = reverse_scans[-1].location
+        curr_location = reverse_scans[0].location
     if not curr_location and order.tracking_data and isinstance(order.tracking_data, dict):
         curr_location = order.tracking_data.get("current_location")
 

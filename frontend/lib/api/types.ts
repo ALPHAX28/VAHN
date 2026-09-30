@@ -342,6 +342,7 @@ export interface TrackingInfo {
   refund_status?: string | null;
   refund_note?: string | null;
   refund_amount?: number | null;
+  refunded_at?: string | null;
 }
 
 export interface RetryPaymentResponse {

@@ -34,6 +34,7 @@ import {
   shipAdminOrder,
   updateOrderStatus,
 } from '@/lib/api/admin';
+import { parseCheckpointDate } from '@/lib/shipStatus';
 import { getPublicTrackingUrl } from '@/lib/utils';
 
 const ORDER_STATUSES = ['PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
@@ -613,11 +614,16 @@ export default function AdminOrderDetailPage() {
             const isReplacementDispatched = order.replacement_status === 'REPLACEMENT_DISPATCHED';
 
             const reverseTracking = order.reverse_tracking_data;
-            const reverseScans: Array<{ date?: string; activity: string; location?: string }> =
+            const rawRevScans: Array<{ date?: string; activity: string; location?: string }> =
               Array.isArray(reverseTracking?.scans) ? reverseTracking.scans : [];
+            const reverseScans = [...rawRevScans].sort((a, b) => {
+              const tA = parseCheckpointDate(a.date);
+              const tB = parseCheckpointDate(b.date);
+              return tB - tA;
+            });
             const reverseCurrentLocation =
               reverseTracking?.current_location ||
-              (reverseScans.length > 0 ? reverseScans[reverseScans.length - 1]?.location : null) ||
+              (reverseScans.length > 0 ? reverseScans[0]?.location : null) ||
               'Customer Area / Sorting Hub';
 
             const isPickedUpFromCustomer =
@@ -657,15 +663,20 @@ export default function AdminOrderDetailPage() {
               order.refund_status === 'REFUNDED' || order.payment_status === 'REFUNDED';
 
             const forwardTracking = order.tracking_data;
-            const forwardScans: Array<{ date?: string; activity: string; location?: string }> =
+            const rawFwdScans: Array<{ date?: string; activity: string; location?: string }> =
               Array.isArray(forwardTracking?.scans) ? forwardTracking.scans : [];
+            const forwardScans = [...rawFwdScans].sort((a, b) => {
+              const tA = parseCheckpointDate(a.date);
+              const tB = parseCheckpointDate(b.date);
+              return tB - tA;
+            });
             const forwardCurrentLocation = isPaymentFailed
               ? 'Fulfillment Blocked (Payment Failed)'
               : isCancelled
                 ? 'Shipment Revoked & Cancelled'
                 : forwardTracking?.current_location ||
                   (forwardScans.length > 0
-                    ? forwardScans[forwardScans.length - 1]?.location
+                    ? forwardScans[0]?.location
                     : null) ||
                   (isDelivered
                     ? 'Delivered to Customer'

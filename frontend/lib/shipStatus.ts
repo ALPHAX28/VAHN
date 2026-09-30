@@ -153,7 +153,7 @@ const ACTIVITY_PATTERNS: Array<{ pattern: string; label: string }> = [
  * Falls back to sanitised title-case of the original string if no pattern matches.
  */
 export function prettifyActivityLabel(raw: string | null | undefined): string {
-  if (!raw || !raw.trim()) return "Shipment Update";
+  if (!raw?.trim()) return "Shipment Update";
   const normed = normActivity(raw);
 
   for (const { pattern, label } of ACTIVITY_PATTERNS) {
@@ -172,3 +172,50 @@ export function prettifyActivityLabel(raw: string | null | undefined): string {
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+/**
+ * Safely parse a date string from various courier tracking formats
+ * (e.g. "YYYY-MM-DD HH:mm:ss", ISO 8601, "DD-MM-YYYY HH:mm:ss", "MMM DD, YYYY")
+ * into a millisecond timestamp for deterministic chronological sorting.
+ * Returns 0 if string is unparseable or represents a status flag like "Recent" or "Delivered".
+ */
+export function parseCheckpointDate(dateStr?: string | null): number {
+  if (!dateStr) return 0;
+  const str = String(dateStr).trim();
+  if (!str) return 0;
+
+  // 1. Try standard Date.parse (handles ISO 8601, "Sep 27, 2026", "2026-09-30T17:26:17Z", etc.)
+  const parsed = Date.parse(str);
+  if (!Number.isNaN(parsed)) return parsed;
+
+  // 2. Format: "YYYY-MM-DD HH:mm:ss" or "YYYY-MM-DD HH:mm" (with space instead of T)
+  const matchYmd = str.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+  if (matchYmd) {
+    const d = new Date(
+      Number(matchYmd[1]),
+      Number(matchYmd[2]) - 1,
+      Number(matchYmd[3]),
+      Number(matchYmd[4]),
+      Number(matchYmd[5]),
+      Number(matchYmd[6] || 0)
+    );
+    if (!Number.isNaN(d.getTime())) return d.getTime();
+  }
+
+  // 3. Format: "DD-MM-YYYY HH:mm:ss" or "DD/MM/YYYY HH:mm:ss" (common in Indian couriers)
+  const matchDmy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (matchDmy) {
+    const d = new Date(
+      Number(matchDmy[3]),
+      Number(matchDmy[2]) - 1,
+      Number(matchDmy[1]),
+      Number(matchDmy[4] || 0),
+      Number(matchDmy[5] || 0),
+      Number(matchDmy[6] || 0)
+    );
+    if (!Number.isNaN(d.getTime())) return d.getTime();
+  }
+
+  return 0;
+}
+

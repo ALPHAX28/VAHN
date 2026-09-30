@@ -36,7 +36,7 @@ import type {
   OrderExchangeOptionsResponse,
   TrackingInfo,
 } from '@/lib/api/types';
-import { prettifyActivityLabel, prettifyShipStatus } from '@/lib/shipStatus';
+import { parseCheckpointDate, prettifyActivityLabel, prettifyShipStatus } from '@/lib/shipStatus';
 
 const STATUS_STEPS = [
   {
@@ -483,19 +483,25 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
   const canDownloadInvoice = !isFailed && !isCancelled && Boolean(order.shiprocketAwb) && isShipped;
 
   // Checkpoint scans preparation
-  const activeForwardScans =
+  const rawForwardScans =
     trackingModalData?.scans && trackingModalData.scans.length > 0
       ? trackingModalData.scans
       : order.trackingData?.scans && order.trackingData.scans.length > 0
         ? order.trackingData.scans
         : [];
+  const activeForwardScans = [...rawForwardScans].sort(
+    (a, b) => parseCheckpointDate(a.date) - parseCheckpointDate(b.date)
+  );
 
-  const activeReverseScans =
+  const rawReverseScans =
     trackingModalData?.reverse_scans && trackingModalData.reverse_scans.length > 0
       ? trackingModalData.reverse_scans
       : order.reverseTrackingData?.scans && order.reverseTrackingData.scans.length > 0
         ? order.reverseTrackingData.scans
         : [];
+  const activeReverseScans = [...rawReverseScans].sort(
+    (a, b) => parseCheckpointDate(a.date) - parseCheckpointDate(b.date)
+  );
 
   // Strictly dynamic courier location from API (no static fake fallbacks or pseudo-statuses)
   const rawForwardLoc = (

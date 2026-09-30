@@ -19,7 +19,7 @@ import GuestReturnModal from '@/components/order/GuestReturnModal';
 import ReturnCountdownTimer from '@/components/order/ReturnCountdownTimer';
 import { cancelCustomerOrderReturn, getPublicOrderInvoice, getPublicTracking } from '@/lib/api';
 import type { TrackingInfo } from '@/lib/api/types';
-import { prettifyActivityLabel } from '@/lib/shipStatus';
+import { prettifyActivityLabel, parseCheckpointDate } from '@/lib/shipStatus';
 
 function TrackingContent() {
   const searchParams = useSearchParams();
@@ -1965,6 +1965,8 @@ function TrackingContent() {
                 description?: string | null;
                 location?: string | null;
                 timestamp?: string | null;
+                sortTime?: number;
+                isBaseOrder?: boolean;
               }> = [];
 
               const rawScans = isReturn
@@ -1982,17 +1984,101 @@ function TrackingContent() {
                     description: m.description,
                     location: m.location,
                     timestamp: m.timestamp,
+                    sortTime: parseCheckpointDate(m.timestamp),
                   });
                 });
               } else if (rawScans.length > 0) {
-                const reversedScans = [...rawScans].reverse();
-                reversedScans.forEach((s) => {
+                // Determine whether rawScans was originally provided in ascending order
+                let isRawAscending = false;
+                if (rawScans.length >= 2) {
+                  const tFirst = parseCheckpointDate(rawScans[0].date);
+                  const tLast = parseCheckpointDate(rawScans[rawScans.length - 1].date);
+                  if (tFirst > 0 && tLast > 0 && tFirst < tLast) {
+                    isRawAscending = true;
+                  }
+                }
+
+                rawScans.forEach((s, idx) => {
+                  const sTime = parseCheckpointDate(s.date);
+                  // Tie-breaker: if array was ascending, higher index is newer (+idx). If descending, lower index is newer (-idx).
+                  const tieOffset = isRawAscending ? idx : rawScans.length - idx;
                   checkpoints.push({
                     title: prettifyActivityLabel(s.activity) || 'Shipment Update',
                     location: s.location || undefined,
                     timestamp: s.date || undefined,
+                    sortTime: sTime > 0 ? sTime + tieOffset : 0,
                   });
                 });
+
+                if (isReturn) {
+                  const revDelivered =
+                    (
+                      tracking?.reverse_tracking_data as {
+                        delivered_to_warehouse?: boolean;
+                        delivered_at?: string;
+                      }
+                    )?.delivered_to_warehouse ||
+                    tracking?.return_status === 'DELIVERED_TO_WAREHOUSE';
+                  const isRefunded =
+                    tracking?.return_status === 'COMPLETED' ||
+                    tracking?.return_status === 'REFUNDED' ||
+                    tracking?.refund_status === 'REFUNDED';
+                  const maxScanTime = Math.max(0, ...checkpoints.map((c) => c.sortTime || 0));
+
+                  if (isRefunded) {
+                    const hasRefundScan = rawScans.some((s) => /refund/i.test(s.activity || ''));
+                    if (!hasRefundScan) {
+                      checkpoints.push({
+                        title: '100% Refund Credited via Razorpay',
+                        description: tracking.refund_amount
+                          ? `Refund of ₹${tracking.refund_amount.toLocaleString('en-IN')} has been credited.`
+                          : 'Refund successfully processed and credited.',
+                        timestamp: tracking.refunded_at || 'Refunded',
+                        sortTime: maxScanTime + 2000,
+                      });
+                    }
+                  }
+
+                  if (revDelivered) {
+                    const hasWarehouseScan = rawScans.some((s) =>
+                      /delivered to warehouse|reached warehouse|warehouse received/i.test(
+                        s.activity || ''
+                      )
+                    );
+                    if (!hasWarehouseScan) {
+                      const revDelivAt = (
+                        tracking.reverse_tracking_data as { delivered_at?: string }
+                      )?.delivered_at;
+                      const parsedRevDeliv = parseCheckpointDate(revDelivAt);
+                      checkpoints.push({
+                        title: isReplacement
+                          ? 'Package Received at Warehouse (Size Restocked)'
+                          : 'Package Received at Warehouse (Undergoing QC)',
+                        description: isReplacement
+                          ? 'Returned package received at warehouse and size inventory restocked.'
+                          : 'Returned package received at warehouse. Quality inspection in progress.',
+                        timestamp: revDelivAt || 'Delivered to Warehouse',
+                        sortTime: parsedRevDeliv > 0 ? parsedRevDeliv : maxScanTime + 1000,
+                      });
+                    }
+                  }
+
+                  if (tracking.return_requested_at) {
+                    checkpoints.push({
+                      title: isReplacement
+                        ? 'Exchange Request Registered'
+                        : 'Return Request Registered',
+                      description: tracking.return_reason
+                        ? `Reason: ${tracking.return_reason}`
+                        : isReplacement
+                          ? 'Doorstep exchange request registered.'
+                          : 'Return request registered.',
+                      timestamp: tracking.return_requested_at,
+                      sortTime: parseCheckpointDate(tracking.return_requested_at) || 2,
+                    });
+                  }
+                }
+
                 if (isPaymentFailed) {
                   checkpoints.push({
                     title: 'Payment Failed — Order Incomplete',
@@ -2000,24 +2086,32 @@ function TrackingContent() {
                       tracking.cancellation_reason ||
                       'Online payment was not captured or failed at checkout.',
                     timestamp: tracking.created_at || 'Recent',
+                    sortTime: parseCheckpointDate(tracking.created_at) || 1,
+                    isBaseOrder: true,
                   });
                 } else if (isPaymentPending) {
                   checkpoints.push({
                     title: 'Order Received — Awaiting Payment',
                     description: 'Order is registered. Awaiting payment verification.',
                     timestamp: tracking.created_at || 'Recent',
+                    sortTime: parseCheckpointDate(tracking.created_at) || 1,
+                    isBaseOrder: true,
                   });
                 } else if (isCancelled) {
                   checkpoints.push({
                     title: 'Order Cancelled',
                     description: tracking.cancellation_reason || 'Order was cancelled.',
                     timestamp: tracking.created_at || 'Recent',
+                    sortTime: parseCheckpointDate(tracking.created_at) || 1,
+                    isBaseOrder: true,
                   });
                 } else {
                   checkpoints.push({
                     title: 'Order Placed & Payment Confirmed',
                     description: `Order #${tracking.order_id || tracking.orderId} placed successfully. Prepaid payment confirmed.`,
                     timestamp: tracking.created_at || 'Recent',
+                    sortTime: parseCheckpointDate(tracking.created_at) || 1,
+                    isBaseOrder: true,
                   });
                 }
               } else if (tracking) {
@@ -2028,6 +2122,8 @@ function TrackingContent() {
                       ? `Cancellation Reason: ${tracking.cancellation_reason}`
                       : 'Order was cancelled. Any prepaid payment has been refunded.',
                     timestamp: tracking.created_at || 'Recent',
+                    sortTime: parseCheckpointDate(tracking.created_at) || 1,
+                    isBaseOrder: true,
                   });
                 } else if (isPaymentFailed) {
                   checkpoints.push({
@@ -2036,6 +2132,8 @@ function TrackingContent() {
                       ? `Reason: ${tracking.cancellation_reason}`
                       : 'Online payment was not captured or was declined by the bank. Order cannot be fulfilled.',
                     timestamp: tracking.created_at || 'Recent',
+                    sortTime: parseCheckpointDate(tracking.created_at) || 1,
+                    isBaseOrder: true,
                   });
                 } else if (isPaymentPending) {
                   checkpoints.push({
@@ -2043,6 +2141,8 @@ function TrackingContent() {
                     description:
                       'Order is registered and awaiting payment verification from payment gateway.',
                     timestamp: tracking.created_at || 'Recent',
+                    sortTime: parseCheckpointDate(tracking.created_at) || 1,
+                    isBaseOrder: true,
                   });
                 } else {
                   if (currentStepIndex >= 5) {
@@ -2050,6 +2150,7 @@ function TrackingContent() {
                       title: 'Package Delivered',
                       description: 'Shipment was delivered successfully.',
                       timestamp: tracking.delivered_at || 'Delivered',
+                      sortTime: parseCheckpointDate(tracking.delivered_at) || 6,
                     });
                   }
                   if (currentStepIndex >= 4) {
@@ -2057,6 +2158,7 @@ function TrackingContent() {
                       title: 'Out for Delivery',
                       description: 'Package is out for delivery with the courier agent.',
                       timestamp: 'In Progress',
+                      sortTime: 5,
                     });
                   }
                   if (currentStepIndex >= 3) {
@@ -2066,6 +2168,7 @@ function TrackingContent() {
                         ? `Package is in transit to destination facility near ${rawLocation}.`
                         : 'Package is in transit to destination facility.',
                       timestamp: 'In Progress',
+                      sortTime: 4,
                     });
                   }
                   if (currentStepIndex >= 2) {
@@ -2073,6 +2176,7 @@ function TrackingContent() {
                       title: 'Handed Over to Courier',
                       description: `Package picked up by ${tracking.courier_name || tracking.courierName || 'Courier Partner'}.`,
                       timestamp: 'Dispatched',
+                      sortTime: 3,
                     });
                   }
                   if (currentStepIndex >= 1) {
@@ -2082,15 +2186,37 @@ function TrackingContent() {
                         ? `Assigned to ${tracking.courier_name || tracking.courierName || 'Express Delivery'} (AWB: ${tracking.awb_code})`
                         : 'Order is packed and awaiting courier pickup at fulfillment facility.',
                       timestamp: 'Packed',
+                      sortTime: 2,
                     });
                   }
                   checkpoints.push({
                     title: 'Order Placed & Payment Confirmed',
                     description: `Order #${tracking.order_id || tracking.orderId} placed successfully. Prepaid payment confirmed.`,
                     timestamp: tracking.created_at || 'Recent',
+                    sortTime: parseCheckpointDate(tracking.created_at) || 1,
+                    isBaseOrder: true,
                   });
                 }
               }
+
+              // Strict DESCENDING sort by timestamp (newest checkpoint at index 0, oldest at bottom)
+              checkpoints.sort((a, b) => {
+                // Base order creation milestone always sorts to the bottom (oldest)
+                if (a.isBaseOrder && !b.isBaseOrder) return 1;
+                if (!a.isBaseOrder && b.isBaseOrder) return -1;
+
+                const timeA =
+                  a.sortTime !== undefined ? a.sortTime : parseCheckpointDate(a.timestamp);
+                const timeB =
+                  b.sortTime !== undefined ? b.sortTime : parseCheckpointDate(b.timestamp);
+
+                if (timeA !== 0 && timeB !== 0) {
+                  return timeB - timeA; // Descending: newest first
+                }
+                if (timeA !== 0 && timeB === 0) return -1;
+                if (timeA === 0 && timeB !== 0) return 1;
+                return 0;
+              });
 
               if (checkpoints.length === 0) {
                 return (
