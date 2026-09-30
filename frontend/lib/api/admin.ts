@@ -911,3 +911,18 @@ export const cancelAdminOrderReturn = (
     method: 'POST',
     body: JSON.stringify(data || {}),
   });
+
+export const markAdminOrderReturnReceived = (token: string, orderId: string) =>
+  adminFetch<AdminOrder>(`/admin/orders/${orderId}/mark-return-received`, token, {
+    method: 'POST',
+  });
+
+export const rejectAdminOrderReturn = (
+  token: string,
+  orderId: string,
+  payload: { reason: string }
+) =>
+  adminFetch<AdminOrder>(`/admin/orders/${orderId}/reject-return`, token, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });

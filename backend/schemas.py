@@ -646,6 +646,9 @@ class CancelReturnRequest(BaseModel):
     customer_email: Optional[str] = None
     customer_phone: Optional[str] = None
 
+class RejectReturnRequest(BaseModel):
+    reason: str  # Mandatory reason for rejecting/cancelling return refund
+
 class AdminDispatchReplacementRequest(BaseModel):
     awb_code: Optional[str] = None
     courier_name: Optional[str] = None
@@ -811,6 +814,19 @@ class OrderSchema(BaseModel):
     replacementAwb: Optional[str] = None
     replacementCourierName: Optional[str] = None
     replacementTrackingUrl: Optional[str] = None
+    refund_status: Optional[str] = None
+    refund_note: Optional[str] = None
+    refund_amount: Optional[float] = 0.0
+    return_status: Optional[str] = None
+    return_type: Optional[str] = "RETURN"
+    return_reason: Optional[str] = None
+    return_notes: Optional[str] = None
+    reverse_awb: Optional[str] = None
+    reverse_courier_name: Optional[str] = None
+    reverse_tracking_data: Optional[dict] = None
+    replacement_status: Optional[str] = "NONE"
+    replacement_awb: Optional[str] = None
+    replacement_variant_title: Optional[str] = None
 
 
 

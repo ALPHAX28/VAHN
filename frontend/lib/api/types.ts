@@ -307,6 +307,7 @@ export interface TrackingInfo {
   reverse_scans?: TrackingScan[];
   reverse_awb?: string | null;
   reverse_courier_name?: string | null;
+  reverse_tracking_data?: Record<string, unknown> | null;
   isReturn?: boolean;
   return_status?: string | null;
   is_picked_up?: boolean;
@@ -338,6 +339,9 @@ export interface TrackingInfo {
   replacement_courier_name?: string | null;
   replacement_tracking_url?: string | null;
   delivered_at_iso?: string | null;
+  refund_status?: string | null;
+  refund_note?: string | null;
+  refund_amount?: number | null;
 }
 
 export interface RetryPaymentResponse {

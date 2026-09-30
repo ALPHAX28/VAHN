@@ -1049,7 +1049,20 @@ def build_order_schema(order: models.Order) -> schemas.OrderSchema:
         replacementShipmentId=order.replacement_shipment_id,
         replacementAwb=order.replacement_awb,
         replacementCourierName=order.replacement_courier_name,
-        replacementTrackingUrl=order.replacement_tracking_url
+        replacementTrackingUrl=order.replacement_tracking_url,
+        refund_status=order.refund_status,
+        refund_note=order.refund_note,
+        refund_amount=order.refund_amount or 0.0,
+        return_status=order.return_status or "NONE",
+        return_type=order.return_type or "RETURN",
+        return_reason=order.return_reason,
+        return_notes=order.return_notes,
+        reverse_awb=order.reverse_awb,
+        reverse_courier_name=order.reverse_courier_name,
+        reverse_tracking_data=order.reverse_tracking_data or {},
+        replacement_status=order.replacement_status or "NONE",
+        replacement_awb=order.replacement_awb,
+        replacement_variant_title=order.replacement_variant_title
     )
 
 # ============================================================
@@ -3313,6 +3326,31 @@ def request_order_return(
     return build_order_schema(order)
 
 
+def restock_returned_order_items(order: models.Order, db: Session) -> bool:
+    """
+    Restocks returned order items into ProductVariant inventory.
+    Guaranteed idempotent: executes only once per order, flagged in reverse_tracking_data.
+    """
+    rev_data = dict(order.reverse_tracking_data or {})
+    if rev_data.get("is_restocked"):
+        logger.info(f"Order {order.id} items have already been restocked into warehouse inventory. Skipping.")
+        return False
+
+    restocked_any = False
+    for item in (order.items or []):
+        if item.variant_id:
+            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+            if var:
+                var.inventory_quantity = (var.inventory_quantity or 0) + item.quantity
+                restocked_any = True
+                logger.info(f"Restocked {item.quantity} unit(s) of variant {var.id} (new qty: {var.inventory_quantity})")
+
+    rev_data["is_restocked"] = True
+    rev_data["restocked_at"] = datetime.utcnow().isoformat()
+    order.reverse_tracking_data = rev_data
+    return restocked_any
+
+
 def execute_cancel_order_return(order: models.Order, reason: Optional[str], db: Session) -> models.Order:
     clean_reason = reason or "Customer requested cancellation of return/exchange"
     logger.info(f"Cancelling return/exchange request for order {order.id}: {clean_reason}")
@@ -3422,6 +3460,131 @@ def admin_cancel_order_return(
 
     updated_order = execute_cancel_order_return(order, payload.reason, db)
     return build_order_schema(updated_order)
+
+
+@app.post("/api/admin/orders/{order_id}/mark-return-received", response_model=schemas.AdminOrderSchema)
+def admin_mark_order_return_received(
+    order_id: str,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin: Manually mark a return or size exchange package as delivered to the warehouse.
+    Unlocks refund/QC rejection controls for returns, and automatically restocks inventory for exchanges.
+    """
+    order = db.query(models.Order).options(
+        selectinload(models.Order.items),
+        selectinload(models.Order.user)
+    ).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.return_status = "DELIVERED_TO_WAREHOUSE"
+    rev_data = dict(order.reverse_tracking_data or {})
+    rev_data["delivered_to_warehouse"] = True
+    rev_data["warehouse_received_at"] = datetime.utcnow().isoformat()
+    order.reverse_tracking_data = rev_data
+
+    now_utc = datetime.now(timezone.utc)
+    ts_str = now_utc.strftime("%d %b %Y, %I:%M %p")
+    t_data = dict(order.tracking_data or {})
+    scans = t_data.setdefault("scans", [])
+
+    if order.return_type == "REPLACEMENT":
+        restocked = restock_returned_order_items(order, db)
+        scans.insert(0, {
+            "title": "Return Parcel Delivered to Warehouse",
+            "description": "Returned exchange package arrived at warehouse. Size inventory automatically restocked.",
+            "timestamp": ts_str,
+            "location": "VAHN Warehouse (Home)"
+        })
+        logger.info(f"Exchange parcel for order {order.id} marked received at warehouse. Restocked: {restocked}")
+    else:
+        scans.insert(0, {
+            "title": "Return Parcel Delivered to Warehouse",
+            "description": "Returned package received at warehouse facility. Item undergoing quality inspection for refund approval.",
+            "timestamp": ts_str,
+            "location": "VAHN Warehouse (Home)"
+        })
+        logger.info(f"Return parcel for order {order.id} marked received at warehouse. Awaiting QC inspection.")
+
+    order.tracking_data = t_data
+    db.commit()
+    db.refresh(order)
+
+    try:
+        r_email, r_name = get_order_customer_info(order, db)
+        if r_email:
+            send_return_status_update_email(
+                to_email=r_email,
+                order_id=order.id,
+                customer_name=r_name,
+                return_type=order.return_type or "RETURN",
+                return_status="DELIVERED_TO_WAREHOUSE",
+                custom_message="Your returned package has been received at our warehouse and is undergoing inspection." if order.return_type != "REPLACEMENT" else "Your returned exchange package has arrived at our warehouse and size inventory has been restocked."
+            )
+    except Exception as em_err:
+        logger.warning(f"Failed to send warehouse receipt email for order {order.id}: {em_err}")
+
+    return _admin_order_detail(order)
+
+
+@app.post("/api/admin/orders/{order_id}/reject-return", response_model=schemas.AdminOrderSchema)
+def admin_reject_order_return(
+    order_id: str,
+    payload: schemas.RejectReturnRequest,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin: Reject/Cancel refund after warehouse receipt due to QC failure, missing tags, damage, etc.
+    Requires mandatory rejection reason.
+    """
+    order = db.query(models.Order).options(
+        selectinload(models.Order.items),
+        selectinload(models.Order.user)
+    ).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    reason = (payload.reason or "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="A mandatory rejection reason is required (e.g. Quality inspection failed, item damaged or tags missing).")
+
+    order.return_status = "REJECTED"
+    order.refund_status = "REJECTED"
+    order.refund_note = reason
+
+    now_utc = datetime.now(timezone.utc)
+    ts_str = now_utc.strftime("%d %b %Y, %I:%M %p")
+    t_data = dict(order.tracking_data or {})
+    scans = t_data.setdefault("scans", [])
+    scans.insert(0, {
+        "title": "Return / Refund Cancelled (QC Failed)",
+        "description": f"Inspection failed: {reason}",
+        "timestamp": ts_str,
+        "location": "VAHN Warehouse (Home)"
+    })
+    order.tracking_data = t_data
+
+    db.commit()
+    db.refresh(order)
+
+    try:
+        r_email, r_name = get_order_customer_info(order, db)
+        if r_email:
+            send_return_status_update_email(
+                to_email=r_email,
+                order_id=order.id,
+                customer_name=r_name,
+                return_type=order.return_type or "RETURN",
+                return_status="REJECTED",
+                custom_message=f"Your return package was inspected at our warehouse, but quality check could not be approved due to: {reason}. As a result, the refund request has been cancelled."
+            )
+    except Exception as em_err:
+        logger.warning(f"Failed to send return rejection email for order {order.id}: {em_err}")
+
+    return _admin_order_detail(order)
 
 
 # 8c. Customer: Cancel Return or Exchange Request
@@ -3606,69 +3769,50 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
                 db.commit()
                 return {"status": "forward_updated", "order_id": order.id}
 
-        # Check reverse shipment (AUTOMATED REFUND OR REPLACEMENT TRIGGER ON PICKUP)
+        # Check reverse shipment
         if awb:
             rev_order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(reverse_awb=awb).first()
             if rev_order:
+                now_utc = datetime.now(timezone.utc)
+                ts_str = now_utc.strftime("%d %b %Y, %I:%M %p")
+                t_data = dict(rev_order.tracking_data or {})
+                scans = t_data.setdefault("scans", [])
+
                 if current_status in ("PICKED_UP", "IN_TRANSIT"):
-                    if rev_order.return_type == "REPLACEMENT":
+                    if rev_order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
                         rev_order.return_status = "PICKED_UP"
+                    if rev_order.return_type == "REPLACEMENT":
                         if rev_order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
                             rev_order.replacement_status = "PICKED_UP"
+                    db.commit()
+                    return {"status": "reverse_picked_up"}
 
-                        # Restock returned inventory
-                        for item in (rev_order.items or []):
-                            if item.variant_id:
-                                var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
-                                if var:
-                                    var.inventory_quantity += item.quantity
+                elif current_status in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE"):
+                    rev_order.return_status = "DELIVERED_TO_WAREHOUSE"
 
-                        db.commit()
-                        return {"status": "reverse_picked_up_replacement_ready"}
-                    elif rev_order.refund_status != "REFUNDED":
-                        # Courier scanned parcel from customer -> Auto disburse refund immediately!
-                        rfnd_id = None
-                        if rev_order.razorpay_payment_id:
-                            try:
-                                rfnd_res = razorpay_service.initiate_refund(
-                                    payment_id=rev_order.razorpay_payment_id,
-                                    amount_in_inr=rev_order.total_amount,
-                                    reason_note="Automated refund upon reverse pickup scan"
-                                )
-                                rfnd_id = rfnd_res.get("id")
-                            except Exception as e:
-                                logger.error(f"Error disbursing auto refund on pickup: {e}")
+                    if rev_order.return_type == "REPLACEMENT":
+                        # Automatic restock into inventory upon warehouse delivery
+                        restocked = restock_returned_order_items(rev_order, db)
+                        scans.insert(0, {
+                            "title": "Return Parcel Delivered to Warehouse",
+                            "description": "Returned exchange package arrived at warehouse. Size inventory automatically restocked.",
+                            "timestamp": ts_str,
+                            "location": "VAHN Warehouse (Home)"
+                        })
+                        rev_order.tracking_data = t_data
+                        logger.info(f"Exchange parcel {rev_order.id} delivered to warehouse. Restocked: {restocked}")
+                    else:
+                        scans.insert(0, {
+                            "title": "Return Parcel Delivered to Warehouse",
+                            "description": "Returned package received at warehouse facility. Item undergoing inspection for refund approval.",
+                            "timestamp": ts_str,
+                            "location": "VAHN Warehouse (Home)"
+                        })
+                        rev_order.tracking_data = t_data
+                        logger.info(f"Return parcel {rev_order.id} delivered to warehouse. Awaiting QC inspection and refund initiation in admin.")
 
-                        rev_order.refund_status = "REFUNDED"
-                        rev_order.refund_amount = rev_order.total_amount
-                        rev_order.refunded_at = datetime.utcnow()
-                        rev_order.razorpay_refund_id = rfnd_id
-                        rev_order.return_status = "REFUND_INITIATED"
-
-                        # Send refund initiated email on reverse pickup scan
-                        try:
-                            r_email, r_name = get_order_customer_info(rev_order, db)
-                            if r_email:
-                                send_refund_initiated_email(
-                                    to_email=r_email,
-                                    order_id=rev_order.id,
-                                    refund_amount=rev_order.total_amount,
-                                    refund_id=rfnd_id or "",
-                                    currency=rev_order.currency or "INR",
-                                    customer_name=r_name
-                                )
-                        except Exception as em_err:
-                            logger.warning(f"Failed to send refund email on reverse pickup for {rev_order.id}: {em_err}")
-
-                        # Restock returned inventory
-                        for item in (rev_order.items or []):
-                            if item.variant_id:
-                                var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
-                                if var:
-                                    var.inventory_quantity += item.quantity
-
-                        db.commit()
-                        return {"status": "reverse_picked_up_refunded"}
+                    db.commit()
+                    return {"status": "reverse_delivered_to_warehouse"}
 
     except Exception as e:
         logger.error(f"Error in Shiprocket webhook: {e}")
@@ -3761,11 +3905,17 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
                 merged_rev = dict(order.reverse_tracking_data or {})
                 merged_rev.update(rev_track)
                 order.reverse_tracking_data = merged_rev
-                if rev_track.get("is_picked_up"):
+                curr_rev = str(rev_track.get("current_status") or "").upper()
+                if rev_track.get("is_delivered") or curr_rev in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev:
+                    order.return_status = "DELIVERED_TO_WAREHOUSE"
+                    if order.return_type == "REPLACEMENT":
+                        restock_returned_order_items(order, db)
+                elif rev_track.get("is_picked_up") or curr_rev in ("PICKED_UP", "IN_TRANSIT"):
                     if order.return_type == "REPLACEMENT":
                         if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
                             order.replacement_status = "PICKED_UP"
-                        order.return_status = "PICKED_UP"
+                        if order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                            order.return_status = "PICKED_UP"
                     elif order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
                         order.return_status = "PICKED_UP"
                 updated = True
@@ -4636,6 +4786,19 @@ def admin_get_order(
                 merged_rev = dict(order.reverse_tracking_data or {})
                 merged_rev.update(rev_track)
                 order.reverse_tracking_data = merged_rev
+                curr_rev = str(rev_track.get("current_status") or "").upper()
+                if rev_track.get("is_delivered") or curr_rev in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev:
+                    order.return_status = "DELIVERED_TO_WAREHOUSE"
+                    if order.return_type == "REPLACEMENT":
+                        restock_returned_order_items(order, db)
+                elif rev_track.get("is_picked_up") or curr_rev in ("PICKED_UP", "IN_TRANSIT"):
+                    if order.return_type == "REPLACEMENT":
+                        if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                            order.replacement_status = "PICKED_UP"
+                        if order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                            order.return_status = "PICKED_UP"
+                    elif order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                        order.return_status = "PICKED_UP"
                 updated = True
         except Exception as e:
             logger.warning(f"Failed to sync reverse tracking for order {order.id}: {e}")
@@ -4696,11 +4859,17 @@ def admin_refresh_order_tracking(
                 merged_rev = dict(order.reverse_tracking_data or {})
                 merged_rev.update(rev_track)
                 order.reverse_tracking_data = merged_rev
-                if rev_track.get("is_picked_up"):
+                curr_rev = str(rev_track.get("current_status") or "").upper()
+                if rev_track.get("is_delivered") or curr_rev in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev:
+                    order.return_status = "DELIVERED_TO_WAREHOUSE"
+                    if order.return_type == "REPLACEMENT":
+                        restock_returned_order_items(order, db)
+                elif rev_track.get("is_picked_up") or curr_rev in ("PICKED_UP", "IN_TRANSIT"):
                     if order.return_type == "REPLACEMENT":
                         if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
                             order.replacement_status = "PICKED_UP"
-                        order.return_status = "PICKED_UP"
+                        if order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                            order.return_status = "PICKED_UP"
                     elif order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
                         order.return_status = "PICKED_UP"
         except Exception as e:
@@ -5290,6 +5459,20 @@ def admin_refund_order(
     if order.payment_status == "FAILED" or not order.razorpay_payment_id:
         raise HTTPException(status_code=400, detail="Cannot refund order: Payment was not captured or failed at checkout.")
 
+    # Guard: For returns, parcel MUST be delivered to warehouse before refund can be initiated
+    is_return_order = (order.return_type == "RETURN" and order.return_status and order.return_status not in ("NONE", "CANCELLED"))
+    if is_return_order:
+        is_warehouse_delivered = (
+            order.return_status in ("DELIVERED_TO_WAREHOUSE", "RETURN_DELIVERED", "DELIVERED", "COMPLETED", "RESOLVED")
+            or bool((order.reverse_tracking_data or {}).get("delivered_to_warehouse"))
+            or bool((order.reverse_tracking_data or {}).get("is_delivered"))
+        )
+        if not is_warehouse_delivered:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot initiate refund: Return parcel has not yet been delivered to the warehouse for QC inspection."
+            )
+
     refund_amount = payload.amount if payload.amount is not None else order.total_amount
     refund_res = razorpay_service.refund_payment(
         payment_id=order.razorpay_payment_id,
@@ -5303,13 +5486,24 @@ def admin_refund_order(
     order.refunded_at = datetime.utcnow()
     order.status = "REFUNDED"
     order.razorpay_refund_id = refund_res.get("refund_id")
+    if order.return_type == "RETURN":
+        order.return_status = "COMPLETED"
 
-    if payload.restock_items:
-        for item in (order.items or []):
-            if item.variant_id:
-                var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
-                if var:
-                    var.inventory_quantity += item.quantity
+    # Restock returned inventory into warehouse
+    if payload.restock_items or order.return_type == "RETURN":
+        restock_returned_order_items(order, db)
+
+    now_utc = datetime.now(timezone.utc)
+    ts_str = now_utc.strftime("%d %b %Y, %I:%M %p")
+    t_data = dict(order.tracking_data or {})
+    scans = t_data.setdefault("scans", [])
+    scans.insert(0, {
+        "title": "Refund Approved & Credited",
+        "description": f"Refund of ₹{refund_amount:.2f} credited via Razorpay. Quality check passed.",
+        "timestamp": ts_str,
+        "location": "VAHN Warehouse (Home)"
+    })
+    order.tracking_data = t_data
 
     db.commit()
 

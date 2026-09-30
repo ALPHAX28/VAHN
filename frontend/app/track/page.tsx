@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import {
   AlertCircleIcon,
   CheckIcon,
@@ -14,7 +15,6 @@ import {
   TruckIcon,
   XIcon,
 } from '@/components/icons/Icons';
-import { toast } from 'sonner';
 import GuestReturnModal from '@/components/order/GuestReturnModal';
 import ReturnCountdownTimer from '@/components/order/ReturnCountdownTimer';
 import { cancelCustomerOrderReturn, getPublicOrderInvoice, getPublicTracking } from '@/lib/api';
@@ -325,19 +325,34 @@ function TrackingContent() {
   function resolveReturnMilestone(t: TrackingInfo | null): {
     index: number;
     badgeLabel: string;
+    isReturnRejected?: boolean;
   } {
     if (!t) return { index: -1, badgeLabel: 'UNKNOWN' };
 
     const rawStatus = (t.status || '').toUpperCase().trim();
     const rawReturn = (t.return_status || '').toUpperCase().trim();
+    const rawRefund = (t.refund_status || '').toUpperCase().trim();
     const rawCurrent = (t.current_status || t.currentStatus || '').toUpperCase().trim();
-    const combined = `${rawStatus} ${rawReturn} ${rawCurrent}`.replace(/[-_]/g, ' ');
+    const combined = `${rawStatus} ${rawReturn} ${rawRefund} ${rawCurrent}`.replace(/[-_]/g, ' ');
 
-    if (combined.includes('REFUNDED') || combined.includes('REFUND COMPLETED')) {
+    if (combined.includes('REJECTED') || rawReturn === 'REJECTED' || rawRefund === 'REJECTED') {
+      return { index: -1, badgeLabel: 'RETURN REJECTED', isReturnRejected: true };
+    }
+    if (
+      combined.includes('REFUNDED') ||
+      combined.includes('REFUND COMPLETED') ||
+      rawRefund === 'REFUNDED' ||
+      rawReturn === 'COMPLETED'
+    ) {
       return { index: 4, badgeLabel: 'REFUND COMPLETED' };
     }
-    if (combined.includes('REFUND INITIATED') || combined.includes('REFUND DISPATCHED')) {
-      return { index: 3, badgeLabel: 'REFUND INITIATED' };
+    if (
+      combined.includes('DELIVERED TO WAREHOUSE') ||
+      combined.includes('REACHED WAREHOUSE') ||
+      rawReturn === 'DELIVERED_TO_WAREHOUSE' ||
+      (t.reverse_tracking_data as { delivered_to_warehouse?: boolean })?.delivered_to_warehouse
+    ) {
+      return { index: 3, badgeLabel: 'DELIVERED TO WAREHOUSE' };
     }
     if (
       combined.includes('RETURN IN TRANSIT') ||
@@ -374,6 +389,14 @@ function TrackingContent() {
     if (combined.includes('REPLACEMENT DISPATCHED') || t.replacement_awb) {
       return { index: 3, badgeLabel: 'REPLACEMENT DISPATCHED' };
     }
+    if (
+      combined.includes('DELIVERED TO WAREHOUSE') ||
+      combined.includes('REACHED WAREHOUSE') ||
+      rawReturn === 'DELIVERED_TO_WAREHOUSE' ||
+      (t.reverse_tracking_data as { delivered_to_warehouse?: boolean })?.delivered_to_warehouse
+    ) {
+      return { index: 2, badgeLabel: 'ORIGINAL AT WAREHOUSE (RESTOCKED)' };
+    }
     if (combined.includes('IN TRANSIT')) {
       return { index: 2, badgeLabel: 'ORIGINAL IN TRANSIT' };
     }
@@ -385,6 +408,9 @@ function TrackingContent() {
 
   const isReturnCancelled =
     tracking?.return_status === 'CANCELLED' || tracking?.replacement_status === 'CANCELLED';
+
+  const isReturnRejected =
+    tracking?.return_status === 'REJECTED' || tracking?.refund_status === 'REJECTED';
 
   const isReturn = Boolean(
     !isReturnCancelled &&
@@ -463,14 +489,14 @@ function TrackingContent() {
     { key: 'RETURN_REQUESTED', label: 'Return Initiated' },
     { key: 'RETURN_PICKED_UP', label: 'Picked Up' },
     { key: 'RETURN_IN_TRANSIT', label: 'In Transit' },
-    { key: 'REFUND_INITIATED', label: 'Refund Initiated' },
+    { key: 'DELIVERED_TO_WAREHOUSE', label: 'Delivered to Warehouse' },
     { key: 'REFUNDED', label: 'Refund Completed' },
   ];
 
   const replacementSteps = [
     { key: 'EXCHANGE_REQUESTED', label: 'Exchange Initiated' },
     { key: 'RETURN_PICKED_UP', label: 'Original Picked Up' },
-    { key: 'RETURN_IN_TRANSIT', label: 'In Transit' },
+    { key: 'RETURN_IN_TRANSIT', label: 'In Transit to Warehouse' },
     { key: 'REPLACEMENT_DISPATCHED', label: 'Replacement Sent' },
     { key: 'COMPLETED', label: 'Completed' },
   ];
@@ -482,7 +508,7 @@ function TrackingContent() {
     statusBadgeLabel === 'REFUND COMPLETED' ||
     statusBadgeLabel === 'EXCHANGE COMPLETED'
       ? '#16a34a'
-      : isCancelled || isPaymentFailed
+      : isCancelled || isPaymentFailed || isReturnRejected
         ? '#dc2626'
         : isPaymentPending
           ? '#d97706'
@@ -1308,8 +1334,93 @@ function TrackingContent() {
             />
           )}
 
+          {/* Rejected Return & Cancelled Refund Notice (QC Failed) */}
+          {isReturnRejected && (
+            <div
+              style={{
+                background: '#fef2f2',
+                border: '2px solid #ef4444',
+                padding: '20px 24px',
+                marginBottom: '28px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 16,
+              }}
+            >
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: '#fee2e2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  marginTop: 2,
+                }}
+              >
+                <AlertCircleIcon size={20} color="#dc2626" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    marginBottom: 4,
+                  }}
+                >
+                  <span
+                    style={{
+                      background: '#fee2e2',
+                      color: '#991b1b',
+                      fontSize: '0.68rem',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      padding: '3px 8px',
+                      letterSpacing: '0.04em',
+                      border: '1px solid #fca5a5',
+                    }}
+                  >
+                    RETURN REJECTED
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: '#7f1d1d',
+                      fontWeight: 700,
+                    }}
+                  >
+                    WAREHOUSE QC FAILED
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.05rem',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    color: '#991b1b',
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  Return Refund Cancelled
+                </div>
+                <div
+                  style={{ fontSize: '0.85rem', color: '#7f1d1d', marginTop: 4, lineHeight: 1.5 }}
+                >
+                  {tracking.refund_note ||
+                    tracking.return_notes ||
+                    'The returned item was received at our warehouse but failed quality inspection. Refund request has been cancelled.'}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Cancelled Return / Exchange Notice */}
-          {isReturnCancelled && (
+          {isReturnCancelled && !isReturnRejected && (
             <div
               style={{
                 background: '#fef2f2',
@@ -1602,13 +1713,24 @@ function TrackingContent() {
                       style={{
                         fontSize: '0.75rem',
                         fontWeight: 700,
-                        color: tracking.is_picked_up ? '#16a34a' : '#b45309',
+                        color:
+                          tracking.return_status === 'DELIVERED_TO_WAREHOUSE' ||
+                          (tracking.reverse_tracking_data as { delivered_to_warehouse?: boolean })
+                            ?.delivered_to_warehouse
+                            ? '#2563eb'
+                            : tracking.is_picked_up
+                              ? '#16a34a'
+                              : '#b45309',
                         marginTop: 4,
                       }}
                     >
-                      {tracking.is_picked_up
-                        ? '✓ Handed Over to Courier'
-                        : 'Awaiting Doorstep Pickup'}
+                      {tracking.return_status === 'DELIVERED_TO_WAREHOUSE' ||
+                      (tracking.reverse_tracking_data as { delivered_to_warehouse?: boolean })
+                        ?.delivered_to_warehouse
+                        ? '✓ Received at Warehouse (Size Restocked)'
+                        : tracking.is_picked_up
+                          ? '✓ Handed Over to Courier'
+                          : 'Awaiting Doorstep Pickup'}
                     </div>
                   </div>
 
@@ -1775,24 +1897,45 @@ function TrackingContent() {
                       100% Refund
                     </span>
                     <div style={{ fontSize: '0.92rem', fontWeight: 900, color: '#111' }}>
-                      Original Payment Method (Razorpay)
+                      {tracking.refund_amount
+                        ? `₹${tracking.refund_amount.toLocaleString('en-IN')} via Razorpay`
+                        : 'Original Payment Method (Razorpay)'}
                     </div>
                     <div
                       style={{
                         fontSize: '0.75rem',
                         fontWeight: 700,
-                        color:
-                          tracking.return_status === 'COMPLETED' ||
-                          tracking.return_status === 'REFUNDED'
+                        color: isReturnRejected
+                          ? '#dc2626'
+                          : tracking.return_status === 'COMPLETED' ||
+                              tracking.return_status === 'REFUNDED' ||
+                              tracking.refund_status === 'REFUNDED'
                             ? '#16a34a'
-                            : '#b45309',
+                            : tracking.return_status === 'DELIVERED_TO_WAREHOUSE' ||
+                                (
+                                  tracking.reverse_tracking_data as {
+                                    delivered_to_warehouse?: boolean;
+                                  }
+                                )?.delivered_to_warehouse
+                              ? '#2563eb'
+                              : '#b45309',
                         marginTop: 4,
                       }}
                     >
-                      {tracking.return_status === 'COMPLETED' ||
-                      tracking.return_status === 'REFUNDED'
-                        ? '✓ Refund Credited'
-                        : 'Refund initiated after doorstep verification'}
+                      {isReturnRejected
+                        ? '✕ Refund Cancelled (QC Failed)'
+                        : tracking.return_status === 'COMPLETED' ||
+                            tracking.return_status === 'REFUNDED' ||
+                            tracking.refund_status === 'REFUNDED'
+                          ? '✓ 100% Refund Credited via Razorpay'
+                          : tracking.return_status === 'DELIVERED_TO_WAREHOUSE' ||
+                              (
+                                tracking.reverse_tracking_data as {
+                                  delivered_to_warehouse?: boolean;
+                                }
+                              )?.delivered_to_warehouse
+                            ? '✓ Package at Warehouse (Undergoing Quality Inspection)'
+                            : 'Refund processed upon warehouse arrival & QC'}
                     </div>
                   </div>
                 </div>

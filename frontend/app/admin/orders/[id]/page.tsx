@@ -26,9 +26,11 @@ import {
   getAdminOrderInvoice,
   getAdminOrderManifest,
   getAdminOrderShippingLabel,
+  markAdminOrderReturnReceived,
   notifyAdminOrderReturn,
   refreshAdminOrderTracking,
   refundAdminOrder,
+  rejectAdminOrderReturn,
   shipAdminOrder,
   updateOrderStatus,
 } from '@/lib/api/admin';
@@ -108,6 +110,55 @@ export default function AdminOrderDetailPage() {
       toast.error(msg || 'Failed to cancel return request.');
     } finally {
       setCancellingReturn(false);
+    }
+  }
+
+  // Warehouse Delivery & QC Rejection State
+  const [markingWarehouseReceived, setMarkingWarehouseReceived] = useState(false);
+  const [showRejectReturnModal, setShowRejectReturnModal] = useState(false);
+  const [rejectReturnReason, setRejectReturnReason] = useState('');
+  const [rejectingReturn, setRejectingReturn] = useState(false);
+
+  async function handleMarkWarehouseReceived() {
+    if (!adminToken || !order) return;
+    setMarkingWarehouseReceived(true);
+    try {
+      const updated = await markAdminOrderReturnReceived(adminToken, order.id);
+      setOrder(updated);
+      toast.success(
+        order.return_type === 'REPLACEMENT'
+          ? 'Return parcel received at warehouse. Original size inventory restocked!'
+          : 'Return parcel received at warehouse. Quality inspection and refund controls are now unlocked.'
+      );
+      await load();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : (e as { message?: string })?.message;
+      toast.error(msg || 'Failed to mark return received at warehouse.');
+    } finally {
+      setMarkingWarehouseReceived(false);
+    }
+  }
+
+  async function handleRejectReturn() {
+    if (!adminToken || !order) return;
+    const trimmed = rejectReturnReason.trim();
+    if (!trimmed) {
+      toast.error('A mandatory rejection reason is required (e.g. QC failure, tags removed).');
+      return;
+    }
+    setRejectingReturn(true);
+    try {
+      const updated = await rejectAdminOrderReturn(adminToken, order.id, { reason: trimmed });
+      setOrder(updated);
+      toast.success('Return refund rejected & cancelled. Customer status updated.');
+      setShowRejectReturnModal(false);
+      setRejectReturnReason('');
+      await load();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : (e as { message?: string })?.message;
+      toast.error(msg || 'Failed to reject return refund.');
+    } finally {
+      setRejectingReturn(false);
     }
   }
 
@@ -564,6 +615,11 @@ export default function AdminOrderDetailPage() {
             const reverseTracking = order.reverse_tracking_data;
             const reverseScans: Array<{ date?: string; activity: string; location?: string }> =
               Array.isArray(reverseTracking?.scans) ? reverseTracking.scans : [];
+            const reverseCurrentLocation =
+              reverseTracking?.current_location ||
+              (reverseScans.length > 0 ? reverseScans[reverseScans.length - 1]?.location : null) ||
+              'Customer Area / Sorting Hub';
+
             const isPickedUpFromCustomer =
               isReturnActive &&
               (Boolean(reverseTracking?.is_picked_up) ||
@@ -575,6 +631,30 @@ export default function AdminOrderDetailPage() {
                     !/cancel/i.test(s.activity || '') &&
                     /picked up|doorstep collection|qc pass|item collected/i.test(s.activity || '')
                 ));
+
+            const isDeliveredToWarehouse =
+              isReturnActive &&
+              Boolean(
+                order.return_status === 'DELIVERED_TO_WAREHOUSE' ||
+                  order.return_status === 'RETURN_DELIVERED' ||
+                  order.return_status === 'COMPLETED' ||
+                  order.return_status === 'RESOLVED' ||
+                  reverseTracking?.is_delivered ||
+                  (reverseTracking as { delivered_to_warehouse?: boolean })
+                    ?.delivered_to_warehouse ||
+                  reverseCurrentLocation.toLowerCase().includes('delivered') ||
+                  reverseCurrentLocation.toLowerCase().includes('warehouse') ||
+                  reverseScans.some((s) =>
+                    /delivered to warehouse|reached warehouse|return delivered|delivered/i.test(
+                      s.activity || ''
+                    )
+                  )
+              );
+
+            const isReturnRejected =
+              order.return_status === 'REJECTED' || order.refund_status === 'REJECTED';
+            const isRefundProcessed =
+              order.refund_status === 'REFUNDED' || order.payment_status === 'REFUNDED';
 
             const forwardTracking = order.tracking_data;
             const forwardScans: Array<{ date?: string; activity: string; location?: string }> =
@@ -592,11 +672,6 @@ export default function AdminOrderDetailPage() {
                     : order.shiprocket_awb
                       ? 'In Transit'
                       : 'Awaiting Dispatch');
-
-            const reverseCurrentLocation =
-              reverseTracking?.current_location ||
-              (reverseScans.length > 0 ? reverseScans[reverseScans.length - 1]?.location : null) ||
-              'Customer Area / Sorting Hub';
 
             // Single authoritative Card Title, Icon, Border Accent, and Status Badge
             let cardTitle = 'Forward Logistics (Shiprocket)';
@@ -638,12 +713,35 @@ export default function AdminOrderDetailPage() {
               borderAccent = isReplacement ? '#7c3aed' : '#fa8c16';
               cardBg = isReplacement ? '#faf5ff' : '#fffaf0';
 
-              if (isReplacementDispatched) {
+              if (isReturnRejected) {
+                statusBadge = {
+                  text: 'RETURN REJECTED (QC FAILED)',
+                  bg: '#fef2f2',
+                  color: '#dc2626',
+                  border: '#fca5a5',
+                };
+              } else if (isRefundProcessed) {
+                statusBadge = {
+                  text: 'REFUND COMPLETED',
+                  bg: '#f0fdf4',
+                  color: '#16a34a',
+                  border: '#bbf7d0',
+                };
+              } else if (isReplacementDispatched) {
                 statusBadge = {
                   text: 'EXCHANGE DISPATCHED',
                   bg: '#f5f3ff',
                   color: '#7c3aed',
                   border: '#ddd6fe',
+                };
+              } else if (isDeliveredToWarehouse) {
+                statusBadge = {
+                  text: isReplacement
+                    ? 'ORIGINAL RECEIVED (RESTOCKED)'
+                    : 'DELIVERED TO WAREHOUSE (QC PENDING)',
+                  bg: '#eff6ff',
+                  color: '#1d4ed8',
+                  border: '#bfdbfe',
                 };
               } else if (isPickedUpFromCustomer) {
                 statusBadge = {
@@ -651,13 +749,6 @@ export default function AdminOrderDetailPage() {
                   bg: '#f6ffed',
                   color: '#389e0d',
                   border: '#b7eb8f',
-                };
-              } else if (order.return_status === 'REFUNDED') {
-                statusBadge = {
-                  text: 'REFUNDED',
-                  bg: '#f5f3ff',
-                  color: '#7c3aed',
-                  border: '#ddd6fe',
                 };
               } else {
                 statusBadge = {
@@ -1343,35 +1434,16 @@ export default function AdminOrderDetailPage() {
                         paddingTop: 14,
                       }}
                     >
-                      {!isPickedUpFromCustomer && (
-                        <button
-                          type="button"
-                          onClick={() => setShowCancelReturnModal(true)}
-                          style={{
-                            background: '#fff',
-                            border: '1px solid #dc2626',
-                            color: '#dc2626',
-                            padding: '8px 14px',
-                            fontSize: '0.75rem',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            textTransform: 'uppercase',
-                            borderRadius: 0,
-                          }}
-                        >
-                          Cancel {isReplacement ? 'Exchange' : 'Return'} Request
-                        </button>
-                      )}
-
-                      {!isReplacement &&
-                        isPickedUpFromCustomer &&
-                        order.refund_status !== 'REFUNDED' && (
+                      {!isPickedUpFromCustomer &&
+                        !isDeliveredToWarehouse &&
+                        !isReturnRejected &&
+                        !isRefundProcessed && (
                           <button
                             type="button"
-                            onClick={() => setShowRefundModal(true)}
+                            onClick={() => setShowCancelReturnModal(true)}
                             style={{
                               background: '#fff',
-                              border: '2px solid #dc2626',
+                              border: '1px solid #dc2626',
                               color: '#dc2626',
                               padding: '8px 14px',
                               fontSize: '0.75rem',
@@ -1381,9 +1453,192 @@ export default function AdminOrderDetailPage() {
                               borderRadius: 0,
                             }}
                           >
-                            Issue Refund →
+                            Cancel {isReplacement ? 'Exchange' : 'Return'} Request
                           </button>
                         )}
+
+                      {/* Warehouse Receipt & QC Section */}
+                      {isReturnActive && !isReturnRejected && !isRefundProcessed && (
+                        <>
+                          {!isDeliveredToWarehouse ? (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 10,
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              {!isReplacement && (
+                                <div
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    background: '#fef3c7',
+                                    color: '#92400e',
+                                    padding: '6px 12px',
+                                    fontSize: '0.74rem',
+                                    fontWeight: 700,
+                                    border: '1px solid #fde68a',
+                                  }}
+                                >
+                                  <span>🔒</span>
+                                  <span>
+                                    Refund controls locked until package reaches warehouse
+                                  </span>
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={handleMarkWarehouseReceived}
+                                disabled={markingWarehouseReceived}
+                                style={{
+                                  background: '#000',
+                                  color: '#fff',
+                                  border: 'none',
+                                  padding: '8px 14px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  cursor: markingWarehouseReceived ? 'not-allowed' : 'pointer',
+                                  textTransform: 'uppercase',
+                                  borderRadius: 0,
+                                }}
+                              >
+                                {markingWarehouseReceived
+                                  ? 'Marking...'
+                                  : 'Mark Received at Warehouse ✓'}
+                              </button>
+                            </div>
+                          ) : !isReplacement ? (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 10,
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  background: '#ecfdf5',
+                                  color: '#065f46',
+                                  padding: '6px 12px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 700,
+                                  border: '1px solid #a7f3d0',
+                                }}
+                              >
+                                <span>✓</span>
+                                <span>Package at Warehouse — Quality Inspection Required:</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setShowRefundModal(true)}
+                                style={{
+                                  background: '#16a34a',
+                                  border: 'none',
+                                  color: '#fff',
+                                  padding: '8px 16px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  textTransform: 'uppercase',
+                                  borderRadius: 0,
+                                  boxShadow: '0 2px 6px rgba(22, 163, 74, 0.25)',
+                                }}
+                              >
+                                ⚡ Initiate Refund via Razorpay →
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShowRejectReturnModal(true)}
+                                style={{
+                                  background: '#fff',
+                                  border: '2px solid #dc2626',
+                                  color: '#dc2626',
+                                  padding: '8px 14px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  textTransform: 'uppercase',
+                                  borderRadius: 0,
+                                }}
+                              >
+                                ✕ Cancel / Reject Refund (QC Failed)
+                              </button>
+                            </div>
+                          ) : (
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                background: '#f5f3ff',
+                                color: '#6b21a8',
+                                padding: '6px 12px',
+                                fontSize: '0.74rem',
+                                fontWeight: 700,
+                                border: '1px solid #ddd6fe',
+                              }}
+                            >
+                              <span>✓</span>
+                              <span>
+                                Original package received at warehouse — Size restocked to inventory
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Display when return was rejected */}
+                      {isReturnRejected && (
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            background: '#fef2f2',
+                            color: '#991b1b',
+                            padding: '6px 12px',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            border: '1px solid #fca5a5',
+                          }}
+                        >
+                          <span>✕</span>
+                          <span>
+                            Return / Refund Rejected: {order.refund_note || 'QC inspection failed'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Display when refund is processed */}
+                      {isRefundProcessed && (
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            background: '#f0fdf4',
+                            color: '#166534',
+                            padding: '6px 12px',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            border: '1px solid #bbf7d0',
+                          }}
+                        >
+                          <span>✓</span>
+                          <span>
+                            Refund Processed: ₹
+                            {(order.refund_amount || order.total_amount).toLocaleString('en-IN')}
+                            {order.razorpay_refund_id ? ` (ID: ${order.razorpay_refund_id})` : ''}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Collapsed Forward Delivery Summary within the single container */}
                       {order.shiprocket_awb && (
@@ -2271,25 +2526,62 @@ export default function AdminOrderDetailPage() {
                       No funds were debited or captured, so no refund can be issued.
                     </div>
                   ) : !isRefunded && !isCancelled ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowRefundModal(true)}
-                      style={{
-                        width: '100%',
-                        marginTop: 16,
-                        background: '#fff',
-                        border: '2px solid #dc2626',
-                        color: '#dc2626',
-                        padding: '10px',
-                        fontSize: '0.78rem',
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        cursor: 'pointer',
-                        borderRadius: '0px',
-                      }}
-                    >
-                      Issue Manual Refund →
-                    </button>
+                    (() => {
+                      const isReturn =
+                        order.return_type === 'RETURN' &&
+                        order.return_status &&
+                        order.return_status !== 'NONE' &&
+                        order.return_status !== 'CANCELLED';
+                      const isAtWarehouse = Boolean(
+                        order.return_status === 'DELIVERED_TO_WAREHOUSE' ||
+                          order.return_status === 'RETURN_DELIVERED' ||
+                          order.return_status === 'COMPLETED' ||
+                          order.return_status === 'RESOLVED' ||
+                          (order.reverse_tracking_data as { delivered_to_warehouse?: boolean })
+                            ?.delivered_to_warehouse
+                      );
+
+                      if (isReturn && !isAtWarehouse) {
+                        return (
+                          <div
+                            style={{
+                              marginTop: 16,
+                              padding: '10px 12px',
+                              background: '#fffbe6',
+                              border: '1px solid #ffe58f',
+                              color: '#d48806',
+                              fontSize: '0.76rem',
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            🔒 <strong>Refund Locked:</strong> Return parcel must be delivered to
+                            warehouse before refund can be initiated.
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => setShowRefundModal(true)}
+                          style={{
+                            width: '100%',
+                            marginTop: 16,
+                            background: '#fff',
+                            border: '2px solid #dc2626',
+                            color: '#dc2626',
+                            padding: '10px',
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            textTransform: 'uppercase',
+                            cursor: 'pointer',
+                            borderRadius: '0px',
+                          }}
+                        >
+                          Issue Manual Refund →
+                        </button>
+                      );
+                    })()
                   ) : null}
                 </div>
 
@@ -3162,6 +3454,187 @@ export default function AdminOrderDetailPage() {
                 }}
               >
                 {cancellingReturn ? 'Cancelling in Shiprocket...' : 'Confirm Cancellation →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Return & Cancel Refund Modal (QC Failure) */}
+      {showRejectReturnModal && order && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              maxWidth: 540,
+              width: '100%',
+              padding: '28px 32px',
+              border: '2px solid #dc2626',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '1.05rem',
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <AlertCircleIcon size={20} color="#dc2626" />
+                Reject Return & Cancel Refund
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowRejectReturnModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1.2rem',
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: '#4b5563', lineHeight: 1.5, marginBottom: 16 }}>
+              The returned parcel for Order <strong>#{order.id}</strong> has been received at the
+              warehouse, but failed quality inspection.
+              <br />
+              <br />
+              Cancelling the refund requires entering a <strong>mandatory reason</strong> explaining
+              the QC failure. This explanation will be permanently recorded in the order audit and
+              displayed on the customer tracking portal.
+            </p>
+
+            <div style={{ marginBottom: 14 }}>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  color: '#6b7280',
+                  display: 'block',
+                  marginBottom: 6,
+                }}
+              >
+                Quick QC Failure Templates:
+              </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {[
+                  'Tags removed or missing',
+                  'Item shows signs of wear, usage, or odor',
+                  'Item physically damaged, stained, or torn',
+                  'Incorrect product or variant returned',
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setRejectReturnReason(preset)}
+                    style={{
+                      background: rejectReturnReason === preset ? '#fee2e2' : '#f3f4f6',
+                      border: `1px solid ${rejectReturnReason === preset ? '#ef4444' : '#e5e7eb'}`,
+                      color: rejectReturnReason === preset ? '#991b1b' : '#374151',
+                      padding: '4px 8px',
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  marginBottom: 6,
+                }}
+              >
+                Mandatory QC Rejection Reason <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Enter specific quality inspection details (e.g. Tags missing, signs of wear on fabric, etc.)..."
+                value={rejectReturnReason}
+                onChange={(e) => setRejectReturnReason(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  fontSize: '0.88rem',
+                  border: '1px solid #d1d5db',
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowRejectReturnModal(false)}
+                style={{
+                  background: '#fff',
+                  border: '1px solid #d1d5db',
+                  padding: '10px 18px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectReturn}
+                disabled={rejectingReturn || !rejectReturnReason.trim()}
+                style={{
+                  background: '#dc2626',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 22px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: rejectingReturn || !rejectReturnReason.trim() ? 'not-allowed' : 'pointer',
+                  textTransform: 'uppercase',
+                  opacity: rejectingReturn || !rejectReturnReason.trim() ? 0.6 : 1,
+                }}
+              >
+                {rejectingReturn
+                  ? 'Submitting Rejection...'
+                  : 'Confirm Rejection & Cancel Refund →'}
               </button>
             </div>
           </div>

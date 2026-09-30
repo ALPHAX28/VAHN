@@ -502,8 +502,34 @@ export async function notifyCustomerReturn(
   token: string
 ): Promise<{ status: string; message: string }> {
   const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) headers.Authorization = `Bearer ${token}`;
   return fetchAPI<{ status: string; message: string }>(`/admin/orders/${orderId}/notify-return`, {
+    method: 'POST',
+    headers,
+    body: payload,
+  });
+}
+
+export async function markOrderReturnReceived(
+  orderId: string,
+  token: string
+): Promise<Record<string, unknown>> {
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return fetchAPI<Record<string, unknown>>(`/admin/orders/${orderId}/mark-return-received`, {
+    method: 'POST',
+    headers,
+  });
+}
+
+export async function rejectOrderReturn(
+  orderId: string,
+  payload: { reason: string },
+  token: string
+): Promise<Record<string, unknown>> {
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return fetchAPI<Record<string, unknown>>(`/admin/orders/${orderId}/reject-return`, {
     method: 'POST',
     headers,
     body: payload,
