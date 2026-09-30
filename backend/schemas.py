@@ -639,6 +639,13 @@ class OrderExchangeOptionsResponse(BaseModel):
     order_id: str
     items: List[ExchangeItemOption]
 
+
+
+class CancelReturnRequest(BaseModel):
+    reason: Optional[str] = "Customer requested cancellation of return/exchange"
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
+
 class AdminDispatchReplacementRequest(BaseModel):
     awb_code: Optional[str] = None
     courier_name: Optional[str] = None

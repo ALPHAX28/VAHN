@@ -309,18 +309,6 @@ export default function GuestReturnModal({
           }}
         >
           <div>
-            <div
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 900,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: '#2563eb',
-                marginBottom: 4,
-              }}
-            >
-              10-Day Policy &bull; Automated Doorstep Collection
-            </div>
             <h2
               style={{
                 fontSize: '1.3rem',
@@ -530,18 +518,7 @@ export default function GuestReturnModal({
                       textAlign: 'center',
                     }}
                   >
-                    <div>Exchange Size</div>
-                    <span
-                      style={{
-                        fontSize: '0.68rem',
-                        fontWeight: 700,
-                        opacity: 0.9,
-                        display: 'block',
-                        marginTop: 2,
-                      }}
-                    >
-                      Instant replacement &bull; No recharge
-                    </span>
+                    Exchange Size
                   </button>
 
                   <button
@@ -559,18 +536,7 @@ export default function GuestReturnModal({
                       textAlign: 'center',
                     }}
                   >
-                    <div>Return for Refund</div>
-                    <span
-                      style={{
-                        fontSize: '0.68rem',
-                        fontWeight: 700,
-                        opacity: 0.9,
-                        display: 'block',
-                        marginTop: 2,
-                      }}
-                    >
-                      100% back to source payment
-                    </span>
+                    Return for Refund
                   </button>
                 </div>
 

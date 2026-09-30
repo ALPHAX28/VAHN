@@ -14,9 +14,10 @@ import {
   TruckIcon,
   XIcon,
 } from '@/components/icons/Icons';
+import { toast } from 'sonner';
 import GuestReturnModal from '@/components/order/GuestReturnModal';
 import ReturnCountdownTimer from '@/components/order/ReturnCountdownTimer';
-import { getPublicOrderInvoice, getPublicTracking } from '@/lib/api';
+import { cancelCustomerOrderReturn, getPublicOrderInvoice, getPublicTracking } from '@/lib/api';
 import type { TrackingInfo } from '@/lib/api/types';
 import { prettifyActivityLabel } from '@/lib/shipStatus';
 
@@ -34,6 +35,8 @@ function TrackingContent() {
   const [copiedReplacement, setCopiedReplacement] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [showGuestReturnModal, setShowGuestReturnModal] = useState(false);
+  const [showCustomerCancelModal, setShowCustomerCancelModal] = useState(false);
+  const [cancellingCustomerReturn, setCancellingCustomerReturn] = useState(false);
 
   const handleSearch = useCallback(async (searchCode: string) => {
     const trimmed = searchCode.trim();
@@ -55,6 +58,30 @@ function TrackingContent() {
       setLoading(false);
     }
   }, []);
+
+  const handleCustomerCancelReturn = async () => {
+    const targetId = tracking?.order_id || tracking?.orderId;
+    if (!targetId || !tracking) return;
+    setCancellingCustomerReturn(true);
+    try {
+      await cancelCustomerOrderReturn(targetId, {
+        reason: 'Customer self-cancelled return request',
+        customer_email: tracking.customer_email || undefined,
+        customer_phone: tracking.customer_phone || undefined,
+      });
+      toast.success('Return / Exchange request has been cancelled.');
+      setShowCustomerCancelModal(false);
+      const activeCode = tracking.order_id || tracking.orderId || query;
+      if (activeCode) {
+        await handleSearch(activeCode);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message;
+      toast.error(msg || 'Failed to cancel return request.');
+    } finally {
+      setCancellingCustomerReturn(false);
+    }
+  };
 
   useEffect(() => {
     if (initialQuery) {
@@ -356,11 +383,16 @@ function TrackingContent() {
     return { index: 0, badgeLabel: 'EXCHANGE INITIATED' };
   }
 
+  const isReturnCancelled =
+    tracking?.return_status === 'CANCELLED' ||
+    tracking?.replacement_status === 'CANCELLED';
+
   const isReturn = Boolean(
-    tracking?.isReturn ||
-      (tracking?.return_status && tracking.return_status !== 'NONE') ||
-      tracking?.reverse_awb ||
-      (tracking?.replacement_status && tracking.replacement_status !== 'NONE')
+    !isReturnCancelled &&
+      (tracking?.isReturn ||
+        (tracking?.return_status && tracking.return_status !== 'NONE') ||
+        tracking?.reverse_awb ||
+        (tracking?.replacement_status && tracking.replacement_status !== 'NONE'))
   );
 
   const isReplacement = (tracking?.return_type || '').toUpperCase() === 'REPLACEMENT';
@@ -372,9 +404,10 @@ function TrackingContent() {
   );
 
   const hasActiveReturn = Boolean(
-    (tracking?.return_status && tracking.return_status !== 'NONE') ||
-      tracking?.reverse_awb ||
-      (tracking?.replacement_status && tracking.replacement_status !== 'NONE')
+    !isReturnCancelled &&
+      ((tracking?.return_status && tracking.return_status !== 'NONE') ||
+        tracking?.reverse_awb ||
+        (tracking?.replacement_status && tracking.replacement_status !== 'NONE'))
   );
 
   const isWithin10Days = (() => {
@@ -1166,8 +1199,90 @@ function TrackingContent() {
             />
           )}
 
-          {/* Guest Return / Size Exchange Initiation Card (If Delivered & No Active Return) */}
-          {isDelivered && !hasActiveReturn && isWithin10Days && (
+          {/* Cancelled Return / Exchange Notice */}
+          {isReturnCancelled && (
+            <div
+              style={{
+                background: '#fef2f2',
+                border: '2px solid #ef4444',
+                padding: '20px 24px',
+                marginBottom: '28px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 16,
+              }}
+            >
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: '#fee2e2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  marginTop: 2,
+                }}
+              >
+                <AlertCircleIcon size={20} color="#dc2626" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    marginBottom: 4,
+                  }}
+                >
+                  <span
+                    style={{
+                      background: '#fee2e2',
+                      color: '#991b1b',
+                      fontSize: '0.68rem',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      padding: '3px 8px',
+                      letterSpacing: '0.04em',
+                      border: '1px solid #fca5a5',
+                    }}
+                  >
+                    REQUEST CANCELLED
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: '#7f1d1d',
+                      fontWeight: 700,
+                    }}
+                  >
+                    ORIGINAL SHIPMENT DELIVERED
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.05rem',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    color: '#991b1b',
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  {isReplacement ? 'Size Exchange Cancelled' : 'Return Request Cancelled'}
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#7f1d1d', marginTop: 4, lineHeight: 1.5 }}>
+                  {tracking.return_notes ||
+                    'The return or exchange request for this order was cancelled. Courier reverse pickup has been cancelled, and your original item remains confirmed as delivered.'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Guest Return / Size Exchange Initiation Card (If Delivered & No Active Return & Not Cancelled) */}
+          {isDelivered && !hasActiveReturn && !isReturnCancelled && isWithin10Days && (
             <div
               style={{
                 background: '#faf5ff',
@@ -1321,19 +1436,45 @@ function TrackingContent() {
                   </div>
                 </div>
 
-                <span
-                  style={{
-                    background: isReplacement ? '#7c3aed' : '#fa8c16',
-                    color: '#ffffff',
-                    padding: '6px 14px',
-                    fontSize: '0.75rem',
-                    fontWeight: 900,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  {statusBadgeLabel}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {!tracking.is_picked_up &&
+                    ['REQUESTED', 'PICKUP_SCHEDULED'].includes(tracking.return_status || '') && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCustomerCancelModal(true)}
+                        style={{
+                          background: '#fff',
+                          border: '1px solid #ef4444',
+                          color: '#dc2626',
+                          padding: '6px 12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          borderRadius: '0px',
+                          textTransform: 'uppercase',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <XIcon size={12} color="#dc2626" />
+                        Cancel Request
+                      </button>
+                    )}
+                  <span
+                    style={{
+                      background: isReplacement ? '#7c3aed' : '#fa8c16',
+                      color: '#ffffff',
+                      padding: '6px 14px',
+                      fontSize: '0.75rem',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    {statusBadgeLabel}
+                  </span>
+                </div>
               </div>
 
               {/* REPLACEMENT VARIANT SUMMARY (IF EXCHANGE) */}
@@ -2045,6 +2186,114 @@ function TrackingContent() {
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
               </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOMER CANCEL RETURN CONFIRMATION MODAL */}
+      {showCustomerCancelModal && tracking && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              maxWidth: 480,
+              width: '100%',
+              padding: 28,
+              border: '2px solid #000',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '1rem',
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <AlertCircleIcon size={18} color="#dc2626" />
+                Cancel {isReplacement ? 'Size Exchange' : 'Return'} Request
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCustomerCancelModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1.2rem',
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: '#4b5563', lineHeight: 1.5, marginBottom: 20 }}>
+              Are you sure you want to cancel your{' '}
+              <strong>{isReplacement ? 'size exchange' : 'return'}</strong> request?
+              <br />
+              <br />
+              Reverse courier doorstep pickup will be cancelled immediately, and your original item will remain yours.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowCustomerCancelModal(false)}
+                style={{
+                  background: '#fff',
+                  border: '1px solid #d1d5db',
+                  padding: '10px 18px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Keep Request
+              </button>
+              <button
+                type="button"
+                onClick={handleCustomerCancelReturn}
+                disabled={cancellingCustomerReturn}
+                style={{
+                  background: '#dc2626',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 22px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: cancellingCustomerReturn ? 'not-allowed' : 'pointer',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {cancellingCustomerReturn ? 'Cancelling...' : 'Confirm Cancellation'}
+              </button>
             </div>
           </div>
         </div>

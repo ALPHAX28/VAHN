@@ -59,6 +59,15 @@ def is_configured() -> bool:
     )
 
 
+def is_simulation_mode() -> bool:
+    """
+    Returns True if local simulation mode is enabled via SHIPROCKET_SIMULATION_MODE=true.
+    Allows local end-to-end testing of forward shipping, delivery milestones, 10-day return countdown,
+    size exchanges with Doorstep QC, reverse pickups, and auto-refunds with zero logistics cost.
+    """
+    return os.getenv("SHIPROCKET_SIMULATION_MODE", "false").lower() in ("true", "1", "yes")
+
+
 def get_auth_token() -> Optional[str]:
     """Authenticates with Shiprocket and caches the JWT token for 24 hours."""
     global _cached_token, _token_expiry
@@ -234,6 +243,17 @@ def check_serviceability(delivery_pincode: str, weight: float = 0.5, db: Optiona
             "is_cod": False
         }
 
+    if is_simulation_mode():
+        return {
+            "serviceable": True,
+            "estimated_days": "3 business days",
+            "courier_name": "Blue Dart Express",
+            "message": "Express delivery available to this PIN code.",
+            "pincode": clean_pincode,
+            "is_cod": True,
+            "is_simulation": True,
+        }
+
     token = get_auth_token()
     wh = get_primary_warehouse(db)
     pickup_pin = wh.get("pin_code", SHIPROCKET_PICKUP_PINCODE or "110019")
@@ -345,6 +365,16 @@ def check_reverse_serviceability(
             "courier_name": None,
             "message": "Invalid PIN code. Indian postal codes must be 6 digits and cannot start with 0.",
             "pincode": clean_pincode,
+        }
+
+    if is_simulation_mode():
+        return {
+            "serviceable": True,
+            "estimated_days": "2-3 business days",
+            "courier_name": "Delhivery Reverse QC",
+            "shipping_rate": 65.0,
+            "pincode": clean_pincode,
+            "is_simulation": True,
         }
 
     token = get_auth_token()
@@ -761,6 +791,26 @@ def create_forward_shipment(
     """
     Creates an ad-hoc order on Shiprocket and assigns an AWB courier code dynamically.
     """
+    if is_simulation_mode():
+        now_ts = int(time.time())
+        sim_order_id = str(now_ts % 1000000)
+        sim_shipment_id = str((now_ts + 1) % 1000000)
+        sim_awb = f"SIM-AWB-{now_ts}"
+        sim_courier = "Blue Dart Express"
+        logger.info(f"[SIMULATION] Simulated forward shipment for order {getattr(order, 'id', 'N/A')}: AWB {sim_awb}")
+        return {
+            "order_id": sim_order_id,
+            "shipment_id": sim_shipment_id,
+            "awb_code": sim_awb,
+            "courier_name": sim_courier,
+            "shiprocket_order_id": sim_order_id,
+            "shiprocket_shipment_id": sim_shipment_id,
+            "shiprocket_awb": sim_awb,
+            "shiprocket_courier_name": sim_courier,
+            "shipping_status": "MANIFEST_GENERATED",
+            "is_simulation": True,
+        }
+
     token = get_auth_token()
     if not token:
         raise ValueError("Cannot dispatch shipment: Shiprocket API authentication is not active.")
@@ -935,6 +985,32 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
     token = get_auth_token()
     clean_awb = str(awb_code).strip()
 
+    if is_simulation_mode() or clean_awb.startswith("SIM-"):
+        now_dt = datetime.now(timezone.utc)
+        is_delivered = "DELV" in clean_awb.upper()
+        return {
+            "awb": clean_awb,
+            "current_status": "DELIVERED" if is_delivered else "IN_TRANSIT",
+            "courier_name": "Blue Dart Express",
+            "current_location": "Customer Destination" if is_delivered else "Regional Sorting Facility",
+            "is_picked_up": True,
+            "scans": [
+                {
+                    "date": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                    "activity": "Shipment Delivered to Consignee" if is_delivered else "In Transit to Destination Hub",
+                    "location": "Destination City Hub" if is_delivered else "Regional Processing Hub",
+                    "sr_status": "DL" if is_delivered else "IT",
+                },
+                {
+                    "date": (now_dt - timedelta(hours=6)).strftime("%Y-%m-%d %H:%M:%S"),
+                    "activity": "Picked Up by Courier Agent",
+                    "location": "Origin Fulfillment Center",
+                    "sr_status": "PU",
+                }
+            ],
+            "is_simulation": True,
+        }
+
     if token and clean_awb:
         try:
             with httpx.Client(timeout=12.0) as client:
@@ -1073,6 +1149,20 @@ def create_reverse_pickup(
     """
     Creates an automated return/reverse pickup order on Shiprocket to the primary warehouse.
     """
+    if is_simulation_mode():
+        now_ts = int(time.time())
+        sim_ship_id = f"SIM-REV-SHIP-{now_ts % 100000}"
+        sim_awb = f"SIM-REV-{now_ts}"
+        logger.info(f"[SIMULATION] Simulated reverse pickup for order {getattr(order, 'id', 'N/A')}: AWB {sim_awb}")
+        return {
+            "success": True,
+            "reverse_shipment_id": sim_ship_id,
+            "reverse_awb": sim_awb,
+            "reverse_courier_name": "Delhivery Reverse Express",
+            "reverse_status": "PICKUP_SCHEDULED",
+            "is_simulation": True,
+        }
+
     token = get_auth_token()
     if not token:
         raise ValueError("Shiprocket API authentication is not active for reverse logistics.")
@@ -1233,6 +1323,25 @@ def create_exchange_order(
     Simultaneously books reverse return pickup from customer and forward replacement shipment from warehouse,
     configuring Doorstep QC inspection flags. Gracefully falls back to create_reverse_pickup() on any failure.
     """
+    if is_simulation_mode():
+        now_ts = int(time.time())
+        order_id_val = str(getattr(order, 'id', '1001'))
+        logger.info(f"[SIMULATION] Simulating Shiprocket create_exchange_order for Order {order_id_val}")
+        return {
+            "is_native_exchange": True,
+            "reverse_shipment_id": f"SIM-REV-SHIP-{now_ts % 100000}",
+            "reverse_order_id": f"RET-{order_id_val}",
+            "reverse_awb": f"SIM-REV-{now_ts}",
+            "reverse_courier_name": "Delhivery Reverse QC",
+            "reverse_status": "PICKUP_SCHEDULED",
+            "replacement_shipment_id": f"SIM-REP-SHIP-{now_ts % 100000}",
+            "replacement_order_id": f"EXC-{order_id_val}",
+            "replacement_awb": f"SIM-REP-{now_ts}",
+            "replacement_courier_name": "Blue Dart Surface Doorstep QC",
+            "replacement_status": "PICKUP_SCHEDULED",
+            "is_simulation": True,
+        }
+
     token = get_auth_token()
     if not token:
         logger.warning("Shiprocket authentication offline during exchange creation; using fallback.")
@@ -1448,6 +1557,15 @@ def sanitize_shiprocket_url(url: Optional[str]) -> str:
 
 def generate_shipping_label(shipment_id: Any) -> Dict[str, Any]:
     """Retrieves a downloadable shipping label URL from Shiprocket."""
+    if is_simulation_mode() or str(shipment_id).startswith("SIM-"):
+        return {
+            "success": True,
+            "label_url": "https://vahnsports.com/sample-shipping-label.pdf",
+            "label_created": 1,
+            "message": "Label generated successfully (Simulation Mode)",
+            "is_simulation": True,
+        }
+
     token = get_auth_token()
     if not token:
         raise ValueError("Shiprocket authentication failed.")
@@ -1525,6 +1643,15 @@ def generate_manifest(shipment_id: Any) -> Dict[str, Any]:
 
 def generate_order_invoice(order_id: Any) -> Dict[str, Any]:
     """Generates and retrieves official downloadable Tax Invoice URL from Shiprocket."""
+    if is_simulation_mode() or str(order_id).startswith("SIM-"):
+        return {
+            "success": True,
+            "invoice_url": "https://vahnsports.com/sample-tax-invoice.pdf",
+            "is_invoice_created": True,
+            "message": "Invoice generated successfully (Simulation Mode)",
+            "is_simulation": True,
+        }
+
     token = get_auth_token()
     if not token:
         raise ValueError("Shiprocket authentication failed.")
@@ -1579,6 +1706,17 @@ def schedule_courier_pickup(
     pickup_date: Optional[str] = None
 ) -> Dict[str, Any]:
     """Schedules courier doorstep collection in Shiprocket."""
+    if is_simulation_mode() or str(shipment_id).startswith("SIM-"):
+        now_ts = int(time.time())
+        return {
+            "success": True,
+            "pickup_status": 1,
+            "pickup_token": f"SIM-PK-{now_ts}",
+            "pickup_scheduled_date": pickup_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "message": "Courier pickup scheduled successfully (Simulation Mode).",
+            "is_simulation": True,
+        }
+
     token = get_auth_token()
     if not token:
         raise ValueError("Shiprocket authentication failed.")
@@ -1681,6 +1819,15 @@ def cancel_shipment(
     order_id: Optional[Any] = None
 ) -> Dict[str, Any]:
     """Cancels courier order and shipment in Shiprocket."""
+    if is_simulation_mode():
+        return {
+            "success": True,
+            "status_code": 200,
+            "message": "Shipment cancelled successfully in Shiprocket (Simulation Mode).",
+            "data": {"status": "SUCCESS"},
+            "is_simulation": True,
+        }
+
     token = get_auth_token()
     if not token:
         return {"success": False, "message": "Shiprocket authentication failed."}

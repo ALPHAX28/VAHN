@@ -13,7 +13,7 @@ load_dotenv()
 import logging
 import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, List, Optional, Tuple
 
 import httpx
@@ -2625,6 +2625,7 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         "tracking_url": order.tracking_url,
         "scans": forward_scans,
         "delivered_at": order.delivered_at.strftime("%b %d, %Y") if order.delivered_at else None,
+        "delivered_at_iso": order.delivered_at.isoformat() if order.delivered_at else None,
         "return_status": order.return_status or "NONE",
         "reverse_awb": order.reverse_awb,
         "reverse_courier_name": order.reverse_courier_name,
@@ -2658,7 +2659,6 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         "replacement_awb": order.replacement_awb,
         "replacement_courier_name": order.replacement_courier_name,
         "replacement_tracking_url": order.replacement_tracking_url,
-        "delivered_at_iso": order.delivered_at.isoformat() if order.delivered_at else None,
     }
     return schemas.OrderTrackingResponse.model_validate(tracking_payload)
 
@@ -3311,6 +3311,161 @@ def request_order_return(
         logger.warning(f"Failed to send return confirmation email for order {order.id}: {em_err}")
 
     return build_order_schema(order)
+
+
+def execute_cancel_order_return(order: models.Order, reason: Optional[str], db: Session) -> models.Order:
+    clean_reason = reason or "Customer requested cancellation of return/exchange"
+    logger.info(f"Cancelling return/exchange request for order {order.id}: {clean_reason}")
+
+    # 1. Cancel reverse pickup shipment in Shiprocket
+    if order.reverse_awb or order.reverse_shipment_id:
+        try:
+            shiprocket_service.cancel_shipment(
+                shiprocket_order_id=order.reverse_shipment_id,
+                awb_code=order.reverse_awb,
+            )
+        except Exception as e:
+            logger.warning(f"Error cancelling reverse shipment in Shiprocket for {order.id}: {e}")
+
+    # 2. Cancel replacement shipment in Shiprocket if exchange
+    if order.replacement_awb or order.replacement_shipment_id:
+        try:
+            shiprocket_service.cancel_shipment(
+                shiprocket_order_id=order.replacement_shipment_id,
+                awb_code=order.replacement_awb,
+            )
+        except Exception as e:
+            logger.warning(f"Error cancelling replacement shipment in Shiprocket for {order.id}: {e}")
+
+    # 3. Restore reserved replacement inventory if exchange
+    if order.return_type == "REPLACEMENT" and order.replacement_variant_id:
+        rep_variant = db.query(models.ProductVariant).filter_by(id=order.replacement_variant_id).first()
+        if rep_variant:
+            rep_variant.inventory_quantity = (rep_variant.inventory_quantity or 0) + 1
+            logger.info(f"Restored 1 unit of variant {rep_variant.id} stock (new qty: {rep_variant.inventory_quantity})")
+
+    # 4. Update order state
+    order.return_status = "CANCELLED"
+    order.replacement_status = "CANCELLED"
+    order.return_notes = f"Cancelled: {clean_reason}"
+
+    # 5. Append checkpoint to scans
+    now_utc = datetime.now(timezone.utc)
+    ts_str = now_utc.strftime("%d %b %Y, %I:%M %p")
+    t_data = dict(order.tracking_data or {})
+    scans = t_data.setdefault("scans", [])
+    scans.insert(0, {
+        "title": "Return / Exchange Request Cancelled",
+        "description": f"{clean_reason}. Reverse pickup was cancelled and original delivery remains active.",
+        "timestamp": ts_str,
+        "location": "VAHN Customer Care"
+    })
+    order.tracking_data = t_data
+
+    # Also update reverse_tracking_data
+    rev_data = dict(order.reverse_tracking_data or {})
+    rev_data["current_status"] = "CANCELLED"
+    rev_scans = rev_data.setdefault("scans", [])
+    rev_scans.insert(0, {
+        "date": ts_str,
+        "activity": f"Reverse Pickup Cancelled: {clean_reason}",
+        "location": "Customer Care"
+    })
+    order.reverse_tracking_data = rev_data
+
+    db.commit()
+    db.refresh(order)
+
+    # 6. Send transactional notification email to customer
+    try:
+        cust_email, cust_name = get_order_customer_info(order, db)
+        if cust_email:
+            send_return_status_update_email(
+                to_email=cust_email,
+                order_id=order.id,
+                customer_name=cust_name or "",
+                return_type=order.return_type or "RETURN",
+                return_status="CANCELLED",
+                custom_message=f"Your return/exchange request for Order #{order.id} has been cancelled ({clean_reason}). Your original item remains yours to keep.",
+            )
+    except Exception as em_err:
+        logger.warning(f"Failed to send return cancellation email for order {order.id}: {em_err}")
+
+    return order
+
+
+# 8b. Admin: Cancel Return or Exchange Request
+@app.post("/api/admin/orders/{order_id}/cancel-return", response_model=schemas.OrderSchema)
+def admin_cancel_order_return(
+    order_id: str,
+    payload: schemas.CancelReturnRequest,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin: Cancels an active return or size exchange request for an order.
+    Cancels reverse pickup courier in Shiprocket, cancels replacement shipment,
+    restocks any reserved replacement inventory, updates order status, and notifies customer.
+    """
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if not order.return_status or order.return_status in ("NONE", "CANCELLED"):
+        raise HTTPException(status_code=400, detail="No active return or exchange request found on this order.")
+
+    if order.return_status in ("PICKED_UP", "REFUND_INITIATED", "REFUNDED", "COMPLETED"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot cancel return/exchange: Package has already been picked up by courier (Status: {order.return_status})."
+        )
+
+    updated_order = execute_cancel_order_return(order, payload.reason, db)
+    return build_order_schema(updated_order)
+
+
+# 8c. Customer: Cancel Return or Exchange Request
+@app.post("/api/orders/{order_id}/cancel-return", response_model=schemas.OrderSchema)
+def customer_cancel_order_return(
+    order_id: str,
+    payload: schemas.CancelReturnRequest,
+    current_user: Optional[models.User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Customer: Cancel own return or exchange request before courier pickup.
+    """
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Authorize: admin or order owner or guest with matching email/phone
+    if current_user and (current_user.role == "admin" or current_user.id == order.user_id):
+        pass
+    else:
+        addr = order.shipping_address or {}
+        valid_emails = [str(e).strip().lower() for e in (order.guest_email, addr.get("email"), (order.user.email if order.user else None)) if e]
+        valid_phones = [str(p).strip()[-10:] for p in (order.guest_phone, addr.get("phone"), (order.user.phone if order.user else None)) if p]
+
+        provided_email = (payload.customer_email or "").strip().lower()
+        provided_phone = (payload.customer_phone or "").strip()[-10:]
+
+        is_auth = (provided_email and provided_email in valid_emails) or (provided_phone and provided_phone in valid_phones)
+        if not is_auth:
+            raise HTTPException(status_code=403, detail="Unauthorized to cancel return for this order.")
+
+    if not order.return_status or order.return_status in ("NONE", "CANCELLED"):
+        raise HTTPException(status_code=400, detail="No active return or exchange request found on this order.")
+
+    if order.return_status in ("PICKED_UP", "REFUND_INITIATED", "REFUNDED", "COMPLETED"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot cancel return/exchange: Package has already been picked up by courier (Status: {order.return_status})."
+        )
+
+    updated_order = execute_cancel_order_return(order, payload.reason or "Customer self-cancelled return request", db)
+    return build_order_schema(updated_order)
+
 
 # 9. Razorpay Webhook Handler
 @app.post("/api/webhooks/razorpay")
@@ -4389,7 +4544,7 @@ def admin_list_orders(
         q = q.filter(models.Order.shipping_status == shipping_status)
     if return_status:
         if return_status in ("ANY", "ACTIVE", "RETURN_REQUESTED"):
-            q = q.filter(models.Order.return_status.isnot(None), models.Order.return_status != "NONE")
+            q = q.filter(models.Order.return_status.isnot(None), models.Order.return_status.notin_(["NONE", "CANCELLED"]))
         else:
             q = q.filter(models.Order.return_status == return_status)
     if payment_status:
@@ -4577,6 +4732,16 @@ def admin_update_order_status(
             )
         else:
             order.status = payload.status
+            if payload.status == "DELIVERED":
+                order.shipping_status = "DELIVERED"
+                if not order.delivered_at:
+                    order.delivered_at = datetime.now(timezone.utc)
+            elif payload.status in ["SHIPPED", "IN_TRANSIT"]:
+                if order.shipping_status != "DELIVERED":
+                    order.shipping_status = payload.status
+            elif payload.status == "PROCESSING":
+                if not order.shipping_status or order.shipping_status == "UNFULFILLED":
+                    order.shipping_status = "PROCESSING"
         if payload.status in ["SHIPPED", "IN_TRANSIT"]:
             if order.payment_status == "FAILED":
                 raise HTTPException(status_code=400, detail="Cannot dispatch order: Customer payment has failed.")
@@ -5237,12 +5402,47 @@ def dispatch_order_replacement(
         raise HTTPException(status_code=400, detail="This order is not a size exchange / replacement request.")
 
     order.replacement_status = "REPLACEMENT_DISPATCHED"
-    if payload.awb_code:
-        order.replacement_awb = payload.awb_code
-    if payload.courier_name:
-        order.replacement_courier_name = payload.courier_name
-    if payload.tracking_url:
-        order.replacement_tracking_url = payload.tracking_url
+
+    # 1. Manual AWB entered by admin
+    if payload.awb_code and payload.awb_code.strip():
+        order.replacement_awb = payload.awb_code.strip()
+        order.replacement_courier_name = payload.courier_name or "Blue Dart Air"
+        order.replacement_tracking_url = payload.tracking_url or f"https://shiprocket.co/tracking/{order.replacement_awb}"
+    else:
+        # 2. Automated Shiprocket Dispatch via API
+        try:
+            res = shiprocket_service.create_forward_shipment(order, db=db)
+            awb = res.get("awb_code") or res.get("shiprocket_awb")
+            courier = res.get("courier_name") or res.get("shiprocket_courier_name") or "Shiprocket Express"
+            if not awb:
+                err_msg = res.get("message") or "Shiprocket could not assign an AWB code. Please verify Shiprocket wallet balance or assign courier manually."
+                raise HTTPException(status_code=400, detail=err_msg)
+            order.replacement_awb = awb
+            order.replacement_courier_name = courier
+            if res.get("shipment_id"):
+                order.replacement_shipment_id = str(res["shipment_id"])
+            order.replacement_tracking_url = f"https://shiprocket.co/tracking/{order.replacement_awb}"
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Automated Shiprocket replacement dispatch failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to dispatch replacement via Shiprocket API: {str(e)}"
+            )
+
+    # Record scan in tracking data
+    now_utc = datetime.now(timezone.utc)
+    ts_str = now_utc.strftime("%d %b %Y, %I:%M %p")
+    t_data = dict(order.tracking_data or {})
+    scans = t_data.setdefault("scans", [])
+    scans.insert(0, {
+        "title": "Replacement Package Dispatched",
+        "description": f"Fresh size package dispatched via {order.replacement_courier_name} (AWB: {order.replacement_awb}).",
+        "timestamp": ts_str,
+        "location": "VAHN Central Facility"
+    })
+    order.tracking_data = t_data
 
     db.commit()
     db.refresh(order)
@@ -6611,6 +6811,9 @@ def delete_admin_contact_message(
 
     db.delete(msg)
     db.commit()
+
+
+
 
 
 

@@ -8,15 +8,18 @@ import { toast } from 'sonner';
 import AdminBadge from '@/components/admin/AdminBadge';
 import SchedulePickupWizardModal from '@/components/admin/SchedulePickupWizardModal';
 import {
+  AlertCircleIcon,
   CheckIcon,
   MapPinIcon,
   PackageIcon,
   PrinterIcon,
   TruckIcon,
+  XIcon,
 } from '@/components/icons/Icons';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 import {
   type AdminOrder,
+  cancelAdminOrderReturn,
   cancelAdminOrderShipment,
   dispatchAdminOrderReplacement,
   getAdminOrder,
@@ -80,29 +83,61 @@ export default function AdminOrderDetailPage() {
   const [notifyCustomMessage, setNotifyCustomMessage] = useState('');
   const [notifyingCustomer, setNotifyingCustomer] = useState(false);
 
-  async function handleDispatchReplacement() {
+  // Cancel Return / Size Exchange State
+  const [showCancelReturnModal, setShowCancelReturnModal] = useState(false);
+  const [cancelReturnReason, setCancelReturnReason] = useState(
+    'Customer requested cancellation of return/exchange'
+  );
+  const [cancellingReturn, setCancellingReturn] = useState(false);
+
+  async function handleCancelReturn() {
     if (!adminToken || !order) return;
-    if (!replacementAwbInput) {
-      setError('Please enter an AWB tracking code for the replacement parcel.');
+    setCancellingReturn(true);
+    try {
+      const updated = await cancelAdminOrderReturn(adminToken, order.id, {
+        reason: cancelReturnReason || 'Customer requested cancellation of return/exchange',
+      });
+      setOrder(updated);
+      toast.success(
+        `${order.return_type === 'REPLACEMENT' ? 'Size exchange' : 'Return'} request cancelled successfully. Courier pickup cancelled and inventory restored.`
+      );
+      setShowCancelReturnModal(false);
+      await load();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : (e as { message?: string })?.message;
+      toast.error(msg || 'Failed to cancel return request.');
+    } finally {
+      setCancellingReturn(false);
+    }
+  }
+
+  const [showManualAwb, setShowManualAwb] = useState(false);
+
+  async function handleDispatchReplacement(isManual: boolean = false) {
+    if (!adminToken || !order) return;
+    if (isManual && !replacementAwbInput.trim()) {
+      toast.error('Please enter an AWB tracking code for the manual replacement shipment.');
       return;
     }
     setDispatchingReplacement(true);
     setError('');
     setSuccess('');
     try {
-      const res = await dispatchAdminOrderReplacement(adminToken, order.id, {
-        awb_code: replacementAwbInput,
-        courier_name: replacementCourierInput,
-      });
+      const payload = isManual
+        ? { awb_code: replacementAwbInput.trim(), courier_name: replacementCourierInput }
+        : {};
+      const res = await dispatchAdminOrderReplacement(adminToken, order.id, payload);
       setOrder(res);
-      setSuccess(`Replacement shipment marked as dispatched (AWB: ${replacementAwbInput})!`);
+      const awbText = res.replacement_awb || replacementAwbInput || 'Assigned';
       toast.success(
-        `Replacement dispatched (AWB: ${replacementAwbInput}). Customer notified via email.`
+        `Replacement shipment dispatched via Shiprocket (AWB: ${awbText})! Customer notified via email.`
       );
+      setSuccess(`Replacement shipment dispatched (AWB: ${awbText})!`);
       setTimeout(() => setSuccess(''), 4000);
+      await load();
     } catch (e: any) {
-      setError(e?.message || 'Failed to dispatch replacement.');
-      toast.error(e?.message || 'Failed to dispatch replacement.');
+      setError(e?.message || 'Failed to dispatch replacement via Shiprocket.');
+      toast.error(e?.message || 'Failed to dispatch replacement via Shiprocket.');
     } finally {
       setDispatchingReplacement(false);
     }
@@ -503,11 +538,44 @@ export default function AdminOrderDetailPage() {
       <div className="admin-order-layout">
         {/* Left Main Content */}
         <div className="admin-order-main">
-          {/* 1. Forward Logistics Command Card (Shiprocket) */}
+          {/* Unified Fulfillment & Logistics Command Card */}
           {(() => {
             const isPaymentFailed = order.payment_status === 'FAILED';
             const isCancelled =
               order.status === 'CANCELLED' || order.shipping_status === 'CANCELLED';
+            const isDelivered =
+              order.status === 'DELIVERED' || order.shipping_status === 'DELIVERED';
+            const isReplacement = order.return_type === 'REPLACEMENT';
+
+            // Active Return/Exchange: return requested, picked up, or replacement dispatched (NOT cancelled)
+            const isReturnActive = Boolean(
+              order.return_status &&
+                order.return_status !== 'NONE' &&
+                order.return_status !== 'CANCELLED' &&
+                order.replacement_status !== 'CANCELLED'
+            );
+
+            const isReturnCancelled = Boolean(
+              order.return_status === 'CANCELLED' || order.replacement_status === 'CANCELLED'
+            );
+
+            const isReplacementDispatched = order.replacement_status === 'REPLACEMENT_DISPATCHED';
+
+            const reverseTracking = order.reverse_tracking_data;
+            const reverseScans: Array<{ date?: string; activity: string; location?: string }> =
+              Array.isArray(reverseTracking?.scans) ? reverseTracking.scans : [];
+            const isPickedUpFromCustomer =
+              isReturnActive &&
+              (Boolean(reverseTracking?.is_picked_up) ||
+                order.return_status === 'PICKED_UP' ||
+                order.replacement_status === 'PICKED_UP' ||
+                order.return_status === 'REFUNDED' ||
+                reverseScans.some(
+                  (s) =>
+                    !/cancel/i.test(s.activity || '') &&
+                    /picked up|doorstep collection|qc pass|item collected/i.test(s.activity || '')
+                ));
+
             const forwardTracking = order.tracking_data;
             const forwardScans: Array<{ date?: string; activity: string; location?: string }> =
               Array.isArray(forwardTracking?.scans) ? forwardTracking.scans : [];
@@ -519,26 +587,135 @@ export default function AdminOrderDetailPage() {
                   (forwardScans.length > 0
                     ? forwardScans[forwardScans.length - 1]?.location
                     : null) ||
-                  (order.shipping_status === 'DELIVERED'
+                  (isDelivered
                     ? 'Delivered to Customer'
                     : order.shiprocket_awb
                       ? 'In Transit'
                       : 'Awaiting Dispatch');
-            const latestForwardScan =
-              forwardScans.length > 0 ? forwardScans[forwardScans.length - 1] : null;
+
+            const reverseCurrentLocation =
+              reverseTracking?.current_location ||
+              (reverseScans.length > 0 ? reverseScans[reverseScans.length - 1]?.location : null) ||
+              'Customer Area / Sorting Hub';
+
+            // Single authoritative Card Title, Icon, Border Accent, and Status Badge
+            let cardTitle = 'Forward Logistics (Shiprocket)';
+            let cardIcon = <TruckIcon size={20} color="#4232d9" />;
+            let borderAccent = '#4232d9';
+            let cardBg = '#fff';
+            let statusBadge = {
+              text: order.shipping_status || 'UNFULFILLED',
+              bg: '#fffbe6',
+              color: '#d48806',
+              border: '#ffe58f',
+            };
+
+            if (isPaymentFailed) {
+              cardTitle = 'Logistics & Fulfillment';
+              cardIcon = <AlertCircleIcon size={20} color="#dc2626" />;
+              borderAccent = '#dc2626';
+              statusBadge = {
+                text: 'PAYMENT FAILED',
+                bg: '#fef2f2',
+                color: '#dc2626',
+                border: '#fca5a5',
+              };
+            } else if (isCancelled) {
+              cardTitle = 'Logistics & Fulfillment';
+              cardIcon = <XIcon size={20} color="#dc2626" />;
+              borderAccent = '#dc2626';
+              statusBadge = {
+                text: 'CANCELLED',
+                bg: '#fef2f2',
+                color: '#dc2626',
+                border: '#fca5a5',
+              };
+            } else if (isReturnActive) {
+              cardTitle = isReplacement
+                ? 'Size Replacement & Exchange Logistics'
+                : 'Reverse Return Logistics';
+              cardIcon = <PackageIcon size={20} color={isReplacement ? '#7c3aed' : '#fa8c16'} />;
+              borderAccent = isReplacement ? '#7c3aed' : '#fa8c16';
+              cardBg = isReplacement ? '#faf5ff' : '#fffaf0';
+
+              if (isReplacementDispatched) {
+                statusBadge = {
+                  text: 'EXCHANGE DISPATCHED',
+                  bg: '#f5f3ff',
+                  color: '#7c3aed',
+                  border: '#ddd6fe',
+                };
+              } else if (isPickedUpFromCustomer) {
+                statusBadge = {
+                  text: isReplacement ? 'ORIGINAL PICKED UP' : 'PARCEL PICKED UP',
+                  bg: '#f6ffed',
+                  color: '#389e0d',
+                  border: '#b7eb8f',
+                };
+              } else if (order.return_status === 'REFUNDED') {
+                statusBadge = {
+                  text: 'REFUNDED',
+                  bg: '#f5f3ff',
+                  color: '#7c3aed',
+                  border: '#ddd6fe',
+                };
+              } else {
+                statusBadge = {
+                  text: isReplacement ? 'EXCHANGE REQUESTED' : 'RETURN REQUESTED',
+                  bg: '#fffbe6',
+                  color: '#d48806',
+                  border: '#ffe58f',
+                };
+              }
+            } else if (isDelivered) {
+              cardTitle = 'Logistics & Order Fulfillment';
+              cardIcon = <CheckIcon size={20} color="#52c41a" />;
+              borderAccent = '#52c41a';
+              statusBadge = {
+                text: 'DELIVERED',
+                bg: '#f6ffed',
+                color: '#389e0d',
+                border: '#b7eb8f',
+              };
+            } else if (
+              order.shipping_status === 'OUT_FOR_DELIVERY' ||
+              order.shipping_status === 'SHIPPED' ||
+              order.shipping_status === 'IN_TRANSIT' ||
+              order.shiprocket_awb
+            ) {
+              cardTitle = 'Forward Logistics (Shiprocket)';
+              cardIcon = <TruckIcon size={20} color="#4232d9" />;
+              borderAccent = '#4232d9';
+              statusBadge = {
+                text:
+                  order.shipping_status === 'OUT_FOR_DELIVERY' ? 'OUT FOR DELIVERY' : 'IN TRANSIT',
+                bg: '#eff6ff',
+                color: '#1d4ed8',
+                border: '#bfdbfe',
+              };
+            } else if (isPickupScheduled) {
+              cardTitle = 'Forward Logistics (Shiprocket)';
+              cardIcon = <TruckIcon size={20} color="#d97706" />;
+              borderAccent = '#d97706';
+              statusBadge = {
+                text: 'PICKUP SCHEDULED',
+                bg: '#fffbe6',
+                color: '#d48806',
+                border: '#ffe58f',
+              };
+            }
 
             return (
               <div
                 className="admin-card"
                 style={{
-                  borderLeft: isPaymentFailed
-                    ? '4px solid #dc2626'
-                    : isCancelled
-                      ? '4px solid #dc2626'
-                      : '4px solid #4232d9',
+                  borderLeft: `4px solid ${borderAccent}`,
+                  background: cardBg,
                   position: 'relative',
+                  marginBottom: '24px',
                 }}
               >
+                {/* Single Header */}
                 <div
                   style={{
                     display: 'flex',
@@ -550,1372 +727,1161 @@ export default function AdminOrderDetailPage() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <TruckIcon
-                      size={20}
-                      color={isPaymentFailed || isCancelled ? '#dc2626' : '#4232d9'}
-                    />
+                    {cardIcon}
                     <h2
                       className="admin-card-title"
-                      style={{ margin: 0, textTransform: 'uppercase' }}
+                      style={{
+                        margin: 0,
+                        textTransform: 'uppercase',
+                        color: isReturnActive ? (isReplacement ? '#6b21a8' : '#d46b08') : '#111',
+                      }}
                     >
-                      Forward Logistics (Shiprocket)
+                      {cardTitle}
                     </h2>
                   </div>
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {order.shiprocket_awb && !isCancelled && !isPaymentFailed && (
-                      <button
-                        type="button"
-                        onClick={handleRefreshTracking}
-                        disabled={refreshingTracking}
-                        style={{
-                          background: '#f3f4f6',
-                          border: '1px solid #d1d5db',
-                          padding: '5px 12px',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          cursor: refreshingTracking ? 'not-allowed' : 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          borderRadius: '0px',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {refreshingTracking ? 'Refreshing...' : '↻ Refresh Live Tracking'}
-                      </button>
-                    )}
-                    <span
-                      style={{
-                        background: isPaymentFailed
-                          ? '#fef2f2'
-                          : isCancelled
-                            ? '#fef2f2'
-                            : order.shipping_status === 'SHIPPED' ||
-                                order.shipping_status === 'DELIVERED' ||
-                                order.shipping_status === 'OUT_FOR_DELIVERY'
-                              ? '#f6ffed'
-                              : '#fffbe6',
-                        color: isPaymentFailed
-                          ? '#dc2626'
-                          : isCancelled
-                            ? '#dc2626'
-                            : order.shipping_status === 'SHIPPED' ||
-                                order.shipping_status === 'DELIVERED' ||
-                                order.shipping_status === 'OUT_FOR_DELIVERY'
-                              ? '#389e0d'
-                              : '#d48806',
-                        border: `1px solid ${isPaymentFailed ? '#fca5a5' : isCancelled ? '#fca5a5' : (order.shipping_status === 'SHIPPED' || order.shipping_status === 'DELIVERED' || order.shipping_status === 'OUT_FOR_DELIVERY' ? '#b7eb8f' : '#ffe58f')}`,
-                        padding: '5px 12px',
-                        fontSize: '0.72rem',
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      {isPaymentFailed
-                        ? 'BLOCKED (PAYMENT FAILED)'
-                        : isCancelled
-                          ? 'CANCELLED'
-                          : order.shipping_status || 'UNFULFILLED'}
-                    </span>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                    gap: 16,
-                    fontSize: '0.85rem',
-                    marginBottom: 16,
-                  }}
-                >
-                  <div>
-                    <span
-                      style={{
-                        color: '#777',
-                        fontSize: '0.72rem',
-                        display: 'block',
-                        textTransform: 'uppercase',
-                        fontWeight: 700,
-                        letterSpacing: '0.03em',
-                      }}
-                    >
-                      Courier Partner
-                    </span>
-                    <strong
-                      style={{ fontSize: '0.9rem', color: isPaymentFailed ? '#888' : '#111' }}
-                    >
-                      {isPaymentFailed
-                        ? 'None (Payment Incomplete)'
-                        : displayCourierName || 'Assigned on Dispatch'}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span
-                      style={{
-                        color: '#777',
-                        fontSize: '0.72rem',
-                        display: 'block',
-                        textTransform: 'uppercase',
-                        fontWeight: 700,
-                        letterSpacing: '0.03em',
-                      }}
-                    >
-                      AWB Code
-                    </span>
-                    {order.shiprocket_awb ? (
-                      <a
-                        href={getPublicTrackingUrl(order.shiprocket_awb)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          fontFamily: 'monospace',
-                          fontWeight: 800,
-                          fontSize: '0.9rem',
-                          color: isCancelled ? '#dc2626' : '#4232d9',
-                          textDecoration: 'underline',
-                        }}
-                      >
-                        {order.shiprocket_awb}
-                      </a>
-                    ) : (
-                      <span
-                        style={{
-                          color: isPaymentFailed ? '#dc2626' : '#999',
-                          fontSize: '0.85rem',
-                          fontWeight: isPaymentFailed ? 600 : 400,
-                        }}
-                      >
-                        {isPaymentFailed ? 'Blocked' : 'Not Assigned'}
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <span
-                      style={{
-                        color: '#777',
-                        fontSize: '0.72rem',
-                        display: 'block',
-                        textTransform: 'uppercase',
-                        fontWeight: 700,
-                        letterSpacing: '0.03em',
-                      }}
-                    >
-                      Shipment ID
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: 'monospace',
-                        fontSize: '0.88rem',
-                        color: isPaymentFailed ? '#dc2626' : '#333',
-                      }}
-                    >
-                      {order.shiprocket_shipment_id || (isPaymentFailed ? 'Blocked' : 'Pending')}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span
-                      style={{
-                        color: '#777',
-                        fontSize: '0.72rem',
-                        display: 'block',
-                        textTransform: 'uppercase',
-                        fontWeight: 700,
-                        letterSpacing: '0.03em',
-                      }}
-                    >
-                      Current Location
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <MapPinIcon
-                        size={14}
-                        color={isPaymentFailed || isCancelled ? '#dc2626' : '#4232d9'}
-                      />
-                      <strong
-                        style={{
-                          fontSize: '0.88rem',
-                          color: isPaymentFailed || isCancelled ? '#dc2626' : '#111',
-                        }}
-                      >
-                        {forwardCurrentLocation}
-                      </strong>
-                    </div>
-                    {latestForwardScan && latestForwardScan.activity && (
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          color: '#777',
-                          display: 'block',
-                          marginTop: 2,
-                        }}
-                      >
-                        {latestForwardScan.activity}
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <span
-                      style={{
-                        color: '#777',
-                        fontSize: '0.72rem',
-                        display: 'block',
-                        textTransform: 'uppercase',
-                        fontWeight: 700,
-                        letterSpacing: '0.03em',
-                      }}
-                    >
-                      Estimated Delivery
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.88rem',
-                        color: isPaymentFailed ? '#dc2626' : '#333',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {isPaymentFailed
-                        ? 'Blocked (Unpaid)'
-                        : isCancelled
-                          ? 'Cancelled'
-                          : order.delivered_at || '3-5 Business Days'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Cancellation Notice (only if cancelled) */}
-                {order.shiprocket_awb && isCancelled && (
-                  <div
-                    style={{
-                      background: '#fef2f2',
-                      border: '1px solid #fecaca',
-                      padding: '10px 16px',
-                      marginBottom: '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: 8,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span
-                        style={{
-                          width: 8,
-                          height: 8,
-                          background: '#dc2626',
-                          borderRadius: '50%',
-                          display: 'inline-block',
-                        }}
-                      />
-                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#991b1b' }}>
-                        Cancelled:{' '}
-                        <span style={{ fontWeight: 500, color: '#7f1d1d' }}>
-                          {order.cancellation_reason || 'Shipment was cancelled by administrator.'}
-                        </span>
-                      </span>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        color: '#dc2626',
-                        textTransform: 'uppercase',
-                        background: '#fee2e2',
-                        padding: '2px 8px',
-                      }}
-                    >
-                      Dispatch Halted • Restocked
-                    </span>
-                  </div>
-                )}
-
-                {/* Transit History Timeline (collapsible) */}
-                {order.shiprocket_awb && (!isCancelled || forwardScans.length > 0) && (
-                  <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 12, marginBottom: 14 }}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 800,
-                          color: '#666',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                        }}
-                      >
-                        Transit Checkpoints ({forwardScans.length})
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setShowForwardScans(!showForwardScans)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#4232d9',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          textDecoration: 'underline',
-                        }}
-                      >
-                        {showForwardScans ? 'Hide Checkpoints ▲' : 'View Checkpoints ▼'}
-                      </button>
-                    </div>
-
-                    {showForwardScans && (
-                      <div style={{ marginTop: 12 }}>
-                        {forwardScans.length > 0 ? (
-                          <div
-                            style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 0,
-                              paddingLeft: 12,
-                              borderLeft: '2px solid #e5e7eb',
-                            }}
-                          >
-                            {forwardScans
-                              .slice()
-                              .reverse()
-                              .map((scan, idx) => {
-                                const isLatest = idx === 0;
-                                return (
-                                  <div
-                                    key={idx}
-                                    style={{
-                                      position: 'relative',
-                                      paddingBottom: idx < forwardScans.length - 1 ? 14 : 4,
-                                      paddingLeft: 16,
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        position: 'absolute',
-                                        left: -19,
-                                        top: 3,
-                                        width: 10,
-                                        height: 10,
-                                        background: isLatest ? '#4232d9' : '#fff',
-                                        border: isLatest
-                                          ? '2px solid #4232d9'
-                                          : '2px solid #9ca3af',
-                                        borderRadius: '0px',
-                                        display: 'block',
-                                      }}
-                                    />
-                                    <div
-                                      style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'baseline',
-                                        flexWrap: 'wrap',
-                                        gap: 8,
-                                      }}
-                                    >
-                                      <div
-                                        style={{
-                                          fontWeight: isLatest ? 800 : 600,
-                                          fontSize: '0.82rem',
-                                          color: isLatest ? '#000' : '#374151',
-                                        }}
-                                      >
-                                        {scan.activity}
-                                      </div>
-                                      <div
-                                        style={{
-                                          fontSize: '0.72rem',
-                                          color: '#6b7280',
-                                          fontFamily: 'monospace',
-                                        }}
-                                      >
-                                        {scan.date || '—'}
-                                      </div>
-                                    </div>
-                                    {scan.location && (
-                                      <div
-                                        style={{
-                                          fontSize: '0.72rem',
-                                          color: '#4b5563',
-                                          marginTop: 2,
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          gap: 4,
-                                        }}
-                                      >
-                                        <MapPinIcon size={12} color="#6b7280" />
-                                        <span>
-                                          Facility / Hub: <strong>{scan.location}</strong>
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        ) : (
-                          <div
-                            style={{
-                              fontSize: '0.8rem',
-                              color: '#777',
-                              padding: '8px 12px',
-                              background: '#fafafa',
-                            }}
-                          >
-                            Awaiting initial courier scan at pickup hub. Click &ldquo;Refresh Live
-                            Tracking&rdquo; to fetch the latest courier milestones.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="admin-shipment-actions">
-                  {isPaymentFailed ? (
-                    <div
-                      style={{
-                        background: '#fef2f2',
-                        border: '1px solid #fca5a5',
-                        color: '#991b1b',
-                        padding: '12px 16px',
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                      }}
-                    >
-                      <span style={{ fontSize: '1.1rem' }}>⛔</span>
-                      <div>
-                        <div>Dispatch Blocked: Customer payment failed.</div>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#7f1d1d' }}>
-                          Cannot fulfill, generate AWB, or print shipping labels for unpaid orders.
-                        </span>
-                      </div>
-                    </div>
-                  ) : isCancelled ? (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                      <button
-                        type="button"
-                        onClick={handleDownloadInvoice}
-                        disabled={downloadingInvoice}
-                        style={{
-                          background: '#000',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '8px 18px',
-                          fontWeight: 800,
-                          fontSize: '0.78rem',
-                          cursor: downloadingInvoice ? 'not-allowed' : 'pointer',
-                          textTransform: 'uppercase',
-                          borderRadius: '0px',
-                        }}
-                      >
-                        {downloadingInvoice ? 'Fetching Invoice...' : 'Download Tax Invoice'}
-                      </button>
-                    </div>
-                  ) : !order.shiprocket_awb ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setError('');
-                        setShowPickupModal(true);
-                      }}
-                      disabled={order.status === 'CANCELLED' || order.status === 'REFUNDED'}
-                      className="admin-shipment-btn admin-shipment-btn--primary"
-                      style={{
-                        background: '#4232d9',
-                        color: '#fff',
-                        border: 'none',
-                        padding: '10px 20px',
-                        fontWeight: 800,
-                        fontSize: '0.82rem',
-                        cursor: 'pointer',
-                        textTransform: 'uppercase',
-                        borderRadius: '0px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 8,
-                      }}
-                    >
-                      <span>📦</span> Dispatch Shipment & Schedule Pickup →
-                    </button>
-                  ) : (
-                    <>
-                      {/* ── Pickup Status Section ── */}
-                      {isPickupScheduled ? (
-                        /* Pickup Already Scheduled: show info card + manifest download */
-                        <div
-                          style={{
-                            background: '#f0fdf4',
-                            border: '1px solid #86efac',
-                            borderLeft: '4px solid #16a34a',
-                            padding: '10px 14px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: 10,
-                            flex: 1,
-                            minWidth: 0,
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                            <span style={{ fontSize: '1.1rem', lineHeight: 1, marginTop: 1 }}>
-                              ✅
-                            </span>
-                            <div>
-                              <div
-                                style={{
-                                  fontSize: '0.78rem',
-                                  fontWeight: 800,
-                                  color: '#15803d',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: '0.04em',
-                                  marginBottom: 4,
-                                }}
-                              >
-                                Pickup Scheduled with Courier
-                              </div>
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  flexWrap: 'wrap',
-                                  gap: '8px 20px',
-                                  fontSize: '0.8rem',
-                                  color: '#166534',
-                                }}
-                              >
-                                {pickupScheduledDate && (
-                                  <span>
-                                    <strong>Date:</strong>{' '}
-                                    {new Date(pickupScheduledDate).toLocaleDateString('en-IN', {
-                                      weekday: 'short',
-                                      day: 'numeric',
-                                      month: 'short',
-                                      year: 'numeric',
-                                    })}
-                                  </span>
-                                )}
-                                {pickupToken && (
-                                  <span>
-                                    <strong>Token:</strong>{' '}
-                                    <span style={{ fontFamily: 'monospace' }}>{pickupToken}</span>
-                                  </span>
-                                )}
-                                {displayCourierName && (
-                                  <span>
-                                    <strong>Courier:</strong> {displayCourierName}
-                                  </span>
-                                )}
-                                {order.shiprocket_shipment_id && (
-                                  <span>
-                                    <strong>Shipment ID:</strong>{' '}
-                                    <span style={{ fontFamily: 'monospace' }}>
-                                      {order.shiprocket_shipment_id}
-                                    </span>
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={handleDownloadManifest}
-                            disabled={downloadingManifest}
-                            style={{
-                              background: '#16a34a',
-                              color: '#fff',
-                              border: 'none',
-                              padding: '7px 14px',
-                              fontWeight: 800,
-                              fontSize: '0.75rem',
-                              cursor: downloadingManifest ? 'not-allowed' : 'pointer',
-                              textTransform: 'uppercase',
-                              borderRadius: '0px',
-                              flexShrink: 0,
-                            }}
-                          >
-                            {downloadingManifest ? 'Generating...' : '📋 Download Manifest'}
-                          </button>
-                        </div>
-                      ) : (
-                        /* Pickup NOT yet scheduled: show Schedule Pickup button */
+                    {isReturnActive && (
+                      <>
                         <button
                           type="button"
-                          onClick={() => {
-                            setError('');
-                            setShowPickupModal(true);
-                          }}
-                          disabled={order.status === 'CANCELLED' || order.status === 'REFUNDED'}
-                          className="admin-shipment-btn admin-shipment-btn--primary"
+                          onClick={() => setShowNotifyModal(true)}
                           style={{
-                            background: '#4232d9',
-                            color: '#fff',
-                            border: 'none',
-                            padding: '8px 18px',
-                            fontWeight: 800,
-                            fontSize: '0.8rem',
+                            background: '#f3f4f6',
+                            border: '1px solid #d1d5db',
+                            padding: '5px 12px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
                             cursor: 'pointer',
-                            textTransform: 'uppercase',
-                            borderRadius: '0px',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 6,
-                          }}
-                        >
-                          Schedule Pickup →
-                        </button>
-                      )}
-
-                      {/* Download Label Action */}
-                      <button
-                        type="button"
-                        onClick={handleDownloadLabel}
-                        disabled={downloadingLabel}
-                        className="admin-shipment-btn"
-                        style={{
-                          background: '#000',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '8px 18px',
-                          fontWeight: 800,
-                          fontSize: '0.8rem',
-                          cursor: downloadingLabel ? 'not-allowed' : 'pointer',
-                          textTransform: 'uppercase',
-                          borderRadius: '0px',
-                        }}
-                      >
-                        {downloadingLabel ? 'Fetching Label...' : 'Download Label'}
-                      </button>
-
-                      {/* Download Invoice Action */}
-                      <button
-                        type="button"
-                        onClick={handleDownloadInvoice}
-                        disabled={downloadingInvoice}
-                        className="admin-shipment-btn"
-                        style={{
-                          background: '#fff',
-                          color: '#000',
-                          border: '1px solid #d1d5db',
-                          padding: '8px 18px',
-                          fontWeight: 800,
-                          fontSize: '0.8rem',
-                          cursor: downloadingInvoice ? 'not-allowed' : 'pointer',
-                          textTransform: 'uppercase',
-                          borderRadius: '0px',
-                        }}
-                      >
-                        {downloadingInvoice ? 'Fetching Invoice...' : 'Download Invoice'}
-                      </button>
-
-                      {/* Cancel Shipment Action */}
-                      {order.status !== 'CANCELLED' && (
-                        <button
-                          type="button"
-                          onClick={() => setShowCancelShipmentModal(true)}
-                          className="admin-shipment-btn admin-shipment-btn--danger"
-                          style={{
-                            background: '#fff',
-                            color: '#dc2626',
-                            border: '1px solid #dc2626',
-                            padding: '8px 16px',
-                            fontWeight: 800,
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                            textTransform: 'uppercase',
                             borderRadius: '0px',
-                            marginLeft: 'auto',
+                            textTransform: 'uppercase',
                           }}
                         >
-                          Cancel Shipment
+                          ✉ Notify Customer
                         </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* 2. Reverse Logistics & Return Card (If Return is Active) */}
-          {order.return_status &&
-            order.return_status !== 'NONE' &&
-            (() => {
-              const reverseTracking = order.reverse_tracking_data;
-              const reverseScans: Array<{ date?: string; activity: string; location?: string }> =
-                Array.isArray(reverseTracking?.scans) ? reverseTracking.scans : [];
-              const reverseCurrentLocation =
-                reverseTracking?.current_location ||
-                (reverseScans.length > 0
-                  ? reverseScans[reverseScans.length - 1]?.location
-                  : null) ||
-                'Customer Area / Sorting Hub';
-              const isPickedUpFromCustomer =
-                Boolean(reverseTracking?.is_picked_up) ||
-                reverseScans.some((s) => /pick/i.test(s.activity || '')) ||
-                order.return_status === 'REFUNDED' ||
-                order.shipping_status === 'PICKED_UP';
-              const latestReverseScan =
-                reverseScans.length > 0 ? reverseScans[reverseScans.length - 1] : null;
-
-              const isReplacement = order.return_type === 'REPLACEMENT';
-
-              return (
-                <div
-                  className="admin-card"
-                  style={{
-                    borderLeft: isReplacement ? '4px solid #7c3aed' : '4px solid #fa8c16',
-                    background: isReplacement ? '#faf5ff' : '#fffaf0',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: 14,
-                      flexWrap: 'wrap',
-                      gap: 10,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <PackageIcon size={20} color={isReplacement ? '#6b21a8' : '#d46b08'} />
-                      <h2
-                        className="admin-card-title"
-                        style={{
-                          margin: 0,
-                          textTransform: 'uppercase',
-                          color: isReplacement ? '#6b21a8' : '#d46b08',
-                        }}
-                      >
-                        {isReplacement
-                          ? 'Size Replacement & Exchange Logistics'
-                          : 'Reverse Return Logistics'}
-                      </h2>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNotifyType('UPDATE');
-                          setNotifySubject(
-                            isReplacement
-                              ? `Update on your Size Exchange for Order #${order.id}`
-                              : `Update on your Return Request for Order #${order.id}`
-                          );
-                          setNotifyCustomMessage('');
-                          setShowNotifyModal(true);
-                        }}
-                        style={{
-                          background: '#fff',
-                          border: `1px solid ${isReplacement ? '#7c3aed' : '#d46b08'}`,
-                          color: isReplacement ? '#7c3aed' : '#d46b08',
-                          padding: '5px 12px',
-                          fontSize: '0.75rem',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          borderRadius: '0px',
-                          textTransform: 'uppercase',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                        }}
-                      >
-                        ✉ Notify Customer
-                      </button>
-                      {order.reverse_awb && (
                         <button
                           type="button"
                           onClick={handleRefreshTracking}
                           disabled={refreshingTracking}
                           style={{
-                            background: '#fff',
-                            border: `1px solid ${isReplacement ? '#d8b4fe' : '#ffd591'}`,
+                            background: '#f3f4f6',
+                            border: '1px solid #d1d5db',
                             padding: '5px 12px',
                             fontSize: '0.75rem',
                             fontWeight: 700,
                             cursor: refreshingTracking ? 'not-allowed' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
                             borderRadius: '0px',
                             textTransform: 'uppercase',
                           }}
                         >
                           {refreshingTracking ? 'Refreshing...' : '↻ Refresh Return Tracking'}
                         </button>
+                      </>
+                    )}
+
+                    {!isReturnActive &&
+                      order.shiprocket_awb &&
+                      !isCancelled &&
+                      !isPaymentFailed && (
+                        <button
+                          type="button"
+                          onClick={handleRefreshTracking}
+                          disabled={refreshingTracking}
+                          style={{
+                            background: '#f3f4f6',
+                            border: '1px solid #d1d5db',
+                            padding: '5px 12px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: refreshingTracking ? 'not-allowed' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            borderRadius: '0px',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {refreshingTracking ? 'Refreshing...' : '↻ Refresh Live Tracking'}
+                        </button>
                       )}
-                      <span
+
+                    {/* Single Authoritative Status Badge */}
+                    <span
+                      style={{
+                        background: statusBadge.bg,
+                        color: statusBadge.color,
+                        border: `1px solid ${statusBadge.border}`,
+                        padding: '5px 12px',
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {statusBadge.text}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card Body - Adapts Dynamically */}
+                {isReturnActive ? (
+                  /* =========================================================================
+                     ACTIVE RETURN / SIZE EXCHANGE FLOW
+                     ========================================================================= */
+                  <div>
+                    {/* Status Alert Banner */}
+                    {isReplacementDispatched ? (
+                      <div
                         style={{
-                          background:
-                            order.return_status === 'REFUNDED' ||
-                            order.replacement_status === 'REPLACEMENT_DISPATCHED'
-                              ? '#52c41a'
-                              : isReplacement
-                                ? '#7c3aed'
-                                : '#fa8c16',
-                          color: '#fff',
-                          padding: '5px 12px',
-                          fontSize: '0.72rem',
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
+                          background: '#f5f3ff',
+                          border: '1px solid #ddd6fe',
+                          padding: '12px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          marginBottom: 16,
                         }}
                       >
-                        {isReplacement
-                          ? order.replacement_status === 'REPLACEMENT_DISPATCHED'
-                            ? 'REPLACEMENT DISPATCHED'
-                            : order.replacement_status === 'PICKED_UP'
-                              ? 'ORIGINAL PICKED UP'
-                              : 'EXCHANGE REQUESTED'
-                          : order.return_status}
-                      </span>
-                    </div>
-                  </div>
+                        <CheckIcon size={20} color="#7c3aed" />
+                        <div>
+                          <strong
+                            style={{
+                              color: '#6b21a8',
+                              fontSize: '0.85rem',
+                              textTransform: 'uppercase',
+                              display: 'block',
+                            }}
+                          >
+                            Replacement Unit Dispatched to Customer
+                          </strong>
+                          <span style={{ fontSize: '0.78rem', color: '#5b21b6' }}>
+                            Fresh size package dispatched via{' '}
+                            {order.replacement_courier_name || 'Express Courier'} (AWB:{' '}
+                            <code style={{ fontWeight: 800 }}>
+                              {order.replacement_awb || 'SIM-AWB'}
+                            </code>
+                            ).
+                          </span>
+                        </div>
+                      </div>
+                    ) : isPickedUpFromCustomer ? (
+                      <div
+                        style={{
+                          background: '#f6ffed',
+                          border: '1px solid #b7eb8f',
+                          padding: '12px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          marginBottom: 16,
+                        }}
+                      >
+                        <CheckIcon size={20} color="#52c41a" />
+                        <div>
+                          <strong
+                            style={{
+                              color: '#274f13',
+                              fontSize: '0.85rem',
+                              textTransform: 'uppercase',
+                              display: 'block',
+                            }}
+                          >
+                            Parcel Successfully Picked Up from Customer
+                          </strong>
+                          <span style={{ fontSize: '0.78rem', color: '#389e0d' }}>
+                            Physical original item collected at customer doorstep and verified by{' '}
+                            {order.reverse_courier_name || 'Delhivery Reverse Surface'}. Doorstep QC
+                            Passed.
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          background: '#fffbe6',
+                          border: '1px solid #ffe58f',
+                          padding: '12px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          marginBottom: 16,
+                        }}
+                      >
+                        <AlertCircleIcon size={20} color="#d48806" />
+                        <div>
+                          <strong
+                            style={{
+                              color: '#ad6800',
+                              fontSize: '0.85rem',
+                              textTransform: 'uppercase',
+                              display: 'block',
+                            }}
+                          >
+                            Doorstep Reverse Pickup Scheduled
+                          </strong>
+                          <span style={{ fontSize: '0.78rem', color: '#874d00' }}>
+                            Courier agent assigned for doorstep collection. Customer advised to keep
+                            original brand tags and packaging ready.
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
-                  {/* REPLACEMENT VARIANT SUMMARY (IF EXCHANGE) */}
-                  {isReplacement && (
+                    {/* Logistics Details Grid */}
                     <div
                       style={{
-                        background: '#f3e8ff',
-                        border: '1px solid #d8b4fe',
-                        padding: '12px 16px',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                        gap: '12px 16px',
+                        padding: '14px',
+                        background: '#fff',
+                        border: '1px solid #eee',
                         marginBottom: 16,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: 12,
                       }}
                     >
                       <div>
                         <span
                           style={{
-                            fontSize: '0.72rem',
-                            fontWeight: 800,
-                            color: '#6b21a8',
+                            color: '#777',
+                            display: 'block',
+                            fontSize: '0.7rem',
                             textTransform: 'uppercase',
+                            fontWeight: 700,
                           }}
                         >
-                          Requested Replacement Size
+                          Reverse Courier
                         </span>
-                        <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#581c87' }}>
-                          {order.replacement_variant_title || 'New Size / Alternative Variant'}
-                        </div>
+                        <strong style={{ fontSize: '0.82rem', color: '#111' }}>
+                          {order.reverse_courier_name || 'Shiprocket Reverse Logistics'}
+                        </strong>
                       </div>
-
-                      {order.replacement_awb ? (
-                        <div style={{ textAlign: 'right' }}>
-                          <span
-                            style={{
-                              fontSize: '0.72rem',
-                              fontWeight: 800,
-                              color: '#6b21a8',
-                              textTransform: 'uppercase',
-                            }}
-                          >
-                            Replacement Dispatch AWB
-                          </span>
-                          <div
-                            style={{
-                              fontFamily: 'monospace',
-                              fontWeight: 900,
-                              color: '#111',
-                              fontSize: '0.95rem',
-                            }}
-                          >
-                            {order.replacement_awb} ({order.replacement_courier_name || 'Courier'})
-                          </div>
-                        </div>
-                      ) : (
+                      <div>
                         <span
                           style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 800,
-                            color: '#7c3aed',
-                            background: '#fff',
-                            padding: '4px 10px',
-                            border: '1px solid #d8b4fe',
+                            color: '#777',
+                            display: 'block',
+                            fontSize: '0.7rem',
+                            textTransform: 'uppercase',
+                            fontWeight: 700,
                           }}
                         >
-                          Awaiting Replacement Dispatch
+                          Reverse AWB
                         </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* CUSTOMER PICKUP VERIFICATION BANNER */}
-                  <div
-                    style={{
-                      background: isPickedUpFromCustomer ? '#f6ffed' : '#fffbe6',
-                      border: `1px solid ${isPickedUpFromCustomer ? '#b7eb8f' : '#ffe58f'}`,
-                      padding: '14px 18px',
-                      marginBottom: 16,
-                      borderRadius: '0px',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 12,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 28,
-                        height: 28,
-                        background: isPickedUpFromCustomer ? '#52c41a' : '#fa8c16',
-                        color: '#fff',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '0px',
-                        flexShrink: 0,
-                        marginTop: 2,
-                      }}
-                    >
-                      {isPickedUpFromCustomer ? '✓' : '⏳'}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div
-                        style={{
-                          fontSize: '0.88rem',
-                          fontWeight: 900,
-                          color: isPickedUpFromCustomer ? '#237804' : '#ad6800',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {isPickedUpFromCustomer
-                          ? isReplacement
-                            ? '✔ Original Item Collected from Customer — Ready to Dispatch Replacement'
-                            : '✔ Parcel Successfully Picked Up from Customer'
-                          : isReplacement
-                            ? '⏳ Reverse Pickup Scheduled — Awaiting Original Item Collection'
-                            : '⏳ Reverse Pickup Scheduled — Awaiting Customer Handover'}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: '#444', marginTop: 3 }}>
-                        {isPickedUpFromCustomer ? (
-                          <>
-                            Physical original item was collected at customer doorstep and verified
-                            by <strong>{order.reverse_courier_name || 'Reverse Courier'}</strong>.
-                            {!isReplacement && order.refund_status === 'REFUNDED' && (
-                              <span
-                                style={{
-                                  color: '#15803d',
-                                  fontWeight: 800,
-                                  display: 'block',
-                                  marginTop: 2,
-                                }}
-                              >
-                                ✓ 100% Refund of ₹
-                                {(order.refund_amount || order.total_amount).toLocaleString(
-                                  'en-IN'
-                                )}{' '}
-                                automatically disbursed via Razorpay.
-                              </span>
-                            )}
-                            {isReplacement && (
-                              <span
-                                style={{
-                                  color: '#6b21a8',
-                                  fontWeight: 800,
-                                  display: 'block',
-                                  marginTop: 2,
-                                }}
-                              >
-                                ✓ Doorstep handover complete. You can now dispatch the replacement
-                                parcel ({order.replacement_variant_title}) below.
-                              </span>
-                            )}
-                          </>
+                        {order.reverse_awb ? (
+                          <a
+                            href={getPublicTrackingUrl(order.reverse_awb)}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              fontSize: '0.82rem',
+                              fontWeight: 800,
+                              fontFamily: 'monospace',
+                              color: '#7c3aed',
+                              textDecoration: 'underline',
+                            }}
+                          >
+                            {order.reverse_awb}
+                          </a>
                         ) : (
-                          <>
-                            Reverse courier has dispatched an executive for doorstep collection.
-                            Once the parcel is physically collected, the status will automatically
-                            update to &ldquo;PICKED_UP&rdquo;.
-                          </>
+                          <span style={{ fontSize: '0.82rem', color: '#999' }}>
+                            Assigned on Pickup
+                          </span>
                         )}
                       </div>
-                    </div>
-                  </div>
-
-                  {/* DISPATCH REPLACEMENT INPUT (IF EXCHANGE NOT YET DISPATCHED) */}
-                  {isReplacement && order.replacement_status !== 'REPLACEMENT_DISPATCHED' && (
-                    <div
-                      style={{
-                        background: '#fff',
-                        border: '1px solid #d8b4fe',
-                        padding: '16px 18px',
-                        marginBottom: 16,
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: '0.82rem',
-                          fontWeight: 900,
-                          textTransform: 'uppercase',
-                          color: '#6b21a8',
-                          marginBottom: 8,
-                        }}
-                      >
-                        Dispatch Replacement Package ({order.replacement_variant_title})
-                      </div>
-                      <div
-                        style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}
-                      >
-                        <input
-                          type="text"
-                          placeholder="Courier Partner"
-                          value={replacementCourierInput}
-                          onChange={(e) => setReplacementCourierInput(e.target.value)}
+                      <div>
+                        <span
                           style={{
-                            padding: '8px 12px',
-                            border: '1px solid #ccc',
-                            fontSize: '0.82rem',
-                            width: 180,
-                          }}
-                        />
-                        <input
-                          type="text"
-                          placeholder="Enter Replacement Shipment AWB"
-                          value={replacementAwbInput}
-                          onChange={(e) => setReplacementAwbInput(e.target.value)}
-                          style={{
-                            padding: '8px 12px',
-                            border: '1px solid #ccc',
-                            fontSize: '0.82rem',
-                            flex: 1,
-                            minWidth: 200,
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleDispatchReplacement}
-                          disabled={dispatchingReplacement}
-                          style={{
-                            background: '#7c3aed',
-                            color: '#fff',
-                            border: 'none',
-                            padding: '9px 18px',
-                            fontWeight: 900,
-                            fontSize: '0.8rem',
-                            cursor: dispatchingReplacement ? 'not-allowed' : 'pointer',
+                            color: '#777',
+                            display: 'block',
+                            fontSize: '0.7rem',
                             textTransform: 'uppercase',
+                            fontWeight: 700,
                           }}
                         >
-                          {dispatchingReplacement ? 'Saving...' : 'Mark Dispatched →'}
-                        </button>
+                          Customer Reason
+                        </span>
+                        <strong style={{ fontSize: '0.82rem', color: '#111' }}>
+                          {order.return_reason || (isReplacement ? 'Size Mismatch' : 'Return')}
+                        </strong>
                       </div>
-                    </div>
-                  )}
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                      gap: 14,
-                      fontSize: '0.85rem',
-                      marginBottom: 16,
-                    }}
-                  >
-                    <div>
-                      <span style={{ color: '#777', fontSize: '0.75rem', display: 'block' }}>
-                        Reverse Courier
-                      </span>
-                      <strong>
-                        {order.reverse_courier_name || 'Shiprocket Reverse Logistics'}
-                      </strong>
-                    </div>
-                    <div>
-                      <span style={{ color: '#777', fontSize: '0.75rem', display: 'block' }}>
-                        Reverse AWB
-                      </span>
-                      <strong style={{ fontFamily: 'monospace', color: '#d46b08' }}>
-                        {order.reverse_awb || 'Pending'}
-                      </strong>
-                    </div>
-                    <div>
-                      <span style={{ color: '#777', fontSize: '0.75rem', display: 'block' }}>
-                        Customer Return Reason
-                      </span>
-                      <strong>{order.return_reason || 'None specified'}</strong>
-                    </div>
-                    <div>
-                      <span style={{ color: '#777', fontSize: '0.75rem', display: 'block' }}>
-                        Return Requested At
-                      </span>
-                      <span>{order.return_requested_at || '—'}</span>
-                    </div>
-                  </div>
-
-                  {order.return_notes && (
-                    <div
-                      style={{
-                        fontSize: '0.8rem',
-                        color: '#555',
-                        background: '#fff',
-                        padding: '8px 12px',
-                        border: '1px solid #ffd591',
-                        marginBottom: 14,
-                      }}
-                    >
-                      Customer Notes: <em>&ldquo;{order.return_notes}&rdquo;</em>
-                    </div>
-                  )}
-
-                  {/* CURRENT RETURN LOCATION BANNER */}
-                  {order.reverse_awb && (
-                    <div
-                      style={{
-                        background: '#fff',
-                        border: '1px solid #ffd591',
-                        padding: '14px 18px',
-                        marginBottom: 16,
-                        borderRadius: '0px',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start',
-                          flexWrap: 'wrap',
-                          gap: 10,
-                        }}
-                      >
-                        <div>
-                          <div
-                            style={{
-                              fontSize: '0.72rem',
-                              fontWeight: 800,
-                              color: '#d46b08',
-                              textTransform: 'uppercase',
-                              marginBottom: 4,
-                            }}
-                          >
-                            Current Return Package Location
-                          </div>
-                          <div
-                            style={{
-                              fontSize: '1rem',
-                              fontWeight: 900,
-                              color: '#111',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 6,
-                            }}
-                          >
-                            <MapPinIcon size={16} color="#d46b08" />
-                            <span>{reverseCurrentLocation}</span>
-                          </div>
-                          {latestReverseScan && (
-                            <div style={{ fontSize: '0.8rem', color: '#666', marginTop: 4 }}>
-                              <strong>Current Progress:</strong> {latestReverseScan.activity}
-                              {latestReverseScan.date && (
-                                <span style={{ color: '#888', marginLeft: 8 }}>
-                                  ({latestReverseScan.date})
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
+                      <div>
+                        <span
+                          style={{
+                            color: '#777',
+                            display: 'block',
+                            fontSize: '0.7rem',
+                            textTransform: 'uppercase',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Package Location
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <MapPinIcon size={12} color="#6b21a8" />
                           <span
                             style={{
-                              background: isPickedUpFromCustomer ? '#52c41a' : '#fa8c16',
-                              color: '#fff',
-                              fontSize: '0.72rem',
-                              fontWeight: 800,
-                              textTransform: 'uppercase',
-                              padding: '4px 10px',
-                              borderRadius: '0px',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              color: '#111',
                             }}
                           >
-                            {isPickedUpFromCustomer
-                              ? 'PICKED UP / IN RETURN TRANSIT'
-                              : 'PICKUP PENDING'}
+                            {reverseCurrentLocation}
                           </span>
                         </div>
                       </div>
                     </div>
-                  )}
 
-                  {/* RETURN CHECKPOINTS SCANS TIMELINE */}
-                  {order.reverse_awb && (
-                    <div
-                      style={{ borderTop: '1px solid #ffd591', paddingTop: 14, marginBottom: 12 }}
-                    >
+                    {/* Replacement Specific Details */}
+                    {isReplacement && (
                       <div
                         style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginBottom: 12,
+                          background: '#fff',
+                          border: '1px solid #e9d5ff',
+                          padding: '14px',
+                          marginBottom: 16,
                         }}
                       >
-                        <span
+                        <div
                           style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 800,
-                            color: '#873800',
-                            textTransform: 'uppercase',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: 8,
+                            marginBottom: 8,
                           }}
                         >
-                          Return Checkpoint History ({reverseScans.length} Milestones)
-                        </span>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              textTransform: 'uppercase',
+                              color: '#6b21a8',
+                            }}
+                          >
+                            Requested Replacement Variant
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 800,
+                              background: '#f3e8ff',
+                              color: '#7e22ce',
+                              padding: '2px 8px',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            Doorstep QC Pass Required
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#111' }}>
+                          Size / Variant: {order.replacement_variant_title || 'M / Exchange Unit'}
+                        </div>
+
+                        {/* Dispatch Replacement Unit Form (Only if picked up and not dispatched) */}
+                        {isPickedUpFromCustomer && !isReplacementDispatched && (
+                          <div
+                            style={{
+                              marginTop: 14,
+                              padding: '12px',
+                              background: '#faf5ff',
+                              border: '1px solid #d8b4fe',
+                            }}
+                          >
+                            <span
+                              style={{
+                                display: 'block',
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                color: '#581c87',
+                                marginBottom: 8,
+                              }}
+                            >
+                              Dispatch Replacement Package ({order.replacement_variant_title || 'New Size'})
+                            </span>
+                            <p
+                              style={{
+                                fontSize: '0.75rem',
+                                color: '#6b21a8',
+                                margin: '0 0 12px',
+                                lineHeight: 1.4,
+                              }}
+                            >
+                              Original item verified at doorstep. Click below to automatically book
+                              the replacement shipment, assign a courier, and generate the AWB via
+                              Shiprocket API:
+                            </p>
+
+                            <div
+                              style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: 12,
+                                alignItems: 'center',
+                              }}
+                            >
+                              {/* One-Click Automated Dispatch Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleDispatchReplacement(false)}
+                                disabled={dispatchingReplacement}
+                                style={{
+                                  background: '#7c3aed',
+                                  color: '#fff',
+                                  border: 'none',
+                                  padding: '10px 22px',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 800,
+                                  cursor: dispatchingReplacement ? 'not-allowed' : 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  borderRadius: 0,
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                <PackageIcon size={16} color="#fff" />
+                                {dispatchingReplacement
+                                  ? 'Generating AWB via Shiprocket...'
+                                  : '⚡ Dispatch Replacement via Shiprocket →'}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setShowManualAwb((prev) => !prev)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#6b21a8',
+                                  fontSize: '0.74rem',
+                                  cursor: 'pointer',
+                                  textDecoration: 'underline',
+                                  padding: 0,
+                                }}
+                              >
+                                {showManualAwb
+                                  ? 'Hide manual AWB entry'
+                                  : 'or enter offline / manual AWB'}
+                              </button>
+                            </div>
+
+                            {/* Optional Manual/Offline Courier Fallback */}
+                            {showManualAwb && (
+                              <div
+                                style={{
+                                  marginTop: 14,
+                                  paddingTop: 12,
+                                  borderTop: '1px dashed #d8b4fe',
+                                  display: 'flex',
+                                  flexWrap: 'wrap',
+                                  gap: 10,
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <input
+                                  type="text"
+                                  placeholder="Enter custom/offline AWB..."
+                                  value={replacementAwbInput}
+                                  onChange={(e) => setReplacementAwbInput(e.target.value)}
+                                  style={{
+                                    padding: '8px 12px',
+                                    fontSize: '0.8rem',
+                                    border: '1px solid #ccc',
+                                    borderRadius: 0,
+                                    flex: '1 1 200px',
+                                  }}
+                                />
+                                <select
+                                  value={replacementCourierInput}
+                                  onChange={(e) => setReplacementCourierInput(e.target.value)}
+                                  style={{
+                                    padding: '8px 12px',
+                                    fontSize: '0.8rem',
+                                    border: '1px solid #ccc',
+                                    borderRadius: 0,
+                                  }}
+                                >
+                                  <option value="Blue Dart Air">Blue Dart Air</option>
+                                  <option value="Delhivery Express">Delhivery Express</option>
+                                  <option value="DTDC Express">DTDC Express</option>
+                                  <option value="Shadowfax">Shadowfax</option>
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDispatchReplacement(true)}
+                                  disabled={dispatchingReplacement || !replacementAwbInput.trim()}
+                                  style={{
+                                    background: '#000',
+                                    color: '#fff',
+                                    border: 'none',
+                                    padding: '8px 16px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 800,
+                                    cursor:
+                                      dispatchingReplacement || !replacementAwbInput.trim()
+                                        ? 'not-allowed'
+                                        : 'pointer',
+                                    borderRadius: 0,
+                                    textTransform: 'uppercase',
+                                  }}
+                                >
+                                  Save Manual AWB
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Reverse Checkpoints Toggle */}
+                    {reverseScans.length > 0 && (
+                      <div style={{ marginBottom: 16 }}>
                         <button
                           type="button"
                           onClick={() => setShowReverseScans(!showReverseScans)}
                           style={{
                             background: 'none',
                             border: 'none',
-                            color: '#d46b08',
+                            color: '#6b21a8',
                             fontSize: '0.75rem',
-                            fontWeight: 700,
+                            fontWeight: 800,
                             cursor: 'pointer',
+                            padding: 0,
+                            textTransform: 'uppercase',
                             textDecoration: 'underline',
                           }}
                         >
-                          {showReverseScans ? 'Collapse ▲' : 'Expand All Checkpoints ▼'}
+                          {showReverseScans
+                            ? '▲ Hide Reverse Checkpoints'
+                            : `▼ View Reverse Checkpoints (${reverseScans.length})`}
                         </button>
-                      </div>
-
-                      {showReverseScans &&
-                        (reverseScans.length > 0 ? (
+                        {showReverseScans && (
                           <div
                             style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 0,
-                              paddingLeft: 12,
-                              borderLeft: '2px solid #ffd591',
+                              marginTop: 10,
+                              background: '#fff',
+                              border: '1px solid #eee',
+                              padding: '12px',
                             }}
                           >
-                            {reverseScans
-                              .slice()
-                              .reverse()
-                              .map((scan, idx) => {
-                                const isLatest = idx === 0;
-                                return (
-                                  <div
-                                    key={idx}
-                                    style={{
-                                      position: 'relative',
-                                      paddingBottom: idx < reverseScans.length - 1 ? 16 : 4,
-                                      paddingLeft: 16,
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        position: 'absolute',
-                                        left: -19,
-                                        top: 3,
-                                        width: 12,
-                                        height: 12,
-                                        background: isLatest ? '#d46b08' : '#fff',
-                                        border: isLatest
-                                          ? '2px solid #d46b08'
-                                          : '2px solid #d97706',
-                                        borderRadius: '0px',
-                                        display: 'block',
-                                      }}
-                                    />
-                                    <div
-                                      style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'baseline',
-                                        flexWrap: 'wrap',
-                                        gap: 8,
-                                      }}
-                                    >
-                                      <div
-                                        style={{
-                                          fontWeight: isLatest ? 800 : 600,
-                                          fontSize: '0.85rem',
-                                          color: isLatest ? '#000' : '#374151',
-                                        }}
-                                      >
-                                        {scan.activity}
-                                      </div>
-                                      <div
-                                        style={{
-                                          fontSize: '0.75rem',
-                                          color: '#6b7280',
-                                          fontFamily: 'monospace',
-                                        }}
-                                      >
-                                        {scan.date || '—'}
-                                      </div>
-                                    </div>
-                                    {scan.location && (
-                                      <div
-                                        style={{
-                                          fontSize: '0.75rem',
-                                          color: '#4b5563',
-                                          marginTop: 2,
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          gap: 4,
-                                        }}
-                                      >
-                                        <MapPinIcon size={12} color="#d46b08" />
-                                        <span>
-                                          Checkpoint Location: <strong>{scan.location}</strong>
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                            {reverseScans.map((s, idx) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: 12,
+                                  padding: '6px 0',
+                                  borderBottom:
+                                    idx === reverseScans.length - 1 ? 'none' : '1px solid #f3f4f6',
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    background: idx === 0 ? '#7c3aed' : '#bbb',
+                                    marginTop: 6,
+                                  }}
+                                />
+                                <div>
+                                  <strong style={{ fontSize: '0.8rem', display: 'block' }}>
+                                    {s.activity}
+                                  </strong>
+                                  <span style={{ fontSize: '0.72rem', color: '#666' }}>
+                                    {s.location ? `${s.location} • ` : ''}
+                                    {s.date || ''}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ) : (
-                          <div
+                        )}
+                      </div>
+                    )}
+
+                    {/* Dynamic Action Buttons Footer for Return/Exchange */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 10,
+                        alignItems: 'center',
+                        borderTop: '1px solid #eee',
+                        paddingTop: 14,
+                      }}
+                    >
+                      {!isPickedUpFromCustomer && (
+                        <button
+                          type="button"
+                          onClick={() => setShowCancelReturnModal(true)}
+                          style={{
+                            background: '#fff',
+                            border: '1px solid #dc2626',
+                            color: '#dc2626',
+                            padding: '8px 14px',
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            textTransform: 'uppercase',
+                            borderRadius: 0,
+                          }}
+                        >
+                          Cancel {isReplacement ? 'Exchange' : 'Return'} Request
+                        </button>
+                      )}
+
+                      {!isReplacement &&
+                        isPickedUpFromCustomer &&
+                        order.refund_status !== 'REFUNDED' && (
+                          <button
+                            type="button"
+                            onClick={() => setShowRefundModal(true)}
+                            style={{
+                              background: '#fff',
+                              border: '2px solid #dc2626',
+                              color: '#dc2626',
+                              padding: '8px 14px',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              textTransform: 'uppercase',
+                              borderRadius: 0,
+                            }}
+                          >
+                            Issue Refund →
+                          </button>
+                        )}
+
+                      {/* Collapsed Forward Delivery Summary within the single container */}
+                      {order.shiprocket_awb && (
+                        <div
+                          style={{
+                            marginLeft: 'auto',
+                            display: 'flex',
+                            gap: 8,
+                            alignItems: 'center',
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              color: '#777',
+                            }}
+                          >
+                            Original Forward Delivery:{' '}
+                            <code style={{ fontWeight: 700 }}>{order.shiprocket_awb}</code>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleDownloadInvoice}
+                            disabled={downloadingInvoice}
+                            style={{
+                              background: '#fff',
+                              border: '1px solid #000',
+                              color: '#000',
+                              padding: '4px 10px',
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              borderRadius: 0,
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            Invoice
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* =========================================================================
+                     STANDARD FORWARD LOGISTICS FLOW (DELIVERED, IN TRANSIT, UNFULFILLED, ETC)
+                     ========================================================================= */
+                  <div>
+                    {/* Status Alert Banner */}
+                    {isPaymentFailed ? (
+                      <div
+                        style={{
+                          background: '#fef2f2',
+                          border: '1px solid #fecaca',
+                          padding: '12px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          marginBottom: 16,
+                        }}
+                      >
+                        <AlertCircleIcon size={20} color="#dc2626" />
+                        <div>
+                          <strong
+                            style={{
+                              color: '#991b1b',
+                              fontSize: '0.85rem',
+                              textTransform: 'uppercase',
+                              display: 'block',
+                            }}
+                          >
+                            Fulfillment Blocked: Payment Failed
+                          </strong>
+                          <span style={{ fontSize: '0.78rem', color: '#b91c1c' }}>
+                            Customer checkout failed at Razorpay. Do not dispatch inventory.
+                          </span>
+                        </div>
+                      </div>
+                    ) : isCancelled ? (
+                      <div
+                        style={{
+                          background: '#fef2f2',
+                          border: '1px solid #fecaca',
+                          padding: '12px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          marginBottom: 16,
+                        }}
+                      >
+                        <XIcon size={20} color="#dc2626" />
+                        <div>
+                          <strong
+                            style={{
+                              color: '#991b1b',
+                              fontSize: '0.85rem',
+                              textTransform: 'uppercase',
+                              display: 'block',
+                            }}
+                          >
+                            Order Cancelled
+                          </strong>
+                          <span style={{ fontSize: '0.78rem', color: '#b91c1c' }}>
+                            Shipment revoked and inventory restored to stock.
+                          </span>
+                        </div>
+                      </div>
+                    ) : isDelivered ? (
+                      <div
+                        style={{
+                          background: '#f6ffed',
+                          border: '1px solid #b7eb8f',
+                          padding: '12px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          marginBottom: 16,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <CheckIcon size={20} color="#52c41a" />
+                          <div>
+                            <strong
+                              style={{
+                                color: '#274f13',
+                                fontSize: '0.85rem',
+                                textTransform: 'uppercase',
+                                display: 'block',
+                              }}
+                            >
+                              Order Delivered to Customer
+                            </strong>
+                            <span style={{ fontSize: '0.78rem', color: '#389e0d' }}>
+                              Shipment journey successfully completed. Customer is within active
+                              return/exchange window.
+                            </span>
+                            {isReturnCancelled && (
+                              <div
+                                style={{
+                                  marginTop: 4,
+                                  fontSize: '0.73rem',
+                                  color: '#555',
+                                  fontStyle: 'italic',
+                                }}
+                              >
+                                Note: Previous size exchange was cancelled (Customer decided to keep
+                                original size). Delivered order is finalized.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : isPickupScheduled ? (
+                      <div
+                        style={{
+                          background: '#fffbe6',
+                          border: '1px solid #ffe58f',
+                          padding: '12px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          marginBottom: 16,
+                        }}
+                      >
+                        <TruckIcon size={20} color="#d48806" />
+                        <div>
+                          <strong
+                            style={{
+                              color: '#ad6800',
+                              fontSize: '0.85rem',
+                              textTransform: 'uppercase',
+                              display: 'block',
+                            }}
+                          >
+                            Courier Pickup Scheduled
+                          </strong>
+                          <span style={{ fontSize: '0.78rem', color: '#874d00' }}>
+                            Pickup Token: <code style={{ fontWeight: 800 }}>{pickupToken}</code>
+                            {pickupScheduledDate && ` • Scheduled Date: ${pickupScheduledDate}`}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Logistics Details Grid */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                        gap: '12px 16px',
+                        padding: '14px',
+                        background: '#fafafa',
+                        border: '1px solid #eee',
+                        marginBottom: 16,
+                      }}
+                    >
+                      <div>
+                        <span
+                          style={{
+                            color: '#777',
+                            display: 'block',
+                            fontSize: '0.7rem',
+                            textTransform: 'uppercase',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Courier Partner
+                        </span>
+                        <strong style={{ fontSize: '0.82rem', color: '#111' }}>
+                          {displayCourierName ||
+                            (order.shiprocket_awb
+                              ? 'Blue Dart Express'
+                              : 'Assigned on Dispatch')}
+                        </strong>
+                      </div>
+                      <div>
+                        <span
+                          style={{
+                            color: '#777',
+                            display: 'block',
+                            fontSize: '0.7rem',
+                            textTransform: 'uppercase',
+                            fontWeight: 700,
+                          }}
+                        >
+                          AWB Code
+                        </span>
+                        {order.shiprocket_awb ? (
+                          <a
+                            href={getPublicTrackingUrl(order.shiprocket_awb)}
+                            target="_blank"
+                            rel="noreferrer"
                             style={{
                               fontSize: '0.82rem',
-                              color: '#666',
-                              padding: '10px',
-                              background: '#fff',
+                              fontWeight: 800,
+                              fontFamily: 'monospace',
+                              color: '#0052cc',
+                              textDecoration: 'underline',
+                              textUnderlineOffset: '3px',
                             }}
                           >
-                            Awaiting courier reverse pickup scan. Click &ldquo;Refresh Return
-                            Tracking&rdquo; to fetch the latest courier updates.
-                          </div>
-                        ))}
+                            {order.shiprocket_awb}
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: '0.82rem', color: '#999' }}>Not Assigned</span>
+                        )}
+                      </div>
+                      <div>
+                        <span
+                          style={{
+                            color: '#777',
+                            display: 'block',
+                            fontSize: '0.7rem',
+                            textTransform: 'uppercase',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Shipment ID
+                        </span>
+                        <strong style={{ fontSize: '0.82rem', color: '#111' }}>
+                          {order.shiprocket_shipment_id || (isDelivered ? 'Delivered' : 'Pending')}
+                        </strong>
+                      </div>
+                      <div>
+                        <span
+                          style={{
+                            color: '#777',
+                            display: 'block',
+                            fontSize: '0.7rem',
+                            textTransform: 'uppercase',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Current Location
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <MapPinIcon size={12} color="#4232d9" />
+                          <span
+                            style={{
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              color: '#111',
+                            }}
+                          >
+                            {forwardCurrentLocation}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <span
+                          style={{
+                            color: '#777',
+                            display: 'block',
+                            fontSize: '0.7rem',
+                            textTransform: 'uppercase',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Estimated Delivery
+                        </span>
+                        <strong style={{ fontSize: '0.82rem', color: '#111' }}>
+                          {order.delivered_at
+                            ? new Date(order.delivered_at).toLocaleDateString('en-IN', {
+                                dateStyle: 'medium',
+                              })
+                            : forwardTracking?.etd || '3-5 Business Days'}
+                        </strong>
+                      </div>
                     </div>
-                  )}
 
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: isReplacement ? '#6b21a8' : '#873800',
-                      borderTop: `1px solid ${isReplacement ? '#d8b4fe' : '#ffd591'}`,
-                      paddingTop: 10,
-                    }}
-                  >
-                    {isReplacement ? (
-                      <>
-                        <strong>Automated Exchange Flow:</strong> When the courier confirms
-                        &ldquo;PICKED_UP&rdquo; at the customer doorstep, our webhook automatically
-                        updates the status to &ldquo;PICKED_UP&rdquo; so you can dispatch the
-                        replacement unit. <strong>No monetary refund is disbursed.</strong>
-                      </>
-                    ) : (
-                      <>
-                        <strong>Automated Refund Flow:</strong> When the courier confirms
-                        &ldquo;PICKED_UP&rdquo; at the customer doorstep, Shiprocket notifies our
-                        webhook and automatically disburses the 100% Razorpay refund immediately.
-                      </>
+                    {/* Forward Checkpoints Toggle */}
+                    {forwardScans.length > 0 && (
+                      <div style={{ marginBottom: 16 }}>
+                        <button
+                          type="button"
+                          onClick={() => setShowForwardScans(!showForwardScans)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#4232d9',
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            padding: 0,
+                            textTransform: 'uppercase',
+                            textDecoration: 'underline',
+                          }}
+                        >
+                          {showForwardScans
+                            ? '▲ Hide Transit Checkpoints'
+                            : `▼ View Checkpoints (${forwardScans.length})`}
+                        </button>
+                        {showForwardScans && (
+                          <div
+                            style={{
+                              marginTop: 10,
+                              background: '#fff',
+                              border: '1px solid #eee',
+                              padding: '12px',
+                            }}
+                          >
+                            {forwardScans.map((s, idx) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: 12,
+                                  padding: '6px 0',
+                                  borderBottom:
+                                    idx === forwardScans.length - 1 ? 'none' : '1px solid #f3f4f6',
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    background: idx === 0 ? '#4232d9' : '#bbb',
+                                    marginTop: 6,
+                                  }}
+                                />
+                                <div>
+                                  <strong style={{ fontSize: '0.8rem', display: 'block' }}>
+                                    {s.activity}
+                                  </strong>
+                                  <span style={{ fontSize: '0.72rem', color: '#666' }}>
+                                    {s.location ? `${s.location} • ` : ''}
+                                    {s.date || ''}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
+
+                    {/* Dynamic Action Buttons Footer for Forward Logistics */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 10,
+                        alignItems: 'center',
+                        borderTop: '1px solid #eee',
+                        paddingTop: 14,
+                      }}
+                    >
+                      {!order.shiprocket_awb && !isCancelled && !isPaymentFailed && (
+                        <button
+                          type="button"
+                          onClick={handleDispatchShipment}
+                          disabled={dispatching}
+                          style={{
+                            background: '#000',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '10px 20px',
+                            fontSize: '0.8rem',
+                            fontWeight: 800,
+                            cursor: dispatching ? 'not-allowed' : 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            borderRadius: 0,
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          <PackageIcon size={16} color="#fff" />
+                          {dispatching
+                            ? 'Dispatching in Shiprocket...'
+                            : 'Dispatch Shipment & Schedule Pickup →'}
+                        </button>
+                      )}
+
+                      {order.shiprocket_awb && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleDownloadLabel}
+                            disabled={downloadingLabel}
+                            style={{
+                              background: '#000',
+                              color: '#fff',
+                              border: 'none',
+                              padding: '8px 16px',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              cursor: downloadingLabel ? 'not-allowed' : 'pointer',
+                              borderRadius: 0,
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {downloadingLabel ? 'Downloading...' : 'Download Label'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDownloadInvoice}
+                            disabled={downloadingInvoice}
+                            style={{
+                              background: '#fff',
+                              color: '#000',
+                              border: '1px solid #000',
+                              padding: '8px 16px',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              cursor: downloadingInvoice ? 'not-allowed' : 'pointer',
+                              borderRadius: 0,
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {downloadingInvoice ? 'Downloading...' : 'Download Invoice'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDownloadBoth}
+                            disabled={downloadingBoth}
+                            style={{
+                              background: '#f3f4f6',
+                              color: '#111',
+                              border: '1px solid #d1d5db',
+                              padding: '8px 16px',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              cursor: downloadingBoth ? 'not-allowed' : 'pointer',
+                              borderRadius: 0,
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {downloadingBoth ? 'Opening...' : 'Download Both'}
+                          </button>
+                          {isPickupScheduled && (
+                            <button
+                              type="button"
+                              onClick={handleDownloadManifest}
+                              disabled={downloadingManifest}
+                              style={{
+                                background: '#fff',
+                                color: '#d97706',
+                                border: '1px solid #d97706',
+                                padding: '8px 16px',
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                cursor: downloadingManifest ? 'not-allowed' : 'pointer',
+                                borderRadius: 0,
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              <PrinterIcon size={14} color="#d97706" />
+                              {downloadingManifest ? 'Generating...' : 'Print Manifest'}
+                            </button>
+                          )}
+                          {!isDelivered && !isCancelled && (
+                            <button
+                              type="button"
+                              onClick={() => setShowCancelShipmentModal(true)}
+                              style={{
+                                background: '#fff',
+                                color: '#dc2626',
+                                border: '1px solid #dc2626',
+                                padding: '8px 16px',
+                                fontSize: '0.75rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                borderRadius: 0,
+                                textTransform: 'uppercase',
+                                marginLeft: 'auto',
+                              }}
+                            >
+                              Cancel Shipment
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })()}
+                )}
+              </div>
+            );
+          })()}
 
           {/* 3. Items Breakdown */}
           <div className="admin-card">
@@ -3028,6 +2994,152 @@ export default function AdminOrderDetailPage() {
                 }}
               >
                 {cancellingShipment ? 'Cancelling in Shiprocket...' : 'Confirm Cancellation →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CANCEL RETURN / SIZE EXCHANGE CONFIRMATION MODAL */}
+      {showCancelReturnModal && order && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              maxWidth: 500,
+              width: '100%',
+              padding: 28,
+              border: '2px solid #000',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '1.05rem',
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <AlertCircleIcon size={20} color="#dc2626" />
+                Cancel {order.return_type === 'REPLACEMENT' ? 'Size Exchange' : 'Return'} Request
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCancelReturnModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1.2rem',
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: '#4b5563', lineHeight: 1.5, marginBottom: 16 }}>
+              Are you sure you want to cancel the{' '}
+              <strong>{order.return_type === 'REPLACEMENT' ? 'size exchange' : 'return'}</strong>{' '}
+              request for Order <strong>#{order.id}</strong>?
+              <br />
+              <br />
+              This will automatically:
+              <br />• <strong>Cancel reverse courier pickup</strong> in Shiprocket
+              {order.return_type === 'REPLACEMENT' && (
+                <>
+                  <br />• <strong>Cancel replacement dispatch</strong>
+                  <br />• <strong>Restore +1 reserved inventory</strong> for{' '}
+                  <em>{order.replacement_variant_title || 'exchange item'}</em>
+                </>
+              )}
+              <br />• Mark return status as <strong>CANCELLED</strong>
+              <br />• Send a status update email to the customer
+            </p>
+
+            <div style={{ marginBottom: 20 }}>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  marginBottom: 6,
+                }}
+              >
+                Reason for Cancellation
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Customer decided to keep original item"
+                value={cancelReturnReason}
+                onChange={(e) => setCancelReturnReason(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  fontSize: '0.88rem',
+                  border: '1px solid #d1d5db',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowCancelReturnModal(false)}
+                style={{
+                  background: '#fff',
+                  border: '1px solid #d1d5db',
+                  padding: '10px 18px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Keep Request Active
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelReturn}
+                disabled={cancellingReturn}
+                style={{
+                  background: '#dc2626',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 22px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: cancellingReturn ? 'not-allowed' : 'pointer',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {cancellingReturn ? 'Cancelling in Shiprocket...' : 'Confirm Cancellation →'}
               </button>
             </div>
           </div>

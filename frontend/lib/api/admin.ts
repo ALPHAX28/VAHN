@@ -901,3 +901,13 @@ export const notifyAdminOrderReturn = async (
 
   return res.json();
 };
+
+export const cancelAdminOrderReturn = (
+  token: string,
+  orderId: string,
+  data?: { reason?: string }
+) =>
+  adminFetch<AdminOrder>(`/admin/orders/${orderId}/cancel-return`, token, {
+    method: 'POST',
+    body: JSON.stringify(data || {}),
+  });

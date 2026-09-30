@@ -474,6 +474,24 @@ export async function requestOrderReturn(
   });
 }
 
+export async function cancelCustomerOrderReturn(
+  orderId: string,
+  payload: {
+    reason?: string;
+    customer_email?: string;
+    customer_phone?: string;
+  },
+  token?: string
+): Promise<import('./types').OrderDetail> {
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return fetchAPI<import('./types').OrderDetail>(`/orders/${orderId}/cancel-return`, {
+    method: 'POST',
+    headers,
+    body: payload,
+  });
+}
+
 export async function notifyCustomerReturn(
   orderId: string,
   payload: {
