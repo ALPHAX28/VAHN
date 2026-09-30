@@ -5401,6 +5401,17 @@ def dispatch_order_replacement(
     if order.return_type != "REPLACEMENT":
         raise HTTPException(status_code=400, detail="This order is not a size exchange / replacement request.")
 
+    # Strict Guard: Original item must be verified picked up by courier before replacement can be dispatched
+    is_picked_up = (
+        order.return_status in ["PICKED_UP", "DELIVERED", "COMPLETED", "RESOLVED"]
+        or order.replacement_status in ["PICKED_UP", "READY_FOR_DISPATCH", "REPLACEMENT_DISPATCHED", "DISPATCHED"]
+    )
+    if not is_picked_up:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot initiate replacement dispatch: The original item must be picked up by the courier first before initiating replacement dispatch (current return status: {order.return_status or 'PENDING_PICKUP'})."
+        )
+
     order.replacement_status = "REPLACEMENT_DISPATCHED"
 
     # 1. Manual AWB entered by admin

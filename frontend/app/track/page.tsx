@@ -384,8 +384,7 @@ function TrackingContent() {
   }
 
   const isReturnCancelled =
-    tracking?.return_status === 'CANCELLED' ||
-    tracking?.replacement_status === 'CANCELLED';
+    tracking?.return_status === 'CANCELLED' || tracking?.replacement_status === 'CANCELLED';
 
   const isReturn = Boolean(
     !isReturnCancelled &&
@@ -492,6 +491,30 @@ function TrackingContent() {
             : isReturn
               ? '#fa8c16'
               : '#000';
+
+  const activeCourierName = isReplacement
+    ? tracking?.replacement_awb
+      ? tracking?.replacement_courier_name || 'Express Courier'
+      : tracking?.reverse_courier_name || 'Shiprocket Reverse Logistics'
+    : isReturn
+      ? tracking?.reverse_courier_name || 'Shiprocket Reverse Logistics'
+      : tracking?.courier_name ||
+        tracking?.courierName ||
+        (isPaymentFailed ? 'None (Payment Failed)' : 'Express Delivery');
+
+  const activeAwbCode = isReplacement
+    ? tracking?.replacement_awb || tracking?.reverse_awb || null
+    : isReturn
+      ? tracking?.reverse_awb || null
+      : tracking?.awb_code || tracking?.awbCode || null;
+
+  const activeAwbLabel = isReplacement
+    ? tracking?.replacement_awb
+      ? 'Replacement AWB'
+      : 'Reverse Pickup AWB'
+    : isReturn
+      ? 'Reverse Pickup AWB'
+      : 'AWB';
 
   const rawLocation = (tracking?.current_location || tracking?.currentLocation || '').trim();
   const isValidLocation = Boolean(
@@ -1019,22 +1042,15 @@ function TrackingContent() {
             <div className="tracking-meta-row">
               <div className="tracking-meta-pills">
                 <span className="tracking-pill">
-                  Courier:{' '}
-                  <strong>
-                    {tracking.courier_name ||
-                      tracking.courierName ||
-                      (isPaymentFailed ? 'None (Payment Failed)' : 'Express Delivery')}
-                  </strong>
+                  Courier: <strong>{activeCourierName}</strong>
                 </span>
-                {(tracking.awb_code || tracking.awbCode) && (
+                {activeAwbCode && (
                   <span className="tracking-pill">
-                    AWB:{' '}
-                    <strong style={{ fontFamily: 'monospace' }}>
-                      {tracking.awb_code || tracking.awbCode}
-                    </strong>
+                    {activeAwbLabel}:{' '}
+                    <strong style={{ fontFamily: 'monospace' }}>{activeAwbCode}</strong>
                     <button
                       type="button"
-                      onClick={() => handleCopyAwb(tracking.awb_code || tracking.awbCode || '')}
+                      onClick={() => handleCopyAwb(activeAwbCode)}
                       className="tracking-copy-btn"
                     >
                       {copied ? 'Copied!' : 'Copy'}
@@ -1048,7 +1064,8 @@ function TrackingContent() {
                 tracking.status === 'SHIPPED' ||
                 tracking.status === 'DELIVERED' ||
                 tracking.shipping_status === 'SHIPPED' ||
-                tracking.shipping_status === 'DELIVERED') &&
+                tracking.shipping_status === 'DELIVERED' ||
+                tracking.replacement_awb) &&
                 !isPaymentFailed && (
                   <button
                     type="button"
@@ -1161,530 +1178,8 @@ function TrackingContent() {
             </div>
           )}
 
-          {/* Real physical location banner */}
-          {isValidLocation && (
-            <div
-              style={{
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                padding: '12px 18px',
-                marginBottom: '28px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                fontSize: '0.85rem',
-              }}
-            >
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '0px',
-                  background: '#2563eb',
-                  display: 'inline-block',
-                }}
-              />
-              <span style={{ fontWeight: 800, color: '#1e293b' }}>Current Location:</span>
-              <span style={{ color: '#334155' }}>{rawLocation}</span>
-            </div>
-          )}
-
-          {/* 10-Day Return & Exchange Countdown Timer */}
-          {isDelivered && (
-            <ReturnCountdownTimer
-              deliveredAt={tracking.delivered_at}
-              deliveredAtIso={tracking.delivered_at_iso}
-              returnStatus={tracking.return_status}
-              isDelivered={isDelivered}
-            />
-          )}
-
-          {/* Cancelled Return / Exchange Notice */}
-          {isReturnCancelled && (
-            <div
-              style={{
-                background: '#fef2f2',
-                border: '2px solid #ef4444',
-                padding: '20px 24px',
-                marginBottom: '28px',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 16,
-              }}
-            >
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  background: '#fee2e2',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  marginTop: 2,
-                }}
-              >
-                <AlertCircleIcon size={20} color="#dc2626" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: 8,
-                    marginBottom: 4,
-                  }}
-                >
-                  <span
-                    style={{
-                      background: '#fee2e2',
-                      color: '#991b1b',
-                      fontSize: '0.68rem',
-                      fontWeight: 900,
-                      textTransform: 'uppercase',
-                      padding: '3px 8px',
-                      letterSpacing: '0.04em',
-                      border: '1px solid #fca5a5',
-                    }}
-                  >
-                    REQUEST CANCELLED
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      color: '#7f1d1d',
-                      fontWeight: 700,
-                    }}
-                  >
-                    ORIGINAL SHIPMENT DELIVERED
-                  </span>
-                </div>
-                <div
-                  style={{
-                    fontSize: '1.05rem',
-                    fontWeight: 900,
-                    textTransform: 'uppercase',
-                    color: '#991b1b',
-                    letterSpacing: '-0.01em',
-                  }}
-                >
-                  {isReplacement ? 'Size Exchange Cancelled' : 'Return Request Cancelled'}
-                </div>
-                <div style={{ fontSize: '0.85rem', color: '#7f1d1d', marginTop: 4, lineHeight: 1.5 }}>
-                  {tracking.return_notes ||
-                    'The return or exchange request for this order was cancelled. Courier reverse pickup has been cancelled, and your original item remains confirmed as delivered.'}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Guest Return / Size Exchange Initiation Card (If Delivered & No Active Return & Not Cancelled) */}
-          {isDelivered && !hasActiveReturn && !isReturnCancelled && isWithin10Days && (
-            <div
-              style={{
-                background: '#faf5ff',
-                border: '2px solid #7c3aed',
-                padding: '20px 24px',
-                marginBottom: '28px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '16px',
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span
-                    style={{
-                      background: '#7c3aed',
-                      color: '#fff',
-                      fontSize: '0.68rem',
-                      fontWeight: 900,
-                      textTransform: 'uppercase',
-                      padding: '3px 8px',
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    VAHN 10-DAY GUARANTEE
-                  </span>
-                </div>
-                <div
-                  style={{
-                    fontSize: '1.05rem',
-                    fontWeight: 900,
-                    textTransform: 'uppercase',
-                    color: '#581c87',
-                    letterSpacing: '-0.01em',
-                  }}
-                >
-                  Need a Different Size or Return?
-                </div>
-                <div style={{ fontSize: '0.82rem', color: '#6b21a8', marginTop: 3 }}>
-                  Delivered on {tracking.delivered_at || 'Recently'}. Request an instant size
-                  replacement or return for a 100% refund with automated doorstep pickup.
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowGuestReturnModal(true)}
-                style={{
-                  background: '#7c3aed',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '12px 24px',
-                  fontSize: '0.82rem',
-                  fontWeight: 900,
-                  textTransform: 'uppercase',
-                  cursor: 'pointer',
-                  letterSpacing: '0.02em',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  boxShadow: '0 4px 12px rgba(124, 58, 237, 0.25)',
-                }}
-              >
-                <span>Request Return / Size Exchange</span>
-                <span style={{ fontSize: '1rem', lineHeight: 1 }}>&rarr;</span>
-              </button>
-            </div>
-          )}
-
-          {/* Active Return & Exchange Logistics Status Card */}
-          {hasActiveReturn && (
-            <div
-              style={{
-                background: isReplacement ? '#faf5ff' : '#fffaf0',
-                border: `2px solid ${isReplacement ? '#7c3aed' : '#fa8c16'}`,
-                padding: '24px 28px',
-                marginBottom: '32px',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: 12,
-                  borderBottom: `1px solid ${isReplacement ? '#e9d5ff' : '#fed7aa'}`,
-                  paddingBottom: 16,
-                  marginBottom: 18,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <PackageIcon size={24} color={isReplacement ? '#7c3aed' : '#d97706'} />
-                  <div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        marginBottom: 2,
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 900,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.06em',
-                          color: isReplacement ? '#7c3aed' : '#d97706',
-                        }}
-                      >
-                        {isReplacement ? 'Size Exchange Active' : 'Reverse Logistics Active'}
-                      </span>
-                      {isReplacement && (
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            background: '#f3e8ff',
-                            color: '#6b21a8',
-                            border: '1px solid #d8b4fe',
-                            padding: '2px 8px',
-                            fontSize: '0.66rem',
-                            fontWeight: 800,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em',
-                          }}
-                        >
-                          <ShieldCheckIcon size={12} color="#7c3aed" />
-                          Doorstep QC Verified
-                        </span>
-                      )}
-                    </div>
-                    <h3
-                      style={{
-                        margin: 0,
-                        fontSize: '1.15rem',
-                        fontWeight: 900,
-                        textTransform: 'uppercase',
-                        letterSpacing: '-0.01em',
-                      }}
-                    >
-                      {isReplacement
-                        ? 'Size Replacement & Reverse Logistics'
-                        : 'Automated Return & 100% Refund'}
-                    </h3>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {!tracking.is_picked_up &&
-                    ['REQUESTED', 'PICKUP_SCHEDULED'].includes(tracking.return_status || '') && (
-                      <button
-                        type="button"
-                        onClick={() => setShowCustomerCancelModal(true)}
-                        style={{
-                          background: '#fff',
-                          border: '1px solid #ef4444',
-                          color: '#dc2626',
-                          padding: '6px 12px',
-                          fontSize: '0.75rem',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          borderRadius: '0px',
-                          textTransform: 'uppercase',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                        }}
-                      >
-                        <XIcon size={12} color="#dc2626" />
-                        Cancel Request
-                      </button>
-                    )}
-                  <span
-                    style={{
-                      background: isReplacement ? '#7c3aed' : '#fa8c16',
-                      color: '#ffffff',
-                      padding: '6px 14px',
-                      fontSize: '0.75rem',
-                      fontWeight: 900,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    {statusBadgeLabel}
-                  </span>
-                </div>
-              </div>
-
-              {/* REPLACEMENT VARIANT SUMMARY (IF EXCHANGE) */}
-              {isReplacement && (
-                <div
-                  style={{
-                    background: '#f3e8ff',
-                    border: '1px solid #d8b4fe',
-                    padding: '14px 18px',
-                    marginBottom: 18,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 12,
-                  }}
-                >
-                  <div>
-                    <span
-                      style={{
-                        fontSize: '0.7rem',
-                        fontWeight: 800,
-                        color: '#6b21a8',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                      }}
-                    >
-                      Requested Replacement Size
-                    </span>
-                    <div
-                      style={{
-                        fontSize: '1.05rem',
-                        fontWeight: 900,
-                        color: '#581c87',
-                        marginTop: 2,
-                      }}
-                    >
-                      {tracking.replacement_variant_title || 'New Size Reserved in Warehouse'}
-                    </div>
-                  </div>
-
-                  {tracking.replacement_awb && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div>
-                        <span
-                          style={{
-                            fontSize: '0.68rem',
-                            color: '#7c3aed',
-                            textTransform: 'uppercase',
-                            fontWeight: 700,
-                            display: 'block',
-                          }}
-                        >
-                          Replacement AWB ({tracking.replacement_courier_name || 'Express'})
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <strong
-                            style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#111' }}
-                          >
-                            {tracking.replacement_awb}
-                          </strong>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyReplacementAwb(tracking.replacement_awb || '')}
-                            className="tracking-copy-btn"
-                          >
-                            {copiedReplacement ? 'Copied!' : 'Copy'}
-                          </button>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (tracking.replacement_awb) {
-                            setQuery(tracking.replacement_awb);
-                            handleSearch(tracking.replacement_awb);
-                          }
-                        }}
-                        style={{
-                          background: '#7c3aed',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '8px 14px',
-                          fontSize: '0.75rem',
-                          fontWeight: 800,
-                          textTransform: 'uppercase',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Track Replacement &rarr;
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Doorstep Pickup Details */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: 16,
-                  fontSize: '0.85rem',
-                  marginBottom: 18,
-                }}
-              >
-                <div>
-                  <span
-                    style={{
-                      color: '#666',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      display: 'block',
-                    }}
-                  >
-                    Reverse Courier Partner
-                  </span>
-                  <strong style={{ color: '#111', fontSize: '0.9rem' }}>
-                    {tracking.reverse_courier_name || 'Shiprocket Reverse Logistics'}
-                  </strong>
-                </div>
-
-                <div>
-                  <span
-                    style={{
-                      color: '#666',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      display: 'block',
-                    }}
-                  >
-                    Reverse Pickup AWB
-                  </span>
-                  {tracking.reverse_awb ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <strong
-                        style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#111' }}
-                      >
-                        {tracking.reverse_awb}
-                      </strong>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyReverseAwb(tracking.reverse_awb || '')}
-                        className="tracking-copy-btn"
-                      >
-                        {copiedReverse ? 'Copied!' : 'Copy'}
-                      </button>
-                    </div>
-                  ) : (
-                    <span style={{ color: '#888' }}>Pickup Scheduled (AWB Generating)</span>
-                  )}
-                </div>
-
-                <div>
-                  <span
-                    style={{
-                      color: '#666',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      display: 'block',
-                    }}
-                  >
-                    Doorstep Handover
-                  </span>
-                  <span
-                    style={{
-                      color: tracking.is_picked_up ? '#15803d' : '#b45309',
-                      fontWeight: 800,
-                    }}
-                  >
-                    {tracking.is_picked_up ? '✓ Handover Completed' : 'Awaiting Doorstep Handover'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Pickup Instructions Notice */}
-              <div
-                style={{
-                  background: '#ffffff',
-                  border: `1px solid ${isReplacement ? '#d8b4fe' : '#fed7aa'}`,
-                  padding: '12px 16px',
-                  fontSize: '0.8rem',
-                  color: '#444',
-                  lineHeight: 1.5,
-                }}
-              >
-                {tracking.is_picked_up ? (
-                  <span>
-                    ✓ Doorstep pickup verified. Your returned parcel is moving through our reverse
-                    network.
-                    {isReplacement
-                      ? ' Your replacement package will be dispatched upon receipt and inspection.'
-                      : ' Your 100% refund is issued directly via Razorpay.'}
-                  </span>
-                ) : (
-                  <span>
-                    📦 <strong>Doorstep Pickup Scheduled:</strong> A courier representative will
-                    visit your delivery address to collect the original item. Please ensure tags and
-                    original packaging are intact.
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Stepper Progress */}
-          <div className="tracking-stepper-container">
+          {/* Stepper Progress Bar (On Top) */}
+          <div className="tracking-stepper-container" style={{ margin: '8px 0 28px' }}>
             <div
               className="tracking-stepper-grid"
               style={{
@@ -1802,6 +1297,508 @@ function TrackingContent() {
               })}
             </div>
           </div>
+
+          {/* 10-Day Return & Exchange Countdown Timer */}
+          {isDelivered && (
+            <ReturnCountdownTimer
+              deliveredAt={tracking.delivered_at}
+              deliveredAtIso={tracking.delivered_at_iso}
+              returnStatus={tracking.return_status}
+              isDelivered={isDelivered}
+            />
+          )}
+
+          {/* Cancelled Return / Exchange Notice */}
+          {isReturnCancelled && (
+            <div
+              style={{
+                background: '#fef2f2',
+                border: '2px solid #ef4444',
+                padding: '20px 24px',
+                marginBottom: '28px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 16,
+              }}
+            >
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: '#fee2e2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  marginTop: 2,
+                }}
+              >
+                <AlertCircleIcon size={20} color="#dc2626" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    marginBottom: 4,
+                  }}
+                >
+                  <span
+                    style={{
+                      background: '#fee2e2',
+                      color: '#991b1b',
+                      fontSize: '0.68rem',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      padding: '3px 8px',
+                      letterSpacing: '0.04em',
+                      border: '1px solid #fca5a5',
+                    }}
+                  >
+                    REQUEST CANCELLED
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: '#7f1d1d',
+                      fontWeight: 700,
+                    }}
+                  >
+                    ORIGINAL SHIPMENT DELIVERED
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.05rem',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    color: '#991b1b',
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  {isReplacement ? 'Size Exchange Cancelled' : 'Return Request Cancelled'}
+                </div>
+                <div
+                  style={{ fontSize: '0.85rem', color: '#7f1d1d', marginTop: 4, lineHeight: 1.5 }}
+                >
+                  {tracking.return_notes ||
+                    'The return or exchange request for this order was cancelled. Courier reverse pickup has been cancelled, and your original item remains confirmed as delivered.'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Guest Return / Size Exchange Initiation Card (If Delivered & No Active Return & Not Cancelled) */}
+          {isDelivered && !hasActiveReturn && !isReturnCancelled && isWithin10Days && (
+            <div
+              style={{
+                background: '#faf5ff',
+                border: '2px solid #7c3aed',
+                padding: '20px 24px',
+                marginBottom: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span
+                    style={{
+                      background: '#7c3aed',
+                      color: '#fff',
+                      fontSize: '0.68rem',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      padding: '3px 8px',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    VAHN 10-DAY GUARANTEE
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.05rem',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    color: '#581c87',
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  Need a Different Size or Return?
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#6b21a8', marginTop: 3 }}>
+                  Delivered on {tracking.delivered_at || 'Recently'}. Request an instant size
+                  replacement or return for a 100% refund with automated doorstep pickup.
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowGuestReturnModal(true)}
+                style={{
+                  background: '#7c3aed',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '12px 24px',
+                  fontSize: '0.82rem',
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  letterSpacing: '0.02em',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  boxShadow: '0 4px 12px rgba(124, 58, 237, 0.25)',
+                }}
+              >
+                <span>Request Return / Size Exchange</span>
+                <span style={{ fontSize: '1rem', lineHeight: 1 }}>&rarr;</span>
+              </button>
+            </div>
+          )}
+
+          {/* Active Return & Exchange Logistics Summary */}
+          {hasActiveReturn && (
+            <div
+              style={{
+                background: isReplacement ? '#faf5ff' : '#fffaf0',
+                border: `1px solid ${isReplacement ? '#c084fc' : '#fed7aa'}`,
+                padding: '20px 22px',
+                marginBottom: '28px',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  paddingBottom: '14px',
+                  borderBottom: `1px solid ${isReplacement ? '#f3e8ff' : '#fef3c7'}`,
+                  marginBottom: '16px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <PackageIcon size={20} color={isReplacement ? '#7c3aed' : '#d97706'} />
+                  <span
+                    style={{
+                      fontSize: '0.9rem',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.03em',
+                      color: isReplacement ? '#581c87' : '#92400e',
+                    }}
+                  >
+                    {isReplacement ? 'Size Exchange Details' : 'Return & Refund Details'}
+                  </span>
+                </div>
+
+                {!tracking.is_picked_up &&
+                  ['REQUESTED', 'PICKUP_SCHEDULED'].includes(tracking.return_status || '') && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomerCancelModal(true)}
+                      style={{
+                        background: '#fff',
+                        border: '1px solid #ef4444',
+                        color: '#dc2626',
+                        padding: '5px 10px',
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        borderRadius: '0px',
+                        textTransform: 'uppercase',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                      }}
+                    >
+                      <XIcon size={12} color="#dc2626" />
+                      Cancel Request
+                    </button>
+                  )}
+              </div>
+
+              {/* Clean Summary Grid */}
+              {isReplacement ? (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: '14px',
+                  }}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      padding: '14px 16px',
+                      border: '1px solid #e9d5ff',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        color: '#7c3aed',
+                        textTransform: 'uppercase',
+                        display: 'block',
+                        marginBottom: 4,
+                      }}
+                    >
+                      Requested Replacement
+                    </span>
+                    <div style={{ fontSize: '1rem', fontWeight: 900, color: '#111' }}>
+                      {tracking.replacement_variant_title || 'New Size Reserved'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      padding: '14px 16px',
+                      border: '1px solid #e9d5ff',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        color: '#7c3aed',
+                        textTransform: 'uppercase',
+                        display: 'block',
+                        marginBottom: 4,
+                      }}
+                    >
+                      Original Item Pickup
+                    </span>
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
+                    >
+                      <strong
+                        style={{ fontFamily: 'monospace', fontSize: '0.88rem', color: '#111' }}
+                      >
+                        {tracking.reverse_awb || 'Pickup Scheduled'}
+                      </strong>
+                      {tracking.reverse_awb && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyReverseAwb(tracking.reverse_awb || '')}
+                          className="tracking-copy-btn"
+                        >
+                          {copiedReverse ? 'Copied!' : 'Copy'}
+                        </button>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: tracking.is_picked_up ? '#16a34a' : '#b45309',
+                        marginTop: 4,
+                      }}
+                    >
+                      {tracking.is_picked_up
+                        ? '✓ Handed Over to Courier'
+                        : 'Awaiting Doorstep Pickup'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      padding: '14px 16px',
+                      border: '1px solid #e9d5ff',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        color: '#7c3aed',
+                        textTransform: 'uppercase',
+                        display: 'block',
+                        marginBottom: 4,
+                      }}
+                    >
+                      Replacement Shipment
+                    </span>
+                    {tracking.replacement_awb ? (
+                      <div>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <strong
+                            style={{ fontFamily: 'monospace', fontSize: '0.88rem', color: '#111' }}
+                          >
+                            {tracking.replacement_awb}
+                          </strong>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyReplacementAwb(tracking.replacement_awb || '')}
+                            className="tracking-copy-btn"
+                          >
+                            {copiedReplacement ? 'Copied!' : 'Copy'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (tracking.replacement_awb) {
+                                setQuery(tracking.replacement_awb);
+                                handleSearch(tracking.replacement_awb);
+                              }
+                            }}
+                            style={{
+                              background: '#7c3aed',
+                              color: '#fff',
+                              border: 'none',
+                              padding: '2px 8px',
+                              fontSize: '0.68rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              textTransform: 'uppercase',
+                              marginLeft: '2px',
+                            }}
+                          >
+                            Track &rarr;
+                          </button>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            color: '#16a34a',
+                            marginTop: 4,
+                          }}
+                        >
+                          ✓ Dispatched ({tracking.replacement_courier_name || 'Express Courier'})
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: 3 }}>
+                        {tracking.is_picked_up
+                          ? 'Processing replacement dispatch'
+                          : 'Dispatches once original item is picked up'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                    gap: '14px',
+                  }}
+                >
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      padding: '14px 16px',
+                      border: '1px solid #fed7aa',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        color: '#d97706',
+                        textTransform: 'uppercase',
+                        display: 'block',
+                        marginBottom: 4,
+                      }}
+                    >
+                      Doorstep Pickup
+                    </span>
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
+                    >
+                      <strong
+                        style={{ fontFamily: 'monospace', fontSize: '0.88rem', color: '#111' }}
+                      >
+                        {tracking.reverse_awb || 'Pickup Scheduled'}
+                      </strong>
+                      {tracking.reverse_awb && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyReverseAwb(tracking.reverse_awb || '')}
+                          className="tracking-copy-btn"
+                        >
+                          {copiedReverse ? 'Copied!' : 'Copy'}
+                        </button>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: tracking.is_picked_up ? '#16a34a' : '#b45309',
+                        marginTop: 4,
+                      }}
+                    >
+                      {tracking.is_picked_up
+                        ? '✓ Handed Over to Courier'
+                        : 'Awaiting Doorstep Pickup'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      padding: '14px 16px',
+                      border: '1px solid #fed7aa',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        color: '#d97706',
+                        textTransform: 'uppercase',
+                        display: 'block',
+                        marginBottom: 4,
+                      }}
+                    >
+                      100% Refund
+                    </span>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 900, color: '#111' }}>
+                      Original Payment Method (Razorpay)
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color:
+                          tracking.return_status === 'COMPLETED' ||
+                          tracking.return_status === 'REFUNDED'
+                            ? '#16a34a'
+                            : '#b45309',
+                        marginTop: 4,
+                      }}
+                    >
+                      {tracking.return_status === 'COMPLETED' ||
+                      tracking.return_status === 'REFUNDED'
+                        ? '✓ Refund Credited'
+                        : 'Refund initiated after doorstep verification'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Detailed Activity Checkpoints */}
           <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: '24px' }}>
@@ -2258,7 +2255,8 @@ function TrackingContent() {
               <strong>{isReplacement ? 'size exchange' : 'return'}</strong> request?
               <br />
               <br />
-              Reverse courier doorstep pickup will be cancelled immediately, and your original item will remain yours.
+              Reverse courier doorstep pickup will be cancelled immediately, and your original item
+              will remain yours.
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>

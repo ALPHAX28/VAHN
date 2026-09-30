@@ -1083,6 +1083,29 @@ export default function AdminOrderDetailPage() {
                           Size / Variant: {order.replacement_variant_title || 'M / Exchange Unit'}
                         </div>
 
+                        {/* Replacement Dispatch Locked Guard (If original not picked up yet) */}
+                        {!isPickedUpFromCustomer && !isReplacementDispatched && (
+                          <div
+                            style={{
+                              marginTop: 14,
+                              padding: '12px 14px',
+                              background: '#fffbe6',
+                              border: '1px solid #ffe58f',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 12,
+                            }}
+                          >
+                            <AlertCircleIcon size={18} color="#d48806" />
+                            <div style={{ fontSize: '0.8rem', color: '#874d00' }}>
+                              <strong>🔒 Replacement Dispatch Locked:</strong> The original item
+                              must be picked up by the courier from customer doorstep first before
+                              replacement dispatch can be initiated (Doorstep QC verification
+                              required).
+                            </div>
+                          </div>
+                        )}
+
                         {/* Dispatch Replacement Unit Form (Only if picked up and not dispatched) */}
                         {isPickedUpFromCustomer && !isReplacementDispatched && (
                           <div
@@ -1103,7 +1126,8 @@ export default function AdminOrderDetailPage() {
                                 marginBottom: 8,
                               }}
                             >
-                              Dispatch Replacement Package ({order.replacement_variant_title || 'New Size'})
+                              Dispatch Replacement Package (
+                              {order.replacement_variant_title || 'New Size'})
                             </span>
                             <p
                               style={{
@@ -1571,9 +1595,7 @@ export default function AdminOrderDetailPage() {
                         </span>
                         <strong style={{ fontSize: '0.82rem', color: '#111' }}>
                           {displayCourierName ||
-                            (order.shiprocket_awb
-                              ? 'Blue Dart Express'
-                              : 'Assigned on Dispatch')}
+                            (order.shiprocket_awb ? 'Blue Dart Express' : 'Assigned on Dispatch')}
                         </strong>
                       </div>
                       <div>
