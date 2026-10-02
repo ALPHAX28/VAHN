@@ -305,6 +305,7 @@ export interface TrackingInfo {
   milestones?: TrackingMilestone[];
   scans?: TrackingScan[];
   reverse_scans?: TrackingScan[];
+  replacement_scans?: TrackingScan[];
   reverse_awb?: string | null;
   reverse_courier_name?: string | null;
   reverse_tracking_data?: Record<string, unknown> | null;

@@ -75,7 +75,9 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [trackingModalData, setTrackingModalData] = useState<TrackingInfo | null>(null);
   const [loadingTrackingModal, setLoadingTrackingModal] = useState(false);
-  const [activeTrackingTab, setActiveTrackingTab] = useState<'forward' | 'reverse'>('forward');
+  const [activeTrackingTab, setActiveTrackingTab] = useState<
+    'forward' | 'reverse' | 'replacement'
+  >('forward');
   const [copiedAwb, setCopiedAwb] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
@@ -126,7 +128,9 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     }
   }
 
-  async function handleOpenTrackingModal(tab: 'forward' | 'reverse' = 'forward') {
+  async function handleOpenTrackingModal(
+    tab: 'forward' | 'reverse' | 'replacement' = 'forward'
+  ) {
     if (!order) return;
     setActiveTrackingTab(tab);
     setShowTrackingModal(true);
@@ -500,6 +504,14 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         ? order.reverseTrackingData.scans
         : [];
   const activeReverseScans = [...rawReverseScans].sort(
+    (a, b) => parseCheckpointDate(a.date) - parseCheckpointDate(b.date)
+  );
+
+  const rawReplacementScans =
+    trackingModalData?.replacement_scans && trackingModalData.replacement_scans.length > 0
+      ? trackingModalData.replacement_scans
+      : [];
+  const activeReplacementScans = [...rawReplacementScans].sort(
     (a, b) => parseCheckpointDate(a.date) - parseCheckpointDate(b.date)
   );
 
@@ -1829,9 +1841,29 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                         fontWeight: 900,
                         color: '#000',
                         fontSize: '0.9rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexWrap: 'wrap',
                       }}
                     >
-                      {order.replacementAwb} ({order.replacementCourierName || 'Courier'})
+                      <span>{order.replacementAwb} ({order.replacementCourierName || 'Courier'})</span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenTrackingModal('replacement')}
+                        style={{
+                          background: '#7c3aed',
+                          color: '#fff',
+                          border: 'none',
+                          padding: '4px 10px',
+                          fontSize: '0.7rem',
+                          fontWeight: 900,
+                          textTransform: 'uppercase',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        📍 Track &rarr;
+                      </button>
                     </div>
                   </div>
                 )}
@@ -2323,8 +2355,11 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 </button>
               </div>
 
-              {/* Tab Switcher for orders with forward and return tracking */}
-              {(order.reverseAwb || (order.returnStatus && order.returnStatus !== 'NONE')) && (
+              {/* Tab Switcher for orders with forward, return, and replacement tracking */}
+              {(order.reverseAwb ||
+                (order.returnStatus && order.returnStatus !== 'NONE') ||
+                order.replacementAwb ||
+                order.returnType === 'REPLACEMENT') && (
                 <div
                   style={{ display: 'flex', borderBottom: '2px solid #000', background: '#f3f4f6' }}
                 >
@@ -2364,8 +2399,30 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       cursor: 'pointer',
                     }}
                   >
-                    Reverse Return ({order.reverseAwb || 'Return'})
+                    Return Pickup ({order.reverseAwb || 'Return'})
                   </button>
+                  {(order.replacementAwb || order.returnType === 'REPLACEMENT') && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTrackingTab('replacement')}
+                      style={{
+                        flex: 1,
+                        padding: '14px',
+                        fontWeight: 900,
+                        fontSize: '0.82rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '-0.02em',
+                        background: activeTrackingTab === 'replacement' ? '#fff' : 'transparent',
+                        color: activeTrackingTab === 'replacement' ? '#7c3aed' : '#666',
+                        border: 'none',
+                        borderBottom:
+                          activeTrackingTab === 'replacement' ? '3px solid #7c3aed' : 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Replacement Delivery ({order.replacementAwb || 'Exchange'})
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -2727,6 +2784,291 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       )}
                     </div>
                   </>
+                ) : activeTrackingTab === 'replacement' ? (
+                  /* REPLACEMENT DELIVERY TRACKING VIEW */
+                  <>
+                    {/* Replacement Delivery Status Banner */}
+                    <div
+                      style={{
+                        background:
+                          order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
+                            ? '#f0fdf4'
+                            : '#faf5ff',
+                        border:
+                          order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
+                            ? '1.5px solid #86efac'
+                            : '1.5px solid #c084fc',
+                        padding: '16px 20px',
+                      }}
+                    >
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}
+                      >
+                        <span
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            background:
+                              order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
+                                ? '#16a34a'
+                                : '#7c3aed',
+                            display: 'inline-block',
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 900,
+                            color:
+                              order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
+                                ? '#16a34a'
+                                : '#7c3aed',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          Size Exchange Replacement Status
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '1.05rem',
+                          fontWeight: 900,
+                          color:
+                            order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
+                              ? '#15803d'
+                              : '#581c87',
+                        }}
+                      >
+                        {order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
+                          ? '✔ REPLACEMENT PACKAGE DELIVERED TO YOUR DOORSTEP'
+                          : order.replacementAwb || order.replacementStatus === 'REPLACEMENT_DISPATCHED'
+                            ? '✔ REPLACEMENT DISPATCHED — EN ROUTE TO YOUR ADDRESS'
+                            : '⏳ SIZE RESERVED — AWAITING COURIER DISPATCH'}
+                      </div>
+                      {trackingModalData?.current_location && (
+                        <div style={{ fontSize: '0.82rem', color: '#444', marginTop: 6 }}>
+                          📍 <strong>Current Package Location:</strong>{' '}
+                          {trackingModalData.current_location}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Replacement Courier & AWB Code strip */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                        gap: 16,
+                        background: '#f9fafb',
+                        border: '1px solid #e5e7eb',
+                        padding: '16px 20px',
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            fontSize: '0.7rem',
+                            color: '#666',
+                            textTransform: 'uppercase',
+                            fontWeight: 800,
+                          }}
+                        >
+                          Replacement Courier
+                        </div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#000', marginTop: 2 }}>
+                          {order.replacementCourierName ||
+                            trackingModalData?.replacement_courier_name ||
+                            'Express Courier'}
+                        </div>
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: '0.7rem',
+                            color: '#666',
+                            textTransform: 'uppercase',
+                            fontWeight: 800,
+                          }}
+                        >
+                          Replacement AWB
+                        </div>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            marginTop: 2,
+                          }}
+                        >
+                          <strong
+                            style={{ fontFamily: 'monospace', fontSize: '0.95rem', color: '#000' }}
+                          >
+                            {order.replacementAwb || trackingModalData?.replacement_awb || 'Processing Dispatch'}
+                          </strong>
+                          {(order.replacementAwb || trackingModalData?.replacement_awb) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleCopyAwb(
+                                  order.replacementAwb || trackingModalData?.replacement_awb || ''
+                                )
+                              }
+                              style={{
+                                background: copiedAwb ? '#16a34a' : '#fff',
+                                color: copiedAwb ? '#fff' : '#000',
+                                border: '1px solid #000',
+                                padding: '2px 8px',
+                                fontSize: '0.7rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {copiedAwb ? 'Copied!' : 'Copy'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div
+                          style={{
+                            fontSize: '0.7rem',
+                            color: '#666',
+                            textTransform: 'uppercase',
+                            fontWeight: 800,
+                          }}
+                        >
+                          New Selected Size
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '0.95rem',
+                            fontWeight: 900,
+                            color: '#7c3aed',
+                            marginTop: 2,
+                          }}
+                        >
+                          {order.replacementVariantTitle ||
+                            trackingModalData?.replacement_variant_title ||
+                            'Reserved Size'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Replacement Checkpoint Scans Timeline */}
+                    <div>
+                      <h4
+                        style={{
+                          fontSize: '0.85rem',
+                          fontWeight: 900,
+                          textTransform: 'uppercase',
+                          letterSpacing: '-0.01em',
+                          margin: '0 0 16px',
+                          color: '#000',
+                        }}
+                      >
+                        Replacement Checkpoint Scans ({activeReplacementScans.length})
+                      </h4>
+                      {activeReplacementScans.length === 0 ? (
+                        <div
+                          style={{
+                            padding: '24px',
+                            textAlign: 'center',
+                            background: '#faf5ff',
+                            border: '1px dashed #c084fc',
+                          }}
+                        >
+                          <p style={{ margin: 0, fontSize: '0.85rem', color: '#581c87', fontWeight: 600 }}>
+                            {order.replacementAwb
+                              ? `Replacement parcel dispatched via ${order.replacementCourierName || 'Express Courier'} (AWB: ${order.replacementAwb}). Live courier checkpoint scans will appear as the courier scans the package.`
+                              : 'Replacement parcel is being prepared at warehouse. Courier dispatch scan will appear here once handed over.'}
+                          </p>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                          {activeReplacementScans.map((scan: any, idx: number) => {
+                            const isLatest = idx === activeReplacementScans.length - 1;
+                            return (
+                              <div
+                                key={idx}
+                                style={{ display: 'flex', gap: 16, position: 'relative' }}
+                              >
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: 14,
+                                      height: 14,
+                                      background: isLatest ? '#7c3aed' : '#000',
+                                      border: isLatest ? '3px solid #ddd6fe' : 'none',
+                                      marginTop: 4,
+                                    }}
+                                  />
+                                  {idx < activeReplacementScans.length - 1 && (
+                                    <div
+                                      style={{
+                                        width: 2,
+                                        flex: 1,
+                                        minHeight: 36,
+                                        background: '#e5e7eb',
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                                <div style={{ paddingBottom: 20, flex: 1 }}>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'baseline',
+                                      flexWrap: 'wrap',
+                                      gap: 8,
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontSize: '0.88rem',
+                                        fontWeight: 900,
+                                        color: isLatest ? '#7c3aed' : '#000',
+                                      }}
+                                    >
+                                      {prettifyActivityLabel(scan.activity)}
+                                    </span>
+                                    <span
+                                      style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600 }}
+                                    >
+                                      {scan.date || 'Recorded'}
+                                    </span>
+                                  </div>
+                                  {scan.location && (
+                                    <div
+                                      style={{
+                                        fontSize: '0.78rem',
+                                        color: '#666',
+                                        marginTop: 3,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                      }}
+                                    >
+                                      <MapPinIcon size={12} color="#888" /> {scan.location}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
                 ) : (
                   /* REVERSE RETURN TRACKING VIEW */
                   <>
@@ -3008,21 +3350,29 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   >
                     ↻ Refresh Live Scans
                   </button>
-                  {(order.shiprocketAwb || trackingModalData?.awb_code) && (
-                    <Link
-                      href={`/track?q=${order.shiprocketAwb || trackingModalData?.awb_code}`}
-                      target="_blank"
-                      style={{
-                        fontSize: '0.78rem',
-                        fontWeight: 800,
-                        color: '#4232d9',
-                        textDecoration: 'underline',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      Public Tracking Portal ↗
-                    </Link>
-                  )}
+                  {(() => {
+                    const portalAwb =
+                      activeTrackingTab === 'replacement'
+                        ? order.replacementAwb || trackingModalData?.replacement_awb
+                        : activeTrackingTab === 'reverse'
+                          ? order.reverseAwb || trackingModalData?.reverse_awb
+                          : order.shiprocketAwb || trackingModalData?.awb_code;
+                    return (
+                      <Link
+                        href={`/track?q=${portalAwb || order.id}`}
+                        target="_blank"
+                        style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 800,
+                          color: activeTrackingTab === 'replacement' ? '#7c3aed' : '#4232d9',
+                          textDecoration: 'underline',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Public Tracking Portal ↗
+                      </Link>
+                    );
+                  })()}
                 </div>
                 <button
                   type="button"

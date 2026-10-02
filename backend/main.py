@@ -2525,7 +2525,8 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
     order = db.query(models.Order).options(selectinload(models.Order.items)).filter(
         (models.Order.id.ilike(clean_query)) |
         (models.Order.shiprocket_awb == clean_query) |
-        (models.Order.reverse_awb == clean_query)
+        (models.Order.reverse_awb == clean_query) |
+        (models.Order.replacement_awb == clean_query)
     ).first()
 
     if not order:
@@ -2595,6 +2596,44 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
                 if isinstance(s, dict)
             ]
 
+    replacement_scans = []
+    if order.replacement_awb:
+        try:
+            rep_info = shiprocket_service.track_awb(order.replacement_awb)
+            raw_rep_scans = rep_info.get("scans") if isinstance(rep_info, dict) else []
+            if isinstance(raw_rep_scans, list):
+                replacement_scans = [
+                    schemas.OrderTrackingScanSchema(
+                        date=s.get("date"),
+                        activity=str(s.get("activity", "")),
+                        location=s.get("location")
+                    )
+                    for s in raw_rep_scans
+                    if isinstance(s, dict)
+                ]
+            if rep_info and isinstance(rep_info, dict):
+                curr_rep_st = str(rep_info.get("current_status") or "").upper()
+                if curr_rep_st:
+                    order.replacement_status = curr_rep_st
+                    if curr_rep_st in ("DELIVERED", "COMPLETED"):
+                        order.status = "COMPLETED"
+                if rep_info.get("courier_name") and not order.replacement_courier_name:
+                    order.replacement_courier_name = rep_info.get("courier_name")
+        except Exception as e:
+            logger.warning(f"Error fetching replacement tracking scans for order {order.id}: {e}")
+    elif order.tracking_data and isinstance(order.tracking_data, dict) and "replacement_scans" in order.tracking_data:
+        raw_rep_scans = order.tracking_data.get("replacement_scans")
+        if isinstance(raw_rep_scans, list):
+            replacement_scans = [
+                schemas.OrderTrackingScanSchema(
+                    date=s.get("date"),
+                    activity=str(s.get("activity", "")),
+                    location=s.get("location")
+                )
+                for s in raw_rep_scans
+                if isinstance(s, dict)
+            ]
+
     items_list = [
         {
             "id": i.id,
@@ -2621,12 +2660,19 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
 
     forward_scans.sort(key=_parse_scan_ts, reverse=True)
     reverse_scans.sort(key=_parse_scan_ts, reverse=True)
+    replacement_scans.sort(key=_parse_scan_ts, reverse=True)
 
     curr_location = None
-    if forward_scans:
+    # If customer is tracking replacement specifically or replacement is dispatched, prioritize replacement scan location
+    if (clean_query == order.replacement_awb or (order.return_type == "REPLACEMENT" and order.replacement_status in ("REPLACEMENT_DISPATCHED", "DISPATCHED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"))) and replacement_scans:
+        curr_location = replacement_scans[0].location
+    elif forward_scans:
         curr_location = forward_scans[0].location
     elif reverse_scans:
         curr_location = reverse_scans[0].location
+    elif replacement_scans:
+        curr_location = replacement_scans[0].location
+
     if not curr_location and order.tracking_data and isinstance(order.tracking_data, dict):
         curr_location = order.tracking_data.get("current_location")
 
@@ -2636,7 +2682,7 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
     ):
         curr_location = None
 
-    is_picked_up_status = any("pick" in str(s.activity).lower() for s in (reverse_scans or forward_scans))
+    is_picked_up_status = any("pick" in str(s.activity).lower() for s in (reverse_scans or forward_scans or replacement_scans))
 
     t_data = order.tracking_data if isinstance(order.tracking_data, dict) else {}
     invoice_url = shiprocket_service.sanitize_shiprocket_url(t_data.get("invoice_url")) if t_data.get("invoice_url") else None
@@ -2687,6 +2733,7 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         "replacement_awb": order.replacement_awb,
         "replacement_courier_name": order.replacement_courier_name,
         "replacement_tracking_url": order.replacement_tracking_url,
+        "replacement_scans": replacement_scans,
     }
     return schemas.OrderTrackingResponse.model_validate(tracking_payload)
 
@@ -3936,6 +3983,21 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
                 updated = True
         except Exception as e:
             logger.warning(f"Failed to sync reverse tracking for order {order.id}: {e}")
+
+    if order.replacement_awb and order.replacement_awb != order.shiprocket_awb:
+        try:
+            rep_track = shiprocket_service.track_awb(order.replacement_awb)
+            if rep_track and isinstance(rep_track, dict):
+                curr_rep_st = str(rep_track.get("current_status") or "").upper()
+                if curr_rep_st:
+                    order.replacement_status = curr_rep_st
+                    if curr_rep_st in ("DELIVERED", "COMPLETED"):
+                        order.status = "COMPLETED"
+                if rep_track.get("courier_name") and not order.replacement_courier_name:
+                    order.replacement_courier_name = rep_track.get("courier_name")
+                updated = True
+        except Exception as e:
+            logger.warning(f"Failed to sync replacement tracking for order {order.id}: {e}")
 
     if updated:
         try:

@@ -755,6 +755,7 @@ class OrderTrackingResponse(BaseModel):
     replacement_awb: Optional[str] = None
     replacement_courier_name: Optional[str] = None
     replacement_tracking_url: Optional[str] = None
+    replacement_scans: List[OrderTrackingScanSchema] = []
     delivered_at_iso: Optional[str] = None
 
 class OrderItemSchema(BaseModel):
