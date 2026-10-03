@@ -12,7 +12,6 @@ import {
   CheckIcon,
   MapPinIcon,
   PackageIcon,
-  PrinterIcon,
   TruckIcon,
   XIcon,
 } from '@/components/icons/Icons';
@@ -2783,7 +2782,6 @@ export default function AdminOrderDetailPage() {
                                 textTransform: 'uppercase',
                               }}
                             >
-                              <PrinterIcon size={14} color="#d97706" />
                               {downloadingManifest ? 'Generating...' : 'Print Manifest'}
                             </button>
                           )}
