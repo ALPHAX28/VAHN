@@ -994,6 +994,9 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
             "courier_name": "Blue Dart Express",
             "current_location": "Customer Destination" if is_delivered else "Regional Sorting Facility",
             "is_picked_up": True,
+            "is_delivered": is_delivered,
+            "return_awb_code": "",
+            "is_return": clean_awb.startswith("SIM-REV-"),
             "scans": [
                 {
                     "date": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
@@ -1021,6 +1024,15 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
                 if res.status_code == 200:
                     data = res.json()
                     track_data = data.get("tracking_data", {})
+                    shipment_track = track_data.get("shipment_track", [])
+                    return_awb_code = ""
+                    is_return = bool(track_data.get("is_return"))
+                    if isinstance(shipment_track, list) and shipment_track:
+                        st0 = shipment_track[0]
+                        return_awb_code = str(st0.get("return_awb_code") or "").strip()
+                        if not is_return:
+                            is_return = bool(st0.get("is_return"))
+
                     scans = track_data.get("shipment_track_activities", []) or []
                     current_status = str(track_data.get("current_status", "IN_TRANSIT")).upper()
                     courier_name = track_data.get("courier_name") or "Express Courier"
@@ -1042,6 +1054,11 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
                         ):
                             latest_loc = raw_loc
 
+                    is_delivered = (
+                        current_status in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE")
+                        or "DELIVERED" in current_status
+                        or any("deliver" in str(s.get("activity", "")).lower() for s in scans_list)
+                    )
                     is_picked_up = (
                         any("pick" in str(s.get("activity", "")).lower() for s in scans_list)
                         or current_status in ("PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED")
@@ -1053,6 +1070,9 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
                         "courier_name": courier_name,
                         "current_location": latest_loc,
                         "is_picked_up": is_picked_up,
+                        "is_delivered": is_delivered,
+                        "return_awb_code": return_awb_code,
+                        "is_return": is_return,
                         "scans": scans_list
                     }
         except Exception as e:
@@ -1064,6 +1084,9 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
         "courier_name": "Assigned Courier",
         "current_location": None,
         "is_picked_up": False,
+        "is_delivered": False,
+        "return_awb_code": "",
+        "is_return": False,
         "scans": []
     }
 
@@ -1201,6 +1224,161 @@ def create_reverse_pickup(
             }
         else:
             raise ValueError(f"Shiprocket reverse pickup failed: {res.text}")
+
+
+def map_shiprocket_return_status(
+    sr_status: str,
+    is_delivered: bool = False,
+    is_picked_up: bool = False
+) -> str:
+    """
+    Normalizes Shiprocket return/reverse tracking status into app's canonical return_status:
+    REQUESTED | PICKUP_SCHEDULED | PICKED_UP | DELIVERED_TO_WAREHOUSE | CANCELLED
+    """
+    raw = (sr_status or "").upper().strip()
+    if is_delivered or any(k in raw for k in ("DELIVERED", "REACHED", "RECEIVED_AT_WAREHOUSE", "RESTOCKED")):
+        return "DELIVERED_TO_WAREHOUSE"
+    if is_picked_up or any(k in raw for k in ("PICKED_UP", "PICKED UP", "IN_TRANSIT", "IN TRANSIT", "OUT FOR PICKUP", "OUT_FOR_PICKUP")):
+        return "PICKED_UP"
+    if any(k in raw for k in ("CANCEL", "CANCELED", "CANCELLED", "REJECTED")):
+        return "CANCELLED"
+    if any(k in raw for k in ("SCHEDULED", "MANIFEST", "AWB", "ASSIGNED")):
+        return "PICKUP_SCHEDULED"
+    if any(k in raw for k in ("PENDING", "REQUESTED", "CREATED", "NEW")):
+        return "REQUESTED"
+    return "REQUESTED"
+
+
+def fetch_shiprocket_return_orders(
+    search: Optional[str] = None,
+    channel_order_id: Optional[str] = None,
+    per_page: int = 50
+) -> List[Dict[str, Any]]:
+    """
+    Queries Shiprocket's return processing endpoint:
+    GET /orders/processing/return?search=...&per_page=...&sort=desc
+    Returns the list of return order objects.
+    """
+    if is_simulation_mode():
+        return []
+
+    token = get_auth_token()
+    if not token:
+        return []
+
+    params: Dict[str, Any] = {"per_page": min(max(per_page, 1), 100), "sort": "desc"}
+    search_query = str(search or channel_order_id or "").strip()
+    if search_query:
+        params["search"] = search_query
+
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            res = client.get(
+                f"{BASE_URL}/orders/processing/return",
+                params=params,
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            if res.status_code == 200:
+                data = res.json()
+                return data.get("data", []) or []
+            else:
+                logger.warning(f"Shiprocket return orders API returned HTTP {res.status_code}: {res.text}")
+    except Exception as exc:
+        logger.warning(f"Error fetching return orders from Shiprocket: {exc}")
+
+    return []
+
+
+def find_shiprocket_return_order(
+    order_id: str,
+    forward_awb: Optional[str] = None,
+    sr_order_id: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Attempts to locate an active return order in Shiprocket corresponding to our order.
+    Checks:
+    1. Forward AWB tracking if forward_awb is provided: Shiprocket links return_awb_code in shipment_track[0].
+    2. Search query on /orders/processing/return with exact order_id (e.g. 'ORD-XXXXXX').
+    3. Search query with common return prefixes/suffixes (e.g. 'ORD-XXXXXX-RET', 'ORD-XXXXXX-RETURN', 'RET-ORD-XXXXXX').
+    4. Fetch recent return orders list and match channel_order_id (normalizing common suffixes).
+    """
+    clean_id = str(order_id).strip()
+    if not clean_id:
+        return None
+
+    # Helper to parse return order object
+    def _parse_ret_item(item: Dict[str, Any]) -> Dict[str, Any]:
+        shipments = item.get("shipments") or []
+        first_ship = shipments[0] if (isinstance(shipments, list) and shipments) else {}
+        ret_awb = str(first_ship.get("awb") or item.get("awb_code") or "").strip()
+        ret_courier = first_ship.get("courier") or item.get("courier_name") or "Shiprocket Reverse"
+        return {
+            "return_order_id": str(item.get("id") or ""),
+            "return_shipment_id": str(item.get("shipment_id") or ""),
+            "channel_order_id": str(item.get("channel_order_id") or clean_id),
+            "status": str(item.get("status") or "").upper(),
+            "return_reason": item.get("return_reason") or (item.get("refund_detail") or {}).get("return_reason") or "",
+            "is_return_exchange": bool(item.get("is_return_exchange")),
+            "reverse_awb": ret_awb,
+            "reverse_courier_name": ret_courier,
+            "raw": item
+        }
+
+    # 1. Forward AWB tracking check
+    if forward_awb:
+        try:
+            live = track_awb(forward_awb)
+            ret_awb = str(live.get("return_awb_code") or "").strip()
+            if ret_awb:
+                logger.info(f"Discovered return AWB {ret_awb} linked to forward AWB {forward_awb} for order {clean_id}")
+                rev_track = track_awb(ret_awb)
+                return {
+                    "return_order_id": "",
+                    "return_shipment_id": "",
+                    "channel_order_id": clean_id,
+                    "status": rev_track.get("current_status") or "PICKUP_SCHEDULED",
+                    "return_reason": "Return created in Shiprocket",
+                    "is_return_exchange": False,
+                    "reverse_awb": ret_awb,
+                    "reverse_courier_name": rev_track.get("courier_name") or "Shiprocket Reverse",
+                    "raw": {"forward_awb": forward_awb, "reverse_awb": ret_awb, "tracking": rev_track}
+                }
+        except Exception as e_fwd:
+            logger.warning(f"Error checking forward AWB {forward_awb} for return code: {e_fwd}")
+
+    # 2. Search Shiprocket returns by order ID variations
+    candidate_queries = [
+        clean_id,
+        f"{clean_id}-RET",
+        f"{clean_id}-RETURN",
+        f"RET-{clean_id}"
+    ]
+    for q in candidate_queries:
+        returns = fetch_shiprocket_return_orders(search=q)
+        for ret in returns:
+            ch_id = str(ret.get("channel_order_id") or "").strip()
+            norm_ch_id = re.sub(r'[-_](?:RET|RETURN|EXC|EXCHANGE)$', '', ch_id, flags=re.IGNORECASE)
+            norm_ch_id = re.sub(r'^(?:RET|EXC)[-_]', '', norm_ch_id, flags=re.IGNORECASE)
+            if norm_ch_id.lower() == clean_id.lower() or ch_id.lower() == clean_id.lower():
+                logger.info(f"Found return order in Shiprocket matching query '{q}': ID={ret.get('id')}")
+                return _parse_ret_item(ret)
+
+    # 3. Fallback: inspect the most recent 50 return orders from Shiprocket
+    recent_returns = fetch_shiprocket_return_orders(per_page=50)
+    for ret in recent_returns:
+        ch_id = str(ret.get("channel_order_id") or "").strip()
+        norm_ch_id = re.sub(r'[-_](?:RET|RETURN|EXC|EXCHANGE)$', '', ch_id, flags=re.IGNORECASE)
+        norm_ch_id = re.sub(r'^(?:RET|EXC)[-_]', '', norm_ch_id, flags=re.IGNORECASE)
+        fwd_order_ref = str(ret.get("extra_info", {}).get("forward_order_id") or "").strip()
+        if (
+            norm_ch_id.lower() == clean_id.lower()
+            or ch_id.lower() == clean_id.lower()
+            or (sr_order_id and fwd_order_ref == str(sr_order_id).strip())
+        ):
+            logger.info(f"Found return order in recent Shiprocket returns: ID={ret.get('id')}, channel_order_id={ch_id}")
+            return _parse_ret_item(ret)
+
+    return None
 
 
 def get_channel_id() -> str:

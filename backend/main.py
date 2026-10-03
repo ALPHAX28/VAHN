@@ -139,6 +139,29 @@ async def _shiprocket_status_sync_loop():
                     except Exception as e_ord:
                         logger.warning(f"[SR Sync] Error syncing order {order.id}: {e_ord}")
 
+                # Poll Shiprocket return orders endpoint to detect newly clicked returns in Shiprocket UI
+                try:
+                    recent_sr_returns = shiprocket_service.fetch_shiprocket_return_orders(per_page=50)
+                    for ret_item in recent_sr_returns:
+                        try:
+                            ch_order_id = str(ret_item.get("channel_order_id") or "").strip()
+                            if not ch_order_id:
+                                continue
+                            norm_id = re.sub(r'[-_](?:RET|RETURN|EXC|EXCHANGE)$', '', ch_order_id, flags=re.IGNORECASE)
+                            norm_id = re.sub(r'^(?:RET|EXC)[-_]', '', norm_id, flags=re.IGNORECASE)
+                            matched_order = (
+                                db.query(models.Order)
+                                .options(selectinload(models.Order.items))
+                                .filter((models.Order.id == norm_id) | (models.Order.id == ch_order_id))
+                                .first()
+                            )
+                            if matched_order:
+                                sync_external_shiprocket_return(matched_order, db)
+                        except Exception as e_ret_sync:
+                            logger.warning(f"[SR Sync] Error syncing return order from Shiprocket: {e_ret_sync}")
+                except Exception as e_returns_poll:
+                    logger.warning(f"[SR Sync] Error polling Shiprocket return orders endpoint: {e_returns_poll}")
+
                 # Poll active reverse return and exchange shipments for warehouse delivery & auto-restock
                 try:
                     active_reverse_orders = (
@@ -153,24 +176,7 @@ async def _shiprocket_status_sync_loop():
                     )
                     for rev_order in active_reverse_orders:
                         try:
-                            rev_live = shiprocket_service.track_awb(rev_order.reverse_awb)
-                            if not rev_live or not isinstance(rev_live, dict):
-                                continue
-                            curr_rev_st = str(rev_live.get("current_status") or "").upper()
-                            merged_rev = dict(rev_order.reverse_tracking_data or {})
-                            merged_rev.update(rev_live)
-                            rev_order.reverse_tracking_data = merged_rev
-
-                            if rev_live.get("is_delivered") or curr_rev_st in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev_st:
-                                rev_order.return_status = "DELIVERED_TO_WAREHOUSE"
-                                # Automatic restock into warehouse inventory for both returns and exchanges
-                                restocked = restock_returned_order_items(rev_order, db)
-                                logger.info(f"[SR Sync] Return/Exchange parcel {rev_order.id} DELIVERED to warehouse. Restocked: {restocked}")
-                            elif rev_live.get("is_picked_up") or curr_rev_st in ("PICKED_UP", "IN_TRANSIT"):
-                                if rev_order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                                    rev_order.return_status = "PICKED_UP"
-                                if rev_order.return_type == "REPLACEMENT" and rev_order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                                    rev_order.replacement_status = "PICKED_UP"
+                            sync_external_shiprocket_return(rev_order, db)
                         except Exception as e_rev:
                             logger.warning(f"[SR Sync] Error syncing reverse order {rev_order.id}: {e_rev}")
                 except Exception as e_rev_loop:
@@ -2556,6 +2562,144 @@ def execute_order_cancellation(
     return order
 
 
+def restock_returned_order_items(order: models.Order, db: Session) -> bool:
+    """
+    Restocks returned order items into ProductVariant inventory.
+    Guaranteed idempotent: executes only once per order, flagged in reverse_tracking_data.
+    """
+    rev_data = dict(order.reverse_tracking_data or {})
+    if rev_data.get("is_restocked"):
+        logger.info(f"Order {order.id} items have already been restocked into warehouse inventory. Skipping.")
+        return False
+
+    restocked_any = False
+    for item in (order.items or []):
+        if item.variant_id:
+            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+            if var:
+                var.inventory_quantity = (var.inventory_quantity or 0) + item.quantity
+                restocked_any = True
+                logger.info(f"Restocked {item.quantity} unit(s) of variant {var.id} (new qty: {var.inventory_quantity})")
+
+    rev_data["is_restocked"] = True
+    rev_data["restocked_at"] = datetime.utcnow().isoformat()
+    order.reverse_tracking_data = rev_data
+    return restocked_any
+
+
+def sync_external_shiprocket_return(order: models.Order, db: Session) -> bool:
+    """
+    Synchronizes return and reverse logistics data if an order was returned directly
+    in Shiprocket's dashboard / order panel (not via our app).
+
+    1. Checks if a reverse AWB or return order exists in Shiprocket for this order.
+    2. Updates order.return_type ('RETURN' or 'REPLACEMENT') and order.return_status.
+    3. Updates order.reverse_awb, order.reverse_shipment_id, and order.reverse_courier_name.
+    4. Merges live tracking milestones into order.reverse_tracking_data.
+    5. If parcel is delivered to warehouse, sets return_status to 'DELIVERED_TO_WAREHOUSE'
+       and automatically executes idempotent inventory restocking.
+    """
+    if not order:
+        return False
+
+    updated = False
+
+    # A. If order already has a reverse AWB, sync its reverse tracking milestones
+    if order.reverse_awb:
+        try:
+            rev_track = shiprocket_service.track_awb(order.reverse_awb)
+            if rev_track and isinstance(rev_track, dict):
+                merged_rev = dict(order.reverse_tracking_data or {})
+                merged_rev.update(rev_track)
+                order.reverse_tracking_data = merged_rev
+
+                curr_rev = str(rev_track.get("current_status") or "").upper()
+                mapped_st = shiprocket_service.map_shiprocket_return_status(
+                    curr_rev,
+                    is_delivered=bool(rev_track.get("is_delivered")),
+                    is_picked_up=bool(rev_track.get("is_picked_up"))
+                )
+
+                if mapped_st == "DELIVERED_TO_WAREHOUSE":
+                    order.return_status = "DELIVERED_TO_WAREHOUSE"
+                    restock_returned_order_items(order, db)
+                elif mapped_st == "PICKED_UP":
+                    if order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                        order.return_status = "PICKED_UP"
+                    if order.return_type == "REPLACEMENT" and order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                        order.replacement_status = "PICKED_UP"
+                elif mapped_st == "CANCELLED":
+                    order.return_status = "CANCELLED"
+                elif order.return_status == "NONE":
+                    order.return_status = mapped_st
+
+                if rev_track.get("courier_name") and not order.reverse_courier_name:
+                    order.reverse_courier_name = rev_track.get("courier_name")
+
+                updated = True
+        except Exception as e_rev:
+            logger.warning(f"Error syncing reverse tracking for order {order.id}: {e_rev}")
+
+    # B. If reverse_awb is NOT set or return_status is NONE/REQUESTED, actively query Shiprocket
+    # to see if a return order was created in Shiprocket's dashboard
+    if not order.reverse_awb or order.return_status in ("NONE", "REQUESTED"):
+        try:
+            ret_data = shiprocket_service.find_shiprocket_return_order(
+                order_id=order.id,
+                forward_awb=order.shiprocket_awb,
+                sr_order_id=order.shiprocket_order_id
+            )
+            if ret_data:
+                logger.info(f"Discovered external Shiprocket return for order {order.id}: {ret_data.get('return_order_id')}, AWB: {ret_data.get('reverse_awb')}")
+                if ret_data.get("is_return_exchange"):
+                    order.return_type = "REPLACEMENT"
+                elif not order.return_type or order.return_type == "NONE":
+                    order.return_type = "RETURN"
+
+                if ret_data.get("return_reason") and not order.return_reason:
+                    order.return_reason = str(ret_data.get("return_reason"))
+
+                if ret_data.get("return_shipment_id") and not order.reverse_shipment_id:
+                    order.reverse_shipment_id = str(ret_data.get("return_shipment_id"))
+
+                if ret_data.get("reverse_awb") and not order.reverse_awb:
+                    order.reverse_awb = str(ret_data.get("reverse_awb"))
+
+                if ret_data.get("reverse_courier_name") and not order.reverse_courier_name:
+                    order.reverse_courier_name = str(ret_data.get("reverse_courier_name"))
+
+                if not order.return_requested_at:
+                    order.return_requested_at = datetime.utcnow()
+
+                mapped_st = shiprocket_service.map_shiprocket_return_status(ret_data.get("status") or "")
+                if order.reverse_awb and mapped_st == "REQUESTED":
+                    mapped_st = "PICKUP_SCHEDULED"
+                order.return_status = mapped_st
+
+                # If reverse AWB is available, fetch its tracking
+                if order.reverse_awb:
+                    rev_track = shiprocket_service.track_awb(order.reverse_awb)
+                    if rev_track and isinstance(rev_track, dict):
+                        merged_rev = dict(order.reverse_tracking_data or {})
+                        merged_rev.update(rev_track)
+                        order.reverse_tracking_data = merged_rev
+                        curr_rev = str(rev_track.get("current_status") or "").upper()
+                        if rev_track.get("is_delivered") or "DELIVERED" in curr_rev:
+                            order.return_status = "DELIVERED_TO_WAREHOUSE"
+                            restock_returned_order_items(order, db)
+                        elif rev_track.get("is_picked_up") or "PICK" in curr_rev or "TRANSIT" in curr_rev:
+                            order.return_status = "PICKED_UP"
+
+                if order.return_status == "DELIVERED_TO_WAREHOUSE":
+                    restock_returned_order_items(order, db)
+
+                updated = True
+        except Exception as e_find:
+            logger.warning(f"Error querying Shiprocket return order for {order.id}: {e_find}")
+
+    return updated
+
+
 # 5. Single-Input Public Order Tracking (/track)
 @app.get("/api/shipping/track/{query}", response_model=schemas.OrderTrackingResponse)
 def public_track_order(query: str, db: Session = Depends(get_db)):
@@ -2569,6 +2713,9 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
 
     if not order:
         raise HTTPException(status_code=404, detail="Order or tracking number not found.")
+
+    # Actively sync external return if created in Shiprocket
+    sync_external_shiprocket_return(order, db)
 
     # Live track AWB if present
     forward_scans = []
@@ -2781,6 +2928,10 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         "replacement_tracking_url": order.replacement_tracking_url,
         "replacement_scans": replacement_scans,
     }
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
     return schemas.OrderTrackingResponse.model_validate(tracking_payload)
 
 # 6. Authenticated Tracking for Customer Account View
@@ -3434,31 +3585,6 @@ def request_order_return(
     return build_order_schema(order)
 
 
-def restock_returned_order_items(order: models.Order, db: Session) -> bool:
-    """
-    Restocks returned order items into ProductVariant inventory.
-    Guaranteed idempotent: executes only once per order, flagged in reverse_tracking_data.
-    """
-    rev_data = dict(order.reverse_tracking_data or {})
-    if rev_data.get("is_restocked"):
-        logger.info(f"Order {order.id} items have already been restocked into warehouse inventory. Skipping.")
-        return False
-
-    restocked_any = False
-    for item in (order.items or []):
-        if item.variant_id:
-            var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
-            if var:
-                var.inventory_quantity = (var.inventory_quantity or 0) + item.quantity
-                restocked_any = True
-                logger.info(f"Restocked {item.quantity} unit(s) of variant {var.id} (new qty: {var.inventory_quantity})")
-
-    rev_data["is_restocked"] = True
-    rev_data["restocked_at"] = datetime.utcnow().isoformat()
-    order.reverse_tracking_data = rev_data
-    return restocked_any
-
-
 def execute_cancel_order_return(order: models.Order, reason: Optional[str], db: Session) -> models.Order:
     clean_reason = reason or "Customer requested cancellation of return/exchange"
     logger.info(f"Cancelling return/exchange request for order {order.id}: {clean_reason}")
@@ -3781,7 +3907,7 @@ async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
 
     return {"status": "ok"}
 
-# 10. Shiprocket Webhook Handler (Forward Tracking & Reverse Pickup Refund Trigger)
+# 10. Shiprocket Webhook Handler (Forward Tracking & Reverse Return / Exchange Logistics)
 @app.post("/api/webhooks/shiprocket")
 async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
     try:
@@ -3795,27 +3921,135 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
         current_status = str(data.get("current_status") or data.get("status") or data.get("order_status") or data.get("shipment_status") or "").upper()
         status_code = data.get("status_code")
 
+        # Determine if this webhook event represents reverse/return logistics
+        rev_order = None
+        if awb:
+            rev_order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(reverse_awb=awb).first()
+        if not rev_order and sr_shipment_id:
+            rev_order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(reverse_shipment_id=sr_shipment_id).first()
+
+        is_return_event = bool(
+            rev_order
+            or data.get("is_return") in (1, "1", True)
+            or data.get("return_order_id")
+            or data.get("return_reason")
+            or any(kw in current_status for kw in ("RETURN", "RTO", "REVERSE", "QC_"))
+            or (channel_order_id and re.search(r'[-_](?:RET|RETURN|EXC|EXCHANGE)$', channel_order_id, flags=re.IGNORECASE))
+            or (channel_order_id and re.search(r'^(?:RET|EXC)[-_]', channel_order_id, flags=re.IGNORECASE))
+        )
+
+        # ---------------------------------------------------------
+        # Branch A: Reverse Logistics (Returns & Exchanges)
+        # ---------------------------------------------------------
+        if is_return_event:
+            order = rev_order
+            if not order and channel_order_id:
+                norm_cid = re.sub(r'[-_](?:RET|RETURN|EXC|EXCHANGE)$', '', channel_order_id, flags=re.IGNORECASE)
+                norm_cid = re.sub(r'^(?:RET|EXC)[-_]', '', norm_cid, flags=re.IGNORECASE)
+                order = db.query(models.Order).options(selectinload(models.Order.items)).filter(
+                    (models.Order.id == norm_cid) | (models.Order.id == channel_order_id)
+                ).first()
+
+            if not order and sr_order_id:
+                norm_sroid = re.sub(r'[-_](?:RET|RETURN|EXC|EXCHANGE)$', '', sr_order_id, flags=re.IGNORECASE)
+                norm_sroid = re.sub(r'^(?:RET|EXC)[-_]', '', norm_sroid, flags=re.IGNORECASE)
+                if norm_sroid.startswith("ORD-"):
+                    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=norm_sroid).first()
+                else:
+                    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_order_id=sr_order_id).first()
+
+            if not order and awb:
+                order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_awb=awb).first()
+
+            if not order and sr_shipment_id:
+                order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_shipment_id=sr_shipment_id).first()
+
+            if order:
+                logger.info(f"Processing return/reverse webhook for order {order.id}: status={current_status}, awb={awb}, shipment={sr_shipment_id}")
+                if not order.return_requested_at:
+                    order.return_requested_at = datetime.utcnow()
+                if not order.return_type or order.return_type == "NONE":
+                    order.return_type = "REPLACEMENT" if data.get("is_return_exchange") else "RETURN"
+
+                if awb:
+                    order.reverse_awb = awb
+                if sr_shipment_id:
+                    order.reverse_shipment_id = sr_shipment_id
+
+                courier_val = data.get("courier_name") or data.get("courier")
+                if courier_val and not order.reverse_courier_name:
+                    order.reverse_courier_name = str(courier_val)
+
+                if data.get("return_reason") and not order.return_reason:
+                    order.return_reason = str(data.get("return_reason"))
+
+                mapped_st = shiprocket_service.map_shiprocket_return_status(current_status)
+                if order.reverse_awb and mapped_st == "REQUESTED":
+                    mapped_st = "PICKUP_SCHEDULED"
+
+                now_utc = datetime.now(timezone.utc)
+                ts_str = now_utc.strftime("%d %b %Y, %I:%M %p")
+                t_data = dict(order.reverse_tracking_data or {})
+                scans = t_data.setdefault("scans", [])
+
+                if mapped_st == "DELIVERED_TO_WAREHOUSE":
+                    order.return_status = "DELIVERED_TO_WAREHOUSE"
+                    restocked = restock_returned_order_items(order, db)
+                    scans.insert(0, {
+                        "title": "Return Parcel Delivered to Warehouse",
+                        "description": "Returned package received at warehouse facility. Inventory automatically restocked.",
+                        "timestamp": ts_str,
+                        "location": "VAHN Warehouse (Home)"
+                    })
+                    order.reverse_tracking_data = t_data
+                    logger.info(f"Exchange/Return parcel {order.id} delivered to warehouse. Restocked: {restocked}")
+                elif mapped_st == "PICKED_UP":
+                    order.return_status = "PICKED_UP"
+                    if order.return_type == "REPLACEMENT":
+                        order.replacement_status = "PICKED_UP"
+                elif mapped_st == "CANCELLED":
+                    order.return_status = "CANCELLED"
+                else:
+                    order.return_status = mapped_st
+
+                # Fetch live reverse tracking activities if reverse AWB is available
+                if order.reverse_awb:
+                    try:
+                        rev_track = shiprocket_service.track_awb(order.reverse_awb)
+                        if rev_track and isinstance(rev_track, dict):
+                            merged_rev = dict(order.reverse_tracking_data or {})
+                            merged_rev.update(rev_track)
+                            order.reverse_tracking_data = merged_rev
+                            if rev_track.get("is_delivered"):
+                                order.return_status = "DELIVERED_TO_WAREHOUSE"
+                                restock_returned_order_items(order, db)
+                    except Exception as e_rev_tr:
+                        logger.warning(f"Error fetching reverse tracking in webhook for {order.id}: {e_rev_tr}")
+
+                db.commit()
+                return {"status": "reverse_updated", "order_id": order.id, "return_status": order.return_status}
+
+            return {"status": "return_order_not_found"}
+
+        # ---------------------------------------------------------
+        # Branch B: Forward Shipment Logistics
+        # ---------------------------------------------------------
         order = None
-        # 1. Match by AWB if provided
         if awb:
             order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_awb=awb).first()
 
-        # 2. Match by channel_order_id (e.g. ORD-XXXXXX)
         if not order and channel_order_id:
             order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=channel_order_id).first()
 
-        # 3. Match by order_id (can be ORD-XXXXXX or Shiprocket numeric order ID)
         if not order and sr_order_id:
             if sr_order_id.startswith("ORD-"):
                 order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=sr_order_id).first()
             else:
                 order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_order_id=sr_order_id).first()
 
-        # 4. Match by shiprocket_shipment_id
         if not order and sr_shipment_id:
             order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(shiprocket_shipment_id=sr_shipment_id).first()
 
-        # Check forward shipment
         if order:
             # Check if this status represents an order cancellation
             if is_shiprocket_cancelled(current_status, status_code):
@@ -3876,54 +4110,18 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
                             except Exception as e_del:
                                 logger.warning(f"Failed to send delivered email for {order.id}: {e_del}")
 
+                # Actively check if tracking contains return AWB code or external return
+                if order.shiprocket_awb:
+                    try:
+                        live_fwd = shiprocket_service.track_awb(order.shiprocket_awb)
+                        if live_fwd and live_fwd.get("return_awb_code") and not order.reverse_awb:
+                            order.reverse_awb = live_fwd.get("return_awb_code")
+                            sync_external_shiprocket_return(order, db)
+                    except Exception as e_trk:
+                        logger.warning(f"Error checking return code on forward AWB {order.shiprocket_awb}: {e_trk}")
+
                 db.commit()
                 return {"status": "forward_updated", "order_id": order.id}
-
-        # Check reverse shipment
-        if awb:
-            rev_order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(reverse_awb=awb).first()
-            if rev_order:
-                now_utc = datetime.now(timezone.utc)
-                ts_str = now_utc.strftime("%d %b %Y, %I:%M %p")
-                t_data = dict(rev_order.tracking_data or {})
-                scans = t_data.setdefault("scans", [])
-
-                if current_status in ("PICKED_UP", "IN_TRANSIT"):
-                    if rev_order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                        rev_order.return_status = "PICKED_UP"
-                    if rev_order.return_type == "REPLACEMENT":
-                        if rev_order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                            rev_order.replacement_status = "PICKED_UP"
-                    db.commit()
-                    return {"status": "reverse_picked_up"}
-
-                elif current_status in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE"):
-                    rev_order.return_status = "DELIVERED_TO_WAREHOUSE"
-
-                    # Automatic restock into inventory upon warehouse delivery for both returns and exchanges
-                    restocked = restock_returned_order_items(rev_order, db)
-
-                    if rev_order.return_type == "REPLACEMENT":
-                        scans.insert(0, {
-                            "title": "Return Parcel Delivered to Warehouse",
-                            "description": "Returned exchange package arrived at warehouse. Size inventory automatically restocked.",
-                            "timestamp": ts_str,
-                            "location": "VAHN Warehouse (Home)"
-                        })
-                        rev_order.tracking_data = t_data
-                        logger.info(f"Exchange parcel {rev_order.id} delivered to warehouse. Restocked: {restocked}")
-                    else:
-                        scans.insert(0, {
-                            "title": "Return Parcel Delivered to Warehouse",
-                            "description": "Returned package received at warehouse facility. Size inventory automatically restocked.",
-                            "timestamp": ts_str,
-                            "location": "VAHN Warehouse (Home)"
-                        })
-                        rev_order.tracking_data = t_data
-                        logger.info(f"Return parcel {rev_order.id} delivered to warehouse. Restocked: {restocked}. Awaiting QC inspection and refund initiation in admin.")
-
-                    db.commit()
-                    return {"status": "reverse_delivered_to_warehouse"}
 
     except Exception as e:
         logger.error(f"Error in Shiprocket webhook: {e}")
@@ -4009,29 +4207,9 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
         except Exception as e:
             logger.warning(f"Failed to sync forward tracking for order {order.id}: {e}")
 
-    if order.reverse_awb:
-        try:
-            rev_track = shiprocket_service.track_awb(order.reverse_awb)
-            if rev_track and isinstance(rev_track, dict):
-                merged_rev = dict(order.reverse_tracking_data or {})
-                merged_rev.update(rev_track)
-                order.reverse_tracking_data = merged_rev
-                curr_rev = str(rev_track.get("current_status") or "").upper()
-                if rev_track.get("is_delivered") or curr_rev in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev:
-                    order.return_status = "DELIVERED_TO_WAREHOUSE"
-                    # Automatic restock into inventory upon warehouse delivery for both returns and exchanges
-                    restock_returned_order_items(order, db)
-                elif rev_track.get("is_picked_up") or curr_rev in ("PICKED_UP", "IN_TRANSIT"):
-                    if order.return_type == "REPLACEMENT":
-                        if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                            order.replacement_status = "PICKED_UP"
-                        if order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                            order.return_status = "PICKED_UP"
-                    elif order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                        order.return_status = "PICKED_UP"
-                updated = True
-        except Exception as e:
-            logger.warning(f"Failed to sync reverse tracking for order {order.id}: {e}")
+    if order.status in ("DELIVERED", "SHIPPED", "COMPLETED") or (order.return_status and order.return_status != "NONE") or order.reverse_awb:
+        if sync_external_shiprocket_return(order, db):
+            updated = True
 
     if order.replacement_awb and order.replacement_awb != order.shiprocket_awb:
         try:
@@ -4908,30 +5086,10 @@ def admin_get_order(
         except Exception as e:
             logger.warning(f"Failed to sync forward tracking for order {order.id}: {e}")
 
-    # Auto-fetch live reverse return tracking if reverse AWB exists
-    if order.reverse_awb:
-        try:
-            rev_track = shiprocket_service.track_awb(order.reverse_awb)
-            if rev_track and isinstance(rev_track, dict):
-                merged_rev = dict(order.reverse_tracking_data or {})
-                merged_rev.update(rev_track)
-                order.reverse_tracking_data = merged_rev
-                curr_rev = str(rev_track.get("current_status") or "").upper()
-                if rev_track.get("is_delivered") or curr_rev in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev:
-                    order.return_status = "DELIVERED_TO_WAREHOUSE"
-                    # Automatic restock into inventory upon warehouse delivery for both returns and exchanges
-                    restock_returned_order_items(order, db)
-                elif rev_track.get("is_picked_up") or curr_rev in ("PICKED_UP", "IN_TRANSIT"):
-                    if order.return_type == "REPLACEMENT":
-                        if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                            order.replacement_status = "PICKED_UP"
-                        if order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                            order.return_status = "PICKED_UP"
-                    elif order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                        order.return_status = "PICKED_UP"
-                updated = True
-        except Exception as e:
-            logger.warning(f"Failed to sync reverse tracking for order {order.id}: {e}")
+    # Auto-sync external Shiprocket return if any return order or reverse AWB was created in Shiprocket panel
+    if order.status in ("DELIVERED", "SHIPPED", "COMPLETED") or (order.return_status and order.return_status != "NONE") or order.reverse_awb:
+        if sync_external_shiprocket_return(order, db):
+            updated = True
 
     if order.replacement_awb and order.replacement_awb != order.shiprocket_awb:
         try:
@@ -5001,28 +5159,8 @@ def admin_refresh_order_tracking(
         except Exception as e:
             logger.warning(f"Error refreshing tracking for order {order.id}: {e}")
 
-    if order.reverse_awb:
-        try:
-            rev_track = shiprocket_service.track_awb(order.reverse_awb)
-            if rev_track and isinstance(rev_track, dict):
-                merged_rev = dict(order.reverse_tracking_data or {})
-                merged_rev.update(rev_track)
-                order.reverse_tracking_data = merged_rev
-                curr_rev = str(rev_track.get("current_status") or "").upper()
-                if rev_track.get("is_delivered") or curr_rev in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev:
-                    order.return_status = "DELIVERED_TO_WAREHOUSE"
-                    # Automatic restock into inventory upon warehouse delivery for both returns and exchanges
-                    restock_returned_order_items(order, db)
-                elif rev_track.get("is_picked_up") or curr_rev in ("PICKED_UP", "IN_TRANSIT"):
-                    if order.return_type == "REPLACEMENT":
-                        if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                            order.replacement_status = "PICKED_UP"
-                        if order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                            order.return_status = "PICKED_UP"
-                    elif order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
-                        order.return_status = "PICKED_UP"
-        except Exception as e:
-            logger.warning(f"Error refreshing reverse tracking for order {order.id}: {e}")
+    # Actively sync external Shiprocket return if created in Shiprocket dashboard or reverse tracking
+    sync_external_shiprocket_return(order, db)
 
     if order.replacement_awb and order.replacement_awb != order.shiprocket_awb:
         try:
