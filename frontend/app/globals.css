@@ -1823,7 +1823,7 @@ select.input::-ms-expand {
   z-index: 10;
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  border-radius: 0;
   border: none;
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(6px);
@@ -3629,6 +3629,7 @@ a:active .btn-checkout-arrow,
     visibility: visible !important;
     width: 42px !important;
     height: 42px !important;
+    border-radius: 0 !important;
     background: rgba(255, 255, 255, 0.9) !important;
     backdrop-filter: blur(8px) !important;
     -webkit-backdrop-filter: blur(8px) !important;
@@ -3768,7 +3769,7 @@ a:active .btn-checkout-arrow,
   color: #ffffff;
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3790,7 +3791,7 @@ a:active .btn-checkout-arrow,
   color: #ffffff;
   width: 52px;
   height: 52px;
-  border-radius: 50%;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;

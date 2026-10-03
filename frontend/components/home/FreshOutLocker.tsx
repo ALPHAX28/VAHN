@@ -836,7 +836,7 @@ export default function FreshOutLocker({ products }: Props) {
                 style={{
                   width: '36px',
                   height: '36px',
-                  borderRadius: '50%',
+                  borderRadius: 0,
                   border: '1px solid rgba(0, 0, 0, 0.15)',
                   background: canScrollLeft ? '#ffffff' : '#f5f5f7',
                   color: canScrollLeft ? '#000000' : '#c4c4c8',
@@ -882,7 +882,7 @@ export default function FreshOutLocker({ products }: Props) {
                 style={{
                   width: '36px',
                   height: '36px',
-                  borderRadius: '50%',
+                  borderRadius: 0,
                   border: '1px solid rgba(0, 0, 0, 0.15)',
                   background: canScrollRight ? '#ffffff' : '#f5f5f7',
                   color: canScrollRight ? '#000000' : '#c4c4c8',
