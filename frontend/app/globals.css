@@ -4723,12 +4723,6 @@ a:active .btn-checkout-arrow,
   border: 1px solid var(--color-border);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
   overflow: hidden;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.order-card:hover {
-  border-color: #111111;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
 .order-card-header {
@@ -4774,8 +4768,8 @@ a:active .btn-checkout-arrow,
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 4px 12px;
-  border-radius: 9999px;
+  padding: 4px 10px;
+  border-radius: 2px;
   display: inline-flex;
   align-items: center;
 }
@@ -5247,7 +5241,7 @@ a:active .btn-checkout-arrow,
   .order-status-badge {
     font-size: 0.65rem;
     padding: 4px 10px;
-    border-radius: 9999px;
+    border-radius: 2px;
   }
 
   .order-items-list {
