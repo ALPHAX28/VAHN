@@ -58,9 +58,16 @@ admin.vahnsports.com {
 	}
 }
 
-# 3. Development Storefront (https://dev.vahnsports.com)
+# 3. Development Storefront (https://dev.vahnsports.com) — VPN RESTRICTED
 dev.vahnsports.com {
 	encode gzip zstd
+
+	# ── VAHN IN-HOUSE VPN ACCESS CONTROL ──
+	# Only allow connections originating from WireGuard VPN (10.0.0.0/8) or internal Docker/host network (172.16.0.0/12)
+	@not_vpn not remote_ip 10.0.0.0/8 172.16.0.0/12 127.0.0.1 65.2.203.191
+	handle @not_vpn {
+		respond "Access Denied" 403
+	}
 
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
