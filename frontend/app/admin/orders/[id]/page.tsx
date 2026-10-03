@@ -703,6 +703,47 @@ export default function AdminOrderDetailPage() {
                       ? 'In Transit'
                       : 'Awaiting Dispatch');
 
+            const isOutForDelivery =
+              !isDelivered &&
+              (order.shipping_status === 'OUT_FOR_DELIVERY' ||
+                forwardScans.some((s) => /out for delivery/i.test(s.activity || '')));
+
+            const isForwardPickedUp = Boolean(
+              forwardTracking?.is_picked_up ||
+                order.shipping_status === 'IN_TRANSIT' ||
+                order.shipping_status === 'SHIPPED' ||
+                order.shipping_status === 'PICKED_UP' ||
+                order.shipping_status === 'OUT_FOR_DELIVERY' ||
+                isDelivered ||
+                forwardScans.some(
+                  (s) =>
+                    !/cancel/i.test(s.activity || '') &&
+                    /picked up|in transit|reached hub|out for delivery|shipment connected|dispatched from|arrived at/i.test(
+                      s.activity || ''
+                    )
+                )
+            );
+
+            const isInTransit =
+              !isDelivered &&
+              !isOutForDelivery &&
+              (order.shipping_status === 'IN_TRANSIT' ||
+                order.shipping_status === 'SHIPPED' ||
+                isForwardPickedUp ||
+                Boolean(order.shiprocket_awb && forwardScans.length > 0));
+
+            const isPickupScheduledPending =
+              !isDelivered &&
+              !isOutForDelivery &&
+              !isInTransit &&
+              !isForwardPickedUp &&
+              Boolean(
+                order.tracking_data?.pickup_scheduled ||
+                  order.tracking_data?.pickup_token ||
+                  order.shipping_status === 'PICKUP_SCHEDULED' ||
+                  order.shipping_status === 'PICKUP_QUEUED'
+              );
+
             // Single authoritative Card Title, Icon, Border Accent, and Status Badge
             let cardTitle = 'Forward Logistics (Shiprocket)';
             let cardIcon = <TruckIcon size={20} color="#4232d9" />;
@@ -798,23 +839,27 @@ export default function AdminOrderDetailPage() {
                 color: '#389e0d',
                 border: '#b7eb8f',
               };
-            } else if (
-              order.shipping_status === 'OUT_FOR_DELIVERY' ||
-              order.shipping_status === 'SHIPPED' ||
-              order.shipping_status === 'IN_TRANSIT' ||
-              order.shiprocket_awb
-            ) {
+            } else if (isOutForDelivery) {
               cardTitle = 'Forward Logistics (Shiprocket)';
-              cardIcon = <TruckIcon size={20} color="#4232d9" />;
-              borderAccent = '#4232d9';
+              cardIcon = <TruckIcon size={20} color="#1d4ed8" />;
+              borderAccent = '#1d4ed8';
               statusBadge = {
-                text:
-                  order.shipping_status === 'OUT_FOR_DELIVERY' ? 'OUT FOR DELIVERY' : 'IN TRANSIT',
+                text: 'OUT FOR DELIVERY',
                 bg: '#eff6ff',
                 color: '#1d4ed8',
                 border: '#bfdbfe',
               };
-            } else if (isPickupScheduled) {
+            } else if (isInTransit) {
+              cardTitle = 'Forward Logistics (Shiprocket)';
+              cardIcon = <TruckIcon size={20} color="#1d4ed8" />;
+              borderAccent = '#1d4ed8';
+              statusBadge = {
+                text: 'IN TRANSIT',
+                bg: '#eff6ff',
+                color: '#1d4ed8',
+                border: '#bfdbfe',
+              };
+            } else if (isPickupScheduledPending) {
               cardTitle = 'Forward Logistics (Shiprocket)';
               cardIcon = <TruckIcon size={20} color="#d97706" />;
               borderAccent = '#d97706';
@@ -823,6 +868,16 @@ export default function AdminOrderDetailPage() {
                 bg: '#fffbe6',
                 color: '#d48806',
                 border: '#ffe58f',
+              };
+            } else if (order.shiprocket_awb) {
+              cardTitle = 'Forward Logistics (Shiprocket)';
+              cardIcon = <TruckIcon size={20} color="#4232d9" />;
+              borderAccent = '#4232d9';
+              statusBadge = {
+                text: 'AWB ASSIGNED',
+                bg: '#f3f4f6',
+                color: '#111827',
+                border: '#e5e7eb',
               };
             }
 
@@ -2168,7 +2223,89 @@ export default function AdminOrderDetailPage() {
                           </div>
                         </div>
                       </div>
-                    ) : isPickupScheduled ? (
+                    ) : isOutForDelivery ? (
+                      <div
+                        style={{
+                          background: '#eff6ff',
+                          border: '1px solid #bfdbfe',
+                          padding: '12px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          marginBottom: 16,
+                        }}
+                      >
+                        <TruckIcon size={20} color="#1d4ed8" />
+                        <div>
+                          <strong
+                            style={{
+                              color: '#1e40af',
+                              fontSize: '0.85rem',
+                              textTransform: 'uppercase',
+                              display: 'block',
+                            }}
+                          >
+                            Out for Delivery — Arriving Today
+                          </strong>
+                          <span style={{ fontSize: '0.78rem', color: '#1d4ed8' }}>
+                            Package is with the courier delivery executive and on the way to the customer.
+                          </span>
+                        </div>
+                      </div>
+                    ) : isInTransit ? (
+                      <div
+                        style={{
+                          background: '#eff6ff',
+                          border: '1px solid #bfdbfe',
+                          padding: '12px 14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          marginBottom: 16,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <TruckIcon size={20} color="#1d4ed8" />
+                          <div>
+                            <strong
+                              style={{
+                                color: '#1e40af',
+                                fontSize: '0.85rem',
+                                textTransform: 'uppercase',
+                                display: 'block',
+                              }}
+                            >
+                              Shipment In Transit
+                            </strong>
+                            <span style={{ fontSize: '0.78rem', color: '#1d4ed8' }}>
+                              Courier picked up package from warehouse. Order is moving through the courier network towards destination.
+                            </span>
+                          </div>
+                        </div>
+                        {forwardCurrentLocation &&
+                          forwardCurrentLocation !== 'In Transit' &&
+                          forwardCurrentLocation !== 'Awaiting Dispatch' && (
+                            <div
+                              style={{
+                                background: '#fff',
+                                border: '1px solid #bfdbfe',
+                                padding: '4px 10px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                color: '#1e40af',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                              }}
+                            >
+                              <MapPinIcon size={12} color="#1d4ed8" />
+                              <span>{forwardCurrentLocation}</span>
+                            </div>
+                          )}
+                      </div>
+                    ) : isPickupScheduledPending ? (
                       <div
                         style={{
                           background: '#fffbe6',
