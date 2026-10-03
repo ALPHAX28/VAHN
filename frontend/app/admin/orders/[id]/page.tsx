@@ -742,9 +742,26 @@ export default function AdminOrderDetailPage() {
               const tB = parseCheckpointDate(b.date);
               return tB - tA;
             });
+            const latestRevScanLoc = reverseScans.find(
+              (s) =>
+                s.location &&
+                s.location.trim() &&
+                ![
+                  'in transit',
+                  'transit',
+                  'unfulfilled',
+                  'processing',
+                  'manifest generated',
+                  'origin facility',
+                  'pending',
+                  'unknown',
+                  'n/a',
+                ].includes(s.location.trim().toLowerCase())
+            )?.location;
+
             const reverseCurrentLocation =
+              latestRevScanLoc ||
               reverseTracking?.current_location ||
-              (reverseScans.length > 0 ? reverseScans[0]?.location : null) ||
               'Customer Area / Sorting Hub';
 
             const isPickedUpFromCustomer =
@@ -794,10 +811,27 @@ export default function AdminOrderDetailPage() {
               const tB = parseCheckpointDate(b.date);
               return tB - tA;
             });
+            const latestRepScanLoc = replacementScans.find(
+              (s) =>
+                s.location &&
+                s.location.trim() &&
+                ![
+                  'in transit',
+                  'transit',
+                  'unfulfilled',
+                  'processing',
+                  'manifest generated',
+                  'origin facility',
+                  'pending',
+                  'unknown',
+                  'n/a',
+                ].includes(s.location.trim().toLowerCase())
+            )?.location;
+
             const replacementCurrentLocation =
+              latestRepScanLoc ||
               (order.tracking_data as any)?.replacement_current_location ||
               (order.tracking_data as any)?.replacement_tracking?.current_location ||
-              (replacementScans.length > 0 ? replacementScans[0]?.location : null) ||
               (order.replacement_awb ? 'In Transit to Customer' : 'Warehouse / Dispatch Facility');
 
             const forwardTracking = order.tracking_data;
@@ -808,14 +842,29 @@ export default function AdminOrderDetailPage() {
               const tB = parseCheckpointDate(b.date);
               return tB - tA;
             });
+            const latestFwdScanLoc = forwardScans.find(
+              (s) =>
+                s.location &&
+                s.location.trim() &&
+                ![
+                  'in transit',
+                  'transit',
+                  'unfulfilled',
+                  'processing',
+                  'manifest generated',
+                  'origin facility',
+                  'pending',
+                  'unknown',
+                  'n/a',
+                ].includes(s.location.trim().toLowerCase())
+            )?.location;
+
             const forwardCurrentLocation = isPaymentFailed
               ? 'Fulfillment Blocked (Payment Failed)'
               : isCancelled
                 ? 'Shipment Revoked & Cancelled'
-                : forwardTracking?.current_location ||
-                  (forwardScans.length > 0
-                    ? forwardScans[0]?.location
-                    : null) ||
+                : latestFwdScanLoc ||
+                  forwardTracking?.current_location ||
                   (isDelivered
                     ? 'Delivered to Customer'
                     : order.shiprocket_awb

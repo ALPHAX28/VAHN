@@ -1047,12 +1047,24 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
                     ]
                     latest_loc = None
                     if scans_list:
-                        raw_loc = (scans_list[-1].get("location") or "").strip()
-                        if raw_loc and raw_loc.lower() not in (
-                            "in transit", "transit", "unfulfilled", "processing",
-                            "manifest generated", "origin facility", "pending", "unknown", "n/a"
-                        ):
-                            latest_loc = raw_loc
+                        def _parse_ts(s_dict):
+                            d_str = str(s_dict.get("date") or "").strip()
+                            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%d-%m-%Y %H:%M:%S", "%d/%m/%Y %H:%M:%S"):
+                                try:
+                                    return datetime.strptime(d_str[:19], fmt).timestamp()
+                                except Exception:
+                                    pass
+                            return 0.0
+
+                        sorted_by_date = sorted(scans_list, key=_parse_ts, reverse=True)
+                        for s_item in sorted_by_date:
+                            raw_loc = (s_item.get("location") or "").strip()
+                            if raw_loc and raw_loc.lower() not in (
+                                "in transit", "transit", "unfulfilled", "processing",
+                                "manifest generated", "origin facility", "pending", "unknown", "n/a"
+                            ):
+                                latest_loc = raw_loc
+                                break
 
                     is_delivered = (
                         current_status in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE")
