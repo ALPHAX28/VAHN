@@ -548,7 +548,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         ? order.trackingData.scans
         : [];
   const activeForwardScans = [...rawForwardScans].sort(
-    (a, b) => parseCheckpointDate(a.date) - parseCheckpointDate(b.date)
+    (a, b) => parseCheckpointDate(b.date) - parseCheckpointDate(a.date)
   );
 
   const rawReverseScans =
@@ -558,7 +558,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         ? order.reverseTrackingData.scans
         : [];
   const activeReverseScans = [...rawReverseScans].sort(
-    (a, b) => parseCheckpointDate(a.date) - parseCheckpointDate(b.date)
+    (a, b) => parseCheckpointDate(b.date) - parseCheckpointDate(a.date)
   );
 
   const rawReplacementScans =
@@ -566,16 +566,31 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
       ? trackingModalData.replacement_scans
       : [];
   const activeReplacementScans = [...rawReplacementScans].sort(
-    (a, b) => parseCheckpointDate(a.date) - parseCheckpointDate(b.date)
+    (a, b) => parseCheckpointDate(b.date) - parseCheckpointDate(a.date)
   );
 
-  // Strictly dynamic courier location from API (no static fake fallbacks or pseudo-statuses)
+  // Strictly dynamic courier location from API (latest chronological checkpoint with valid location)
+  const latestValidFwdScan = activeForwardScans.find(
+    (s) =>
+      s.location &&
+      s.location.trim() &&
+      ![
+        'in transit',
+        'transit',
+        'unfulfilled',
+        'processing',
+        'manifest generated',
+        'origin facility',
+        'pending',
+        'unknown',
+        'n/a',
+      ].includes(s.location.trim().toLowerCase())
+  );
+
   const rawForwardLoc = (
+    latestValidFwdScan?.location ||
     trackingModalData?.current_location ||
     order.trackingData?.current_location ||
-    (activeForwardScans.length > 0
-      ? activeForwardScans[activeForwardScans.length - 1]?.location
-      : null) ||
     ''
   ).trim();
 
@@ -605,7 +620,8 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
   if (activeForwardScans.length > 0) {
     displayForwardScans.push(...activeForwardScans);
   } else {
-    displayForwardScans.push({
+    const synthesized: Array<{ activity: string; date?: string | null; location?: string | null }> = [];
+    synthesized.push({
       activity: 'Order Placed & Payment Confirmed',
       date: order.createdAt
         ? new Date(order.createdAt).toLocaleDateString('en-IN', {
@@ -622,7 +638,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
       order.shippingStatus === 'IN_TRANSIT' ||
       order.shippingStatus === 'DELIVERED'
     ) {
-      displayForwardScans.push({
+      synthesized.push({
         activity: 'Packed & Ready for Pickup',
         date: 'Packed',
         location: order.shiprocketAwb ? `AWB: ${order.shiprocketAwb}` : 'Fulfillment Facility',
@@ -633,27 +649,27 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
       order.shippingStatus === 'IN_TRANSIT' ||
       order.shippingStatus === 'DELIVERED'
     ) {
-      displayForwardScans.push({
+      synthesized.push({
         activity: 'Handed Over to Courier',
         date: 'Dispatched',
         location:
           order.shiprocketCourierName || trackingModalData?.courier_name || 'Express Courier',
       });
-      displayForwardScans.push({
+      synthesized.push({
         activity: 'In Transit',
         date: 'In Progress',
         location: forwardCurrentLoc || 'Destination Hub',
       });
     }
     if (order.shippingStatus === 'OUT_FOR_DELIVERY') {
-      displayForwardScans.push({
+      synthesized.push({
         activity: 'Out for Delivery',
         date: 'In Progress',
         location: order.shippingAddress?.city || null,
       });
     }
     if (order.status === 'DELIVERED' || order.shippingStatus === 'DELIVERED') {
-      displayForwardScans.push({
+      synthesized.push({
         activity: 'Package Delivered',
         date: order.deliveredAt
           ? new Date(order.deliveredAt).toLocaleDateString('en-IN', {
@@ -665,6 +681,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         location: order.shippingAddress?.city || null,
       });
     }
+    displayForwardScans.push(...synthesized.reverse());
   }
 
   const reverseCurrentLoc =
@@ -2372,74 +2389,103 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 background: '#fff',
                 width: '100%',
                 maxWidth: 720,
+                height: 'min(720px, 90vh)',
                 maxHeight: '90vh',
-                overflowY: 'auto',
                 border: '2px solid #000',
                 boxShadow: '0 25px 60px rgba(0,0,0,0.35)',
                 display: 'flex',
                 flexDirection: 'column',
+                overflow: 'hidden',
               }}
             >
               {/* Modal Header */}
               <div
                 style={{
-                  padding: '20px 24px',
-                  borderBottom: '1px solid #e5e7eb',
+                  padding: '16px 22px',
+                  borderBottom: '1px solid #222',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   background: '#000',
                   color: '#fff',
+                  flexShrink: 0,
                 }}
               >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span
-                      style={{
-                        background: '#000000',
-                        color: '#fff',
-                        fontSize: '0.68rem',
-                        fontWeight: 900,
-                        padding: '2px 8px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.03em',
-                      }}
-                    >
-                      Live Logistics
-                    </span>
-                    <span
-                      style={{ fontSize: '0.75rem', color: '#aaa', textTransform: 'uppercase' }}
-                    >
-                      Shiprocket Courier Network
-                    </span>
-                  </div>
-                  <h3
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div
                     style={{
-                      fontSize: '1.25rem',
-                      fontWeight: 900,
-                      margin: 0,
-                      letterSpacing: '-0.025em',
+                      width: 38,
+                      height: 38,
+                      background: '#1a1a1a',
+                      border: '1px solid #333',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
                     }}
                   >
-                    Tracking Details · Order #{order.id}
-                  </h3>
+                    <TruckIcon size={20} color="#fff" />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <h3
+                        style={{
+                          fontSize: '1.05rem',
+                          fontWeight: 900,
+                          margin: 0,
+                          letterSpacing: '-0.02em',
+                          textTransform: 'uppercase',
+                          color: '#fff',
+                        }}
+                      >
+                        Live Logistics & Checkpoints
+                      </h3>
+                      <span
+                        style={{
+                          background: '#16a34a',
+                          color: '#fff',
+                          fontSize: '0.65rem',
+                          fontWeight: 900,
+                          padding: '2px 8px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                        }}
+                      >
+                        Live Feed
+                      </span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '0.76rem',
+                        color: '#9ca3af',
+                        fontWeight: 600,
+                        display: 'block',
+                        marginTop: 2,
+                      }}
+                    >
+                      Order #{order.id} · Verified Shiprocket Courier Network
+                    </span>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowTrackingModal(false)}
                   style={{
-                    background: 'transparent',
-                    border: 'none',
+                    background: '#1a1a1a',
+                    border: '1px solid #333',
                     color: '#fff',
                     cursor: 'pointer',
-                    padding: 8,
+                    width: 36,
+                    height: 36,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    flexShrink: 0,
+                    transition: 'all 0.15s ease',
                   }}
                   aria-label="Close tracking modal"
                 >
-                  <XIcon size={20} color="#fff" />
+                  <XIcon size={18} color="#fff" />
                 </button>
               </div>
 
@@ -2449,7 +2495,12 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 order.replacementAwb ||
                 order.returnType === 'REPLACEMENT') && (
                 <div
-                  style={{ display: 'flex', borderBottom: '2px solid #000', background: '#f3f4f6' }}
+                  style={{
+                    display: 'flex',
+                    borderBottom: '2px solid #000',
+                    background: '#f3f4f6',
+                    flexShrink: 0,
+                  }}
                 >
                   <button
                     type="button"
@@ -2516,10 +2567,27 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 </div>
               )}
 
-              {/* Modal Body */}
-              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Modal Body: Pinned Top Info + Dedicated Scrollable Timeline Feed */}
+              <div
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 0,
+                  overflow: 'hidden',
+                }}
+              >
                 {loadingTrackingModal ? (
-                  <div style={{ padding: '40px 0', textAlign: 'center' }}>
+                  <div
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '40px 0',
+                    }}
+                  >
                     <div
                       style={{
                         width: 36,
@@ -2545,232 +2613,273 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 ) : activeTrackingTab === 'forward' ? (
                   /* FORWARD TRACKING VIEW */
                   <>
-                    {/* Current Location Highlight Banner */}
+                    {/* Fixed Forward Logistics Header Summary (Never scrolls away) */}
                     <div
                       style={{
-                        background: '#f0fdf4',
-                        border: '1.5px solid #86efac',
                         padding: '16px 20px',
                         display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
+                        flexDirection: 'column',
                         gap: 12,
+                        flexShrink: 0,
+                        borderBottom: '1px solid #e5e7eb',
+                        background: '#fff',
                       }}
                     >
-                      <div>
-                        <div
-                          style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}
-                        >
-                          <span
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: '50%',
-                              background: '#16a34a',
-                              display: 'inline-block',
-                              boxShadow: '0 0 0 3px rgba(22,163,74,0.25)',
-                            }}
-                          />
-                          <span
-                            style={{
-                              fontSize: '0.72rem',
-                              fontWeight: 900,
-                              color: '#16a34a',
-                              textTransform: 'uppercase',
-                            }}
-                          >
-                            Current Location
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: '1.1rem',
-                            fontWeight: 900,
-                            color: '#000',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                          }}
-                        >
-                          <MapPinIcon size={18} color="#000" />
-                          <span>{forwardCurrentLoc || 'In Transit to Destination Facility'}</span>
-                        </div>
-                      </div>
-                      <span
+                      {/* Current Location Highlight Banner */}
+                      <div
                         style={{
-                          background: '#000',
-                          color: '#fff',
-                          padding: '6px 14px',
-                          fontSize: '0.75rem',
-                          fontWeight: 900,
-                          textTransform: 'uppercase',
+                          background: '#f0fdf4',
+                          border: '1.5px solid #86efac',
+                          padding: '12px 16px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: 10,
                         }}
                       >
-                        {prettifyShipStatus(order.shippingStatus || order.status)}
-                      </span>
-                    </div>
-
-                    {/* Courier & AWB Code strip */}
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                        gap: 16,
-                        background: '#f9fafb',
-                        border: '1px solid #e5e7eb',
-                        padding: '16px 20px',
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{
-                            fontSize: '0.7rem',
-                            color: '#666',
-                            textTransform: 'uppercase',
-                            fontWeight: 800,
-                          }}
-                        >
-                          Courier Partner
-                        </div>
-                        <div
-                          style={{
-                            fontSize: '0.95rem',
-                            fontWeight: 900,
-                            color: '#000',
-                            marginTop: 2,
-                          }}
-                        >
-                          {order.shiprocketCourierName ||
-                            trackingModalData?.courier_name ||
-                            trackingModalData?.courierName ||
-                            'Assigned on Dispatch'}
-                        </div>
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontSize: '0.7rem',
-                            color: '#666',
-                            textTransform: 'uppercase',
-                            fontWeight: 800,
-                          }}
-                        >
-                          AWB Tracking Code
-                        </div>
-                        <div
-                          style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}
-                        >
-                          <strong
-                            style={{ fontFamily: 'monospace', fontSize: '0.95rem', color: '#000' }}
-                          >
-                            {order.shiprocketAwb ||
-                              trackingModalData?.awb_code ||
-                              trackingModalData?.awbCode ||
-                              'Pending Dispatch'}
-                          </strong>
-                          {(order.shiprocketAwb || trackingModalData?.awb_code) && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleCopyAwb(
-                                  order.shiprocketAwb || trackingModalData?.awb_code || ''
-                                )
-                              }
-                              style={{
-                                background: copiedAwb ? '#16a34a' : '#fff',
-                                color: copiedAwb ? '#fff' : '#000',
-                                border: '1px solid #000',
-                                padding: '2px 8px',
-                                fontSize: '0.7rem',
-                                fontWeight: 800,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              {copiedAwb ? 'COPIED' : 'COPY'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontSize: '0.7rem',
-                            color: '#666',
-                            textTransform: 'uppercase',
-                            fontWeight: 800,
-                          }}
-                        >
-                          Estimated Delivery
-                        </div>
-                        <div
-                          style={{
-                            fontSize: '0.95rem',
-                            fontWeight: 900,
-                            color: '#000',
-                            marginTop: 2,
-                          }}
-                        >
-                          3–5 Business Days
-                        </div>
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontSize: '0.7rem',
-                            color: '#666',
-                            textTransform: 'uppercase',
-                            fontWeight: 800,
-                          }}
-                        >
-                          Official Invoice
-                        </div>
-                        <div style={{ marginTop: 4 }}>
-                          <button
-                            type="button"
-                            onClick={handleDownloadInvoice}
-                            disabled={downloadingInvoice}
+                        <div>
+                          <div
                             style={{
-                              background: '#000',
-                              color: '#fff',
-                              border: '1px solid #000',
-                              padding: '4px 10px',
-                              fontSize: '0.7rem',
-                              fontWeight: 800,
-                              cursor: downloadingInvoice ? 'not-allowed' : 'pointer',
-                              display: 'inline-flex',
+                              display: 'flex',
                               alignItems: 'center',
                               gap: 6,
-                              textTransform: 'uppercase',
+                              marginBottom: 2,
                             }}
                           >
-                            <PrinterIcon size={12} color="#fff" />
-                            {downloadingInvoice ? 'Loading...' : 'Download PDF'}
-                          </button>
+                            <span
+                              style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                background: '#16a34a',
+                                display: 'inline-block',
+                                boxShadow: '0 0 0 3px rgba(22,163,74,0.25)',
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontSize: '0.7rem',
+                                fontWeight: 900,
+                                color: '#16a34a',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              Current Location
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '1rem',
+                              fontWeight: 900,
+                              color: '#000',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}
+                          >
+                            <MapPinIcon size={16} color="#000" />
+                            <span>{forwardCurrentLoc || 'In Transit to Destination Facility'}</span>
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            background: '#000',
+                            color: '#fff',
+                            padding: '4px 12px',
+                            fontSize: '0.72rem',
+                            fontWeight: 900,
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {prettifyShipStatus(order.shippingStatus || order.status)}
+                        </span>
+                      </div>
+
+                      {/* Courier & AWB Code strip */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                          gap: 12,
+                          background: '#f9fafb',
+                          border: '1px solid #e5e7eb',
+                          padding: '12px 16px',
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.68rem',
+                              color: '#666',
+                              textTransform: 'uppercase',
+                              fontWeight: 800,
+                            }}
+                          >
+                            Courier Partner
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.92rem',
+                              fontWeight: 900,
+                              color: '#000',
+                              marginTop: 2,
+                            }}
+                          >
+                            {order.shiprocketCourierName ||
+                              trackingModalData?.courier_name ||
+                              trackingModalData?.courierName ||
+                              'Assigned on Dispatch'}
+                          </div>
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.68rem',
+                              color: '#666',
+                              textTransform: 'uppercase',
+                              fontWeight: 800,
+                            }}
+                          >
+                            AWB Tracking Code
+                          </div>
+                          <div
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}
+                          >
+                            <strong
+                              style={{
+                                fontFamily: 'monospace',
+                                fontSize: '0.92rem',
+                                color: '#000',
+                              }}
+                            >
+                              {order.shiprocketAwb ||
+                                trackingModalData?.awb_code ||
+                                trackingModalData?.awbCode ||
+                                'Pending Dispatch'}
+                            </strong>
+                            {(order.shiprocketAwb || trackingModalData?.awb_code) && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCopyAwb(
+                                    order.shiprocketAwb || trackingModalData?.awb_code || ''
+                                  )
+                                }
+                                style={{
+                                  background: copiedAwb ? '#16a34a' : '#fff',
+                                  color: copiedAwb ? '#fff' : '#000',
+                                  border: '1px solid #000',
+                                  padding: '2px 8px',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {copiedAwb ? 'COPIED' : 'COPY'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.68rem',
+                              color: '#666',
+                              textTransform: 'uppercase',
+                              fontWeight: 800,
+                            }}
+                          >
+                            Estimated Delivery
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.92rem',
+                              fontWeight: 900,
+                              color: '#000',
+                              marginTop: 2,
+                            }}
+                          >
+                            3–5 Business Days
+                          </div>
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.68rem',
+                              color: '#666',
+                              textTransform: 'uppercase',
+                              fontWeight: 800,
+                            }}
+                          >
+                            Official Invoice
+                          </div>
+                          <div style={{ marginTop: 2 }}>
+                            <button
+                              type="button"
+                              onClick={handleDownloadInvoice}
+                              disabled={downloadingInvoice}
+                              style={{
+                                background: '#000',
+                                color: '#fff',
+                                border: '1px solid #000',
+                                padding: '3px 8px',
+                                fontSize: '0.68rem',
+                                fontWeight: 800,
+                                cursor: downloadingInvoice ? 'not-allowed' : 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              <PrinterIcon size={11} color="#fff" />
+                              {downloadingInvoice ? 'Loading...' : 'Download PDF'}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Scans Timeline */}
-                    <div>
-                      <h4
+                    {/* ONLY THIS SCROLLS: Dedicated Checkpoint Scans Feed */}
+                    <div
+                      style={{
+                        flex: 1,
+                        overflowY: 'auto',
+                        padding: '16px 20px 24px',
+                        minHeight: 0,
+                      }}
+                    >
+                      <div
                         style={{
-                          fontSize: '0.85rem',
-                          fontWeight: 900,
-                          textTransform: 'uppercase',
-                          letterSpacing: '-0.01em',
-                          margin: '0 0 16px',
-                          color: '#000',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
+                          marginBottom: 16,
+                          position: 'sticky',
+                          top: 0,
+                          background: '#fff',
+                          zIndex: 2,
+                          paddingBottom: 8,
+                          borderBottom: '1px solid #f3f4f6',
                         }}
                       >
-                        <span>Complete Checkpoint Scans ({displayForwardScans.length})</span>
-                        <span style={{ fontSize: '0.72rem', color: '#888', fontWeight: 600 }}>
-                          Chronological Scan Feed
+                        <h4
+                          style={{
+                            fontSize: '0.82rem',
+                            fontWeight: 900,
+                            textTransform: 'uppercase',
+                            letterSpacing: '-0.01em',
+                            margin: 0,
+                            color: '#000',
+                          }}
+                        >
+                          Complete Checkpoint Scans ({displayForwardScans.length})
+                        </h4>
+                        <span style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 700 }}>
+                          Newest Checkpoints First
                         </span>
-                      </h4>
+                      </div>
 
                       {displayForwardScans.length === 0 ? (
                         <div
@@ -2796,7 +2905,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                           }}
                         >
                           {displayForwardScans.map((scan: any, idx: number) => {
-                            const isLatest = idx === displayForwardScans.length - 1;
+                            const isLatest = idx === 0;
                             return (
                               <div
                                 key={idx}
@@ -2815,8 +2924,8 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                                     style={{
                                       width: 14,
                                       height: 14,
-                                      background: '#000000',
-                                      border: isLatest ? '3px solid #999999' : 'none',
+                                      background: isLatest ? '#16a34a' : '#000000',
+                                      border: isLatest ? '3px solid #bbf7d0' : 'none',
                                       marginTop: 4,
                                     }}
                                   />
@@ -2873,7 +2982,8 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                                         gap: 4,
                                       }}
                                     >
-                                      <MapPinIcon size={12} color="#888" /> {scan.location}
+                                      <MapPinIcon size={12} color="#888" />
+                                      <span>{scan.location}</span>
                                     </div>
                                   )}
                                 </div>
@@ -2887,201 +2997,247 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 ) : activeTrackingTab === 'replacement' ? (
                   /* REPLACEMENT DELIVERY TRACKING VIEW */
                   <>
-                    {/* Replacement Delivery Status Banner */}
+                    {/* Fixed Replacement Logistics Header Summary */}
                     <div
                       style={{
-                        background:
-                          order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
-                            ? '#f0fdf4'
-                            : '#fafafa',
-                        border:
-                          order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
-                            ? '1.5px solid #86efac'
-                            : '1.5px solid #000000',
                         padding: '16px 20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                        flexShrink: 0,
+                        borderBottom: '1px solid #e5e7eb',
+                        background: '#fff',
                       }}
                     >
+                      {/* Replacement Delivery Status Banner */}
                       <div
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}
+                        style={{
+                          background:
+                            order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
+                              ? '#f0fdf4'
+                              : '#fafafa',
+                          border:
+                            order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
+                              ? '1.5px solid #86efac'
+                              : '1.5px solid #000000',
+                          padding: '12px 16px',
+                        }}
                       >
-                        <span
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}
+                        >
+                          <span
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              background:
+                                order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
+                                  ? '#16a34a'
+                                  : '#000000',
+                              display: 'inline-block',
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 900,
+                              color:
+                                order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
+                                  ? '#16a34a'
+                                  : '#000000',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            Size Exchange Replacement Status
+                          </span>
+                        </div>
+                        <div
                           style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            background:
-                              order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
-                                ? '#16a34a'
-                                : '#000000',
-                            display: 'inline-block',
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontSize: '0.72rem',
+                            fontSize: '0.98rem',
                             fontWeight: 900,
                             color:
                               order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
-                                ? '#16a34a'
+                                ? '#15803d'
                                 : '#000000',
-                            textTransform: 'uppercase',
                           }}
                         >
-                          Size Exchange Replacement Status
-                        </span>
+                          {order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
+                            ? '✔ REPLACEMENT PACKAGE DELIVERED TO YOUR DOORSTEP'
+                            : order.replacementAwb || order.replacementStatus === 'REPLACEMENT_DISPATCHED'
+                              ? '✔ REPLACEMENT DISPATCHED — EN ROUTE TO YOUR ADDRESS'
+                              : '⏳ SIZE RESERVED — AWAITING COURIER DISPATCH'}
+                        </div>
+                        {trackingModalData?.current_location && (
+                          <div
+                            style={{
+                              fontSize: '0.78rem',
+                              color: '#444',
+                              marginTop: 6,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 5,
+                            }}
+                          >
+                            <MapPinIcon size={13} color="#444" />
+                            <span>
+                              <strong>Current Location:</strong>{' '}
+                              {trackingModalData.current_location}
+                            </span>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Replacement Courier & AWB Code strip */}
                       <div
                         style={{
-                          fontSize: '1.05rem',
-                          fontWeight: 900,
-                          color:
-                            order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
-                              ? '#15803d'
-                              : '#000000',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                          gap: 12,
+                          background: '#f9fafb',
+                          border: '1px solid #e5e7eb',
+                          padding: '12px 16px',
                         }}
                       >
-                        {order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
-                          ? '✔ REPLACEMENT PACKAGE DELIVERED TO YOUR DOORSTEP'
-                          : order.replacementAwb || order.replacementStatus === 'REPLACEMENT_DISPATCHED'
-                            ? '✔ REPLACEMENT DISPATCHED — EN ROUTE TO YOUR ADDRESS'
-                            : '⏳ SIZE RESERVED — AWAITING COURIER DISPATCH'}
-                      </div>
-                      {trackingModalData?.current_location && (
-                        <div
-                          style={{
-                            fontSize: '0.82rem',
-                            color: '#444',
-                            marginTop: 6,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 5,
-                          }}
-                        >
-                          <MapPinIcon size={14} color="#444" />
-                          <span>
-                            <strong>Current Package Location:</strong>{' '}
-                            {trackingModalData.current_location}
-                          </span>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.68rem',
+                              color: '#666',
+                              textTransform: 'uppercase',
+                              fontWeight: 800,
+                            }}
+                          >
+                            Courier Partner
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.92rem',
+                              fontWeight: 900,
+                              color: '#000',
+                              marginTop: 2,
+                            }}
+                          >
+                            {order.replacementCourierName ||
+                              trackingModalData?.replacement_courier_name ||
+                              'Express Courier'}
+                          </div>
                         </div>
-                      )}
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.68rem',
+                              color: '#666',
+                              textTransform: 'uppercase',
+                              fontWeight: 800,
+                            }}
+                          >
+                            Replacement AWB
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              marginTop: 2,
+                            }}
+                          >
+                            <strong
+                              style={{ fontFamily: 'monospace', fontSize: '0.92rem', color: '#000' }}
+                            >
+                              {order.replacementAwb || trackingModalData?.replacement_awb || 'Processing Dispatch'}
+                            </strong>
+                            {(order.replacementAwb || trackingModalData?.replacement_awb) && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCopyAwb(
+                                    order.replacementAwb || trackingModalData?.replacement_awb || ''
+                                  )
+                                }
+                                style={{
+                                  background: copiedAwb ? '#16a34a' : '#fff',
+                                  color: copiedAwb ? '#fff' : '#000',
+                                  border: '1px solid #000',
+                                  padding: '2px 8px',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 800,
+                                  cursor: 'pointer',
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                {copiedAwb ? 'COPIED' : 'COPY'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.68rem',
+                              color: '#666',
+                              textTransform: 'uppercase',
+                              fontWeight: 800,
+                            }}
+                          >
+                            New Selected Size
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.92rem',
+                              fontWeight: 900,
+                              color: '#000000',
+                              marginTop: 2,
+                            }}
+                          >
+                            {order.replacementVariantTitle ||
+                              trackingModalData?.replacement_variant_title ||
+                              'Reserved Size'}
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Replacement Courier & AWB Code strip */}
+                    {/* ONLY THIS SCROLLS: Dedicated Replacement Checkpoints Feed */}
                     <div
                       style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                        gap: 16,
-                        background: '#f9fafb',
-                        border: '1px solid #e5e7eb',
-                        padding: '16px 20px',
+                        flex: 1,
+                        overflowY: 'auto',
+                        padding: '16px 20px 24px',
+                        minHeight: 0,
                       }}
                     >
-                      <div>
-                        <div
-                          style={{
-                            fontSize: '0.7rem',
-                            color: '#666',
-                            textTransform: 'uppercase',
-                            fontWeight: 800,
-                          }}
-                        >
-                          Replacement Courier
-                        </div>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#000', marginTop: 2 }}>
-                          {order.replacementCourierName ||
-                            trackingModalData?.replacement_courier_name ||
-                            'Express Courier'}
-                        </div>
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontSize: '0.7rem',
-                            color: '#666',
-                            textTransform: 'uppercase',
-                            fontWeight: 800,
-                          }}
-                        >
-                          Replacement AWB
-                        </div>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            marginTop: 2,
-                          }}
-                        >
-                          <strong
-                            style={{ fontFamily: 'monospace', fontSize: '0.95rem', color: '#000' }}
-                          >
-                            {order.replacementAwb || trackingModalData?.replacement_awb || 'Processing Dispatch'}
-                          </strong>
-                          {(order.replacementAwb || trackingModalData?.replacement_awb) && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleCopyAwb(
-                                  order.replacementAwb || trackingModalData?.replacement_awb || ''
-                                )
-                              }
-                              style={{
-                                background: copiedAwb ? '#16a34a' : '#fff',
-                                color: copiedAwb ? '#fff' : '#000',
-                                border: '1px solid #000',
-                                padding: '2px 8px',
-                                fontSize: '0.7rem',
-                                fontWeight: 800,
-                                cursor: 'pointer',
-                                textTransform: 'uppercase',
-                              }}
-                            >
-                              {copiedAwb ? 'Copied!' : 'Copy'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontSize: '0.7rem',
-                            color: '#666',
-                            textTransform: 'uppercase',
-                            fontWeight: 800,
-                          }}
-                        >
-                          New Selected Size
-                        </div>
-                        <div
-                          style={{
-                            fontSize: '0.95rem',
-                            fontWeight: 900,
-                            color: '#000000',
-                            marginTop: 2,
-                          }}
-                        >
-                          {order.replacementVariantTitle ||
-                            trackingModalData?.replacement_variant_title ||
-                            'Reserved Size'}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Replacement Checkpoint Scans Timeline */}
-                    <div>
-                      <h4
+                      <div
                         style={{
-                          fontSize: '0.85rem',
-                          fontWeight: 900,
-                          textTransform: 'uppercase',
-                          letterSpacing: '-0.01em',
-                          margin: '0 0 16px',
-                          color: '#000',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: 16,
+                          position: 'sticky',
+                          top: 0,
+                          background: '#fff',
+                          zIndex: 2,
+                          paddingBottom: 8,
+                          borderBottom: '1px solid #f3f4f6',
                         }}
                       >
-                        Replacement Checkpoint Scans ({activeReplacementScans.length})
-                      </h4>
+                        <h4
+                          style={{
+                            fontSize: '0.82rem',
+                            fontWeight: 900,
+                            textTransform: 'uppercase',
+                            letterSpacing: '-0.01em',
+                            margin: 0,
+                            color: '#000',
+                          }}
+                        >
+                          Replacement Checkpoint Scans ({activeReplacementScans.length})
+                        </h4>
+                        <span style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 700 }}>
+                          Newest Checkpoints First
+                        </span>
+                      </div>
+
                       {activeReplacementScans.length === 0 ? (
                         <div
                           style={{
@@ -3100,7 +3256,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                           {activeReplacementScans.map((scan: any, idx: number) => {
-                            const isLatest = idx === activeReplacementScans.length - 1;
+                            const isLatest = idx === 0;
                             return (
                               <div
                                 key={idx}
@@ -3118,8 +3274,8 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                                     style={{
                                       width: 14,
                                       height: 14,
-                                      background: isLatest ? '#000000' : '#888888',
-                                      border: isLatest ? '3px solid #e5e7eb' : 'none',
+                                      background: isLatest ? '#16a34a' : '#000000',
+                                      border: isLatest ? '3px solid #bbf7d0' : 'none',
                                       marginTop: 4,
                                     }}
                                   />
@@ -3170,7 +3326,8 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                                         gap: 4,
                                       }}
                                     >
-                                      <MapPinIcon size={12} color="#888" /> {scan.location}
+                                      <MapPinIcon size={12} color="#888" />
+                                      <span>{scan.location}</span>
                                     </div>
                                   )}
                                 </div>
@@ -3184,155 +3341,175 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 ) : (
                   /* REVERSE RETURN TRACKING VIEW */
                   <>
-                    {/* Doorstep Pickup Verification Banner */}
+                    {/* Fixed Reverse Logistics Header Summary */}
                     <div
                       style={{
-                        background: isReturnPickedUp ? '#f0fdf4' : '#fffbeb',
-                        border: isReturnPickedUp ? '1.5px solid #86efac' : '1.5px solid #fde68a',
                         padding: '16px 20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                        flexShrink: 0,
+                        borderBottom: '1px solid #e5e7eb',
+                        background: '#fff',
                       }}
                     >
-                      <div
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}
-                      >
-                        <span
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            background: isReturnPickedUp ? '#16a34a' : '#d97706',
-                            display: 'inline-block',
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontSize: '0.72rem',
-                            fontWeight: 900,
-                            color: isReturnPickedUp ? '#16a34a' : '#d97706',
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          Customer Doorstep Pickup Status
-                        </span>
-                      </div>
+                      {/* Doorstep Pickup Verification Banner */}
                       <div
                         style={{
-                          fontSize: '1.05rem',
-                          fontWeight: 900,
-                          color: isReturnPickedUp ? '#15803d' : '#b45309',
+                          background: isReturnPickedUp ? '#f0fdf4' : '#fffbeb',
+                          border: isReturnPickedUp ? '1.5px solid #86efac' : '1.5px solid #fde68a',
+                          padding: '12px 16px',
                         }}
                       >
-                        {isReturnPickedUp
-                          ? '✔ PARCEL SUCCESSFULLY PICKED UP FROM CUSTOMER DOORSTEP'
-                          : '⏳ PICKUP SCHEDULED — COURIER WILL ARRIVE AT CUSTOMER ADDRESS'}
-                      </div>
-                    </div>
-
-                    {/* Reverse Courier & AWB Code strip */}
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                        gap: 16,
-                        background: '#f9fafb',
-                        border: '1px solid #e5e7eb',
-                        padding: '16px 20px',
-                      }}
-                    >
-                      <div>
                         <div
-                          style={{
-                            fontSize: '0.7rem',
-                            color: '#666',
-                            textTransform: 'uppercase',
-                            fontWeight: 800,
-                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}
                         >
-                          Reverse Courier
-                        </div>
-                        <div
-                          style={{
-                            fontSize: '0.95rem',
-                            fontWeight: 900,
-                            color: '#000',
-                            marginTop: 2,
-                          }}
-                        >
-                          {order.reverseCourierName ||
-                            trackingModalData?.reverse_courier_name ||
-                            'Delhivery Reverse Surface'}
-                        </div>
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontSize: '0.7rem',
-                            color: '#666',
-                            textTransform: 'uppercase',
-                            fontWeight: 800,
-                          }}
-                        >
-                          Reverse AWB
-                        </div>
-                        <div
-                          style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}
-                        >
-                          <strong
-                            style={{ fontFamily: 'monospace', fontSize: '0.95rem', color: '#000' }}
-                          >
-                            {order.reverseAwb || trackingModalData?.reverse_awb || '98798441933'}
-                          </strong>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleCopyAwb(
-                                order.reverseAwb || trackingModalData?.reverse_awb || '98798441933'
-                              )
-                            }
+                          <span
                             style={{
-                              background: copiedAwb ? '#16a34a' : '#fff',
-                              color: copiedAwb ? '#fff' : '#000',
-                              border: '1px solid #000',
-                              padding: '2px 8px',
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              background: isReturnPickedUp ? '#16a34a' : '#d97706',
+                              display: 'inline-block',
+                            }}
+                          />
+                          <span
+                            style={{
                               fontSize: '0.7rem',
-                              fontWeight: 800,
-                              cursor: 'pointer',
+                              fontWeight: 900,
+                              color: isReturnPickedUp ? '#16a34a' : '#d97706',
                               textTransform: 'uppercase',
                             }}
                           >
-                            {copiedAwb ? 'Copied!' : 'Copy'}
-                          </button>
+                            Customer Doorstep Pickup Status
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '0.98rem',
+                            fontWeight: 900,
+                            color: isReturnPickedUp ? '#15803d' : '#b45309',
+                          }}
+                        >
+                          {isReturnPickedUp
+                            ? '✔ PARCEL SUCCESSFULLY PICKED UP FROM CUSTOMER DOORSTEP'
+                            : '⏳ PICKUP SCHEDULED — COURIER WILL ARRIVE AT CUSTOMER ADDRESS'}
                         </div>
                       </div>
-                      <div>
-                        <div
-                          style={{
-                            fontSize: '0.7rem',
-                            color: '#666',
-                            textTransform: 'uppercase',
-                            fontWeight: 800,
-                          }}
-                        >
-                          Automated Refund
+
+                      {/* Reverse Courier & AWB Code strip */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                          gap: 12,
+                          background: '#f9fafb',
+                          border: '1px solid #e5e7eb',
+                          padding: '12px 16px',
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.68rem',
+                              color: '#666',
+                              textTransform: 'uppercase',
+                              fontWeight: 800,
+                            }}
+                          >
+                            Reverse Courier
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.92rem',
+                              fontWeight: 900,
+                              color: '#000',
+                              marginTop: 2,
+                            }}
+                          >
+                            {order.reverseCourierName ||
+                              trackingModalData?.reverse_courier_name ||
+                              'Delhivery Reverse Surface'}
+                          </div>
                         </div>
-                        <div
-                          style={{
-                            fontSize: '0.95rem',
-                            fontWeight: 900,
-                            color: '#16a34a',
-                            marginTop: 2,
-                          }}
-                        >
-                          100% on Doorstep Scan
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.68rem',
+                              color: '#666',
+                              textTransform: 'uppercase',
+                              fontWeight: 800,
+                            }}
+                          >
+                            Reverse AWB
+                          </div>
+                          <div
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}
+                          >
+                            <strong
+                              style={{ fontFamily: 'monospace', fontSize: '0.92rem', color: '#000' }}
+                            >
+                              {order.reverseAwb || trackingModalData?.reverse_awb || '98798441933'}
+                            </strong>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleCopyAwb(
+                                  order.reverseAwb || trackingModalData?.reverse_awb || '98798441933'
+                                )
+                              }
+                              style={{
+                                background: copiedAwb ? '#16a34a' : '#fff',
+                                color: copiedAwb ? '#fff' : '#000',
+                                border: '1px solid #000',
+                                padding: '2px 8px',
+                                fontSize: '0.68rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {copiedAwb ? 'COPIED' : 'COPY'}
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '0.68rem',
+                              color: '#666',
+                              textTransform: 'uppercase',
+                              fontWeight: 800,
+                            }}
+                          >
+                            Automated Refund
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.92rem',
+                              fontWeight: 900,
+                              color: '#16a34a',
+                              marginTop: 2,
+                            }}
+                          >
+                            100% on Doorstep Scan
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* 3-Stage Return Tracking Stepper */}
-                    <div>
+                    {/* ONLY THIS SCROLLS: 3-Stage Return Tracking Stepper */}
+                    <div
+                      style={{
+                        flex: 1,
+                        overflowY: 'auto',
+                        padding: '16px 20px 24px',
+                        minHeight: 0,
+                      }}
+                    >
                       <h4
                         style={{
-                          fontSize: '0.85rem',
+                          fontSize: '0.82rem',
                           fontWeight: 900,
                           textTransform: 'uppercase',
                           letterSpacing: '-0.01em',
@@ -3486,6 +3663,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   alignItems: 'center',
                   flexWrap: 'wrap',
                   gap: 12,
+                  flexShrink: 0,
                 }}
               >
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
