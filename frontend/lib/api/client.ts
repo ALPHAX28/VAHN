@@ -78,8 +78,17 @@ export async function fetchAPI<T>(
 
       const finalMsg = detailMsg || `API error: ${res.status} ${res.statusText} on ${path}`;
 
+      if (res.status === 401 && typeof window !== "undefined") {
+        // Silently clear expired or invalidated token — never show suspension modal
+        localStorage.removeItem("vahn_auth_token");
+        localStorage.removeItem("vahn_auth_user");
+        window.dispatchEvent(new CustomEvent("vahn_auth_logout"));
+      }
+
       if (res.status === 403 && typeof window !== "undefined") {
-        if (finalMsg.toLowerCase().includes("suspend") || finalMsg.toLowerCase().includes("account")) {
+        const lower = finalMsg.toLowerCase();
+        // Only trigger suspension modal if explicitly suspended or deactivated, and NOT a token error
+        if ((lower.includes("suspend") || lower.includes("deactivated")) && !lower.includes("token")) {
           localStorage.removeItem("vahn_auth_token");
           localStorage.removeItem("vahn_auth_user");
           window.dispatchEvent(new CustomEvent("vahn_auth_suspended", { detail: { message: finalMsg } }));

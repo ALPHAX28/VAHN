@@ -126,7 +126,12 @@ export default function AuthModal() {
         setStep('details');
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      const msg = err instanceof Error ? err.message : 'Something went wrong';
+      if (msg.toLowerCase().includes('suspend') || msg.toLowerCase().includes('deactivat')) {
+        closeAuthModal();
+        return;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -160,7 +165,12 @@ export default function AuthModal() {
       setStep('otp');
       setTimeout(() => otpRefs.current[0]?.focus(), 120);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to send OTP');
+      const msg = err instanceof Error ? err.message : 'Failed to send OTP';
+      if (msg.toLowerCase().includes('suspend') || msg.toLowerCase().includes('deactivat')) {
+        closeAuthModal();
+        return;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -198,7 +208,12 @@ export default function AuthModal() {
       await verifyOTP(email.trim().toLowerCase(), code, otpToken);
       // success — modal closes automatically via context
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Verification failed');
+      const msg = err instanceof Error ? err.message : 'Verification failed';
+      if (msg.toLowerCase().includes('suspend') || msg.toLowerCase().includes('deactivat')) {
+        closeAuthModal();
+        return;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -225,7 +240,12 @@ export default function AuthModal() {
       setResendTimer(30);
       otpRefs.current[0]?.focus();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to resend OTP');
+      const msg = err instanceof Error ? err.message : 'Failed to resend OTP';
+      if (msg.toLowerCase().includes('suspend') || msg.toLowerCase().includes('deactivat')) {
+        closeAuthModal();
+        return;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }

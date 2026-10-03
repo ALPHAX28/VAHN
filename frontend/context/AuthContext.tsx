@@ -88,11 +88,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       triggerSuspensionNotice(msg);
     };
 
+    // Custom event listener for silent logout (e.g. 401 token invalidation/expiration)
+    const handleSilentLogout = () => {
+      setToken(null);
+      setUser(null);
+      localStorage.removeItem('vahn_auth_token');
+      localStorage.removeItem('vahn_auth_user');
+    };
+
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('vahn_auth_suspended', handleSuspension);
+    window.addEventListener('vahn_auth_logout', handleSilentLogout);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('vahn_auth_suspended', handleSuspension);
+      window.removeEventListener('vahn_auth_logout', handleSilentLogout);
     };
   }, []);
 
@@ -110,14 +120,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (!res.ok) {
-          if (res.status === 403 || res.status === 401 || res.status === 404) {
-            let errorMsg = "Your account status has changed or has been restricted.";
+          if (res.status === 401) {
+            // Token expired or invalid: SILENT LOGOUT without showing any suspension modal
+            setToken(null);
+            setUser(null);
+            localStorage.removeItem('vahn_auth_token');
+            localStorage.removeItem('vahn_auth_user');
+            return;
+          }
+
+          if (res.status === 403) {
+            let errorMsg = "Your account access has been suspended by administration.";
             try {
               const errData = await res.json();
               if (errData && errData.detail) errorMsg = errData.detail;
             } catch { /* ignore */ }
 
-            triggerSuspensionNotice(errorMsg);
+            const lower = errorMsg.toLowerCase();
+            // Only trigger suspension modal if explicitly suspended or deactivated, and NOT a token error
+            if ((lower.includes("suspend") || lower.includes("deactivated")) && !lower.includes("token")) {
+              triggerSuspensionNotice(errorMsg);
+            } else {
+              setToken(null);
+              setUser(null);
+              localStorage.removeItem('vahn_auth_token');
+              localStorage.removeItem('vahn_auth_user');
+            }
+            return;
+          }
+
+          if (res.status === 404) {
+            // User not found in DB (e.g. stale token) -> silently log out
+            setToken(null);
+            setUser(null);
+            localStorage.removeItem('vahn_auth_token');
+            localStorage.removeItem('vahn_auth_user');
+            return;
           }
         } else {
           const freshUser = await res.json();
@@ -189,6 +227,10 @@ function formatApiError(errData: any, defaultMsg = 'An error occurred'): string 
       } catch {
         errMsg = `Server error (${res.status}). Please try again.`;
       }
+      if (res.status === 403 && (errMsg.toLowerCase().includes('suspend') || errMsg.toLowerCase().includes('deactivat'))) {
+        closeAuthModal();
+        triggerSuspensionNotice(errMsg);
+      }
       throw new Error(errMsg);
     }
     return res.json();
@@ -207,6 +249,10 @@ function formatApiError(errData: any, defaultMsg = 'An error occurred'): string 
         errMsg = formatApiError(err, errMsg);
       } catch {
         errMsg = `Server error (${res.status}). Please try again.`;
+      }
+      if (res.status === 403 && (errMsg.toLowerCase().includes('suspend') || errMsg.toLowerCase().includes('deactivat'))) {
+        closeAuthModal();
+        triggerSuspensionNotice(errMsg);
       }
       throw new Error(errMsg);
     }
@@ -227,6 +273,10 @@ function formatApiError(errData: any, defaultMsg = 'An error occurred'): string 
       } catch {
         errMsg = `Server error (${res.status}). Please try again.`;
       }
+      if (res.status === 403 && (errMsg.toLowerCase().includes('suspend') || errMsg.toLowerCase().includes('deactivat'))) {
+        closeAuthModal();
+        triggerSuspensionNotice(errMsg);
+      }
       throw new Error(errMsg);
     }
     return res.json();
@@ -245,6 +295,10 @@ function formatApiError(errData: any, defaultMsg = 'An error occurred'): string 
         errMsg = formatApiError(err, errMsg);
       } catch {
         errMsg = `Server error (${res.status}). Please try again.`;
+      }
+      if (res.status === 403 && (errMsg.toLowerCase().includes('suspend') || errMsg.toLowerCase().includes('deactivat'))) {
+        closeAuthModal();
+        triggerSuspensionNotice(errMsg);
       }
       throw new Error(errMsg);
     }

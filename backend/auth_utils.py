@@ -268,7 +268,11 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is suspended.")
+        reason_msg = f" Reason: {user.suspension_reason}." if getattr(user, 'suspension_reason', None) else ""
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Your account has been suspended by administration.{reason_msg} Please contact support for assistance."
+        )
 
     return user
 
@@ -322,7 +326,8 @@ def get_current_admin(
     if user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin account is suspended.")
+        reason_msg = f" Reason: {user.suspension_reason}." if getattr(user, 'suspension_reason', None) else ""
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Admin account is suspended.{reason_msg}")
 
     return user
 

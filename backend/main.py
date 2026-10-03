@@ -861,6 +861,12 @@ def check_email(payload: schemas.EmailLookupRequest, db: Session = Depends(get_d
     """
     email = payload.email.strip().lower()
     user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
+    if user and not user.is_active:
+        reason_msg = f" Reason: {user.suspension_reason}." if user.suspension_reason else ""
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your account has been suspended by administration.{reason_msg} Please contact support for assistance."
+        )
     has_profile = bool(user and (user.is_verified or (user.full_name and user.phone)))
     return {"exists": has_profile}
 
@@ -868,6 +874,12 @@ def check_email(payload: schemas.EmailLookupRequest, db: Session = Depends(get_d
 def check_phone(payload: schemas.PhoneLookupRequest, db: Session = Depends(get_db)):
     phone = normalize_phone(payload.phone)
     user = db.query(models.User).filter(models.User.phone == phone).first()
+    if user and not user.is_active:
+        reason_msg = f" Reason: {user.suspension_reason}." if user.suspension_reason else ""
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your account has been suspended by administration.{reason_msg} Please contact support for assistance."
+        )
     return {"exists": user is not None and user.is_verified}
 
 @app.post("/api/auth/send-otp")
@@ -4551,7 +4563,8 @@ def admin_send_otp(payload: schemas.AdminSendOTPRequest, db: Session = Depends(g
             detail="This email address is not authorized for admin access. Contact the system administrator."
         )
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="Admin account is suspended.")
+        reason_msg = f" Reason: {user.suspension_reason}." if user.suspension_reason else ""
+        raise HTTPException(status_code=403, detail=f"Admin account is suspended.{reason_msg}")
 
     otp = generate_6digit_otp()
     otp_token = create_otp_token(email, otp)
@@ -4574,7 +4587,8 @@ def admin_verify_otp(payload: schemas.AdminVerifyOTPRequest, db: Session = Depen
     if not user:
         raise HTTPException(status_code=404, detail="Admin account not found.")
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="Admin account is suspended.")
+        reason_msg = f" Reason: {user.suspension_reason}." if user.suspension_reason else ""
+        raise HTTPException(status_code=403, detail=f"Admin account is suspended.{reason_msg}")
 
     user.is_verified = True
     user.email_verified = True

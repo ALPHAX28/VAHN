@@ -13,6 +13,12 @@ interface SuspensionModalProps {
 export default function SuspensionModal({ isOpen, message, onClose, noticeType }: SuspensionModalProps) {
   if (!isOpen) return null;
 
+  // Defensive guard: never display suspension modal for token expiration or invalidation
+  const lowerMsg = (message || "").toLowerCase();
+  if (lowerMsg.includes("token") || lowerMsg.includes("unauthorized") || lowerMsg.includes("expired authentication")) {
+    return null;
+  }
+
   const isDeleted = noticeType === "deleted" ||
     (message && (message.toLowerCase().includes("delete") || message.toLowerCase().includes("removed") || message.toLowerCase().includes("not found")));
 
