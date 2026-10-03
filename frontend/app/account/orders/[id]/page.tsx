@@ -1337,20 +1337,33 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
               >
                 Fulfillment Status
               </h3>
-              <span
-                style={{
-                  background: statusColors.bg,
-                  color: statusColors.text,
-                  border: `1px solid ${statusColors.border}`,
-                  padding: '5px 14px',
-                  fontSize: '0.72rem',
-                  fontWeight: 900,
-                  textTransform: 'uppercase',
-                  letterSpacing: '-0.025em',
-                }}
-              >
-                {order.status}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{
+                    background: statusColors.bg,
+                    color: statusColors.text,
+                    border: `1px solid ${statusColors.border}`,
+                    padding: '5px 14px',
+                    fontSize: '0.72rem',
+                    fontWeight: 900,
+                    textTransform: 'uppercase',
+                    letterSpacing: '-0.025em',
+                  }}
+                >
+                  {order.status}
+                </span>
+                {/* Mobile-only compact Track button beside the status badge */}
+                {isShipped && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenTrackingModal('forward')}
+                    className="vahn-tracker-mobile-track-btn"
+                  >
+                    <TruckIcon size={12} color="#fff" />
+                    <span>Track</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Desktop Tracker */}
@@ -1524,7 +1537,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
 
             {/* Live Forward Tracking Snapshot Bar */}
             {isShipped && (
-              <div className="vahn-shipment-snapshot">
+              <div className="vahn-shipment-snapshot vahn-shipment-snapshot-desktop-only">
                 <div className="vahn-shipment-snapshot-main">
                   <div className="vahn-shipment-snapshot-icon">
                     <TruckIcon size={20} color="#fff" />

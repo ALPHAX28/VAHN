@@ -7452,6 +7452,14 @@ a:active .btn-checkout-arrow,
   .vahn-tracker-mobile {
     display: flex !important;
   }
+  /* Show compact Track pill on mobile header */
+  .vahn-tracker-mobile-track-btn {
+    display: inline-flex !important;
+  }
+  /* Hide full snapshot bar on mobile (compact button takes its place) */
+  .vahn-shipment-snapshot-desktop-only {
+    display: none !important;
+  }
   .vahn-no-print {
     margin: 16px auto !important;
     padding: 0 12px !important;
@@ -7556,6 +7564,29 @@ a:active .btn-checkout-arrow,
 
 .vahn-shipment-snapshot-btn:hover {
   opacity: 0.88;
+}
+
+/* Mobile-only compact Track pill (shown next to SHIPPED badge on mobile) */
+.vahn-tracker-mobile-track-btn {
+  display: none; /* shown only on mobile via media query */
+  align-items: center;
+  gap: 5px;
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 4px 10px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+
+.vahn-tracker-mobile-track-btn:hover {
+  opacity: 0.82;
 }
 
 @media (max-width: 640px) {
