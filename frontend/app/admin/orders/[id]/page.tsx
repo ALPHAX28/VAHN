@@ -1423,17 +1423,30 @@ export default function AdminOrderDetailPage() {
                             >
                               Reverse Package Location
                             </span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <MapPinIcon size={12} color="#000" />
-                              <span
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 6,
+                                marginTop: 2,
+                              }}
+                            >
+                              <MapPinIcon
+                                size={16}
+                                color="#111"
+                                style={{ flexShrink: 0, marginTop: 1 }}
+                              />
+                              <strong
                                 style={{
                                   fontSize: '0.82rem',
-                                  fontWeight: 700,
+                                  fontWeight: 800,
                                   color: '#111',
+                                  lineHeight: 1.35,
+                                  wordBreak: 'break-word',
                                 }}
                               >
                                 {reverseCurrentLocation}
-                              </span>
+                              </strong>
                             </div>
                           </div>
                         </div>
@@ -1703,17 +1716,30 @@ export default function AdminOrderDetailPage() {
                             >
                               Replacement Location
                             </span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <MapPinIcon size={12} color="#000" />
-                              <span
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 6,
+                                marginTop: 2,
+                              }}
+                            >
+                              <MapPinIcon
+                                size={16}
+                                color="#111"
+                                style={{ flexShrink: 0, marginTop: 1 }}
+                              />
+                              <strong
                                 style={{
                                   fontSize: '0.82rem',
-                                  fontWeight: 700,
+                                  fontWeight: 800,
                                   color: '#111',
+                                  lineHeight: 1.35,
+                                  wordBreak: 'break-word',
                                 }}
                               >
                                 {replacementCurrentLocation}
-                              </span>
+                              </strong>
                             </div>
                           </div>
                         </div>
@@ -2482,16 +2508,17 @@ export default function AdminOrderDetailPage() {
                               style={{
                                 background: '#fff',
                                 border: '1px solid #bfdbfe',
-                                padding: '4px 10px',
-                                fontSize: '0.72rem',
+                                padding: '5px 12px',
+                                fontSize: '0.75rem',
                                 fontWeight: 700,
                                 color: '#1e40af',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 6,
+                                flexShrink: 0,
                               }}
                             >
-                              <MapPinIcon size={12} color="#1d4ed8" />
+                              <MapPinIcon size={14} color="#1d4ed8" style={{ flexShrink: 0 }} />
                               <span>{forwardCurrentLocation}</span>
                             </div>
                           )}
@@ -2617,17 +2644,30 @@ export default function AdminOrderDetailPage() {
                         >
                           Current Location
                         </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <MapPinIcon size={12} color="#4232d9" />
-                          <span
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 6,
+                            marginTop: 2,
+                          }}
+                        >
+                          <MapPinIcon
+                            size={16}
+                            color="#111"
+                            style={{ flexShrink: 0, marginTop: 1 }}
+                          />
+                          <strong
                             style={{
                               fontSize: '0.82rem',
-                              fontWeight: 700,
+                              fontWeight: 800,
                               color: '#111',
+                              lineHeight: 1.35,
+                              wordBreak: 'break-word',
                             }}
                           >
                             {forwardCurrentLocation}
-                          </span>
+                          </strong>
                         </div>
                       </div>
                       <div>
