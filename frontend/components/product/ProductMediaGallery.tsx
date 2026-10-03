@@ -13,6 +13,37 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
   const [showAllImages, setShowAllImages] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setMobileActiveIndex(0);
+  }, [images]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const diffY = e.changedTouches[0].clientY - touchStartYRef.current;
+
+    // Trigger horizontal swipe when horizontal distance is greater than vertical and exceeds 35px
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {
+      if (diffX < 0) {
+        // Swiped Left -> Next image
+        setMobileActiveIndex((prev) => (prev + 1) % images.length);
+      } else {
+        // Swiped Right -> Previous image
+        setMobileActiveIndex((prev) => (prev - 1 + images.length) % images.length);
+      }
+    }
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+  };
+
   const gridRef = useRef<HTMLDivElement>(null);
   const toggleShowMore = () => {
     if (!showAllImages) {
@@ -130,9 +161,13 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
           )}
         </div>
 
-        {/* Mobile: Carousel View */}
+        {/* Mobile: Carousel View with Touch Swipe & Pill Dots Indicator */}
         <div className="adidas-gallery-mobile">
-          <div className="product-gallery-main-container">
+          <div
+            className="product-gallery-main-container"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
             <div
               className="gallery-strip"
               style={{ transform: `translateX(-${mobileActiveIndex * 100}%)` }}
@@ -156,36 +191,26 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
             </div>
 
             {images.length > 1 && (
-              <>
-                <button
-                  className="gallery-nav-btn gallery-nav-btn--prev"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMobileActiveIndex((mobileActiveIndex - 1 + images.length) % images.length);
-                  }}
-                  aria-label="Previous image"
-                >
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="15 18 9 12 15 6" />
-                  </svg>
-                </button>
-                <button
-                  className="gallery-nav-btn gallery-nav-btn--next"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMobileActiveIndex((mobileActiveIndex + 1) % images.length);
-                  }}
-                  aria-label="Next image"
-                >
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </button>
-
-                <div className="mobile-gallery-counter">
-                  {mobileActiveIndex + 1} / {images.length}
-                </div>
-              </>
+              <div
+                className="mobile-gallery-dots"
+                role="tablist"
+                aria-label="Product image slides"
+              >
+                {images.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    role="tab"
+                    aria-selected={idx === mobileActiveIndex}
+                    aria-label={`Go to slide ${idx + 1} of ${images.length}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMobileActiveIndex(idx);
+                    }}
+                    className={`mobile-gallery-dot ${idx === mobileActiveIndex ? 'active' : ''}`}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </div>

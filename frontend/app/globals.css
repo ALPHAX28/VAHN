@@ -3625,44 +3625,46 @@ a:active .btn-checkout-arrow,
   }
 
   .adidas-gallery-mobile .gallery-nav-btn {
-    opacity: 1 !important;
-    visibility: visible !important;
-    width: 42px !important;
-    height: 42px !important;
-    border-radius: 0 !important;
-    background: rgba(255, 255, 255, 0.9) !important;
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
-    color: #000000 !important;
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
-    z-index: 20 !important;
+    display: none !important;
   }
 
-  .adidas-gallery-mobile .gallery-nav-btn--prev {
-    left: 12px !important;
+  .adidas-gallery-mobile .product-gallery-main-container {
+    touch-action: pan-y;
   }
 
-  .adidas-gallery-mobile .gallery-nav-btn--next {
-    right: 12px !important;
-  }
-
-  .mobile-gallery-counter {
+  .mobile-gallery-dots {
     position: absolute;
     bottom: 14px;
-    right: 14px;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    color: #ffffff;
-    font-family: var(--font-ui);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    padding: 4px 10px;
-    border-radius: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     z-index: 20;
-    pointer-events: none;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+
+  .mobile-gallery-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(0, 0, 0, 0.22);
+    cursor: pointer;
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease;
+  }
+
+  .mobile-gallery-dot.active {
+    width: 22px;
+    background: #4232d9;
   }
 }
 
