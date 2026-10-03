@@ -5278,6 +5278,8 @@ def admin_list_orders(
             (models.Order.guest_name.ilike(search_filter)) |
             (models.Order.guest_phone.ilike(search_filter)) |
             (models.Order.shiprocket_awb.ilike(search_filter)) |
+            (models.Order.reverse_awb.ilike(search_filter)) |
+            (models.Order.replacement_awb.ilike(search_filter)) |
             (models.Order.razorpay_payment_id.ilike(search_filter)) |
             (models.User.email.ilike(search_filter)) |
             (models.User.full_name.ilike(search_filter)) |
