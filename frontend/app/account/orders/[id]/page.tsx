@@ -1524,68 +1524,24 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
 
             {/* Live Forward Tracking Snapshot Bar */}
             {isShipped && (
-              <div
-                style={{
-                  marginTop: 24,
-                  padding: '16px 20px',
-                  background: '#f9fafb',
-                  border: '1px solid #e5e7eb',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: 12,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      background: '#000',
-                      borderRadius: '0px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
+              <div className="vahn-shipment-snapshot">
+                <div className="vahn-shipment-snapshot-main">
+                  <div className="vahn-shipment-snapshot-icon">
                     <TruckIcon size={20} color="#fff" />
                   </div>
-                  <div>
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
-                    >
-                      <span
-                        style={{
-                          fontSize: '0.85rem',
-                          fontWeight: 900,
-                          textTransform: 'uppercase',
-                          color: '#000',
-                        }}
-                      >
+                  <div className="vahn-shipment-snapshot-content">
+                    <div className="vahn-shipment-snapshot-top">
+                      <span className="vahn-shipment-snapshot-status">
                         {prettifyShipStatus(order.shippingStatus || order.status)}
                       </span>
                       {forwardCurrentLoc && (
-                        <span
-                          style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 800,
-                            color: '#000000',
-                            background: '#f5f5f5',
-                            border: '1px solid #000000',
-                            padding: '3px 8px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 5,
-                          }}
-                        >
-                          <MapPinIcon size={13} color="#000" />
+                        <span className="vahn-shipment-snapshot-location">
+                          <MapPinIcon size={12} color="#166534" style={{ flexShrink: 0 }} />
                           <span>Current Location: {forwardCurrentLoc}</span>
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: '#666', marginTop: 3 }}>
+                    <div className="vahn-shipment-snapshot-courier">
                       {order.shiprocketCourierName ||
                         order.trackingData?.courier_name ||
                         'Express Courier'}
@@ -1605,21 +1561,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 <button
                   type="button"
                   onClick={() => handleOpenTrackingModal('forward')}
-                  style={{
-                    background: '#000',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '10px 18px',
-                    fontSize: '0.8rem',
-                    fontWeight: 900,
-                    textTransform: 'uppercase',
-                    letterSpacing: '-0.025em',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    flexShrink: 0,
-                  }}
+                  className="vahn-shipment-snapshot-btn"
                 >
                   <TruckIcon size={16} color="#fff" />
                   <span>Track Shipment</span>
@@ -2372,97 +2314,25 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
             onClick={(e) => {
               if (e.target === e.currentTarget) setShowTrackingModal(false);
             }}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0, 0, 0, 0.65)',
-              backdropFilter: 'blur(4px)',
-              zIndex: 9999,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '16px',
-            }}
+            className="vahn-tracking-modal-backdrop"
           >
-            <div
-              style={{
-                background: '#fff',
-                width: '100%',
-                maxWidth: 720,
-                height: 'min(720px, 90vh)',
-                maxHeight: '90vh',
-                border: '2px solid #000',
-                boxShadow: '0 25px 60px rgba(0,0,0,0.35)',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-              }}
-            >
+            <div className="vahn-tracking-modal-dialog">
               {/* Modal Header */}
-              <div
-                style={{
-                  padding: '16px 22px',
-                  borderBottom: '1px solid #222',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  background: '#000',
-                  color: '#fff',
-                  flexShrink: 0,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div
-                    style={{
-                      width: 38,
-                      height: 38,
-                      background: '#1a1a1a',
-                      border: '1px solid #333',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
+              <div className="vahn-tracking-modal-header">
+                <div className="vahn-tracking-modal-header-left">
+                  <div className="vahn-tracking-modal-header-icon">
                     <TruckIcon size={20} color="#fff" />
                   </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <h3
-                        style={{
-                          fontSize: '1.05rem',
-                          fontWeight: 900,
-                          margin: 0,
-                          letterSpacing: '-0.02em',
-                          textTransform: 'uppercase',
-                          color: '#fff',
-                        }}
-                      >
+                  <div className="vahn-tracking-modal-header-text">
+                    <div className="vahn-tracking-modal-header-title-row">
+                      <h3 className="vahn-tracking-modal-header-title">
                         Live Logistics & Checkpoints
                       </h3>
-                      <span
-                        style={{
-                          background: '#16a34a',
-                          color: '#fff',
-                          fontSize: '0.65rem',
-                          fontWeight: 900,
-                          padding: '2px 8px',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                        }}
-                      >
+                      <span className="vahn-tracking-modal-header-badge">
                         Live Feed
                       </span>
                     </div>
-                    <span
-                      style={{
-                        fontSize: '0.76rem',
-                        color: '#9ca3af',
-                        fontWeight: 600,
-                        display: 'block',
-                        marginTop: 2,
-                      }}
-                    >
+                    <span className="vahn-tracking-modal-header-sub">
                       Order #{order.id} · Verified Shiprocket Courier Network
                     </span>
                   </div>
@@ -2470,19 +2340,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 <button
                   type="button"
                   onClick={() => setShowTrackingModal(false)}
-                  style={{
-                    background: '#1a1a1a',
-                    border: '1px solid #333',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    width: 36,
-                    height: 36,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    transition: 'all 0.15s ease',
-                  }}
+                  className="vahn-tracking-modal-close-btn"
                   aria-label="Close tracking modal"
                 >
                   <XIcon size={18} color="#fff" />
@@ -2494,29 +2352,15 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 (order.returnStatus && order.returnStatus !== 'NONE') ||
                 order.replacementAwb ||
                 order.returnType === 'REPLACEMENT') && (
-                <div
-                  style={{
-                    display: 'flex',
-                    borderBottom: '2px solid #000',
-                    background: '#f3f4f6',
-                    flexShrink: 0,
-                  }}
-                >
+                <div className="vahn-tracking-tabs">
                   <button
                     type="button"
                     onClick={() => setActiveTrackingTab('forward')}
+                    className="vahn-tracking-tab-btn"
                     style={{
-                      flex: 1,
-                      padding: '14px',
-                      fontWeight: 900,
-                      fontSize: '0.82rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '-0.02em',
                       background: activeTrackingTab === 'forward' ? '#fff' : 'transparent',
                       color: activeTrackingTab === 'forward' ? '#000' : '#666',
-                      border: 'none',
                       borderBottom: activeTrackingTab === 'forward' ? '3px solid #000' : 'none',
-                      cursor: 'pointer',
                     }}
                   >
                     Forward Delivery ({order.shiprocketAwb || 'Active'})
@@ -2525,18 +2369,11 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                     <button
                       type="button"
                       onClick={() => setActiveTrackingTab('reverse')}
+                      className="vahn-tracking-tab-btn"
                       style={{
-                        flex: 1,
-                        padding: '14px',
-                        fontWeight: 900,
-                        fontSize: '0.82rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '-0.02em',
                         background: activeTrackingTab === 'reverse' ? '#fff' : 'transparent',
                         color: activeTrackingTab === 'reverse' ? '#000' : '#666',
-                        border: 'none',
                         borderBottom: activeTrackingTab === 'reverse' ? '3px solid #000' : 'none',
-                        cursor: 'pointer',
                       }}
                     >
                       Return Pickup ({order.reverseAwb || 'Return'})
@@ -2546,19 +2383,12 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                     <button
                       type="button"
                       onClick={() => setActiveTrackingTab('replacement')}
+                      className="vahn-tracking-tab-btn"
                       style={{
-                        flex: 1,
-                        padding: '14px',
-                        fontWeight: 900,
-                        fontSize: '0.82rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '-0.02em',
                         background: activeTrackingTab === 'replacement' ? '#fff' : 'transparent',
                         color: activeTrackingTab === 'replacement' ? '#000' : '#666',
-                        border: 'none',
                         borderBottom:
                           activeTrackingTab === 'replacement' ? '3px solid #000' : 'none',
-                        cursor: 'pointer',
                       }}
                     >
                       Replacement Delivery ({order.replacementAwb || 'Exchange'})
@@ -3665,31 +3495,11 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
               </div>
 
               {/* Modal Footer */}
-              <div
-                style={{
-                  padding: '14px 24px',
-                  borderTop: '1px solid #e5e7eb',
-                  background: '#fafafa',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 16,
-                  flexWrap: 'wrap',
-                  flexShrink: 0,
-                }}
-              >
+              <div className="vahn-tracking-modal-footer">
                 <button
                   type="button"
                   onClick={() => handleOpenTrackingModal(activeTrackingTab)}
-                  style={{
-                    background: '#fff',
-                    border: '1px solid #000',
-                    color: '#000',
-                    padding: '8px 14px',
-                    fontSize: '0.75rem',
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    cursor: 'pointer',
-                  }}
+                  className="vahn-tracking-modal-refresh-btn"
                 >
                   ↻ Refresh Live Scans
                 </button>

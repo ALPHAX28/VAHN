@@ -7459,6 +7459,530 @@ a:active .btn-checkout-arrow,
 }
 
 /* ============================================================
+   ORDER TRACKING & LOGISTICS MODAL — RESPONSIVE DESIGN SYSTEM
+   ============================================================ */
+
+/* 1. Fulfillment Shipment Snapshot Bar (in customer order card) */
+.vahn-shipment-snapshot {
+  margin-top: 24px;
+  padding: 16px 20px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.vahn-shipment-snapshot-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.vahn-shipment-snapshot-icon {
+  width: 38px;
+  height: 38px;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vahn-shipment-snapshot-content {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+
+.vahn-shipment-snapshot-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vahn-shipment-snapshot-status {
+  font-size: 0.85rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: #000;
+  letter-spacing: -0.01em;
+}
+
+.vahn-shipment-snapshot-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.vahn-shipment-snapshot-courier {
+  font-size: 0.78rem;
+  color: #666;
+  margin-top: 2px;
+}
+
+.vahn-shipment-snapshot-btn {
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+
+.vahn-shipment-snapshot-btn:hover {
+  opacity: 0.88;
+}
+
+@media (max-width: 640px) {
+  .vahn-shipment-snapshot {
+    margin-top: 18px;
+    padding: 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .vahn-shipment-snapshot-main {
+    gap: 12px;
+  }
+  .vahn-shipment-snapshot-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .vahn-shipment-snapshot-status {
+    font-size: 0.82rem;
+  }
+  .vahn-shipment-snapshot-location {
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .vahn-shipment-snapshot-btn {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 0.8rem;
+  }
+}
+
+/* 2. Live Logistics & Checkpoints Modal (Responsive) */
+.vahn-tracking-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.vahn-tracking-modal-dialog {
+  background: #fff;
+  width: 100%;
+  max-width: 720px;
+  height: min(720px, 90vh);
+  max-height: 90vh;
+  border: 2px solid #000;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.vahn-tracking-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #222;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #000;
+  color: #fff;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.vahn-tracking-modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.vahn-tracking-modal-header-icon {
+  width: 36px;
+  height: 36px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vahn-tracking-modal-header-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.vahn-tracking-modal-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vahn-tracking-modal-header-title {
+  font-size: 1rem;
+  font-weight: 900;
+  margin: 0;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.vahn-tracking-modal-header-badge {
+  background: #16a34a;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 2px 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.vahn-tracking-modal-header-sub {
+  font-size: 0.74rem;
+  color: #9ca3af;
+  font-weight: 600;
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vahn-tracking-modal-close-btn {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #fff;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  margin-left: 10px;
+}
+
+.vahn-tracking-modal-close-btn:hover {
+  background: #2a2a2a;
+}
+
+/* Modal Tab Switcher */
+.vahn-tracking-tabs {
+  display: flex;
+  border-bottom: 2px solid #000;
+  background: #f3f4f6;
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.vahn-tracking-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.vahn-tracking-tab-btn {
+  flex: 1;
+  min-width: 130px;
+  padding: 13px 14px;
+  font-weight: 900;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: center;
+  border: none;
+}
+
+/* Modal Summary Card & Current Location Banner */
+.vahn-tracking-summary-card {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.vahn-tracking-loc-banner {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.vahn-tracking-loc-banner-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.vahn-tracking-loc-details {
+  min-width: 0;
+  flex: 1;
+}
+
+.vahn-tracking-loc-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.vahn-tracking-loc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #16a34a;
+  display: inline-block;
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.25);
+  flex-shrink: 0;
+}
+
+.vahn-tracking-loc-tag {
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: #16a34a;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.vahn-tracking-loc-text {
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.3;
+}
+
+.vahn-tracking-status-pill {
+  background: #000;
+  color: #fff;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* Modal Courier & AWB Code strip */
+.vahn-tracking-courier-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  padding: 12px 16px;
+  box-sizing: border-box;
+}
+
+.vahn-tracking-grid-col {
+  min-width: 0;
+}
+
+.vahn-tracking-grid-label {
+  font-size: 0.68rem;
+  color: #666;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.vahn-tracking-grid-val {
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: #000;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Subheader & Scans Feed */
+.vahn-tracking-subheader {
+  padding: 12px 20px;
+  background: #fafafa;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.vahn-tracking-scans-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+/* Modal Footer */
+.vahn-tracking-modal-footer {
+  padding: 14px 24px;
+  border-top: 1px solid #e5e7eb;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+/* Mobile Media Queries for Modal */
+@media (max-width: 640px) {
+  .vahn-tracking-modal-backdrop {
+    padding: 8px !important;
+  }
+  .vahn-tracking-modal-dialog {
+    max-height: 92vh !important;
+    height: 92vh !important;
+    max-width: 100% !important;
+    border-width: 1.5px !important;
+  }
+  .vahn-tracking-modal-header {
+    padding: 12px 14px !important;
+  }
+  .vahn-tracking-modal-header-left {
+    gap: 10px !important;
+  }
+  .vahn-tracking-modal-header-icon {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  .vahn-tracking-modal-header-title {
+    font-size: 0.84rem !important;
+    white-space: normal !important;
+  }
+  .vahn-tracking-modal-header-sub {
+    font-size: 0.68rem !important;
+  }
+  .vahn-tracking-modal-close-btn {
+    width: 32px !important;
+    height: 32px !important;
+    margin-left: 6px !important;
+  }
+  .vahn-tracking-tab-btn {
+    padding: 10px 12px !important;
+    font-size: 0.72rem !important;
+    min-width: 110px !important;
+  }
+  .vahn-tracking-summary-card {
+    padding: 12px 14px !important;
+    gap: 10px !important;
+  }
+  .vahn-tracking-loc-banner {
+    padding: 10px 12px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .vahn-tracking-status-pill {
+    font-size: 0.68rem !important;
+    padding: 3px 8px !important;
+  }
+  .vahn-tracking-loc-text {
+    font-size: 0.85rem !important;
+  }
+  .vahn-tracking-courier-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px 12px !important;
+    padding: 10px 12px !important;
+  }
+  .vahn-tracking-grid-label {
+    font-size: 0.64rem !important;
+  }
+  .vahn-tracking-grid-val {
+    font-size: 0.82rem !important;
+  }
+  .vahn-tracking-subheader {
+    padding: 10px 14px !important;
+  }
+  .vahn-tracking-scans-feed {
+    padding: 12px 14px 20px !important;
+  }
+  .vahn-tracking-modal-footer {
+    padding: 12px 14px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .vahn-tracking-modal-footer button {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 11px 14px !important;
+    font-size: 0.78rem !important;
+  }
+  .vahn-tracking-modal-footer a {
+    width: 100% !important;
+    text-align: center !important;
+    padding: 4px !important;
+    font-size: 0.76rem !important;
+  }
+}
+
+/* ============================================================
    Checkout page: sidebar order summary & responsive layout
    ============================================================ */
 .vahn-checkout-container {
