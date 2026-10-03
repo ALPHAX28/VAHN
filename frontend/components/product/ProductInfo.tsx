@@ -392,10 +392,10 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
   };
 
   const reviewsList = product.reviews ?? [];
-  const avgRating = reviewsList.length > 0 
-    ? (reviewsList.reduce((sum, r) => sum + r.rating, 0) / reviewsList.length).toFixed(1) 
-    : '5.0';
   const totalReviews = reviewsList.length;
+  const avgRating = totalReviews > 0 
+    ? (reviewsList.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1) 
+    : '0.0';
 
   // Guarantee option order: COLOUR first, SIZE second, then others
   const sortedOptions = [...(product.options ?? [])].sort((a, b) => {
@@ -446,7 +446,7 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
         </div>
         <span style={{ fontWeight: 600, color: 'var(--color-black)' }}>{avgRating}</span>
         <span style={{ color: 'var(--color-grey-dark)' }}>|</span>
-        <span style={{ color: 'var(--color-grey-dark)', textDecoration: 'underline' }}>{totalReviews} reviews</span>
+        <span style={{ color: 'var(--color-grey-dark)', textDecoration: 'underline' }}>{totalReviews} review{totalReviews !== 1 ? 's' : ''}</span>
       </div>
 
       {/* Title (h2) */}
