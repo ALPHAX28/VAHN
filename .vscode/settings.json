@@ -1,0 +1,9 @@
+{
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "files.associations": {
+    "Caddyfile": "plaintext",
+    "*Caddyfile": "plaintext",
+    "Corefile": "plaintext",
+    "*Corefile": "plaintext"
+  }
+}
