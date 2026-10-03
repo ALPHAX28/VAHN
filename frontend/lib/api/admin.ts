@@ -926,3 +926,57 @@ export const rejectAdminOrderReturn = (
     method: 'POST',
     body: JSON.stringify(payload),
   });
+
+// ── Exchange Options (Admin) ──────────────────────────────────────────────────
+
+export interface AdminExchangeVariantOption {
+  variant_id: string;
+  title: string;
+  size: string;
+  price: number;
+  inventory_quantity: number;
+  is_available: boolean;
+  is_current: boolean;
+}
+
+export interface AdminExchangeItemOption {
+  item_id: string;
+  product_title: string;
+  current_variant_title: string;
+  current_variant_id: string | null;
+  image_url: string | null;
+  quantity: number;
+  variants: AdminExchangeVariantOption[];
+}
+
+export interface AdminExchangeOptionsResponse {
+  order_id: string;
+  items: AdminExchangeItemOption[];
+}
+
+export const getAdminOrderExchangeOptions = (token: string, orderId: string) =>
+  adminFetch<AdminExchangeOptionsResponse>(`/admin/orders/${orderId}/exchange-options`, token);
+
+// ── Admin Initiate Return / Exchange ─────────────────────────────────────────
+
+export interface AdminInitiateReturnPayload {
+  action: 'RETURN' | 'REPLACEMENT';
+  reason: string;
+  notes?: string;
+  order_item_id?: string;
+  replacement_variant_id?: string;
+  bypass_window?: boolean;
+  pickup_address?: Record<string, string>;
+  notify_customer?: boolean;
+}
+
+export const initiateAdminOrderReturn = (
+  token: string,
+  orderId: string,
+  payload: AdminInitiateReturnPayload
+) =>
+  adminFetch<AdminOrder>(`/admin/orders/${orderId}/initiate-return`, token, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+

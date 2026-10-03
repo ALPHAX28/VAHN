@@ -649,6 +649,19 @@ class CancelReturnRequest(BaseModel):
 class RejectReturnRequest(BaseModel):
     reason: str  # Mandatory reason for rejecting/cancelling return refund
 
+class AdminInitiateReturnRequest(BaseModel):
+    """Admin-initiated return or exchange request. Bypasses the 10-day customer window."""
+    action: str = "RETURN"              # "RETURN" or "REPLACEMENT"
+    reason: str                          # Mandatory return/exchange reason
+    notes: Optional[str] = None          # Optional internal admin notes
+    order_item_id: Optional[str] = None  # Specific item to return/exchange (uses first if None)
+    replacement_variant_id: Optional[str] = None  # Required for REPLACEMENT action
+    bypass_window: bool = True           # Admin can bypass the 10-day delivery window
+    # Editable pickup address override (defaults to original shipping address if None)
+    pickup_address: Optional[dict] = None
+    # Optional: send email notification to the customer
+    notify_customer: bool = True
+
 class AdminDispatchReplacementRequest(BaseModel):
     awb_code: Optional[str] = None
     courier_name: Optional[str] = None

@@ -1167,6 +1167,7 @@ def create_reverse_pickup(
     order: Any,
     return_reason: str,
     pickup_location: Optional[str] = None,
+    pickup_address: Optional[Dict[str, Any]] = None,
     db: Optional[Session] = None
 ) -> Dict[str, Any]:
     """
@@ -1192,6 +1193,22 @@ def create_reverse_pickup(
 
     wh = get_primary_warehouse(db)
 
+    # Resolve pickup details: check explicit pickup_address override first, then order.shipping_address, then user/guest
+    addr = pickup_address or (order.shipping_address if isinstance(order.shipping_address, dict) else {})
+    pickup_name = (
+        addr.get("name")
+        or addr.get("fullName")
+        or (order.guest_name if order.is_guest else (order.user.full_name if order.user else "Customer"))
+    )
+    pickup_phone = (
+        addr.get("phone")
+        or (order.guest_phone if order.is_guest else (order.user.phone if order.user else "9876543210"))
+    )
+    pickup_addr_str = addr.get("address") or addr.get("streetAddress") or ""
+    pickup_city = addr.get("city") or "Mumbai"
+    pickup_state = addr.get("state") or "Maharashtra"
+    pickup_pincode = str(addr.get("postalCode") or addr.get("pincode") or "400001").strip()
+
     with httpx.Client(timeout=15.0) as client:
         res = client.post(
             f"{BASE_URL}/orders/create/return",
@@ -1199,12 +1216,12 @@ def create_reverse_pickup(
                 "order_id": order.id,
                 "order_date": order.created_at.strftime("%Y-%m-%d %H:%M"),
                 "channel_id": "",
-                "pickup_customer_name": (order.guest_name if order.is_guest else (order.user.full_name if order.user else "Customer")),
-                "pickup_address": (order.shipping_address or {}).get("address", ""),
-                "pickup_city": (order.shipping_address or {}).get("city", "Mumbai"),
-                "pickup_state": (order.shipping_address or {}).get("state", "Maharashtra"),
-                "pickup_pincode": (order.shipping_address or {}).get("postalCode", "400001"),
-                "pickup_phone": (order.guest_phone if order.is_guest else (order.user.phone if order.user else "9876543210")),
+                "pickup_customer_name": pickup_name,
+                "pickup_address": pickup_addr_str,
+                "pickup_city": pickup_city,
+                "pickup_state": pickup_state,
+                "pickup_pincode": pickup_pincode,
+                "pickup_phone": pickup_phone,
                 "return_reason": return_reason,
                 "warehouse_id": wh.get("id"),
                 "delivery_address": wh.get("address", ""),
@@ -1689,7 +1706,7 @@ def create_exchange_order(
         logger.error(f"Error during Shiprocket create_exchange_order: {exc}. Executing graceful fallback.")
 
     # Graceful fallback to reverse pickup creation
-    rev_res = create_reverse_pickup(order, return_reason=return_reason, db=db)
+    rev_res = create_reverse_pickup(order, return_reason=return_reason, pickup_address=pickup_address, db=db)
     return {
         "is_native_exchange": False,
         "reverse_shipment_id": rev_res.get("reverse_shipment_id", ""),

@@ -3477,8 +3477,10 @@ def request_order_return(
 
     # 10-day return & exchange window validation
     delivered_time = order.delivered_at or order.updated_at or order.created_at
-    if (datetime.utcnow() - delivered_time).days > 10:
-        raise HTTPException(status_code=400, detail="The 10-day return and exchange window for this order has expired.")
+    if delivered_time:
+        now_dt = datetime.now(timezone.utc) if getattr(delivered_time, "tzinfo", None) else datetime.utcnow()
+        if (now_dt - delivered_time).days > 10:
+            raise HTTPException(status_code=400, detail="The 10-day return and exchange window for this order has expired.")
 
     if order.return_status and order.return_status != "NONE":
         raise HTTPException(status_code=400, detail=f"A return or exchange has already been requested for this order (Status: {order.return_status}).")
@@ -3514,15 +3516,21 @@ def request_order_return(
         if not orig_item and order.items:
             orig_item = order.items[0]
 
-        # Call Shiprocket Native Paired Exchange Orders API (POST /orders/create/exchange)
-        sr_res = shiprocket_service.create_exchange_order(
-            order=order,
-            original_item=orig_item,
-            replacement_variant=rep_variant,
-            return_reason=payload.reason,
-            pickup_address=payload.pickup_address,
-            db=db
-        )
+        try:
+            # Call Shiprocket Native Paired Exchange Orders API (POST /orders/create/exchange)
+            sr_res = shiprocket_service.create_exchange_order(
+                order=order,
+                original_item=orig_item,
+                replacement_variant=rep_variant,
+                return_reason=payload.reason,
+                pickup_address=payload.pickup_address,
+                db=db
+            )
+        except Exception as sr_err:
+            db.rollback()
+            logger.error(f"Shiprocket booking error during customer exchange request: {sr_err}")
+            raise HTTPException(status_code=400, detail=f"Reverse pickup could not be booked: {str(sr_err)}")
+
         order.replacement_shipment_id = sr_res.get("replacement_shipment_id")
         order.replacement_awb = sr_res.get("replacement_awb")
         order.replacement_courier_name = sr_res.get("replacement_courier_name")
@@ -3531,7 +3539,17 @@ def request_order_return(
         order.return_type = "RETURN"
         order.replacement_status = "NONE"
         scan_activity = f"Return Requested ({payload.reason}) & Reverse Pickup Scheduled"
-        sr_res = shiprocket_service.create_reverse_pickup(order, return_reason=payload.reason, db=db)
+        try:
+            sr_res = shiprocket_service.create_reverse_pickup(
+                order,
+                return_reason=payload.reason,
+                pickup_address=payload.pickup_address,
+                db=db
+            )
+        except Exception as sr_err:
+            db.rollback()
+            logger.error(f"Shiprocket booking error during customer return request: {sr_err}")
+            raise HTTPException(status_code=400, detail=f"Reverse pickup could not be booked: {str(sr_err)}")
 
     order.return_status = "PICKUP_SCHEDULED"
     order.return_reason = payload.reason
@@ -3666,7 +3684,252 @@ def execute_cancel_order_return(order: models.Order, reason: Optional[str], db: 
     return order
 
 
-# 8b. Admin: Cancel Return or Exchange Request
+# 8a-ADMIN. Admin: Get Exchange Options for Order (no customer auth required)
+@app.get("/api/admin/orders/{order_id}/exchange-options", response_model=schemas.OrderExchangeOptionsResponse)
+def admin_get_order_exchange_options(
+    order_id: str,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin: Returns available exchange variants for each line item in the order.
+    No customer email/phone auth required — admin has full access.
+    """
+    order = db.query(models.Order).options(selectinload(models.Order.items)).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    items_res = []
+    for item in (order.items or []):
+        product_id = None
+        current_var = None
+        if item.variant_id:
+            current_var = db.query(models.ProductVariant).filter_by(id=item.variant_id).first()
+            if current_var:
+                product_id = current_var.product_id
+
+        sibling_variants = []
+        if product_id:
+            sibling_variants = db.query(models.ProductVariant).filter_by(product_id=product_id).all()
+        elif item.product_title:
+            prod = db.query(models.Product).options(selectinload(models.Product.variants)).filter_by(title=item.product_title).first()
+            if prod:
+                sibling_variants = prod.variants or []
+
+        variant_opts = []
+        for v in sibling_variants:
+            size_label = v.title
+            if v.selected_options and isinstance(v.selected_options, list):
+                for opt in v.selected_options:
+                    if isinstance(opt, dict) and opt.get("name", "").lower() == "size":
+                        size_label = opt.get("value", v.title)
+                        break
+            in_stock = bool(v.available_for_sale and (v.inventory_quantity or 0) > 0)
+            is_curr = bool(item.variant_id and v.id == item.variant_id)
+            variant_opts.append(schemas.ExchangeVariantOption(
+                variant_id=v.id,
+                title=v.title,
+                size=size_label,
+                price=v.price_amount,
+                inventory_quantity=v.inventory_quantity or 0,
+                is_available=in_stock,
+                is_current=is_curr
+            ))
+
+        items_res.append(schemas.ExchangeItemOption(
+            item_id=item.id,
+            product_title=item.product_title,
+            current_variant_title=item.variant_title,
+            current_variant_id=item.variant_id,
+            image_url=item.image_url,
+            quantity=item.quantity,
+            variants=variant_opts
+        ))
+
+    return schemas.OrderExchangeOptionsResponse(order_id=order.id, items=items_res)
+
+
+# 8b-ADMIN. Admin: Initiate Return or Exchange for a delivered order
+@app.post("/api/admin/orders/{order_id}/initiate-return", response_model=schemas.AdminOrderSchema)
+def admin_initiate_order_return(
+    order_id: str,
+    payload: schemas.AdminInitiateReturnRequest,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Admin: Initiates a return (refund) or size exchange for any delivered order.
+    - Bypasses the 10-day customer window (controlled by bypass_window flag).
+    - Creates Shiprocket reverse pickup / exchange order.
+    - Updates inventory, return status, tracking scans, and sends customer email.
+    - Idempotent: rejects if an active non-cancelled return already exists.
+    """
+    order = db.query(models.Order).options(
+        selectinload(models.Order.items),
+        selectinload(models.Order.user)
+    ).filter_by(id=order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Edge case: order must be delivered (or completed/refunded states admins may still want to work on)
+    if order.status not in ("DELIVERED", "COMPLETED"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Returns or exchanges can only be initiated on delivered orders (current status: {order.status})."
+        )
+
+    # Edge case: payment must be captured to be refundable
+    if order.payment_status not in ("CAPTURED", "PAID"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot initiate return: Order payment status is '{order.payment_status}'. Only captured/paid orders can be returned."
+        )
+
+    # Idempotency: reject if there's already an active return
+    if order.return_status and order.return_status not in ("NONE", "CANCELLED"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"An active return/exchange already exists for this order (current return status: {order.return_status}). Cancel it first before initiating a new one."
+        )
+
+    # 10-day window check (only if admin does NOT explicitly bypass)
+    if not payload.bypass_window:
+        delivered_time = order.delivered_at or order.updated_at or order.created_at
+        if delivered_time:
+            now_dt = datetime.now(timezone.utc) if getattr(delivered_time, "tzinfo", None) else datetime.utcnow()
+            if (now_dt - delivered_time).days > 10:
+                raise HTTPException(
+                    status_code=400,
+                    detail="The 10-day return and exchange window has expired. Enable 'bypass_window' to override as admin."
+                )
+
+    is_replacement = (payload.action or "").upper() == "REPLACEMENT"
+
+    if is_replacement:
+        if not payload.replacement_variant_id:
+            raise HTTPException(status_code=400, detail="A replacement variant must be selected for size exchanges.")
+
+        rep_variant = db.query(models.ProductVariant).filter_by(id=payload.replacement_variant_id).first()
+        if not rep_variant:
+            raise HTTPException(status_code=404, detail="Selected replacement variant not found.")
+
+        if not rep_variant.available_for_sale or (rep_variant.inventory_quantity or 0) <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Selected size ({rep_variant.title}) is currently out of stock. Please select another available size or initiate a return for refund."
+            )
+
+        # Decrement stock for the replacement item
+        rep_variant.inventory_quantity = max(0, (rep_variant.inventory_quantity or 0) - 1)
+
+        order.return_type = "REPLACEMENT"
+        order.replacement_variant_id = rep_variant.id
+        order.replacement_variant_title = rep_variant.title
+        scan_activity = f"Admin-Initiated Size Exchange ({rep_variant.title}) — Reverse Pickup Scheduled"
+
+        # Resolve the item being exchanged
+        orig_item = None
+        if payload.order_item_id:
+            orig_item = next((it for it in (order.items or []) if str(it.id) == str(payload.order_item_id)), None)
+        if not orig_item and order.items:
+            orig_item = order.items[0]
+
+        # Build pickup address (use override from payload or default to shipping address)
+        pickup_addr = payload.pickup_address or (order.shipping_address if isinstance(order.shipping_address, dict) else {})
+
+        try:
+            # Create Shiprocket paired exchange order
+            sr_res = shiprocket_service.create_exchange_order(
+                order=order,
+                original_item=orig_item,
+                replacement_variant=rep_variant,
+                return_reason=payload.reason,
+                pickup_address=pickup_addr,
+                db=db
+            )
+        except Exception as sr_err:
+            db.rollback()
+            logger.error(f"Shiprocket booking error during admin exchange initiation: {sr_err}")
+            raise HTTPException(status_code=400, detail=f"Shiprocket exchange order could not be booked: {str(sr_err)}")
+
+        order.replacement_shipment_id = sr_res.get("replacement_shipment_id")
+        order.replacement_awb = sr_res.get("replacement_awb")
+        order.replacement_courier_name = sr_res.get("replacement_courier_name")
+        order.replacement_status = sr_res.get("replacement_status", "PICKUP_SCHEDULED")
+    else:
+        order.return_type = "RETURN"
+        order.replacement_status = "NONE"
+        scan_activity = f"Admin-Initiated Return ({payload.reason}) — Reverse Pickup Scheduled"
+
+        # Build pickup address (use override or default)
+        pickup_addr = payload.pickup_address or (order.shipping_address if isinstance(order.shipping_address, dict) else {})
+
+        try:
+            sr_res = shiprocket_service.create_reverse_pickup(
+                order,
+                return_reason=payload.reason,
+                pickup_address=pickup_addr,
+                db=db
+            )
+        except Exception as sr_err:
+            db.rollback()
+            logger.error(f"Shiprocket booking error during admin return initiation: {sr_err}")
+            raise HTTPException(status_code=400, detail=f"Shiprocket reverse pickup could not be booked: {str(sr_err)}")
+
+    # Common fields for both return types
+    order.return_status = "PICKUP_SCHEDULED"
+    order.return_reason = payload.reason
+    order.return_notes = payload.notes or f"Return/exchange initiated by admin ({admin.full_name or admin.email or 'Admin'})"
+    order.return_requested_at = datetime.utcnow()
+    order.reverse_shipment_id = sr_res.get("reverse_shipment_id")
+    order.reverse_awb = sr_res.get("reverse_awb")
+    order.reverse_courier_name = sr_res.get("reverse_courier_name")
+    order.reverse_tracking_data = {
+        "awb": sr_res.get("reverse_awb"),
+        "courier_name": sr_res.get("reverse_courier_name"),
+        "current_status": "PICKUP_SCHEDULED",
+        "admin_initiated": True,
+        "initiated_by": admin.full_name or admin.email or "Admin",
+        "initiated_at": datetime.utcnow().isoformat(),
+        "scans": [
+            {
+                "date": datetime.utcnow().strftime("%b %d, %Y - %I:%M %p"),
+                "activity": scan_activity,
+                "location": "Customer Address"
+            }
+        ]
+    }
+
+    db.commit()
+    db.refresh(order)
+
+    # Send customer email notification if requested
+    if payload.notify_customer:
+        try:
+            cust_email, cust_name = get_order_customer_info(order, db)
+            if cust_email:
+                send_return_requested_email(
+                    to_email=cust_email,
+                    order_id=order.id,
+                    customer_name=cust_name or "",
+                    return_type=order.return_type or "RETURN",
+                    reason=payload.reason or "",
+                    replacement_title=order.replacement_variant_title or "",
+                    reverse_awb=order.reverse_awb or "",
+                    reverse_courier_name=order.reverse_courier_name or "",
+                )
+        except Exception as em_err:
+            logger.warning(f"Failed to send admin-initiated return email for order {order.id}: {em_err}")
+
+    logger.info(
+        f"Admin '{admin.full_name or admin.email}' initiated {order.return_type} for order {order.id} "
+        f"(reason: {payload.reason}, AWB: {order.reverse_awb})"
+    )
+
+    return _admin_order_detail(order)
+
+
+# 8c. Admin: Cancel Return or Exchange Request
 @app.post("/api/admin/orders/{order_id}/cancel-return", response_model=schemas.OrderSchema)
 def admin_cancel_order_return(
     order_id: str,

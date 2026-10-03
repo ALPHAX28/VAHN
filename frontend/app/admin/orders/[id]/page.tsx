@@ -18,14 +18,17 @@ import {
 } from '@/components/icons/Icons';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 import {
+  type AdminExchangeItemOption,
   type AdminOrder,
   cancelAdminOrderReturn,
   cancelAdminOrderShipment,
   dispatchAdminOrderReplacement,
   getAdminOrder,
+  getAdminOrderExchangeOptions,
   getAdminOrderInvoice,
   getAdminOrderManifest,
   getAdminOrderShippingLabel,
+  initiateAdminOrderReturn,
   markAdminOrderReturnReceived,
   notifyAdminOrderReturn,
   refreshAdminOrderTracking,
@@ -94,6 +97,20 @@ export default function AdminOrderDetailPage() {
     'Customer requested cancellation of return/exchange'
   );
   const [cancellingReturn, setCancellingReturn] = useState(false);
+
+  // ── Admin: Initiate Return / Exchange ──────────────────────────────────────
+  const [showInitiateReturnModal, setShowInitiateReturnModal] = useState(false);
+  const [initiateAction, setInitiateAction] = useState<'RETURN' | 'REPLACEMENT'>('RETURN');
+  const [initiateReason, setInitiateReason] = useState('');
+  const [initiateNotes, setInitiateNotes] = useState('');
+  const [initiateBypassWindow, setInitiateBypassWindow] = useState(true);
+  const [initiateNotifyCustomer, setInitiateNotifyCustomer] = useState(true);
+  const [initiateExchangeItems, setInitiateExchangeItems] = useState<AdminExchangeItemOption[]>([]);
+  const [initiateExchangeLoading, setInitiateExchangeLoading] = useState(false);
+  const [initiateSelectedItemId, setInitiateSelectedItemId] = useState('');
+  const [initiateSelectedVariantId, setInitiateSelectedVariantId] = useState('');
+  const [initiating, setInitiating] = useState(false);
+  const [initiatePickupAddress, setInitiatePickupAddress] = useState<Record<string, string>>({}); // populated on modal open
 
   async function handleCancelReturn() {
     if (!adminToken || !order) return;
@@ -213,6 +230,83 @@ export default function AdminOrderDetailPage() {
       toast.error(e?.message || 'Failed to send notification to customer.');
     } finally {
       setNotifyingCustomer(false);
+    }
+  }
+
+  async function handleInitiateReturn() {
+    if (!adminToken || !order) return;
+    if (!initiateReason.trim()) {
+      toast.error('A reason is required to initiate a return or exchange.');
+      return;
+    }
+    if (initiateAction === 'REPLACEMENT' && !initiateSelectedVariantId) {
+      toast.error('Please select a replacement size to continue with the exchange.');
+      return;
+    }
+    setInitiating(true);
+    try {
+      const updated = await initiateAdminOrderReturn(adminToken, order.id, {
+        action: initiateAction,
+        reason: initiateReason.trim(),
+        notes: initiateNotes.trim() || undefined,
+        order_item_id: initiateSelectedItemId || undefined,
+        replacement_variant_id: initiateAction === 'REPLACEMENT' ? initiateSelectedVariantId : undefined,
+        bypass_window: initiateBypassWindow,
+        notify_customer: initiateNotifyCustomer,
+        pickup_address: Object.keys(initiatePickupAddress).length > 0 ? initiatePickupAddress : undefined,
+      });
+      setOrder(updated);
+      toast.success(
+        initiateAction === 'REPLACEMENT'
+          ? `Size exchange initiated! Shiprocket reverse pickup scheduled. Replacement shipment will be dispatched after item is received at warehouse.`
+          : `Return initiated! Shiprocket reverse pickup scheduled. Refund can be processed after item is received at warehouse.`
+      );
+      setShowInitiateReturnModal(false);
+      setInitiateReason('');
+      setInitiateNotes('');
+      setInitiateSelectedVariantId('');
+      await load();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : (e as { message?: string })?.message;
+      toast.error(msg || 'Failed to initiate return/exchange.');
+    } finally {
+      setInitiating(false);
+    }
+  }
+
+  async function openInitiateReturnModal() {
+    if (!adminToken || !order) return;
+    // Reset state
+    setInitiateAction('RETURN');
+    setInitiateReason('');
+    setInitiateNotes('');
+    setInitiateSelectedVariantId('');
+    setInitiateSelectedItemId('');
+    setInitiateBypassWindow(true);
+    setInitiateNotifyCustomer(true);
+    // Pre-fill pickup address from shipping address
+    const addr = order.shipping_address || {};
+    setInitiatePickupAddress({
+      name: addr.name || addr.firstName || '',
+      phone: addr.phone || '',
+      address: addr.address || addr.streetAddress || '',
+      city: addr.city || '',
+      state: addr.state || '',
+      postalCode: addr.postalCode || addr.pincode || '',
+    });
+    setShowInitiateReturnModal(true);
+    // Load exchange options
+    setInitiateExchangeLoading(true);
+    try {
+      const opts = await getAdminOrderExchangeOptions(adminToken, order.id);
+      setInitiateExchangeItems(opts.items || []);
+      if (opts.items.length > 0) {
+        setInitiateSelectedItemId(opts.items[0].item_id);
+      }
+    } catch {
+      setInitiateExchangeItems([]);
+    } finally {
+      setInitiateExchangeLoading(false);
     }
   }
 
@@ -569,6 +663,32 @@ export default function AdminOrderDetailPage() {
         </div>
 
         <div className="admin-header-actions">
+          {(order.status === 'DELIVERED' || order.shipping_status === 'DELIVERED') &&
+            (!order.return_status || ['NONE', 'CANCELLED'].includes(order.return_status)) &&
+            order.payment_status !== 'FAILED' && (
+              <button
+                id="btn-admin-header-initiate-return"
+                type="button"
+                onClick={openInitiateReturnModal}
+                className="admin-btn admin-btn--primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: '#111',
+                  color: '#fff',
+                  fontWeight: 800,
+                  fontSize: '0.78rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.03em',
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  border: 'none',
+                }}
+              >
+                + Initiate Return / Exchange
+              </button>
+            )}
           {order.shiprocket_awb && (
             <a
               href={getPublicTrackingUrl(order.shiprocket_awb)}
@@ -2222,6 +2342,29 @@ export default function AdminOrderDetailPage() {
                             )}
                           </div>
                         </div>
+                        {/* Admin: Initiate Return / Exchange button — only shown when no active return exists */}
+                        {!isReturnActive && (
+                          <button
+                            id="btn-admin-initiate-return"
+                            type="button"
+                            onClick={openInitiateReturnModal}
+                            style={{
+                              background: '#111',
+                              color: '#fff',
+                              border: 'none',
+                              padding: '8px 16px',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.04em',
+                              whiteSpace: 'nowrap',
+                              flexShrink: 0,
+                            }}
+                          >
+                            + Initiate Return / Exchange
+                          </button>
+                        )}
                       </div>
                     ) : isOutForDelivery ? (
                       <div
@@ -4148,6 +4291,327 @@ export default function AdminOrderDetailPage() {
                 {rejectingReturn
                   ? 'Submitting Rejection...'
                   : 'Confirm Rejection & Cancel Refund →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          Admin: Initiate Return / Exchange Modal
+          ═══════════════════════════════════════════════════════════════════ */}
+      {showInitiateReturnModal && order && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 20,
+            overflowY: 'auto',
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              maxWidth: 620,
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: '28px 32px',
+              border: '2px solid #111',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Admin: Initiate Return / Exchange
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowInitiateReturnModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.3rem', lineHeight: 1, color: '#555' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Order Info Banner */}
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', padding: '10px 14px', marginBottom: 18, fontSize: '0.82rem' }}>
+              <span style={{ fontWeight: 700 }}>{order.id}</span>
+              {' — '}{order.items?.[0]?.product_title || 'Order'}
+              {order.items?.length > 1 ? ` (+${order.items.length - 1} more items)` : ''}
+              <span style={{ marginLeft: 12, color: '#6b7280' }}>
+                ₹{order.total_amount.toLocaleString('en-IN')}
+              </span>
+              {order.delivered_at && (
+                <span style={{ marginLeft: 12, color: '#059669', fontWeight: 600 }}>
+                  Delivered {new Date(order.delivered_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              )}
+            </div>
+
+            {/* Action Toggle */}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: 8, color: '#374151' }}>
+                Action Type <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <div style={{ display: 'flex', gap: 0, border: '1px solid #d1d5db', overflow: 'hidden' }}>
+                {(['RETURN', 'REPLACEMENT'] as const).map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => { setInitiateAction(a); setInitiateSelectedVariantId(''); }}
+                    style={{
+                      flex: 1,
+                      padding: '10px 0',
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: initiateAction === a ? '#111' : '#fff',
+                      color: initiateAction === a ? '#fff' : '#374151',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    {a === 'RETURN' ? '↩ Return for Refund' : '⇄ Size Exchange (Replacement)'}
+                  </button>
+                ))}
+              </div>
+              <p style={{ margin: '6px 0 0', fontSize: '0.72rem', color: '#6b7280' }}>
+                {initiateAction === 'RETURN'
+                  ? 'Schedules a reverse courier pickup. Refund can be processed after QC inspection at warehouse.'
+                  : 'Books Shiprocket paired exchange: reverse pickup from customer + new size dispatched from warehouse.'}
+              </p>
+            </div>
+
+            {/* Reason */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: 6, color: '#374151' }}>
+                Return / Exchange Reason <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                {['Size issue', 'Defective / damaged product', 'Wrong item received', 'Quality not as expected', 'Customer changed mind', 'Courtesy return (admin approved)'].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setInitiateReason(preset)}
+                    style={{
+                      background: initiateReason === preset ? '#111' : '#f3f4f6',
+                      color: initiateReason === preset ? '#fff' : '#374151',
+                      border: `1px solid ${initiateReason === preset ? '#111' : '#e5e7eb'}`,
+                      padding: '4px 10px',
+                      fontSize: '0.71rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                placeholder="Or type a custom reason..."
+                value={initiateReason}
+                onChange={(e) => setInitiateReason(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', fontSize: '0.85rem', border: '1px solid #d1d5db', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            {/* Exchange: Item & Variant Selection */}
+            {initiateAction === 'REPLACEMENT' && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: 8, color: '#374151' }}>
+                  Select Replacement Size <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                {initiateExchangeLoading ? (
+                  <div style={{ fontSize: '0.82rem', color: '#6b7280', padding: '10px 0' }}>Loading available sizes...</div>
+                ) : initiateExchangeItems.length === 0 ? (
+                  <div style={{ fontSize: '0.82rem', color: '#dc2626', padding: '10px 0' }}>No exchange variants available for this order&apos;s products.</div>
+                ) : (
+                  <>
+                    {/* Item Selector (only if multiple items) */}
+                    {initiateExchangeItems.length > 1 && (
+                      <div style={{ marginBottom: 10 }}>
+                        <label style={{ display: 'block', fontSize: '0.7rem', color: '#6b7280', marginBottom: 4 }}>Select Item to Exchange:</label>
+                        <select
+                          value={initiateSelectedItemId}
+                          onChange={(e) => { setInitiateSelectedItemId(e.target.value); setInitiateSelectedVariantId(''); }}
+                          style={{ width: '100%', padding: '7px 10px', fontSize: '0.83rem', border: '1px solid #d1d5db' }}
+                        >
+                          {initiateExchangeItems.map((item) => (
+                            <option key={item.item_id} value={item.item_id}>
+                              {item.product_title} — {item.current_variant_title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {/* Variant Grid */}
+                    {(() => {
+                      const selItem = initiateExchangeItems.find((i) => i.item_id === initiateSelectedItemId) || initiateExchangeItems[0];
+                      return selItem ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          {selItem.variants.map((v) => (
+                            <button
+                              key={v.variant_id}
+                              type="button"
+                              disabled={!v.is_available}
+                              onClick={() => setInitiateSelectedVariantId(v.variant_id)}
+                              title={v.is_current ? 'Currently owned size' : !v.is_available ? 'Out of stock' : `${v.inventory_quantity} in stock`}
+                              style={{
+                                padding: '8px 14px',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                border: `2px solid ${
+                                  initiateSelectedVariantId === v.variant_id ? '#111' :
+                                  v.is_current ? '#92400e' :
+                                  !v.is_available ? '#e5e7eb' : '#d1d5db'
+                                }`,
+                                background: initiateSelectedVariantId === v.variant_id ? '#111' :
+                                  v.is_current ? '#fef3c7' :
+                                  !v.is_available ? '#f9fafb' : '#fff',
+                                color: initiateSelectedVariantId === v.variant_id ? '#fff' :
+                                  v.is_current ? '#92400e' :
+                                  !v.is_available ? '#9ca3af' : '#111',
+                                cursor: !v.is_available ? 'not-allowed' : 'pointer',
+                                opacity: !v.is_available ? 0.5 : 1,
+                                textDecoration: !v.is_available ? 'line-through' : 'none',
+                              }}
+                            >
+                              {v.size}
+                              {v.is_current && <span style={{ fontSize: '0.62rem', marginLeft: 4 }}>(current)</span>}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
+                    {initiateSelectedVariantId && (() => {
+                      const selItem = initiateExchangeItems.find((i) => i.item_id === initiateSelectedItemId) || initiateExchangeItems[0];
+                      const selV = selItem?.variants.find((v) => v.variant_id === initiateSelectedVariantId);
+                      return selV ? (
+                        <div style={{ marginTop: 8, fontSize: '0.75rem', color: '#059669', fontWeight: 600 }}>
+                          ✓ Replacement: {selV.size} — {selV.inventory_quantity} units in stock
+                        </div>
+                      ) : null;
+                    })()}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Admin Notes */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: 6, color: '#374151' }}>
+                Internal Admin Notes (optional)
+              </label>
+              <textarea
+                rows={2}
+                placeholder="e.g. Customer contacted support on 03 Oct. Courtesy return approved by team."
+                value={initiateNotes}
+                onChange={(e) => setInitiateNotes(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', fontSize: '0.83rem', border: '1px solid #d1d5db', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            {/* Pickup Address (editable) */}
+            <div style={{ marginBottom: 16, background: '#f9fafb', border: '1px solid #e5e7eb', padding: '12px 14px' }}>
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: 10, color: '#374151' }}>
+                Pickup Address (for courier)
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[{ key: 'name', label: 'Full Name' }, { key: 'phone', label: 'Phone' }, { key: 'address', label: 'Street Address' }, { key: 'city', label: 'City' }, { key: 'state', label: 'State' }, { key: 'postalCode', label: 'PIN Code' }].map(({ key, label }) => (
+                  <div key={key} style={{ gridColumn: key === 'address' ? 'span 2' : 'auto' }}>
+                    <label style={{ display: 'block', fontSize: '0.65rem', color: '#6b7280', marginBottom: 3 }}>{label}</label>
+                    <input
+                      type="text"
+                      value={initiatePickupAddress[key] || ''}
+                      onChange={(e) => setInitiatePickupAddress(prev => ({ ...prev, [key]: e.target.value }))}
+                      style={{ width: '100%', padding: '6px 8px', fontSize: '0.8rem', border: '1px solid #d1d5db', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Options */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: '0.8rem' }}>
+                <input
+                  type="checkbox"
+                  checked={initiateBypassWindow}
+                  onChange={(e) => setInitiateBypassWindow(e.target.checked)}
+                  style={{ width: 15, height: 15, cursor: 'pointer' }}
+                />
+                <span>
+                  <strong>Bypass 10-day return window</strong>
+                  <span style={{ display: 'block', fontSize: '0.7rem', color: '#6b7280' }}>Allow return/exchange even if delivered more than 10 days ago.</span>
+                </span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: '0.8rem' }}>
+                <input
+                  type="checkbox"
+                  checked={initiateNotifyCustomer}
+                  onChange={(e) => setInitiateNotifyCustomer(e.target.checked)}
+                  style={{ width: 15, height: 15, cursor: 'pointer' }}
+                />
+                <span>
+                  <strong>Send email notification to customer</strong>
+                  <span style={{ display: 'block', fontSize: '0.7rem', color: '#6b7280' }}>Customer will receive a confirmation email with reverse courier details.</span>
+                </span>
+              </label>
+            </div>
+
+            {/* Validation Warning */}
+            {initiateAction === 'REPLACEMENT' && !initiateSelectedVariantId && !initiateExchangeLoading && initiateExchangeItems.length > 0 && (
+              <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', padding: '8px 12px', marginBottom: 14, fontSize: '0.78rem', color: '#9a3412' }}>
+                ⚠ Please select a replacement size above to continue with the exchange.
+              </div>
+            )}
+            {!initiateReason.trim() && (
+              <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', padding: '8px 12px', marginBottom: 14, fontSize: '0.78rem', color: '#9a3412' }}>
+                ⚠ A return reason is required before submitting.
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: '1px solid #e5e7eb', paddingTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => setShowInitiateReturnModal(false)}
+                disabled={initiating}
+                style={{ background: '#fff', border: '1px solid #d1d5db', padding: '10px 20px', fontSize: '0.82rem', fontWeight: 800, cursor: 'pointer', textTransform: 'uppercase' }}
+              >
+                Cancel
+              </button>
+              <button
+                id="btn-confirm-admin-initiate-return"
+                type="button"
+                onClick={handleInitiateReturn}
+                disabled={initiating || !initiateReason.trim() || (initiateAction === 'REPLACEMENT' && !initiateSelectedVariantId)}
+                style={{
+                  background: '#111',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 24px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: (initiating || !initiateReason.trim() || (initiateAction === 'REPLACEMENT' && !initiateSelectedVariantId)) ? 'not-allowed' : 'pointer',
+                  textTransform: 'uppercase',
+                  opacity: (initiating || !initiateReason.trim() || (initiateAction === 'REPLACEMENT' && !initiateSelectedVariantId)) ? 0.5 : 1,
+                }}
+              >
+                {initiating
+                  ? 'Booking in Shiprocket...'
+                  : initiateAction === 'REPLACEMENT'
+                    ? 'Initiate Size Exchange →'
+                    : 'Initiate Return & Schedule Pickup →'}
               </button>
             </div>
           </div>
