@@ -3629,7 +3629,36 @@ a:active .btn-checkout-arrow,
   }
 
   .adidas-gallery-mobile .product-gallery-main-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    overflow: hidden;
     touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .adidas-gallery-mobile .gallery-strip {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    will-change: transform;
+    cursor: grab;
+  }
+
+  .adidas-gallery-mobile .gallery-strip:active {
+    cursor: grabbing;
+  }
+
+  .adidas-gallery-mobile .gallery-strip-slide {
+    flex: 0 0 100%;
+    width: 100%;
+    min-width: 100%;
+    height: 100%;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
   }
 
   .mobile-gallery-dots {

@@ -13,35 +13,168 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
   const [showAllImages, setShowAllImages] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [mobileActiveIndex, setMobileActiveIndex] = useState(0);
-  const touchStartXRef = useRef<number | null>(null);
-  const touchStartYRef = useRef<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
 
+  // Drag tracking refs
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startYRef = useRef(0);
+  const currentDeltaXRef = useRef(0);
+  const isHorizontalSwipeRef = useRef<boolean | null>(null);
+  const activeIndexRef = useRef(0);
+
+  // Keep activeIndexRef in sync with state
+  useEffect(() => {
+    activeIndexRef.current = mobileActiveIndex;
+  }, [mobileActiveIndex]);
+
+  // Synchronize CSS transform whenever mobileActiveIndex changes (when not actively dragging)
+  useEffect(() => {
+    if (stripRef.current && !isDraggingRef.current) {
+      stripRef.current.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
+      stripRef.current.style.transform = `translateX(-${mobileActiveIndex * 100}%)`;
+    }
+  }, [mobileActiveIndex]);
+
+  // Reset to slide 0 when images change
   useEffect(() => {
     setMobileActiveIndex(0);
+    activeIndexRef.current = 0;
+    if (stripRef.current) {
+      stripRef.current.style.transition = 'none';
+      stripRef.current.style.transform = 'translateX(0%)';
+    }
   }, [images]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartXRef.current = e.touches[0].clientX;
-    touchStartYRef.current = e.touches[0].clientY;
+  // Drag start
+  const handleDragStart = (clientX: number, clientY: number) => {
+    if (!stripRef.current) return;
+    isDraggingRef.current = true;
+    isHorizontalSwipeRef.current = null;
+    startXRef.current = clientX;
+    startYRef.current = clientY;
+    currentDeltaXRef.current = 0;
+    stripRef.current.style.transition = 'none';
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
-    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
-    const diffY = e.changedTouches[0].clientY - touchStartYRef.current;
+  // Drag move (reactive 1:1 finger tracking: both images visible side-by-side!)
+  const handleDragMove = (clientX: number, clientY: number, e?: TouchEvent | React.MouseEvent) => {
+    if (!isDraggingRef.current || !stripRef.current) return;
+    const deltaX = clientX - startXRef.current;
+    const deltaY = clientY - startYRef.current;
 
-    // Trigger horizontal swipe when horizontal distance is greater than vertical and exceeds 35px
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {
-      if (diffX < 0) {
-        // Swiped Left -> Next image
-        setMobileActiveIndex((prev) => (prev + 1) % images.length);
-      } else {
-        // Swiped Right -> Previous image
-        setMobileActiveIndex((prev) => (prev - 1 + images.length) % images.length);
+    // Detect gesture orientation on first move > 6px
+    if (isHorizontalSwipeRef.current === null) {
+      if (Math.abs(deltaX) > 6 || Math.abs(deltaY) > 6) {
+        isHorizontalSwipeRef.current = Math.abs(deltaX) >= Math.abs(deltaY);
       }
     }
-    touchStartXRef.current = null;
-    touchStartYRef.current = null;
+
+    if (!isHorizontalSwipeRef.current) {
+      return;
+    }
+
+    // Lock out vertical scroll during horizontal gallery swipe
+    if (e && 'cancelable' in e && e.cancelable) {
+      e.preventDefault();
+    }
+
+    const containerWidth = containerRef.current?.clientWidth || stripRef.current.clientWidth || 360;
+    let effectiveDeltaX = deltaX;
+
+    // Rubber-band resistance when dragging beyond first or last slide
+    const currentIndex = activeIndexRef.current;
+    if (
+      (currentIndex === 0 && deltaX > 0) ||
+      (currentIndex === images.length - 1 && deltaX < 0)
+    ) {
+      effectiveDeltaX = deltaX * 0.3;
+    }
+
+    currentDeltaXRef.current = effectiveDeltaX;
+
+    // Direct 1:1 translation: both images slide side-by-side in real-time!
+    const basePercent = -currentIndex * 100;
+    const deltaPercent = (effectiveDeltaX / containerWidth) * 100;
+    stripRef.current.style.transform = `translateX(${basePercent + deltaPercent}%)`;
+  };
+
+  // Drag end (snaps to next/prev slide or springs back)
+  const handleDragEnd = () => {
+    if (!isDraggingRef.current || !stripRef.current) return;
+    isDraggingRef.current = false;
+
+    if (!isHorizontalSwipeRef.current) {
+      isHorizontalSwipeRef.current = null;
+      return;
+    }
+    isHorizontalSwipeRef.current = null;
+
+    const containerWidth = containerRef.current?.clientWidth || stripRef.current.clientWidth || 360;
+    const deltaX = currentDeltaXRef.current;
+    currentDeltaXRef.current = 0;
+
+    const threshold = Math.min(containerWidth * 0.16, 50); // 16% of width or 50px
+    const currentIndex = activeIndexRef.current;
+    let targetIndex = currentIndex;
+
+    if (deltaX < -threshold && currentIndex < images.length - 1) {
+      targetIndex = currentIndex + 1;
+    } else if (deltaX > threshold && currentIndex > 0) {
+      targetIndex = currentIndex - 1;
+    }
+
+    // Animate smoothly to target
+    stripRef.current.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
+    stripRef.current.style.transform = `translateX(-${targetIndex * 100}%)`;
+    setMobileActiveIndex(targetIndex);
+  };
+
+  // Attach touch listeners to container with passive: false for smooth non-blocking horizontal swipe
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      handleDragMove(e.touches[0].clientX, e.touches[0].clientY, e);
+    };
+
+    const onTouchEnd = () => {
+      handleDragEnd();
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [images.length]);
+
+  // Mouse drag support for desktop/DevTools
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    handleDragStart(e.clientX, e.clientY);
+  };
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    handleDragMove(e.clientX, e.clientY, e);
+  };
+
+  const onMouseUp = () => {
+    handleDragEnd();
   };
 
   const gridRef = useRef<HTMLDivElement>(null);
@@ -161,16 +294,19 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
           )}
         </div>
 
-        {/* Mobile: Carousel View with Touch Swipe & Pill Dots Indicator */}
+        {/* Mobile: 1:1 Reactive Finger-Tracking Carousel with Pill Dots */}
         <div className="adidas-gallery-mobile">
           <div
+            ref={containerRef}
             className="product-gallery-main-container"
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
           >
             <div
+              ref={stripRef}
               className="gallery-strip"
-              style={{ transform: `translateX(-${mobileActiveIndex * 100}%)` }}
             >
               {images.map((img, i) => (
                 <div
@@ -184,6 +320,7 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
                     sizes="100vw"
                     className="product-gallery-main"
                     priority={i === 0}
+                    draggable={false}
                     style={{ objectFit: 'cover' }}
                   />
                 </div>
