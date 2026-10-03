@@ -58,6 +58,60 @@ function getStatusColor(status: string) {
   return { bg: '#fffbeb', text: '#b45309', border: '#d97706' };
 }
 
+function getCustomerReturnBadge(order: {
+  returnStatus?: string | null;
+  returnType?: string | null;
+  replacementStatus?: string | null;
+  isReturnPickedUp?: boolean;
+}) {
+  if (order.returnType === 'REPLACEMENT') {
+    if (order.replacementStatus === 'DELIVERED' || order.replacementStatus === 'COMPLETED') {
+      return { title: 'Replacement Delivered', badge: 'EXCHANGE COMPLETED', color: '#16a34a' };
+    }
+    if (
+      order.replacementStatus === 'REPLACEMENT_DISPATCHED' ||
+      order.replacementStatus === 'DISPATCHED'
+    ) {
+      return { title: 'Replacement Dispatched', badge: 'DISPATCHED', color: '#16a34a' };
+    }
+    if (
+      order.replacementStatus === 'PICKED_UP' ||
+      order.returnStatus === 'PICKED_UP' ||
+      order.returnStatus === 'DELIVERED_TO_WAREHOUSE' ||
+      order.isReturnPickedUp
+    ) {
+      return { title: 'Original Item Picked Up', badge: 'ORIGINAL PICKED UP', color: '#2563eb' };
+    }
+    if (order.replacementStatus === 'CANCELLED' || order.returnStatus === 'CANCELLED') {
+      return { title: 'Exchange Cancelled', badge: 'CANCELLED', color: '#dc2626' };
+    }
+    return { title: 'Exchange Request Registered', badge: 'EXCHANGE REQUESTED', color: '#000' };
+  }
+
+  // Return for 100% Refund
+  if (order.returnStatus === 'REFUNDED' || order.returnStatus === 'COMPLETED') {
+    return { title: '100% Refund Credited', badge: 'REFUNDED', color: '#16a34a' };
+  }
+  if (order.returnStatus === 'REJECTED') {
+    return { title: 'Return Request Rejected', badge: 'REJECTED', color: '#dc2626' };
+  }
+  if (order.returnStatus === 'CANCELLED') {
+    return { title: 'Return Request Cancelled', badge: 'CANCELLED', color: '#dc2626' };
+  }
+  if (
+    order.returnStatus === 'PICKED_UP' ||
+    order.returnStatus === 'DELIVERED_TO_WAREHOUSE' ||
+    order.isReturnPickedUp
+  ) {
+    return {
+      title: 'Package Picked Up — Refund Processing',
+      badge: 'PACKAGE PICKED UP',
+      color: '#2563eb',
+    };
+  }
+  return { title: 'Return Pickup Scheduled', badge: 'PICKUP SCHEDULED', color: '#000' };
+}
+
 import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function CustomerOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -1733,9 +1787,12 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                     textTransform: 'uppercase',
                   }}
                 >
-                  {order.returnType === 'REPLACEMENT'
-                    ? `Replacement Status: ${order.replacementStatus && order.replacementStatus !== 'NONE' ? order.replacementStatus : order.returnStatus}`
-                    : `Return Status: ${order.returnStatus}`}
+                  {getCustomerReturnBadge({
+                    returnStatus: order.returnStatus,
+                    returnType: order.returnType,
+                    replacementStatus: order.replacementStatus,
+                    isReturnPickedUp,
+                  }).title}
                 </h3>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1765,11 +1822,12 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   )}
                 <span
                   style={{
-                    background:
-                      order.returnStatus === 'REFUNDED' ||
-                      order.replacementStatus === 'REPLACEMENT_DISPATCHED'
-                        ? '#52c41a'
-                        : '#000',
+                    background: getCustomerReturnBadge({
+                      returnStatus: order.returnStatus,
+                      returnType: order.returnType,
+                      replacementStatus: order.replacementStatus,
+                      isReturnPickedUp,
+                    }).color,
                     color: '#fff',
                     padding: '6px 14px',
                     fontSize: '0.75rem',
@@ -1778,13 +1836,12 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                     borderRadius: '0px',
                   }}
                 >
-                  {order.returnType === 'REPLACEMENT'
-                    ? order.replacementStatus === 'REPLACEMENT_DISPATCHED'
-                      ? 'DISPATCHED'
-                      : order.replacementStatus === 'PICKED_UP'
-                        ? 'ORIGINAL PICKED UP'
-                        : 'EXCHANGE REQUESTED'
-                    : order.returnStatus}
+                  {getCustomerReturnBadge({
+                    returnStatus: order.returnStatus,
+                    returnType: order.returnType,
+                    replacementStatus: order.replacementStatus,
+                    isReturnPickedUp,
+                  }).badge}
                 </span>
               </div>
             </div>
@@ -2043,7 +2100,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 <>
                   <strong>Size Replacement & Exchange Process:</strong> Shiprocket reverse courier
                   will collect the original garment from your address. Once collected and verified,
-                  our warehouse will immediately dispatch your replacement size (
+                  we will immediately dispatch your replacement size (
                   {order.replacementVariantTitle || 'Selected Size'}). Live replacement shipment
                   updates will appear directly on this page.
                 </>
@@ -3034,7 +3091,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                           <p style={{ margin: 0, fontSize: '0.85rem', color: '#111111', fontWeight: 600 }}>
                             {order.replacementAwb
                               ? `Replacement parcel dispatched via ${order.replacementCourierName || 'Express Courier'} (AWB: ${order.replacementAwb}). Live courier checkpoint scans will appear as the courier scans the package.`
-                              : 'Replacement parcel is being prepared at warehouse. Courier dispatch scan will appear here once handed over.'}
+                              : 'Replacement parcel is being prepared for dispatch. Courier dispatch scan will appear here once handed over.'}
                           </p>
                         </div>
                       ) : (
@@ -3166,11 +3223,6 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                           ? '✔ PARCEL SUCCESSFULLY PICKED UP FROM CUSTOMER DOORSTEP'
                           : '⏳ PICKUP SCHEDULED — COURIER WILL ARRIVE AT CUSTOMER ADDRESS'}
                       </div>
-                      {reverseCurrentLoc && (
-                        <div style={{ fontSize: '0.82rem', color: '#444', marginTop: 6 }}>
-                          📍 <strong>Current Package Location:</strong> {reverseCurrentLoc}
-                        </div>
-                      )}
                     </div>
 
                     {/* Reverse Courier & AWB Code strip */}
@@ -4194,7 +4246,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 <MapPinIcon size={14} color="#64748b" />
                 {revServiceable.serviceable ? (
                   <span style={{ color: '#16a34a', fontWeight: 700 }}>
-                    &#10003; Reverse pickup serviceable to Delhi warehouse
+                    &#10003; Doorstep reverse pickup serviceable for your address
                     {revServiceable.courierName ? ` via ${revServiceable.courierName}` : ''}
                   </span>
                 ) : (

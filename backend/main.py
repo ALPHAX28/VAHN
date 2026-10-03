@@ -2861,10 +2861,9 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         curr_location = replacement_scans[0].location
     elif forward_scans:
         curr_location = forward_scans[0].location
-    elif reverse_scans:
-        curr_location = reverse_scans[0].location
-    elif replacement_scans:
+    elif order.return_type == "REPLACEMENT" and replacement_scans:
         curr_location = replacement_scans[0].location
+    # Note: Reverse courier hub transit scans back to warehouse are internal logistics and NOT shown as customer location
 
     if not curr_location and order.tracking_data and isinstance(order.tracking_data, dict):
         curr_location = order.tracking_data.get("current_location")
@@ -2883,6 +2882,9 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
     pickup_status = t_data.get("pickup_status")
     pickup_scheduled_date = t_data.get("pickup_scheduled_date")
 
+    # From customer POV, once picked up from doorstep, status is PICKED_UP (warehouse arrival & QC are internal admin milestones)
+    customer_return_status = "PICKED_UP" if (order.return_status in ("DELIVERED_TO_WAREHOUSE", "RETURN_DELIVERED")) else (order.return_status or "NONE")
+
     tracking_payload = {
         "order_id": order.id,
         "status": "FAILED" if (order.payment_status == "FAILED" or (order.status or "") in ("FAILED", "PAYMENT_FAILED")) and order.status != "CANCELLED" else order.status,
@@ -2893,14 +2895,14 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         "scans": forward_scans,
         "delivered_at": order.delivered_at.strftime("%b %d, %Y") if order.delivered_at else None,
         "delivered_at_iso": order.delivered_at.isoformat() if order.delivered_at else None,
-        "return_status": order.return_status or "NONE",
+        "return_status": customer_return_status,
         "reverse_awb": order.reverse_awb,
         "reverse_courier_name": order.reverse_courier_name,
-        "reverse_scans": reverse_scans,
+        "reverse_scans": [],  # Internal reverse courier transit scans suppressed for customer POV
         "items": items_list,
         "current_location": curr_location,
         "current_status": order.shipping_status or "UNFULFILLED",
-        "is_picked_up": is_picked_up_status,
+        "is_picked_up": is_picked_up_status or (order.return_status in ("PICKED_UP", "DELIVERED_TO_WAREHOUSE", "REFUNDED")),
         "total_amount": order.total_amount,
         "currency": order.currency or "INR",
         "shipping_address": order.shipping_address,

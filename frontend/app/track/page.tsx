@@ -1388,7 +1388,7 @@ function TrackingContent() {
                       fontWeight: 700,
                     }}
                   >
-                    WAREHOUSE QC FAILED
+                    VERIFICATION FAILED
                   </span>
                 </div>
                 <div
@@ -1407,7 +1407,7 @@ function TrackingContent() {
                 >
                   {tracking.refund_note ||
                     tracking.return_notes ||
-                    'The returned item was received at our warehouse but failed quality inspection. Refund request has been cancelled.'}
+                    'The returned item could not be verified for return eligibility. Refund request has been cancelled.'}
                 </div>
               </div>
             </div>
@@ -1784,7 +1784,7 @@ function TrackingContent() {
                     ) : (
                       <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: 3 }}>
                         {tracking.is_picked_up
-                          ? 'Processing replacement dispatch at warehouse'
+                          ? 'Processing replacement dispatch'
                           : 'Dispatches automatically once original item is collected'}
                       </div>
                     )}
@@ -1883,31 +1883,27 @@ function TrackingContent() {
                               tracking.return_status === 'REFUNDED' ||
                               tracking.refund_status === 'REFUNDED'
                             ? '#16a34a'
-                            : tracking.return_status === 'DELIVERED_TO_WAREHOUSE' ||
-                                (
-                                  tracking.reverse_tracking_data as {
-                                    delivered_to_warehouse?: boolean;
-                                  }
-                                )?.delivered_to_warehouse
+                            : tracking.is_picked_up ||
+                                tracking.return_status === 'PICKED_UP' ||
+                                tracking.return_status === 'DELIVERED_TO_WAREHOUSE' ||
+                                statusBadgeLabel === 'ORDER PICKED UP'
                               ? '#2563eb'
                               : '#b45309',
                         marginTop: 4,
                       }}
                     >
                       {isReturnRejected
-                        ? '✕ Refund Cancelled (QC Failed)'
+                        ? '✕ Return Refund Cancelled'
                         : tracking.return_status === 'COMPLETED' ||
                             tracking.return_status === 'REFUNDED' ||
                             tracking.refund_status === 'REFUNDED'
                           ? '✓ 100% Refund Credited via Razorpay'
-                          : tracking.return_status === 'DELIVERED_TO_WAREHOUSE' ||
-                              (
-                                tracking.reverse_tracking_data as {
-                                  delivered_to_warehouse?: boolean;
-                                }
-                              )?.delivered_to_warehouse
-                            ? '✓ Package at Warehouse (Undergoing Quality Inspection)'
-                            : 'Refund processed upon warehouse arrival & QC'}
+                          : tracking.is_picked_up ||
+                              tracking.return_status === 'PICKED_UP' ||
+                              tracking.return_status === 'DELIVERED_TO_WAREHOUSE' ||
+                              statusBadgeLabel === 'ORDER PICKED UP'
+                            ? '✓ Package Picked Up — 100% Refund Processing'
+                            : 'Doorstep pickup scheduled — 100% refund credited after collection'}
                     </div>
                   </div>
                 </div>
@@ -2007,7 +2003,7 @@ function TrackingContent() {
 
                 checkpoints.push({
                   title: 'Replacement Item Prepared & Reserved',
-                  description: `New size (${tracking.replacement_variant_title || 'Selected Size'}) reserved and packaged at warehouse.`,
+                  description: `New size (${tracking.replacement_variant_title || 'Selected Size'}) reserved and prepared for dispatch.`,
                   timestamp: 'Reserved',
                   sortTime: 3000,
                 });
@@ -2123,7 +2119,7 @@ function TrackingContent() {
                   }
                   checkpoints.push({
                     title: 'Replacement Size Reserved & Packaged',
-                    description: `Size ${tracking.replacement_variant_title || 'Selected Size'} reserved in warehouse.`,
+                    description: `Size ${tracking.replacement_variant_title || 'Selected Size'} reserved and prepared for dispatch.`,
                     timestamp: 'Reserved',
                     sortTime: 3,
                   });
