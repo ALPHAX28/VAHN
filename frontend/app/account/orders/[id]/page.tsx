@@ -3667,74 +3667,55 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
               {/* Modal Footer */}
               <div
                 style={{
-                  padding: '16px 24px',
+                  padding: '14px 24px',
                   borderTop: '1px solid #e5e7eb',
                   background: '#fafafa',
                   display: 'flex',
-                  justifyContent: 'space-between',
                   alignItems: 'center',
+                  gap: 16,
                   flexWrap: 'wrap',
-                  gap: 12,
                   flexShrink: 0,
                 }}
               >
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenTrackingModal(activeTrackingTab)}
-                    style={{
-                      background: '#fff',
-                      border: '1px solid #000',
-                      color: '#000',
-                      padding: '8px 14px',
-                      fontSize: '0.75rem',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    ↻ Refresh Live Scans
-                  </button>
-                  {(() => {
-                    const portalAwb =
-                      activeTrackingTab === 'replacement'
-                        ? order.replacementAwb || trackingModalData?.replacement_awb
-                        : activeTrackingTab === 'reverse'
-                          ? order.reverseAwb || trackingModalData?.reverse_awb
-                          : order.shiprocketAwb || trackingModalData?.awb_code;
-                    return (
-                      <Link
-                        href={`/track?q=${portalAwb || order.id}`}
-                        target="_blank"
-                        style={{
-                          fontSize: '0.78rem',
-                          fontWeight: 800,
-                          color: '#000',
-                          textDecoration: 'underline',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        Public Tracking Portal ↗
-                      </Link>
-                    );
-                  })()}
-                </div>
                 <button
                   type="button"
-                  onClick={() => setShowTrackingModal(false)}
+                  onClick={() => handleOpenTrackingModal(activeTrackingTab)}
                   style={{
-                    background: '#000',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '8px 20px',
-                    fontSize: '0.78rem',
-                    fontWeight: 900,
+                    background: '#fff',
+                    border: '1px solid #000',
+                    color: '#000',
+                    padding: '8px 14px',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
                     textTransform: 'uppercase',
                     cursor: 'pointer',
                   }}
                 >
-                  Close
+                  ↻ Refresh Live Scans
                 </button>
+                {(() => {
+                  const portalAwb =
+                    activeTrackingTab === 'replacement'
+                      ? order.replacementAwb || trackingModalData?.replacement_awb
+                      : activeTrackingTab === 'reverse'
+                        ? order.reverseAwb || trackingModalData?.reverse_awb
+                        : order.shiprocketAwb || trackingModalData?.awb_code;
+                  return (
+                    <Link
+                      href={`/track?q=${portalAwb || order.id}`}
+                      target="_blank"
+                      style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        color: '#000',
+                        textDecoration: 'underline',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Public Tracking Portal ↗
+                    </Link>
+                  );
+                })()}
               </div>
             </div>
           </div>
