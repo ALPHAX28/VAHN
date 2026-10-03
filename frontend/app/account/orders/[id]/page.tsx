@@ -784,42 +784,6 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
               </span>
             </div>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-              {isShipped && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenTrackingModal('forward')}
-                  style={{
-                    background: '#000000',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '10px 18px',
-                    fontSize: '0.8rem',
-                    fontWeight: 900,
-                    cursor: 'pointer',
-                    textTransform: 'uppercase',
-                    letterSpacing: '-0.025em',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                >
-                  <TruckIcon size={15} color="#fff" />
-                  <span>Track Shipment</span>
-                  <svg
-                    className="btn-checkout-arrow"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </button>
-              )}
 
               {['PROCESSING', 'CONFIRMED', 'PENDING'].includes(order.status) &&
                 !['PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(
@@ -1593,10 +1557,14 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                             color: '#000000',
                             background: '#f5f5f5',
                             border: '1px solid #000000',
-                            padding: '2px 8px',
+                            padding: '3px 8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
                           }}
                         >
-                          📍 Current Location: {forwardCurrentLoc}
+                          <MapPinIcon size={13} color="#000" />
+                          <span>Current Location: {forwardCurrentLoc}</span>
                         </span>
                       )}
                     </div>
@@ -1625,18 +1593,19 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                     color: '#fff',
                     border: 'none',
                     padding: '10px 18px',
-                    fontSize: '0.78rem',
+                    fontSize: '0.8rem',
                     fontWeight: 900,
                     textTransform: 'uppercase',
                     letterSpacing: '-0.025em',
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 6,
+                    gap: 8,
                     flexShrink: 0,
                   }}
                 >
-                  <span>📍 View Live Tracking & Checkpoints</span>
+                  <TruckIcon size={16} color="#fff" />
+                  <span>Track Shipment</span>
                   <svg
                     className="btn-checkout-arrow"
                     width="14"
@@ -1964,8 +1933,18 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                 </span>
               </div>
               {reverseCurrentLoc && (
-                <span style={{ fontSize: '0.78rem', color: '#333', fontWeight: 700 }}>
-                  📍 Current Location: {reverseCurrentLoc}
+                <span
+                  style={{
+                    fontSize: '0.78rem',
+                    color: '#333',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <MapPinIcon size={13} color="#333" />
+                  <span>Current Location: {reverseCurrentLoc}</span>
                 </span>
               )}
             </div>
@@ -2030,8 +2009,9 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       cursor: 'pointer',
                     }}
                   >
-                    <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                      <span>📍 View Replacement Checkpoints</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <TruckIcon size={14} color="#fff" />
+                      <span>Track Replacement</span>
                       <svg
                         className="btn-checkout-arrow"
                         width="14"
@@ -2065,8 +2045,9 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       cursor: 'pointer',
                     }}
                   >
-                    <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                      <span>📍 View Return Status</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <TruckIcon size={14} color="#fff" />
+                      <span>Track Return</span>
                       <svg
                         className="btn-checkout-arrow"
                         width="14"
@@ -2602,8 +2583,18 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                             Current Location
                           </span>
                         </div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#000' }}>
-                          📍 {forwardCurrentLoc || 'In Transit to Destination Facility'}
+                        <div
+                          style={{
+                            fontSize: '1.1rem',
+                            fontWeight: 900,
+                            color: '#000',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <MapPinIcon size={18} color="#000" />
+                          <span>{forwardCurrentLoc || 'In Transit to Destination Facility'}</span>
                         </div>
                       </div>
                       <span
@@ -2956,9 +2947,21 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                             : '⏳ SIZE RESERVED — AWAITING COURIER DISPATCH'}
                       </div>
                       {trackingModalData?.current_location && (
-                        <div style={{ fontSize: '0.82rem', color: '#444', marginTop: 6 }}>
-                          📍 <strong>Current Package Location:</strong>{' '}
-                          {trackingModalData.current_location}
+                        <div
+                          style={{
+                            fontSize: '0.82rem',
+                            color: '#444',
+                            marginTop: 6,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 5,
+                          }}
+                        >
+                          <MapPinIcon size={14} color="#444" />
+                          <span>
+                            <strong>Current Package Location:</strong>{' '}
+                            {trackingModalData.current_location}
+                          </span>
                         </div>
                       )}
                     </div>

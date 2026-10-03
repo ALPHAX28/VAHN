@@ -2350,8 +2350,18 @@ function TrackingContent() {
                           </div>
                         )}
                         {cp.location && (
-                          <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '2px' }}>
-                            📍 {cp.location}
+                          <div
+                            style={{
+                              fontSize: '0.75rem',
+                              color: '#888',
+                              marginTop: '2px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <MapPinIcon size={12} color="#888" />
+                            <span>{cp.location}</span>
                           </div>
                         )}
                       </div>
