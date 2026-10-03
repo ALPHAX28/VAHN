@@ -4721,8 +4721,14 @@ a:active .btn-checkout-arrow,
 .order-card {
   background: var(--color-white);
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
   overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.order-card:hover {
+  border-color: #111111;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
 .order-card-header {
@@ -4732,8 +4738,13 @@ a:active .btn-checkout-arrow,
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
+}
+
+.order-card-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .order-number {
@@ -4751,14 +4762,22 @@ a:active .btn-checkout-arrow,
   color: var(--color-grey-dark);
 }
 
+.order-card-header-badge {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .order-status-badge {
   font-family: var(--font-ui);
   font-size: 0.6875rem;
   font-weight: 800;
-  letter-spacing: -0.025em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: 2px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .status-processing {
@@ -4880,7 +4899,7 @@ a:active .btn-checkout-arrow,
 }
 
 .order-items-list {
-  padding: 16px 24px;
+  padding: 18px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -4904,39 +4923,99 @@ a:active .btn-checkout-arrow,
   height: 64px;
   object-fit: cover;
   border: 1px solid var(--color-border);
+  border-radius: 4px;
   flex-shrink: 0;
+  background: #f8f8f8;
 }
 
 .order-item-meta {
   flex: 1;
+  min-width: 0;
 }
 
 .order-item-title {
   font-family: var(--font-ui);
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--color-black);
-  margin-bottom: 2px;
+  margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .order-item-variant {
   font-family: var(--font-ui);
   font-size: 0.78rem;
   color: var(--color-grey-dark);
+  margin-bottom: 4px;
+}
+
+.order-item-subline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .order-item-qty {
   font-family: var(--font-ui);
   font-size: 0.75rem;
-  color: var(--color-grey-dark);
-  margin-top: 4px;
+  color: #555;
+  background: #f4f4f5;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 600;
 }
 
-.order-item-price {
+.order-item-price-mobile {
+  display: none;
+}
+
+.order-item-price-desktop {
   font-family: var(--font-ui);
   font-size: 0.9375rem;
   font-weight: 700;
   color: var(--color-black);
+  white-space: nowrap;
+}
+
+/* ---- Order Card Footer ---- */
+.order-card-footer {
+  background: #fafafa;
+  border-top: 1px solid var(--color-border);
+  padding: 14px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.order-card-footer-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.order-footer-label {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--color-grey-dark);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.order-total-price {
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--color-black);
+  letter-spacing: -0.02em;
+}
+
+.order-card-footer-actions {
+  display: flex;
+  align-items: center;
 }
 
 /* ============================================================
@@ -5144,33 +5223,31 @@ a:active .btn-checkout-arrow,
     padding: 20px 16px;
   }
 
+  .order-card {
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  }
+
   .order-card-header {
     padding: 14px 16px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .order-card-meta-row {
-    width: 100%;
+    flex-direction: row;
     justify-content: space-between;
-    gap: 10px;
-    margin-top: 6px;
+    align-items: center;
+    gap: 12px;
   }
 
-  .order-view-btn {
-    width: 100%;
-    text-align: center;
-    justify-content: center;
-    display: inline-flex;
-    margin-top: 4px;
-    padding: 8px 12px !important;
-    box-sizing: border-box;
+  .order-number {
+    font-size: 0.95rem;
   }
 
-  .vahn-no-print {
-    padding: 0 12px !important;
-    margin: 20px auto !important;
+  .order-date {
+    font-size: 0.74rem;
+  }
+
+  .order-status-badge {
+    font-size: 0.65rem;
+    padding: 4px 10px;
+    border-radius: 9999px;
   }
 
   .order-items-list {
@@ -5178,26 +5255,82 @@ a:active .btn-checkout-arrow,
     gap: 14px;
   }
 
+  .order-item-row {
+    gap: 14px;
+    padding-bottom: 14px;
+  }
+
   .order-item-thumbnail {
-    width: 52px;
-    height: 52px;
+    width: 58px;
+    height: 58px;
+    border-radius: 6px;
   }
 
   .order-item-title {
-    font-size: 0.8125rem;
+    font-size: 0.85rem;
+    line-height: 1.35;
+    white-space: normal;
   }
 
-  .order-item-price {
-    font-size: 0.84rem;
+  .order-item-variant {
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+  }
+
+  .order-item-price-desktop {
+    display: none;
+  }
+
+  .order-item-price-mobile {
+    display: inline-block;
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-black);
+  }
+
+  .order-card-footer {
+    padding: 14px 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .order-card-footer-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    width: 100%;
+  }
+
+  .order-footer-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .order-total-price {
+    font-size: 1.1rem;
+    font-weight: 800;
+  }
+
+  .order-card-footer-actions {
+    width: 100%;
+  }
+
+  .order-view-btn {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+    display: inline-flex;
+    margin-top: 0;
+    padding: 10px 16px !important;
+    font-size: 0.8rem !important;
+    letter-spacing: 0.04em;
+    box-sizing: border-box;
+    height: 42px;
   }
 }
 
-.order-card-meta-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
 
 .vahn-order-grid {
   display: grid;
