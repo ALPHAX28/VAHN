@@ -3674,17 +3674,18 @@ a:active .btn-checkout-arrow,
     gap: 6px;
     z-index: 20;
     padding: 5px 9px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.72);
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
   }
 
   .mobile-gallery-dot {
     width: 6px;
     height: 6px;
-    border-radius: 999px;
+    border-radius: 0;
     border: none;
     padding: 0;
     margin: 0;
@@ -3695,6 +3696,8 @@ a:active .btn-checkout-arrow,
 
   .mobile-gallery-dot.active {
     width: 22px;
+    height: 6px;
+    border-radius: 0;
     background: #4232d9;
   }
 }
