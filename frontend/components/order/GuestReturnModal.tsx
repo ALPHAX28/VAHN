@@ -507,9 +507,9 @@ export default function GuestReturnModal({
                     type="button"
                     onClick={() => setActionType('REPLACEMENT')}
                     style={{
-                      background: actionType === 'REPLACEMENT' ? '#7c3aed' : '#f5f5f5',
+                      background: actionType === 'REPLACEMENT' ? '#000000' : '#f5f5f5',
                       color: actionType === 'REPLACEMENT' ? '#fff' : '#333',
-                      border: `2px solid ${actionType === 'REPLACEMENT' ? '#7c3aed' : '#e5e5e5'}`,
+                      border: `2px solid ${actionType === 'REPLACEMENT' ? '#000000' : '#e5e5e5'}`,
                       padding: '12px 16px',
                       fontSize: '0.82rem',
                       fontWeight: 900,
@@ -644,14 +644,14 @@ export default function GuestReturnModal({
                             }}
                             style={{
                               border: isSelected
-                                ? '2px solid #7c3aed'
+                                ? '2px solid #000000'
                                 : `1px solid ${isAvailable ? '#cbd5e1' : '#f1f5f9'}`,
                               background: isSelected
-                                ? '#faf5ff'
+                                ? '#000000'
                                 : isAvailable
                                   ? '#ffffff'
                                   : '#f8fafc',
-                              color: isSelected ? '#6b21a8' : isAvailable ? '#0f172a' : '#94a3b8',
+                              color: isSelected ? '#ffffff' : isAvailable ? '#0f172a' : '#94a3b8',
                               padding: '10px 8px',
                               textAlign: 'center',
                               cursor: isAvailable ? 'pointer' : 'not-allowed',
@@ -666,7 +666,7 @@ export default function GuestReturnModal({
                                 fontSize: '0.68rem',
                                 marginTop: 2,
                                 fontWeight: 700,
-                                color: isSelected ? '#7c3aed' : isAvailable ? '#16a34a' : '#94a3b8',
+                                color: isSelected ? '#ffffff' : isAvailable ? '#16a34a' : '#94a3b8',
                               }}
                             >
                               {v.is_current
@@ -754,25 +754,25 @@ export default function GuestReturnModal({
                 {actionType === 'REPLACEMENT' && (
                   <div
                     style={{
-                      background: '#faf5ff',
-                      border: '1px solid #d8b4fe',
+                      background: '#f9f9f9',
+                      border: '1px solid #e5e5e5',
                       padding: '12px 14px',
                       marginBottom: '16px',
                       display: 'flex',
                       alignItems: 'flex-start',
                       gap: 10,
                       fontSize: '0.78rem',
-                      color: '#581c87',
+                      color: '#222222',
                       lineHeight: 1.4,
                     }}
                   >
                     <ShieldCheckIcon
                       size={18}
-                      color="#7c3aed"
+                      color="#000000"
                       style={{ flexShrink: 0, marginTop: 2 }}
                     />
                     <div>
-                      <strong style={{ color: '#6b21a8' }}>
+                      <strong style={{ color: '#000000' }}>
                         Doorstep Quality Check (QC) Active:
                       </strong>
                       <div style={{ marginTop: 2 }}>
@@ -856,7 +856,7 @@ export default function GuestReturnModal({
                     type="submit"
                     disabled={submitting}
                     style={{
-                      background: actionType === 'REPLACEMENT' ? '#7c3aed' : '#000000',
+                      background: '#000000',
                       color: '#fff',
                       border: 'none',
                       padding: '12px 24px',

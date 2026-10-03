@@ -347,36 +347,31 @@ function TrackingContent() {
     if (combined.includes('REJECTED') || rawReturn === 'REJECTED' || rawRefund === 'REJECTED') {
       return { index: -1, badgeLabel: 'RETURN REJECTED', isReturnRejected: true };
     }
+    // Stage 3: Refund Status (Refund Completed or Processing)
     if (
       combined.includes('REFUNDED') ||
       combined.includes('REFUND COMPLETED') ||
       rawRefund === 'REFUNDED' ||
       rawReturn === 'COMPLETED'
     ) {
-      return { index: 4, badgeLabel: 'REFUND COMPLETED' };
+      return { index: 2, badgeLabel: 'REFUND COMPLETED' };
     }
+    if (combined.includes('REFUND INITIATED') || rawRefund === 'INITIATED') {
+      return { index: 2, badgeLabel: 'REFUND PROCESSING' };
+    }
+    // Stage 2: Order Picked Up (Once picked up, customer does not track transit to warehouse)
     if (
+      combined.includes('PICKED UP') ||
+      combined.includes('DOORSTEP COLLECTION') ||
+      combined.includes('IN TRANSIT') ||
       combined.includes('DELIVERED TO WAREHOUSE') ||
       combined.includes('REACHED WAREHOUSE') ||
       rawReturn === 'DELIVERED_TO_WAREHOUSE' ||
-      (t.reverse_tracking_data as { delivered_to_warehouse?: boolean })?.delivered_to_warehouse
+      t.is_picked_up
     ) {
-      return { index: 3, badgeLabel: 'DELIVERED TO WAREHOUSE' };
+      return { index: 1, badgeLabel: 'ORDER PICKED UP' };
     }
-    if (
-      combined.includes('RETURN IN TRANSIT') ||
-      combined.includes('RETURNING TO HUB') ||
-      (combined.includes('IN TRANSIT') && Boolean(t.reverse_awb))
-    ) {
-      return { index: 2, badgeLabel: 'RETURN IN TRANSIT' };
-    }
-    if (
-      combined.includes('RETURN PICKED UP') ||
-      combined.includes('PICKED UP') ||
-      combined.includes('DOORSTEP COLLECTION')
-    ) {
-      return { index: 1, badgeLabel: 'RETURN PICKED UP' };
-    }
+    // Stage 1: Return Initiated
     return { index: 0, badgeLabel: 'RETURN INITIATED' };
   }
 
@@ -390,26 +385,27 @@ function TrackingContent() {
     const combined = `${rawRepl} ${rawReturn}`.replace(/[-_]/g, ' ');
 
     if (
-      combined.includes('COMPLETED') ||
-      (combined.includes('DELIVERED') && Boolean(t.replacement_awb))
+      rawRepl === 'DELIVERED' ||
+      rawRepl === 'COMPLETED' ||
+      (combined.includes('DELIVERED') && Boolean(t.replacement_awb) && !combined.includes('DELIVERED TO WAREHOUSE'))
     ) {
-      return { index: 4, badgeLabel: 'EXCHANGE COMPLETED' };
-    }
-    if (combined.includes('REPLACEMENT DISPATCHED') || t.replacement_awb) {
-      return { index: 3, badgeLabel: 'REPLACEMENT DISPATCHED' };
+      return { index: 3, badgeLabel: 'EXCHANGE COMPLETED' };
     }
     if (
-      combined.includes('DELIVERED TO WAREHOUSE') ||
-      combined.includes('REACHED WAREHOUSE') ||
-      rawReturn === 'DELIVERED_TO_WAREHOUSE' ||
-      (t.reverse_tracking_data as { delivered_to_warehouse?: boolean })?.delivered_to_warehouse
+      rawRepl === 'REPLACEMENT_DISPATCHED' ||
+      rawRepl === 'DISPATCHED' ||
+      rawRepl === 'IN_TRANSIT' ||
+      rawRepl === 'OUT_FOR_DELIVERY' ||
+      Boolean(t.replacement_awb)
     ) {
-      return { index: 2, badgeLabel: 'ORIGINAL AT WAREHOUSE (RESTOCKED)' };
+      return { index: 2, badgeLabel: 'REPLACEMENT DISPATCHED' };
     }
-    if (combined.includes('IN TRANSIT')) {
-      return { index: 2, badgeLabel: 'ORIGINAL IN TRANSIT' };
-    }
-    if (combined.includes('PICKED UP') || t.is_picked_up) {
+    if (
+      combined.includes('PICKED UP') ||
+      combined.includes('IN TRANSIT') ||
+      combined.includes('DELIVERED TO WAREHOUSE') ||
+      t.is_picked_up
+    ) {
       return { index: 1, badgeLabel: 'ORIGINAL PICKED UP' };
     }
     return { index: 0, badgeLabel: 'EXCHANGE INITIATED' };
@@ -496,18 +492,15 @@ function TrackingContent() {
 
   const returnSteps = [
     { key: 'RETURN_REQUESTED', label: 'Return Initiated' },
-    { key: 'RETURN_PICKED_UP', label: 'Picked Up' },
-    { key: 'RETURN_IN_TRANSIT', label: 'In Transit' },
-    { key: 'DELIVERED_TO_WAREHOUSE', label: 'Delivered to Warehouse' },
-    { key: 'REFUNDED', label: 'Refund Completed' },
+    { key: 'RETURN_PICKED_UP', label: 'Order Picked Up' },
+    { key: 'REFUNDED', label: 'Refund Status' },
   ];
 
   const replacementSteps = [
     { key: 'EXCHANGE_REQUESTED', label: 'Exchange Initiated' },
     { key: 'RETURN_PICKED_UP', label: 'Original Picked Up' },
-    { key: 'RETURN_IN_TRANSIT', label: 'In Transit to Warehouse' },
-    { key: 'REPLACEMENT_DISPATCHED', label: 'Replacement Sent' },
-    { key: 'COMPLETED', label: 'Completed' },
+    { key: 'REPLACEMENT_DISPATCHED', label: 'Replacement Dispatched' },
+    { key: 'COMPLETED', label: 'Delivered' },
   ];
 
   const activeSteps = isReturn ? (isReplacement ? replacementSteps : returnSteps) : forwardSteps;
@@ -521,16 +514,10 @@ function TrackingContent() {
         ? '#dc2626'
         : isPaymentPending
           ? '#d97706'
-          : isReplacement
-            ? '#7c3aed'
-            : isReturn
-              ? '#fa8c16'
-              : '#000';
+          : '#000';
 
   const activeCourierName = isReplacement
-    ? exchangeViewTab === 'replacement' && tracking?.replacement_awb
-      ? tracking?.replacement_courier_name || 'Express Courier'
-      : tracking?.reverse_courier_name || 'Shiprocket Reverse Logistics'
+    ? tracking?.replacement_courier_name || 'Express Courier'
     : isReturn
       ? tracking?.reverse_courier_name || 'Shiprocket Reverse Logistics'
       : tracking?.courier_name ||
@@ -538,17 +525,13 @@ function TrackingContent() {
         (isPaymentFailed ? 'None (Payment Failed)' : 'Express Delivery');
 
   const activeAwbCode = isReplacement
-    ? exchangeViewTab === 'replacement' && tracking?.replacement_awb
-      ? tracking?.replacement_awb
-      : tracking?.reverse_awb || null
+    ? tracking?.replacement_awb || null
     : isReturn
-      ? tracking?.reverse_awb || null
+      ? tracking?.is_picked_up ? null : (tracking?.reverse_awb || null)
       : tracking?.awb_code || tracking?.awbCode || null;
 
   const activeAwbLabel = isReplacement
-    ? exchangeViewTab === 'replacement' && tracking?.replacement_awb
-      ? 'Replacement AWB'
-      : 'Reverse Pickup AWB'
+    ? 'Replacement AWB'
     : isReturn
       ? 'Reverse Pickup AWB'
       : 'AWB';
@@ -1518,8 +1501,8 @@ function TrackingContent() {
           {isDelivered && !hasActiveReturn && !isReturnCancelled && isWithin10Days && (
             <div
               style={{
-                background: '#faf5ff',
-                border: '2px solid #7c3aed',
+                background: '#fafafa',
+                border: '2px solid #000',
                 padding: '20px 24px',
                 marginBottom: '28px',
                 display: 'flex',
@@ -1533,7 +1516,7 @@ function TrackingContent() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <span
                     style={{
-                      background: '#7c3aed',
+                      background: '#000',
                       color: '#fff',
                       fontSize: '0.68rem',
                       fontWeight: 900,
@@ -1550,13 +1533,13 @@ function TrackingContent() {
                     fontSize: '1.05rem',
                     fontWeight: 900,
                     textTransform: 'uppercase',
-                    color: '#581c87',
+                    color: '#000',
                     letterSpacing: '-0.01em',
                   }}
                 >
                   Need a Different Size or Return?
                 </div>
-                <div style={{ fontSize: '0.82rem', color: '#6b21a8', marginTop: 3 }}>
+                <div style={{ fontSize: '0.82rem', color: '#555', marginTop: 3 }}>
                   Delivered on {tracking.delivered_at || 'Recently'}. Request an instant size
                   replacement or return for a 100% refund with automated doorstep pickup.
                 </div>
@@ -1566,7 +1549,7 @@ function TrackingContent() {
                 type="button"
                 onClick={() => setShowGuestReturnModal(true)}
                 style={{
-                  background: '#7c3aed',
+                  background: '#000',
                   color: '#ffffff',
                   border: 'none',
                   padding: '12px 24px',
@@ -1960,59 +1943,6 @@ function TrackingContent() {
             id="tracking-timeline-section"
             style={{ borderTop: '1px solid #f0f0f0', paddingTop: '24px' }}
           >
-            {/* Journey Switcher for Exchanges */}
-            {isReplacement && tracking?.replacement_awb && (
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 0,
-                  marginBottom: 20,
-                  border: '2px solid #7c3aed',
-                  background: '#f5f3ff',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setExchangeViewTab('replacement')}
-                  style={{
-                    flex: 1,
-                    padding: '12px 16px',
-                    fontWeight: 900,
-                    fontSize: '0.8rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.02em',
-                    border: 'none',
-                    background: exchangeViewTab === 'replacement' ? '#7c3aed' : 'transparent',
-                    color: exchangeViewTab === 'replacement' ? '#ffffff' : '#6b21a8',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  📦 Replacement Delivery ({tracking.replacement_awb})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setExchangeViewTab('pickup')}
-                  style={{
-                    flex: 1,
-                    padding: '12px 16px',
-                    fontWeight: 900,
-                    fontSize: '0.8rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.02em',
-                    border: 'none',
-                    borderLeft: '2px solid #7c3aed',
-                    background: exchangeViewTab === 'pickup' ? '#7c3aed' : 'transparent',
-                    color: exchangeViewTab === 'pickup' ? '#ffffff' : '#6b21a8',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  🔄 Return Pickup ({tracking.reverse_awb || 'Pickup'})
-                </button>
-              </div>
-            )}
-
             <h3
               style={{
                 fontSize: '0.85rem',
@@ -2023,11 +1953,11 @@ function TrackingContent() {
                 color: '#333',
               }}
             >
-              {isReplacement && tracking?.replacement_awb
-                ? exchangeViewTab === 'replacement'
-                  ? 'Replacement Checkpoints & Transit History'
-                  : 'Return Pickup Checkpoints & Transit History'
-                : 'Checkpoint Scans & Transit History'}
+              {isReplacement
+                ? 'Replacement Shipment Checkpoints & Transit History'
+                : isReturn
+                  ? 'Return & Refund Status History'
+                  : 'Checkpoint Scans & Transit History'}
             </h3>
 
             {(() => {
@@ -2041,22 +1971,15 @@ function TrackingContent() {
                 isBaseOrder?: boolean;
               }> = [];
 
-              const isTrackingReplacement =
-                isReplacement &&
-                Boolean(tracking?.replacement_awb) &&
-                exchangeViewTab === 'replacement';
-
-              const rawScans = isTrackingReplacement
-                ? tracking?.replacement_scans && tracking.replacement_scans.length > 0
-                  ? tracking.replacement_scans
-                  : []
+              // For exchanges, customer only tracks the replacement forward shipment!
+              // For returns, internal transit hub scans are suppressed (customer sees Return Initiated -> Picked Up -> Refund Status).
+              const rawScans = isReplacement
+                ? (tracking?.replacement_scans && tracking.replacement_scans.length > 0
+                    ? tracking.replacement_scans
+                    : [])
                 : isReturn
-                  ? tracking?.reverse_scans && tracking.reverse_scans.length > 0
-                    ? tracking.reverse_scans
-                    : tracking?.scans || []
-                  : tracking?.scans && tracking.scans.length > 0
-                    ? tracking.scans
-                    : [];
+                  ? []
+                  : (tracking?.scans && tracking.scans.length > 0 ? tracking.scans : []);
 
               if (tracking?.milestones && tracking.milestones.length > 0) {
                 tracking.milestones.forEach((m) => {
@@ -2069,7 +1992,6 @@ function TrackingContent() {
                   });
                 });
               } else if (rawScans.length > 0) {
-                // Determine whether rawScans was originally provided in ascending order
                 let isRawAscending = false;
                 if (rawScans.length >= 2) {
                   const tFirst = parseCheckpointDate(rawScans[0].date);
@@ -2081,7 +2003,6 @@ function TrackingContent() {
 
                 rawScans.forEach((s, idx) => {
                   const sTime = parseCheckpointDate(s.date);
-                  // Tie-breaker: if array was ascending, higher index is newer (+idx). If descending, lower index is newer (-idx).
                   const tieOffset = isRawAscending ? idx : rawScans.length - idx;
                   checkpoints.push({
                     title: prettifyActivityLabel(s.activity) || 'Shipment Update',
@@ -2091,90 +2012,49 @@ function TrackingContent() {
                   });
                 });
 
-                if (isTrackingReplacement) {
+                if (isReplacement) {
                   const maxScanTime = Math.max(0, ...checkpoints.map((c) => c.sortTime || 0));
-                  const hasDispatchedScan = rawScans.some((s) => /dispatch|picked|in transit/i.test(s.activity || ''));
+                if (tracking.replacement_awb) {
+                  const hasDispatchedScan = rawScans.some((s) =>
+                    /dispatch|picked|in transit/i.test(s.activity || '')
+                  );
                   if (!hasDispatchedScan) {
                     checkpoints.push({
                       title: 'Replacement Dispatched via Courier',
                       description: `Assigned to ${tracking.replacement_courier_name || 'Express Courier'} (AWB: ${tracking.replacement_awb}). In transit to delivery address.`,
                       timestamp: 'Dispatched',
-                      sortTime: maxScanTime > 0 ? maxScanTime : 3,
+                      sortTime: maxScanTime > 0 ? maxScanTime : 4000,
                     });
                   }
+                }
+
+                checkpoints.push({
+                  title: 'Replacement Item Prepared & Reserved',
+                  description: `New size (${tracking.replacement_variant_title || 'Selected Size'}) reserved and packaged at warehouse.`,
+                  timestamp: 'Reserved',
+                  sortTime: 3000,
+                });
+
+                if (tracking.is_picked_up) {
                   checkpoints.push({
-                    title: 'Replacement Item Prepared & Reserved',
-                    description: `New size (${tracking.replacement_variant_title || 'Selected Size'}) reserved and packaged at warehouse.`,
-                    timestamp: 'Reserved',
-                    sortTime: 2,
+                    title: 'Original Item Picked Up at Doorstep',
+                    description:
+                      'Original garment collected by courier partner with doorstep physical QC passed.',
+                    timestamp: 'Picked Up',
+                    sortTime: 2000,
                   });
-                } else if (isReturn) {
-                  const revDelivered =
-                    (
-                      tracking?.reverse_tracking_data as {
-                        delivered_to_warehouse?: boolean;
-                        delivered_at?: string;
-                      }
-                    )?.delivered_to_warehouse ||
-                    tracking?.return_status === 'DELIVERED_TO_WAREHOUSE';
-                  const isRefunded =
-                    tracking?.return_status === 'COMPLETED' ||
-                    tracking?.return_status === 'REFUNDED' ||
-                    tracking?.refund_status === 'REFUNDED';
-                  const maxScanTime = Math.max(0, ...checkpoints.map((c) => c.sortTime || 0));
+                }
 
-                  if (isRefunded) {
-                    const hasRefundScan = rawScans.some((s) => /refund/i.test(s.activity || ''));
-                    if (!hasRefundScan) {
-                      checkpoints.push({
-                        title: '100% Refund Credited via Razorpay',
-                        description: tracking.refund_amount
-                          ? `Refund of ₹${tracking.refund_amount.toLocaleString('en-IN')} has been credited.`
-                          : 'Refund successfully processed and credited.',
-                        timestamp: tracking.refunded_at || 'Refunded',
-                        sortTime: maxScanTime + 2000,
-                      });
-                    }
-                  }
-
-                  if (revDelivered) {
-                    const hasWarehouseScan = rawScans.some((s) =>
-                      /delivered to warehouse|reached warehouse|warehouse received/i.test(
-                        s.activity || ''
-                      )
-                    );
-                    if (!hasWarehouseScan) {
-                      const revDelivAt = (
-                        tracking.reverse_tracking_data as { delivered_at?: string }
-                      )?.delivered_at;
-                      const parsedRevDeliv = parseCheckpointDate(revDelivAt);
-                      checkpoints.push({
-                        title: isReplacement
-                          ? 'Package Received at Warehouse (Size Restocked)'
-                          : 'Package Received at Warehouse (Undergoing QC)',
-                        description: isReplacement
-                          ? 'Returned package received at warehouse and size inventory restocked.'
-                          : 'Returned package received at warehouse. Quality inspection in progress.',
-                        timestamp: revDelivAt || 'Delivered to Warehouse',
-                        sortTime: parsedRevDeliv > 0 ? parsedRevDeliv : maxScanTime + 1000,
-                      });
-                    }
-                  }
-
-                  if (tracking.return_requested_at) {
-                    checkpoints.push({
-                      title: isReplacement
-                        ? 'Exchange Request Registered'
-                        : 'Return Request Registered',
-                      description: tracking.return_reason
-                        ? `Reason: ${tracking.return_reason}`
-                        : isReplacement
-                          ? 'Doorstep exchange request registered.'
-                          : 'Return request registered.',
-                      timestamp: tracking.return_requested_at,
-                      sortTime: parseCheckpointDate(tracking.return_requested_at) || 2,
-                    });
-                  }
+                if (tracking.return_requested_at) {
+                  checkpoints.push({
+                    title: 'Exchange Request Registered',
+                    description: tracking.return_reason
+                      ? `Reason: ${tracking.return_reason}`
+                      : 'Doorstep size exchange request registered.',
+                    timestamp: tracking.return_requested_at,
+                    sortTime: parseCheckpointDate(tracking.return_requested_at) || 1000,
+                  });
+                }
                 }
 
                 if (isPaymentFailed) {
@@ -2242,8 +2122,8 @@ function TrackingContent() {
                     sortTime: parseCheckpointDate(tracking.created_at) || 1,
                     isBaseOrder: true,
                   });
-                } else if (isTrackingReplacement) {
-                  // Synthesize replacement delivery milestones if live scans are manifesting
+                } else if (isReplacement) {
+                  // Synthesize replacement delivery milestones if live scans are not yet available
                   if (currentStepIndex >= 4 || tracking.replacement_status === 'DELIVERED') {
                     checkpoints.push({
                       title: 'Replacement Delivered',
@@ -2252,7 +2132,11 @@ function TrackingContent() {
                       sortTime: 5,
                     });
                   }
-                  if (currentStepIndex >= 3 || tracking.replacement_status === 'REPLACEMENT_DISPATCHED' || tracking.replacement_awb) {
+                  if (
+                    currentStepIndex >= 3 ||
+                    tracking.replacement_status === 'REPLACEMENT_DISPATCHED' ||
+                    tracking.replacement_awb
+                  ) {
                     checkpoints.push({
                       title: 'Replacement Dispatched via Courier',
                       description: `Package assigned to ${tracking.replacement_courier_name || 'Express Courier'} (AWB: ${tracking.replacement_awb}). In transit to your address.`,
@@ -2266,12 +2150,73 @@ function TrackingContent() {
                     timestamp: 'Reserved',
                     sortTime: 3,
                   });
+                  if (tracking.is_picked_up) {
+                    checkpoints.push({
+                      title: 'Original Garment Picked Up at Doorstep',
+                      description:
+                        'Original item collected by courier with doorstep physical QC passed.',
+                      timestamp: 'Picked Up',
+                      sortTime: 2,
+                    });
+                  }
+                  if (tracking.return_requested_at) {
+                    checkpoints.push({
+                      title: 'Exchange Request Registered',
+                      description: tracking.return_reason
+                        ? `Reason: ${tracking.return_reason}`
+                        : 'Doorstep size exchange request registered.',
+                      timestamp: tracking.return_requested_at,
+                      sortTime: parseCheckpointDate(tracking.return_requested_at) || 1,
+                    });
+                  }
                   checkpoints.push({
-                    title: 'Original Garment Received at Warehouse',
-                    description: 'Original item received at warehouse and restocked in inventory.',
-                    timestamp: 'Restocked',
-                    sortTime: 2,
+                    title: 'Order Placed & Payment Confirmed',
+                    description: `Order #${tracking.order_id || tracking.orderId} placed successfully. Prepaid payment confirmed.`,
+                    timestamp: tracking.created_at || 'Recent',
+                    sortTime: parseCheckpointDate(tracking.created_at) || 1,
+                    isBaseOrder: true,
                   });
+                } else if (isReturn) {
+                  const isRefunded =
+                    tracking?.return_status === 'COMPLETED' ||
+                    tracking?.return_status === 'REFUNDED' ||
+                    tracking?.refund_status === 'REFUNDED';
+                  const isPickedUp =
+                    tracking?.is_picked_up ||
+                    tracking?.return_status === 'PICKED_UP' ||
+                    statusBadgeLabel === 'ORDER PICKED UP';
+
+                  if (isRefunded) {
+                    checkpoints.push({
+                      title: '100% Refund Credited via Razorpay',
+                      description: tracking.refund_amount
+                        ? `Refund of ₹${tracking.refund_amount.toLocaleString('en-IN')} has been credited.`
+                        : 'Refund successfully processed and credited to original payment method.',
+                      timestamp: tracking.refunded_at || 'Refunded',
+                      sortTime: 3,
+                    });
+                  }
+
+                  if (isPickedUp || isRefunded) {
+                    checkpoints.push({
+                      title: 'Package Picked Up from Doorstep',
+                      description:
+                        'Physical item collected and verified by courier partner at customer doorstep. Undergoing refund processing.',
+                      timestamp: 'Picked Up',
+                      sortTime: 2,
+                    });
+                  }
+
+                  if (tracking.return_requested_at) {
+                    checkpoints.push({
+                      title: 'Return Request Registered',
+                      description: tracking.return_reason
+                        ? `Reason: ${tracking.return_reason}`
+                        : 'Doorstep return pickup requested.',
+                      timestamp: tracking.return_requested_at,
+                      sortTime: parseCheckpointDate(tracking.return_requested_at) || 1,
+                    });
+                  }
                   checkpoints.push({
                     title: 'Order Placed & Payment Confirmed',
                     description: `Order #${tracking.order_id || tracking.orderId} placed successfully. Prepaid payment confirmed.`,

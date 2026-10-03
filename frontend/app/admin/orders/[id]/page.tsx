@@ -68,6 +68,8 @@ export default function AdminOrderDetailPage() {
   const [refreshingTracking, setRefreshingTracking] = useState(false);
   const [showForwardScans, setShowForwardScans] = useState(false);
   const [showReverseScans, setShowReverseScans] = useState(false);
+  const [showReplacementScans, setShowReplacementScans] = useState(false);
+  const [adminExchangeTrackTab, setAdminExchangeTrackTab] = useState<'reverse' | 'replacement'>('reverse');
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundAmount, setRefundAmount] = useState<number>(0);
   const [refundReason, setRefundReason] = useState('');
@@ -662,6 +664,23 @@ export default function AdminOrderDetailPage() {
             const isRefundProcessed =
               order.refund_status === 'REFUNDED' || order.payment_status === 'REFUNDED';
 
+            const rawRepScans: Array<{ date?: string; activity: string; location?: string }> =
+              Array.isArray((order.tracking_data as any)?.replacement_scans)
+                ? (order.tracking_data as any).replacement_scans
+                : Array.isArray((order.tracking_data as any)?.replacement_tracking?.scans)
+                  ? (order.tracking_data as any).replacement_tracking.scans
+                  : [];
+            const replacementScans = [...rawRepScans].sort((a, b) => {
+              const tA = parseCheckpointDate(a.date);
+              const tB = parseCheckpointDate(b.date);
+              return tB - tA;
+            });
+            const replacementCurrentLocation =
+              (order.tracking_data as any)?.replacement_current_location ||
+              (order.tracking_data as any)?.replacement_tracking?.current_location ||
+              (replacementScans.length > 0 ? replacementScans[0]?.location : null) ||
+              (order.replacement_awb ? 'In Transit to Customer' : 'Warehouse / Dispatch Facility');
+
             const forwardTracking = order.tracking_data;
             const rawFwdScans: Array<{ date?: string; activity: string; location?: string }> =
               Array.isArray(forwardTracking?.scans) ? forwardTracking.scans : [];
@@ -720,9 +739,9 @@ export default function AdminOrderDetailPage() {
               cardTitle = isReplacement
                 ? 'Size Replacement & Exchange Logistics'
                 : 'Reverse Return Logistics';
-              cardIcon = <PackageIcon size={20} color={isReplacement ? '#7c3aed' : '#fa8c16'} />;
-              borderAccent = isReplacement ? '#7c3aed' : '#fa8c16';
-              cardBg = isReplacement ? '#faf5ff' : '#fffaf0';
+              cardIcon = <PackageIcon size={20} color={isReplacement ? '#000' : '#fa8c16'} />;
+              borderAccent = isReplacement ? '#000' : '#fa8c16';
+              cardBg = isReplacement ? '#fafafa' : '#fffaf0';
 
               if (isReturnRejected) {
                 statusBadge = {
@@ -741,9 +760,9 @@ export default function AdminOrderDetailPage() {
               } else if (isReplacementDispatched) {
                 statusBadge = {
                   text: 'EXCHANGE DISPATCHED',
-                  bg: '#f5f3ff',
-                  color: '#7c3aed',
-                  border: '#ddd6fe',
+                  bg: '#f3f4f6',
+                  color: '#000',
+                  border: '#e5e7eb',
                 };
               } else if (isDeliveredToWarehouse) {
                 statusBadge = {
@@ -936,214 +955,628 @@ export default function AdminOrderDetailPage() {
                      ACTIVE RETURN / SIZE EXCHANGE FLOW
                      ========================================================================= */
                   <div>
-                    {/* Status Alert Banner */}
-                    {isReplacementDispatched ? (
+                    {/* For Exchange Orders: Dual Journey Tabs (Reverse Pickup <-> Replacement Order) */}
+                    {isReplacement && (
                       <div
                         style={{
-                          background: '#f5f3ff',
-                          border: '1px solid #ddd6fe',
-                          padding: '12px 14px',
                           display: 'flex',
-                          alignItems: 'center',
-                          gap: 12,
+                          borderBottom: '2px solid #000',
                           marginBottom: 16,
+                          background: '#f3f4f6',
                         }}
                       >
-                        <CheckIcon size={20} color="#7c3aed" />
-                        <div>
-                          <strong
-                            style={{
-                              color: '#6b21a8',
-                              fontSize: '0.85rem',
-                              textTransform: 'uppercase',
-                              display: 'block',
-                            }}
-                          >
-                            Replacement Unit Dispatched to Customer
-                          </strong>
-                          <span style={{ fontSize: '0.78rem', color: '#5b21b6' }}>
-                            Fresh size package dispatched via{' '}
-                            {order.replacement_courier_name || 'Express Courier'} (AWB:{' '}
-                            <code style={{ fontWeight: 800 }}>
-                              {order.replacement_awb || 'SIM-AWB'}
-                            </code>
-                            ).
-                          </span>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAdminExchangeTrackTab('reverse')}
+                          style={{
+                            flex: 1,
+                            padding: '12px 14px',
+                            fontWeight: 900,
+                            fontSize: '0.8rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '-0.02em',
+                            background:
+                              adminExchangeTrackTab === 'reverse' ? '#fff' : 'transparent',
+                            color: adminExchangeTrackTab === 'reverse' ? '#000' : '#666',
+                            border: 'none',
+                            borderBottom:
+                              adminExchangeTrackTab === 'reverse' ? '3px solid #000' : 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <span>📦 Reverse Pickup (Customer → Warehouse)</span>
+                          {reverseScans.length > 0 && (
+                            <span
+                              style={{
+                                background: '#000',
+                                color: '#fff',
+                                fontSize: '0.68rem',
+                                padding: '1px 6px',
+                                borderRadius: '10px',
+                              }}
+                            >
+                              {reverseScans.length}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdminExchangeTrackTab('replacement')}
+                          style={{
+                            flex: 1,
+                            padding: '12px 14px',
+                            fontWeight: 900,
+                            fontSize: '0.8rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '-0.02em',
+                            background:
+                              adminExchangeTrackTab === 'replacement' ? '#fff' : 'transparent',
+                            color: adminExchangeTrackTab === 'replacement' ? '#000' : '#666',
+                            border: 'none',
+                            borderBottom:
+                              adminExchangeTrackTab === 'replacement' ? '3px solid #000' : 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          <span>⚡ Replacement Order (Warehouse → Customer)</span>
+                          {replacementScans.length > 0 && (
+                            <span
+                              style={{
+                                background: '#000',
+                                color: '#fff',
+                                fontSize: '0.68rem',
+                                padding: '1px 6px',
+                                borderRadius: '10px',
+                              }}
+                            >
+                              {replacementScans.length}
+                            </span>
+                          )}
+                        </button>
                       </div>
-                    ) : isPickedUpFromCustomer ? (
-                      <div
-                        style={{
-                          background: '#f6ffed',
-                          border: '1px solid #b7eb8f',
-                          padding: '12px 14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 12,
-                          marginBottom: 16,
-                        }}
-                      >
-                        <CheckIcon size={20} color="#52c41a" />
-                        <div>
-                          <strong
+                    )}
+
+                    {/* REVERSE PICKUP VIEW (Customer -> Warehouse) */}
+                    {(!isReplacement || adminExchangeTrackTab === 'reverse') && (
+                      <div>
+                        {/* Reverse Status Banner */}
+                        {isPickedUpFromCustomer ? (
+                          <div
                             style={{
-                              color: '#274f13',
-                              fontSize: '0.85rem',
-                              textTransform: 'uppercase',
-                              display: 'block',
+                              background: '#f6ffed',
+                              border: '1px solid #b7eb8f',
+                              padding: '12px 14px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 12,
+                              marginBottom: 16,
                             }}
                           >
-                            Parcel Successfully Picked Up from Customer
-                          </strong>
-                          <span style={{ fontSize: '0.78rem', color: '#389e0d' }}>
-                            Physical original item collected at customer doorstep and verified by{' '}
-                            {order.reverse_courier_name || 'Delhivery Reverse Surface'}. Doorstep QC
-                            Passed.
-                          </span>
+                            <CheckIcon size={20} color="#52c41a" />
+                            <div>
+                              <strong
+                                style={{
+                                  color: '#274f13',
+                                  fontSize: '0.85rem',
+                                  textTransform: 'uppercase',
+                                  display: 'block',
+                                }}
+                              >
+                                Parcel Successfully Picked Up from Customer
+                              </strong>
+                              <span style={{ fontSize: '0.78rem', color: '#389e0d' }}>
+                                Physical original item collected at customer doorstep and verified by{' '}
+                                {order.reverse_courier_name || 'Delhivery Reverse Surface'}. Doorstep QC
+                                Passed.
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              background: '#fffbe6',
+                              border: '1px solid #ffe58f',
+                              padding: '12px 14px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 12,
+                              marginBottom: 16,
+                            }}
+                          >
+                            <AlertCircleIcon size={20} color="#d48806" />
+                            <div>
+                              <strong
+                                style={{
+                                  color: '#ad6800',
+                                  fontSize: '0.85rem',
+                                  textTransform: 'uppercase',
+                                  display: 'block',
+                                }}
+                              >
+                                Doorstep Reverse Pickup Scheduled
+                              </strong>
+                              <span style={{ fontSize: '0.78rem', color: '#874d00' }}>
+                                Courier agent assigned for doorstep collection. Customer advised to keep
+                                original brand tags and packaging ready.
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Reverse Logistics Details Grid */}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                            gap: '12px 16px',
+                            padding: '14px',
+                            background: '#fff',
+                            border: '1px solid #eee',
+                            marginBottom: 16,
+                          }}
+                        >
+                          <div>
+                            <span
+                              style={{
+                                color: '#777',
+                                display: 'block',
+                                fontSize: '0.7rem',
+                                textTransform: 'uppercase',
+                                fontWeight: 700,
+                              }}
+                            >
+                              Reverse Courier
+                            </span>
+                            <strong style={{ fontSize: '0.82rem', color: '#111' }}>
+                              {order.reverse_courier_name || 'Shiprocket Reverse Logistics'}
+                            </strong>
+                          </div>
+                          <div>
+                            <span
+                              style={{
+                                color: '#777',
+                                display: 'block',
+                                fontSize: '0.7rem',
+                                textTransform: 'uppercase',
+                                fontWeight: 700,
+                              }}
+                            >
+                              Reverse AWB
+                            </span>
+                            {order.reverse_awb ? (
+                              <a
+                                href={getPublicTrackingUrl(order.reverse_awb)}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  fontSize: '0.82rem',
+                                  fontWeight: 800,
+                                  fontFamily: 'monospace',
+                                  color: '#000',
+                                  textDecoration: 'underline',
+                                }}
+                              >
+                                {order.reverse_awb}
+                              </a>
+                            ) : (
+                              <span style={{ fontSize: '0.82rem', color: '#999' }}>
+                                Assigned on Pickup
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <span
+                              style={{
+                                color: '#777',
+                                display: 'block',
+                                fontSize: '0.7rem',
+                                textTransform: 'uppercase',
+                                fontWeight: 700,
+                              }}
+                            >
+                              Customer Reason
+                            </span>
+                            <strong style={{ fontSize: '0.82rem', color: '#111' }}>
+                              {order.return_reason || (isReplacement ? 'Size Mismatch' : 'Return')}
+                            </strong>
+                          </div>
+                          <div>
+                            <span
+                              style={{
+                                color: '#777',
+                                display: 'block',
+                                fontSize: '0.7rem',
+                                textTransform: 'uppercase',
+                                fontWeight: 700,
+                              }}
+                            >
+                              Reverse Package Location
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <MapPinIcon size={12} color="#000" />
+                              <span
+                                style={{
+                                  fontSize: '0.82rem',
+                                  fontWeight: 700,
+                                  color: '#111',
+                                }}
+                              >
+                                {reverseCurrentLocation}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          background: '#fffbe6',
-                          border: '1px solid #ffe58f',
-                          padding: '12px 14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 12,
-                          marginBottom: 16,
-                        }}
-                      >
-                        <AlertCircleIcon size={20} color="#d48806" />
-                        <div>
-                          <strong
+
+                        {/* Reverse Checkpoints Toggle */}
+                        <div style={{ marginBottom: 16 }}>
+                          <button
+                            type="button"
+                            onClick={() => setShowReverseScans(!showReverseScans)}
                             style={{
-                              color: '#ad6800',
-                              fontSize: '0.85rem',
+                              background: 'none',
+                              border: 'none',
+                              color: '#000',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              padding: 0,
                               textTransform: 'uppercase',
-                              display: 'block',
+                              textDecoration: 'underline',
                             }}
                           >
-                            Doorstep Reverse Pickup Scheduled
-                          </strong>
-                          <span style={{ fontSize: '0.78rem', color: '#874d00' }}>
-                            Courier agent assigned for doorstep collection. Customer advised to keep
-                            original brand tags and packaging ready.
-                          </span>
+                            {showReverseScans
+                              ? '▲ Hide Reverse Checkpoints'
+                              : `▼ View Reverse Checkpoints (${reverseScans.length})`}
+                          </button>
+                          {showReverseScans && (
+                            <div
+                              style={{
+                                marginTop: 10,
+                                background: '#fff',
+                                border: '1px solid #eee',
+                                padding: '12px',
+                              }}
+                            >
+                              {reverseScans.length > 0 ? (
+                                reverseScans.map((s, idx) => (
+                                  <div
+                                    key={idx}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      gap: 12,
+                                      padding: '6px 0',
+                                      borderBottom:
+                                        idx === reverseScans.length - 1
+                                          ? 'none'
+                                          : '1px solid #f3f4f6',
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: '50%',
+                                        background: idx === 0 ? '#000' : '#bbb',
+                                        marginTop: 6,
+                                      }}
+                                    />
+                                    <div>
+                                      <strong style={{ fontSize: '0.8rem', display: 'block' }}>
+                                        {s.activity}
+                                      </strong>
+                                      <span style={{ fontSize: '0.72rem', color: '#666' }}>
+                                        {s.location ? `${s.location} • ` : ''}
+                                        {s.date || ''}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                                  Reverse shipment registered. Live courier scans will display here
+                                  upon doorstep pickup.
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
 
-                    {/* Logistics Details Grid */}
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                        gap: '12px 16px',
-                        padding: '14px',
-                        background: '#fff',
-                        border: '1px solid #eee',
-                        marginBottom: 16,
-                      }}
-                    >
+                    {/* REPLACEMENT DELIVERY VIEW (Warehouse -> Customer) */}
+                    {isReplacement && adminExchangeTrackTab === 'replacement' && (
                       <div>
-                        <span
-                          style={{
-                            color: '#777',
-                            display: 'block',
-                            fontSize: '0.7rem',
-                            textTransform: 'uppercase',
-                            fontWeight: 700,
-                          }}
-                        >
-                          Reverse Courier
-                        </span>
-                        <strong style={{ fontSize: '0.82rem', color: '#111' }}>
-                          {order.reverse_courier_name || 'Shiprocket Reverse Logistics'}
-                        </strong>
-                      </div>
-                      <div>
-                        <span
-                          style={{
-                            color: '#777',
-                            display: 'block',
-                            fontSize: '0.7rem',
-                            textTransform: 'uppercase',
-                            fontWeight: 700,
-                          }}
-                        >
-                          Reverse AWB
-                        </span>
-                        {order.reverse_awb ? (
-                          <a
-                            href={getPublicTrackingUrl(order.reverse_awb)}
-                            target="_blank"
-                            rel="noreferrer"
+                        {/* Replacement Status Banner */}
+                        {isReplacementDispatched ? (
+                          <div
                             style={{
-                              fontSize: '0.82rem',
+                              background: '#f0fdf4',
+                              border: '1px solid #bbf7d0',
+                              padding: '12px 14px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 12,
+                              marginBottom: 16,
+                            }}
+                          >
+                            <CheckIcon size={20} color="#16a34a" />
+                            <div>
+                              <strong
+                                style={{
+                                  color: '#15803d',
+                                  fontSize: '0.85rem',
+                                  textTransform: 'uppercase',
+                                  display: 'block',
+                                }}
+                              >
+                                Replacement Unit Dispatched to Customer
+                              </strong>
+                              <span style={{ fontSize: '0.78rem', color: '#166534' }}>
+                                Fresh size package dispatched via{' '}
+                                {order.replacement_courier_name || 'Express Courier'} (AWB:{' '}
+                                <code style={{ fontWeight: 800 }}>
+                                  {order.replacement_awb || 'Assigned'}
+                                </code>
+                                ).
+                              </span>
+                            </div>
+                          </div>
+                        ) : isPickedUpFromCustomer ? (
+                          <div
+                            style={{
+                              background: '#eff6ff',
+                              border: '1px solid #bfdbfe',
+                              padding: '12px 14px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 12,
+                              marginBottom: 16,
+                            }}
+                          >
+                            <PackageIcon size={20} color="#1d4ed8" />
+                            <div>
+                              <strong
+                                style={{
+                                  color: '#1e40af',
+                                  fontSize: '0.85rem',
+                                  textTransform: 'uppercase',
+                                  display: 'block',
+                                }}
+                              >
+                                Ready to Dispatch Replacement Unit
+                              </strong>
+                              <span style={{ fontSize: '0.78rem', color: '#1d4ed8' }}>
+                                Original item collected & QC passed. You can now dispatch the reserved{' '}
+                                <strong>{order.replacement_variant_title || 'replacement size'}</strong> package below.
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              background: '#fffbe6',
+                              border: '1px solid #ffe58f',
+                              padding: '12px 14px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 12,
+                              marginBottom: 16,
+                            }}
+                          >
+                            <AlertCircleIcon size={20} color="#d48806" />
+                            <div>
+                              <strong
+                                style={{
+                                  color: '#ad6800',
+                                  fontSize: '0.85rem',
+                                  textTransform: 'uppercase',
+                                  display: 'block',
+                                }}
+                              >
+                                Dispatch Locked — Awaiting Customer Doorstep Pickup
+                              </strong>
+                              <span style={{ fontSize: '0.78rem', color: '#874d00' }}>
+                                Replacement package will be unlocked for dispatch as soon as the courier collects the original garment.
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Replacement Logistics Details Grid */}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                            gap: '12px 16px',
+                            padding: '14px',
+                            background: '#fff',
+                            border: '1px solid #eee',
+                            marginBottom: 16,
+                          }}
+                        >
+                          <div>
+                            <span
+                              style={{
+                                color: '#777',
+                                display: 'block',
+                                fontSize: '0.7rem',
+                                textTransform: 'uppercase',
+                                fontWeight: 700,
+                              }}
+                            >
+                              Replacement Courier
+                            </span>
+                            <strong style={{ fontSize: '0.82rem', color: '#111' }}>
+                              {order.replacement_courier_name || (isReplacementDispatched ? 'Express Courier' : 'Pending Dispatch')}
+                            </strong>
+                          </div>
+                          <div>
+                            <span
+                              style={{
+                                color: '#777',
+                                display: 'block',
+                                fontSize: '0.7rem',
+                                textTransform: 'uppercase',
+                                fontWeight: 700,
+                              }}
+                            >
+                              Replacement AWB
+                            </span>
+                            {order.replacement_awb ? (
+                              <a
+                                href={getPublicTrackingUrl(order.replacement_awb)}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  fontSize: '0.82rem',
+                                  fontWeight: 800,
+                                  fontFamily: 'monospace',
+                                  color: '#000',
+                                  textDecoration: 'underline',
+                                }}
+                              >
+                                {order.replacement_awb}
+                              </a>
+                            ) : (
+                              <span style={{ fontSize: '0.82rem', color: '#999' }}>
+                                Generated on Dispatch
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <span
+                              style={{
+                                color: '#777',
+                                display: 'block',
+                                fontSize: '0.7rem',
+                                textTransform: 'uppercase',
+                                fontWeight: 700,
+                              }}
+                            >
+                              Requested Size
+                            </span>
+                            <strong style={{ fontSize: '0.82rem', color: '#111' }}>
+                              {order.replacement_variant_title || 'Selected Size'}
+                            </strong>
+                          </div>
+                          <div>
+                            <span
+                              style={{
+                                color: '#777',
+                                display: 'block',
+                                fontSize: '0.7rem',
+                                textTransform: 'uppercase',
+                                fontWeight: 700,
+                              }}
+                            >
+                              Replacement Location
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <MapPinIcon size={12} color="#000" />
+                              <span
+                                style={{
+                                  fontSize: '0.82rem',
+                                  fontWeight: 700,
+                                  color: '#111',
+                                }}
+                              >
+                                {replacementCurrentLocation}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Replacement Checkpoints Toggle */}
+                        <div style={{ marginBottom: 16 }}>
+                          <button
+                            type="button"
+                            onClick={() => setShowReplacementScans(!showReplacementScans)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#000',
+                              fontSize: '0.75rem',
                               fontWeight: 800,
-                              fontFamily: 'monospace',
-                              color: '#7c3aed',
+                              cursor: 'pointer',
+                              padding: 0,
+                              textTransform: 'uppercase',
                               textDecoration: 'underline',
                             }}
                           >
-                            {order.reverse_awb}
-                          </a>
-                        ) : (
-                          <span style={{ fontSize: '0.82rem', color: '#999' }}>
-                            Assigned on Pickup
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <span
-                          style={{
-                            color: '#777',
-                            display: 'block',
-                            fontSize: '0.7rem',
-                            textTransform: 'uppercase',
-                            fontWeight: 700,
-                          }}
-                        >
-                          Customer Reason
-                        </span>
-                        <strong style={{ fontSize: '0.82rem', color: '#111' }}>
-                          {order.return_reason || (isReplacement ? 'Size Mismatch' : 'Return')}
-                        </strong>
-                      </div>
-                      <div>
-                        <span
-                          style={{
-                            color: '#777',
-                            display: 'block',
-                            fontSize: '0.7rem',
-                            textTransform: 'uppercase',
-                            fontWeight: 700,
-                          }}
-                        >
-                          Package Location
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <MapPinIcon size={12} color="#6b21a8" />
-                          <span
-                            style={{
-                              fontSize: '0.82rem',
-                              fontWeight: 700,
-                              color: '#111',
-                            }}
-                          >
-                            {reverseCurrentLocation}
-                          </span>
+                            {showReplacementScans
+                              ? '▲ Hide Replacement Checkpoints'
+                              : `▼ View Replacement Checkpoints (${replacementScans.length})`}
+                          </button>
+                          {showReplacementScans && (
+                            <div
+                              style={{
+                                marginTop: 10,
+                                background: '#fff',
+                                border: '1px solid #eee',
+                                padding: '12px',
+                              }}
+                            >
+                              {replacementScans.length > 0 ? (
+                                replacementScans.map((s, idx) => (
+                                  <div
+                                    key={idx}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      gap: 12,
+                                      padding: '6px 0',
+                                      borderBottom:
+                                        idx === replacementScans.length - 1
+                                          ? 'none'
+                                          : '1px solid #f3f4f6',
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: '50%',
+                                        background: idx === 0 ? '#000' : '#bbb',
+                                        marginTop: 6,
+                                      }}
+                                    />
+                                    <div>
+                                      <strong style={{ fontSize: '0.8rem', display: 'block' }}>
+                                        {s.activity}
+                                      </strong>
+                                      <span style={{ fontSize: '0.72rem', color: '#666' }}>
+                                        {s.location ? `${s.location} • ` : ''}
+                                        {s.date || ''}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                                  Replacement package registered. Live transit scans from courier will appear here once dispatched.
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Replacement Specific Details */}
                     {isReplacement && (
                       <div
                         style={{
                           background: '#fff',
-                          border: '1px solid #e9d5ff',
+                          border: '1px solid #e5e5e5',
                           padding: '14px',
                           marginBottom: 16,
                         }}
@@ -1163,7 +1596,7 @@ export default function AdminOrderDetailPage() {
                               fontSize: '0.72rem',
                               fontWeight: 800,
                               textTransform: 'uppercase',
-                              color: '#6b21a8',
+                              color: '#000',
                             }}
                           >
                             Requested Replacement Variant
@@ -1172,8 +1605,8 @@ export default function AdminOrderDetailPage() {
                             style={{
                               fontSize: '0.7rem',
                               fontWeight: 800,
-                              background: '#f3e8ff',
-                              color: '#7e22ce',
+                              background: '#f3f4f6',
+                              color: '#000',
                               padding: '2px 8px',
                               textTransform: 'uppercase',
                             }}
@@ -1361,74 +1794,6 @@ export default function AdminOrderDetailPage() {
                                 </button>
                               </div>
                             )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Reverse Checkpoints Toggle */}
-                    {reverseScans.length > 0 && (
-                      <div style={{ marginBottom: 16 }}>
-                        <button
-                          type="button"
-                          onClick={() => setShowReverseScans(!showReverseScans)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#6b21a8',
-                            fontSize: '0.75rem',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            padding: 0,
-                            textTransform: 'uppercase',
-                            textDecoration: 'underline',
-                          }}
-                        >
-                          {showReverseScans
-                            ? '▲ Hide Reverse Checkpoints'
-                            : `▼ View Reverse Checkpoints (${reverseScans.length})`}
-                        </button>
-                        {showReverseScans && (
-                          <div
-                            style={{
-                              marginTop: 10,
-                              background: '#fff',
-                              border: '1px solid #eee',
-                              padding: '12px',
-                            }}
-                          >
-                            {reverseScans.map((s, idx) => (
-                              <div
-                                key={idx}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'flex-start',
-                                  gap: 12,
-                                  padding: '6px 0',
-                                  borderBottom:
-                                    idx === reverseScans.length - 1 ? 'none' : '1px solid #f3f4f6',
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    width: 8,
-                                    height: 8,
-                                    borderRadius: '50%',
-                                    background: idx === 0 ? '#7c3aed' : '#bbb',
-                                    marginTop: 6,
-                                  }}
-                                />
-                                <div>
-                                  <strong style={{ fontSize: '0.8rem', display: 'block' }}>
-                                    {s.activity}
-                                  </strong>
-                                  <span style={{ fontSize: '0.72rem', color: '#666' }}>
-                                    {s.location ? `${s.location} • ` : ''}
-                                    {s.date || ''}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
                           </div>
                         )}
                       </div>

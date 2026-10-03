@@ -3995,6 +3995,10 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
                         order.status = "COMPLETED"
                 if rep_track.get("courier_name") and not order.replacement_courier_name:
                     order.replacement_courier_name = rep_track.get("courier_name")
+                merged_td = dict(order.tracking_data or {})
+                merged_td["replacement_tracking"] = rep_track
+                merged_td["replacement_scans"] = rep_track.get("scans") or []
+                order.tracking_data = merged_td
                 updated = True
         except Exception as e:
             logger.warning(f"Failed to sync replacement tracking for order {order.id}: {e}")
@@ -4880,6 +4884,25 @@ def admin_get_order(
         except Exception as e:
             logger.warning(f"Failed to sync reverse tracking for order {order.id}: {e}")
 
+    if order.replacement_awb and order.replacement_awb != order.shiprocket_awb:
+        try:
+            rep_track = shiprocket_service.track_awb(order.replacement_awb)
+            if rep_track and isinstance(rep_track, dict):
+                curr_st = str(rep_track.get("current_status") or "").upper()
+                if curr_st:
+                    order.replacement_status = curr_st
+                    if curr_st in ("DELIVERED", "COMPLETED"):
+                        order.status = "COMPLETED"
+                if rep_track.get("courier_name") and not order.replacement_courier_name:
+                    order.replacement_courier_name = rep_track.get("courier_name")
+                merged_td = dict(order.tracking_data or {})
+                merged_td["replacement_tracking"] = rep_track
+                merged_td["replacement_scans"] = rep_track.get("scans") or []
+                order.tracking_data = merged_td
+                updated = True
+        except Exception as e:
+            logger.warning(f"Failed to sync replacement tracking for order {order.id}: {e}")
+
     if updated:
         try:
             db.commit()
@@ -4959,6 +4982,14 @@ def admin_refresh_order_tracking(
                 curr_st = str(rep_track.get("current_status") or "").upper()
                 if curr_st:
                     order.replacement_status = curr_st
+                    if curr_st in ("DELIVERED", "COMPLETED"):
+                        order.status = "COMPLETED"
+                if rep_track.get("courier_name") and not order.replacement_courier_name:
+                    order.replacement_courier_name = rep_track.get("courier_name")
+                merged_td = dict(order.tracking_data or {})
+                merged_td["replacement_tracking"] = rep_track
+                merged_td["replacement_scans"] = rep_track.get("scans") or []
+                order.tracking_data = merged_td
         except Exception as e:
             logger.warning(f"Error refreshing replacement tracking for order {order.id}: {e}")
 
