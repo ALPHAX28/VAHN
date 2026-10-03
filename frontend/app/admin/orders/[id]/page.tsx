@@ -131,7 +131,7 @@ export default function AdminOrderDetailPage() {
       toast.success(
         order.return_type === 'REPLACEMENT'
           ? 'Return parcel received at warehouse. Original size inventory restocked!'
-          : 'Return parcel received at warehouse. Quality inspection and refund controls are now unlocked.'
+          : 'Return parcel received at warehouse. Item restocked to inventory & refund controls unlocked.'
       );
       await load();
     } catch (e: unknown) {
@@ -1909,7 +1909,7 @@ export default function AdminOrderDetailPage() {
                                 }}
                               >
                                 <span>✓</span>
-                                <span>Package at Warehouse — Quality Inspection Required:</span>
+                                <span>Package received at warehouse — Item restocked to inventory:</span>
                               </div>
                               <button
                                 type="button"

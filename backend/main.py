@@ -138,6 +138,44 @@ async def _shiprocket_status_sync_loop():
                                 order.tracking_data = merged
                     except Exception as e_ord:
                         logger.warning(f"[SR Sync] Error syncing order {order.id}: {e_ord}")
+
+                # Poll active reverse return and exchange shipments for warehouse delivery & auto-restock
+                try:
+                    active_reverse_orders = (
+                        db.query(models.Order)
+                        .options(selectinload(models.Order.items))
+                        .filter(
+                            models.Order.reverse_awb.isnot(None),
+                            models.Order.reverse_awb != "",
+                            models.Order.return_status.in_(["REQUESTED", "PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT"]),
+                        )
+                        .all()
+                    )
+                    for rev_order in active_reverse_orders:
+                        try:
+                            rev_live = shiprocket_service.track_awb(rev_order.reverse_awb)
+                            if not rev_live or not isinstance(rev_live, dict):
+                                continue
+                            curr_rev_st = str(rev_live.get("current_status") or "").upper()
+                            merged_rev = dict(rev_order.reverse_tracking_data or {})
+                            merged_rev.update(rev_live)
+                            rev_order.reverse_tracking_data = merged_rev
+
+                            if rev_live.get("is_delivered") or curr_rev_st in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev_st:
+                                rev_order.return_status = "DELIVERED_TO_WAREHOUSE"
+                                # Automatic restock into warehouse inventory for both returns and exchanges
+                                restocked = restock_returned_order_items(rev_order, db)
+                                logger.info(f"[SR Sync] Return/Exchange parcel {rev_order.id} DELIVERED to warehouse. Restocked: {restocked}")
+                            elif rev_live.get("is_picked_up") or curr_rev_st in ("PICKED_UP", "IN_TRANSIT"):
+                                if rev_order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                                    rev_order.return_status = "PICKED_UP"
+                                if rev_order.return_type == "REPLACEMENT" and rev_order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                                    rev_order.replacement_status = "PICKED_UP"
+                        except Exception as e_rev:
+                            logger.warning(f"[SR Sync] Error syncing reverse order {rev_order.id}: {e_rev}")
+                except Exception as e_rev_loop:
+                    logger.warning(f"[SR Sync] Error in reverse orders loop: {e_rev_loop}")
+
                 db.commit()
             finally:
                 db.close()
@@ -2572,6 +2610,14 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
     reverse_scans = []
     if order.reverse_awb:
         rev_info = shiprocket_service.track_awb(order.reverse_awb)
+        if rev_info and isinstance(rev_info, dict):
+            curr_rev_st = str(rev_info.get("current_status") or "").upper()
+            if rev_info.get("is_delivered") or curr_rev_st in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev_st:
+                order.return_status = "DELIVERED_TO_WAREHOUSE"
+                restock_returned_order_items(order, db)
+            elif rev_info.get("is_picked_up") or curr_rev_st in ("PICKED_UP", "IN_TRANSIT"):
+                if order.return_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
+                    order.return_status = "PICKED_UP"
         raw_rev_scans = rev_info.get("scans") if isinstance(rev_info, dict) else []
         if isinstance(raw_rev_scans, list):
             reverse_scans = [
@@ -3552,8 +3598,10 @@ def admin_mark_order_return_received(
     t_data = dict(order.tracking_data or {})
     scans = t_data.setdefault("scans", [])
 
+    # Automatic restock into warehouse inventory for both returns and exchanges
+    restocked = restock_returned_order_items(order, db)
+
     if order.return_type == "REPLACEMENT":
-        restocked = restock_returned_order_items(order, db)
         scans.insert(0, {
             "title": "Return Parcel Delivered to Warehouse",
             "description": "Returned exchange package arrived at warehouse. Size inventory automatically restocked.",
@@ -3564,11 +3612,11 @@ def admin_mark_order_return_received(
     else:
         scans.insert(0, {
             "title": "Return Parcel Delivered to Warehouse",
-            "description": "Returned package received at warehouse facility. Item undergoing quality inspection for refund approval.",
+            "description": "Returned parcel arrived at warehouse. Size inventory automatically restocked into warehouse inventory.",
             "timestamp": ts_str,
             "location": "VAHN Warehouse (Home)"
         })
-        logger.info(f"Return parcel for order {order.id} marked received at warehouse. Awaiting QC inspection.")
+        logger.info(f"Return parcel for order {order.id} marked received at warehouse. Restocked: {restocked}. Awaiting QC inspection.")
 
     order.tracking_data = t_data
     db.commit()
@@ -3852,9 +3900,10 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
                 elif current_status in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE"):
                     rev_order.return_status = "DELIVERED_TO_WAREHOUSE"
 
+                    # Automatic restock into inventory upon warehouse delivery for both returns and exchanges
+                    restocked = restock_returned_order_items(rev_order, db)
+
                     if rev_order.return_type == "REPLACEMENT":
-                        # Automatic restock into inventory upon warehouse delivery
-                        restocked = restock_returned_order_items(rev_order, db)
                         scans.insert(0, {
                             "title": "Return Parcel Delivered to Warehouse",
                             "description": "Returned exchange package arrived at warehouse. Size inventory automatically restocked.",
@@ -3866,12 +3915,12 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
                     else:
                         scans.insert(0, {
                             "title": "Return Parcel Delivered to Warehouse",
-                            "description": "Returned package received at warehouse facility. Item undergoing inspection for refund approval.",
+                            "description": "Returned package received at warehouse facility. Size inventory automatically restocked.",
                             "timestamp": ts_str,
                             "location": "VAHN Warehouse (Home)"
                         })
                         rev_order.tracking_data = t_data
-                        logger.info(f"Return parcel {rev_order.id} delivered to warehouse. Awaiting QC inspection and refund initiation in admin.")
+                        logger.info(f"Return parcel {rev_order.id} delivered to warehouse. Restocked: {restocked}. Awaiting QC inspection and refund initiation in admin.")
 
                     db.commit()
                     return {"status": "reverse_delivered_to_warehouse"}
@@ -3970,8 +4019,8 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
                 curr_rev = str(rev_track.get("current_status") or "").upper()
                 if rev_track.get("is_delivered") or curr_rev in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev:
                     order.return_status = "DELIVERED_TO_WAREHOUSE"
-                    if order.return_type == "REPLACEMENT":
-                        restock_returned_order_items(order, db)
+                    # Automatic restock into inventory upon warehouse delivery for both returns and exchanges
+                    restock_returned_order_items(order, db)
                 elif rev_track.get("is_picked_up") or curr_rev in ("PICKED_UP", "IN_TRANSIT"):
                     if order.return_type == "REPLACEMENT":
                         if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
@@ -4870,8 +4919,8 @@ def admin_get_order(
                 curr_rev = str(rev_track.get("current_status") or "").upper()
                 if rev_track.get("is_delivered") or curr_rev in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev:
                     order.return_status = "DELIVERED_TO_WAREHOUSE"
-                    if order.return_type == "REPLACEMENT":
-                        restock_returned_order_items(order, db)
+                    # Automatic restock into inventory upon warehouse delivery for both returns and exchanges
+                    restock_returned_order_items(order, db)
                 elif rev_track.get("is_picked_up") or curr_rev in ("PICKED_UP", "IN_TRANSIT"):
                     if order.return_type == "REPLACEMENT":
                         if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
@@ -4962,8 +5011,8 @@ def admin_refresh_order_tracking(
                 curr_rev = str(rev_track.get("current_status") or "").upper()
                 if rev_track.get("is_delivered") or curr_rev in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE") or "DELIVERED" in curr_rev:
                     order.return_status = "DELIVERED_TO_WAREHOUSE"
-                    if order.return_type == "REPLACEMENT":
-                        restock_returned_order_items(order, db)
+                    # Automatic restock into inventory upon warehouse delivery for both returns and exchanges
+                    restock_returned_order_items(order, db)
                 elif rev_track.get("is_picked_up") or curr_rev in ("PICKED_UP", "IN_TRANSIT"):
                     if order.return_type == "REPLACEMENT":
                         if order.replacement_status in ("NONE", "REQUESTED", "PICKUP_SCHEDULED"):
