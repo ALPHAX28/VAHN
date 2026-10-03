@@ -24,6 +24,8 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
   const isHorizontalSwipeRef = useRef<boolean | null>(null);
   const activeIndexRef = useRef(0);
 
+  const GAP_PX = 2;
+
   // Keep activeIndexRef in sync with state
   useEffect(() => {
     activeIndexRef.current = mobileActiveIndex;
@@ -31,11 +33,27 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
 
   // Synchronize CSS transform whenever mobileActiveIndex changes (when not actively dragging)
   useEffect(() => {
-    if (stripRef.current && !isDraggingRef.current) {
+    if (stripRef.current && !isDraggingRef.current && containerRef.current) {
+      const containerWidth = containerRef.current.clientWidth || 360;
+      const stride = containerWidth + GAP_PX;
       stripRef.current.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
-      stripRef.current.style.transform = `translateX(-${mobileActiveIndex * 100}%)`;
+      stripRef.current.style.transform = `translateX(-${mobileActiveIndex * stride}px)`;
     }
   }, [mobileActiveIndex]);
+
+  // Resize listener to ensure exact alignment if screen rotates or resizes
+  useEffect(() => {
+    const handleResize = () => {
+      if (stripRef.current && containerRef.current && !isDraggingRef.current) {
+        const containerWidth = containerRef.current.clientWidth || 360;
+        const stride = containerWidth + GAP_PX;
+        stripRef.current.style.transition = 'none';
+        stripRef.current.style.transform = `translateX(-${activeIndexRef.current * stride}px)`;
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Reset to slide 0 when images change
   useEffect(() => {
@@ -43,7 +61,7 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
     activeIndexRef.current = 0;
     if (stripRef.current) {
       stripRef.current.style.transition = 'none';
-      stripRef.current.style.transform = 'translateX(0%)';
+      stripRef.current.style.transform = 'translateX(0px)';
     }
   }, [images]);
 
@@ -58,7 +76,7 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
     stripRef.current.style.transition = 'none';
   };
 
-  // Drag move (reactive 1:1 finger tracking: both images visible side-by-side!)
+  // Drag move (reactive 1:1 finger tracking: both images visible side-by-side with desktop gap!)
   const handleDragMove = (clientX: number, clientY: number, e?: TouchEvent | React.MouseEvent) => {
     if (!isDraggingRef.current || !stripRef.current) return;
     const deltaX = clientX - startXRef.current;
@@ -81,6 +99,7 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
     }
 
     const containerWidth = containerRef.current?.clientWidth || stripRef.current.clientWidth || 360;
+    const stride = containerWidth + GAP_PX;
     let effectiveDeltaX = deltaX;
 
     // Rubber-band resistance when dragging beyond first or last slide
@@ -94,10 +113,9 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
 
     currentDeltaXRef.current = effectiveDeltaX;
 
-    // Direct 1:1 translation: both images slide side-by-side in real-time!
-    const basePercent = -currentIndex * 100;
-    const deltaPercent = (effectiveDeltaX / containerWidth) * 100;
-    stripRef.current.style.transform = `translateX(${basePercent + deltaPercent}%)`;
+    // Direct 1:1 translation with gap stride: both images slide side-by-side!
+    const basePx = -currentIndex * stride;
+    stripRef.current.style.transform = `translateX(${basePx + effectiveDeltaX}px)`;
   };
 
   // Drag end (snaps to next/prev slide or springs back)
@@ -112,6 +130,7 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
     isHorizontalSwipeRef.current = null;
 
     const containerWidth = containerRef.current?.clientWidth || stripRef.current.clientWidth || 360;
+    const stride = containerWidth + GAP_PX;
     const deltaX = currentDeltaXRef.current;
     currentDeltaXRef.current = 0;
 
@@ -127,7 +146,7 @@ export default function ProductMediaGallery({ images, productTitle }: Props) {
 
     // Animate smoothly to target
     stripRef.current.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
-    stripRef.current.style.transform = `translateX(-${targetIndex * 100}%)`;
+    stripRef.current.style.transform = `translateX(-${targetIndex * stride}px)`;
     setMobileActiveIndex(targetIndex);
   };
 
