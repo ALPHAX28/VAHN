@@ -854,7 +854,7 @@ export default function AdminOrderDetailPage() {
                       style={{
                         margin: 0,
                         textTransform: 'uppercase',
-                        color: isReturnActive ? (isReplacement ? '#6b21a8' : '#d46b08') : '#111',
+                        color: isReturnActive ? '#000000' : '#111',
                       }}
                     >
                       {cardTitle}
@@ -1647,8 +1647,8 @@ export default function AdminOrderDetailPage() {
                             style={{
                               marginTop: 14,
                               padding: '12px',
-                              background: '#faf5ff',
-                              border: '1px solid #d8b4fe',
+                              background: '#fafafa',
+                              border: '1px solid #000000',
                             }}
                           >
                             <span
@@ -1657,7 +1657,7 @@ export default function AdminOrderDetailPage() {
                                 fontSize: '0.75rem',
                                 fontWeight: 800,
                                 textTransform: 'uppercase',
-                                color: '#581c87',
+                                color: '#000000',
                                 marginBottom: 8,
                               }}
                             >
@@ -1667,7 +1667,7 @@ export default function AdminOrderDetailPage() {
                             <p
                               style={{
                                 fontSize: '0.75rem',
-                                color: '#6b21a8',
+                                color: '#555555',
                                 margin: '0 0 12px',
                                 lineHeight: 1.4,
                               }}
@@ -1691,7 +1691,7 @@ export default function AdminOrderDetailPage() {
                                 onClick={() => handleDispatchReplacement(false)}
                                 disabled={dispatchingReplacement}
                                 style={{
-                                  background: '#7c3aed',
+                                  background: '#000000',
                                   color: '#fff',
                                   border: 'none',
                                   padding: '10px 22px',
@@ -1717,7 +1717,7 @@ export default function AdminOrderDetailPage() {
                                 style={{
                                   background: 'none',
                                   border: 'none',
-                                  color: '#6b21a8',
+                                  color: '#000000',
                                   fontSize: '0.74rem',
                                   cursor: 'pointer',
                                   textDecoration: 'underline',
@@ -1736,7 +1736,7 @@ export default function AdminOrderDetailPage() {
                                 style={{
                                   marginTop: 14,
                                   paddingTop: 12,
-                                  borderTop: '1px dashed #d8b4fe',
+                                  borderTop: '1px dashed #cccccc',
                                   display: 'flex',
                                   flexWrap: 'wrap',
                                   gap: 10,
@@ -1953,12 +1953,12 @@ export default function AdminOrderDetailPage() {
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 6,
-                                background: '#f5f3ff',
-                                color: '#6b21a8',
+                                background: '#f0fdf4',
+                                color: '#16a34a',
                                 padding: '6px 12px',
                                 fontSize: '0.74rem',
                                 fontWeight: 700,
-                                border: '1px solid #ddd6fe',
+                                border: '1px solid #86efac',
                               }}
                             >
                               <span>✓</span>
@@ -3268,7 +3268,7 @@ export default function AdminOrderDetailPage() {
                     fontSize: '0.72rem',
                     fontWeight: 900,
                     textTransform: 'uppercase',
-                    color: order.return_type === 'REPLACEMENT' ? '#7c3aed' : '#d46b08',
+                    color: '#000000',
                     letterSpacing: '0.04em',
                   }}
                 >

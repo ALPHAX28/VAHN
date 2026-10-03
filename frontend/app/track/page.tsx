@@ -1574,8 +1574,8 @@ function TrackingContent() {
           {hasActiveReturn && (
             <div
               style={{
-                background: isReplacement ? '#faf5ff' : '#fffaf0',
-                border: `1px solid ${isReplacement ? '#c084fc' : '#fed7aa'}`,
+                background: '#fafafa',
+                border: '1px solid #000000',
                 padding: '20px 22px',
                 marginBottom: '28px',
               }}
@@ -1588,19 +1588,19 @@ function TrackingContent() {
                   flexWrap: 'wrap',
                   gap: 12,
                   paddingBottom: '14px',
-                  borderBottom: `1px solid ${isReplacement ? '#f3e8ff' : '#fef3c7'}`,
+                  borderBottom: '1px solid #e5e7eb',
                   marginBottom: '16px',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <PackageIcon size={20} color={isReplacement ? '#7c3aed' : '#d97706'} />
+                  <PackageIcon size={20} color="#000000" />
                   <span
                     style={{
                       fontSize: '0.9rem',
                       fontWeight: 900,
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em',
-                      color: isReplacement ? '#581c87' : '#92400e',
+                      color: '#000000',
                     }}
                   >
                     {isReplacement ? 'Size Exchange Details' : 'Return & Refund Details'}
@@ -1646,14 +1646,14 @@ function TrackingContent() {
                     style={{
                       background: '#ffffff',
                       padding: '14px 16px',
-                      border: '1px solid #e9d5ff',
+                      border: '1px solid #e5e7eb',
                     }}
                   >
                     <span
                       style={{
                         fontSize: '0.68rem',
                         fontWeight: 800,
-                        color: '#7c3aed',
+                        color: '#000000',
                         textTransform: 'uppercase',
                         display: 'block',
                         marginBottom: 4,
@@ -1670,61 +1670,38 @@ function TrackingContent() {
                     style={{
                       background: '#ffffff',
                       padding: '14px 16px',
-                      border: '1px solid #e9d5ff',
+                      border: '1px solid #e5e7eb',
                     }}
                   >
                     <span
                       style={{
                         fontSize: '0.68rem',
                         fontWeight: 800,
-                        color: '#7c3aed',
+                        color: '#000000',
                         textTransform: 'uppercase',
                         display: 'block',
                         marginBottom: 4,
                       }}
                     >
-                      Original Item Pickup
+                      Exchange Status
                     </span>
                     <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
-                    >
-                      <strong
-                        style={{ fontFamily: 'monospace', fontSize: '0.88rem', color: '#111' }}
-                      >
-                        {tracking.reverse_awb || 'Pickup Scheduled'}
-                      </strong>
-                      {tracking.reverse_awb && (
-                        <button
-                          type="button"
-                          onClick={() => handleCopyReverseAwb(tracking.reverse_awb || '')}
-                          className="tracking-copy-btn"
-                        >
-                          {copiedReverse ? 'Copied!' : 'Copy'}
-                        </button>
-                      )}
-                    </div>
-                    <div
                       style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        color:
-                          tracking.return_status === 'DELIVERED_TO_WAREHOUSE' ||
-                          (tracking.reverse_tracking_data as { delivered_to_warehouse?: boolean })
-                            ?.delivered_to_warehouse
+                        fontSize: '0.85rem',
+                        fontWeight: 800,
+                        color: tracking.replacement_awb
+                          ? '#16a34a'
+                          : tracking.is_picked_up
                             ? '#2563eb'
-                            : tracking.is_picked_up
-                              ? '#16a34a'
-                              : '#b45309',
+                            : '#b45309',
                         marginTop: 4,
                       }}
                     >
-                      {tracking.return_status === 'DELIVERED_TO_WAREHOUSE' ||
-                      (tracking.reverse_tracking_data as { delivered_to_warehouse?: boolean })
-                        ?.delivered_to_warehouse
-                        ? '✓ Received at Warehouse (Size Restocked)'
+                      {tracking.replacement_awb
+                        ? `✓ Replacement Dispatched via ${tracking.replacement_courier_name || 'Express Courier'}`
                         : tracking.is_picked_up
-                          ? '✓ Handed Over to Courier'
-                          : 'Awaiting Doorstep Pickup'}
+                          ? '✓ Original Item Collected — Preparing Replacement Dispatch'
+                          : 'Awaiting Doorstep Handover (Doorstep QC Required)'}
                     </div>
                   </div>
 
@@ -1732,14 +1709,14 @@ function TrackingContent() {
                     style={{
                       background: '#ffffff',
                       padding: '14px 16px',
-                      border: '1px solid #e9d5ff',
+                      border: '1px solid #e5e7eb',
                     }}
                   >
                     <span
                       style={{
                         fontSize: '0.68rem',
                         fontWeight: 800,
-                        color: '#7c3aed',
+                        color: '#000000',
                         textTransform: 'uppercase',
                         display: 'block',
                         marginBottom: 4,
@@ -1779,10 +1756,10 @@ function TrackingContent() {
                               }
                             }}
                             style={{
-                              background: '#7c3aed',
-                              color: '#fff',
+                              background: '#000000',
+                              color: '#ffffff',
                               border: 'none',
-                              padding: '2px 8px',
+                              padding: '3px 10px',
                               fontSize: '0.68rem',
                               fontWeight: 800,
                               cursor: 'pointer',
@@ -1807,8 +1784,8 @@ function TrackingContent() {
                     ) : (
                       <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: 3 }}>
                         {tracking.is_picked_up
-                          ? 'Processing replacement dispatch'
-                          : 'Dispatches once original item is picked up'}
+                          ? 'Processing replacement dispatch at warehouse'
+                          : 'Dispatches automatically once original item is collected'}
                       </div>
                     )}
                   </div>

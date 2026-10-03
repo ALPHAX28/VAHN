@@ -735,7 +735,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   type="button"
                   onClick={() => handleOpenTrackingModal('forward')}
                   style={{
-                    background: '#4232d9',
+                    background: '#000000',
                     color: '#fff',
                     border: 'none',
                     padding: '10px 18px',
@@ -1536,9 +1536,9 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                           style={{
                             fontSize: '0.75rem',
                             fontWeight: 800,
-                            color: '#4232d9',
-                            background: '#eef2ff',
-                            border: '1px solid #c7d2fe',
+                            color: '#000000',
+                            background: '#f5f5f5',
+                            border: '1px solid #000000',
                             padding: '2px 8px',
                           }}
                         >
@@ -2358,7 +2358,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <span
                       style={{
-                        background: '#4232d9',
+                        background: '#000000',
                         color: '#fff',
                         fontSize: '0.68rem',
                         fontWeight: 900,
@@ -2486,7 +2486,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       style={{
                         width: 36,
                         height: 36,
-                        border: '3px solid #4232d9',
+                        border: '3px solid #000000',
                         borderTopColor: 'transparent',
                         borderRadius: '50%',
                         animation: 'spin 0.8s linear infinite',
@@ -2767,8 +2767,8 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                                     style={{
                                       width: 14,
                                       height: 14,
-                                      background: isLatest ? '#4232d9' : '#000',
-                                      border: isLatest ? '3px solid #c7d2fe' : 'none',
+                                      background: '#000000',
+                                      border: isLatest ? '3px solid #999999' : 'none',
                                       marginTop: 4,
                                     }}
                                   />
@@ -2799,7 +2799,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                                       style={{
                                         fontSize: '0.88rem',
                                         fontWeight: 900,
-                                        color: isLatest ? '#4232d9' : '#000',
+                                        color: '#000000',
                                       }}
                                     >
                                       {prettifyActivityLabel(scan.activity)}
@@ -2845,11 +2845,11 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                         background:
                           order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
                             ? '#f0fdf4'
-                            : '#faf5ff',
+                            : '#fafafa',
                         border:
                           order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
                             ? '1.5px solid #86efac'
-                            : '1.5px solid #c084fc',
+                            : '1.5px solid #000000',
                         padding: '16px 20px',
                       }}
                     >
@@ -2864,7 +2864,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                             background:
                               order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
                                 ? '#16a34a'
-                                : '#7c3aed',
+                                : '#000000',
                             display: 'inline-block',
                           }}
                         />
@@ -2875,7 +2875,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                             color:
                               order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
                                 ? '#16a34a'
-                                : '#7c3aed',
+                                : '#000000',
                             textTransform: 'uppercase',
                           }}
                         >
@@ -2889,7 +2889,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                           color:
                             order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
                               ? '#15803d'
-                              : '#581c87',
+                              : '#000000',
                         }}
                       >
                         {order.replacementStatus === 'DELIVERED' || order.status === 'COMPLETED'
@@ -2997,7 +2997,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                           style={{
                             fontSize: '0.95rem',
                             fontWeight: 900,
-                            color: '#7c3aed',
+                            color: '#000000',
                             marginTop: 2,
                           }}
                         >
@@ -3027,11 +3027,11 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                           style={{
                             padding: '24px',
                             textAlign: 'center',
-                            background: '#faf5ff',
-                            border: '1px dashed #c084fc',
+                            background: '#f9fafb',
+                            border: '1px dashed #000000',
                           }}
                         >
-                          <p style={{ margin: 0, fontSize: '0.85rem', color: '#581c87', fontWeight: 600 }}>
+                          <p style={{ margin: 0, fontSize: '0.85rem', color: '#111111', fontWeight: 600 }}>
                             {order.replacementAwb
                               ? `Replacement parcel dispatched via ${order.replacementCourierName || 'Express Courier'} (AWB: ${order.replacementAwb}). Live courier checkpoint scans will appear as the courier scans the package.`
                               : 'Replacement parcel is being prepared at warehouse. Courier dispatch scan will appear here once handed over.'}
@@ -3058,8 +3058,8 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                                     style={{
                                       width: 14,
                                       height: 14,
-                                      background: isLatest ? '#7c3aed' : '#000',
-                                      border: isLatest ? '3px solid #ddd6fe' : 'none',
+                                      background: isLatest ? '#000000' : '#888888',
+                                      border: isLatest ? '3px solid #e5e7eb' : 'none',
                                       marginTop: 4,
                                     }}
                                   />
@@ -3088,7 +3088,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                                       style={{
                                         fontSize: '0.88rem',
                                         fontWeight: 900,
-                                        color: isLatest ? '#7c3aed' : '#000',
+                                        color: '#000000',
                                       }}
                                     >
                                       {prettifyActivityLabel(scan.activity)}

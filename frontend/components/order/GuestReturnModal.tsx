@@ -614,7 +614,7 @@ export default function GuestReturnModal({
                         fontSize: '0.75rem',
                         fontWeight: 900,
                         textTransform: 'uppercase',
-                        color: '#6b21a8',
+                        color: '#000000',
                         letterSpacing: '0.04em',
                         marginBottom: 8,
                       }}

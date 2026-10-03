@@ -1046,7 +1046,7 @@ export default function SchedulePickupWizardModal({
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '5px',
-                                  background: '#7c3aed',
+                                  background: '#000000',
                                   color: '#ffffff',
                                   fontSize: '0.70rem',
                                   fontWeight: 800,
@@ -1256,7 +1256,7 @@ export default function SchedulePickupWizardModal({
                                   }}
                                 >
                                   Pickup by{' '}
-                                  <span style={{ color: '#7c3aed', fontWeight: 900 }}>▷</span>{' '}
+                                  <span style={{ color: '#000000', fontWeight: 900 }}>▷</span>{' '}
                                   Shiprocket
                                 </div>
                               </div>
