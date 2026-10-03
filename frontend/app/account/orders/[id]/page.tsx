@@ -2841,6 +2841,35 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       </div>
                     </div>
 
+                    {/* Fixed Checkpoint Scans Subheader */}
+                    <div
+                      style={{
+                        padding: '12px 20px',
+                        background: '#fafafa',
+                        borderBottom: '1px solid #e5e7eb',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <h4
+                        style={{
+                          fontSize: '0.82rem',
+                          fontWeight: 900,
+                          textTransform: 'uppercase',
+                          letterSpacing: '-0.01em',
+                          margin: 0,
+                          color: '#000',
+                        }}
+                      >
+                        Complete Checkpoint Scans ({displayForwardScans.length})
+                      </h4>
+                      <span style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 700 }}>
+                        Newest Checkpoints First
+                      </span>
+                    </div>
+
                     {/* ONLY THIS SCROLLS: Dedicated Checkpoint Scans Feed */}
                     <div
                       style={{
@@ -2850,36 +2879,6 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                         minHeight: 0,
                       }}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: 16,
-                          position: 'sticky',
-                          top: 0,
-                          background: '#fff',
-                          zIndex: 2,
-                          paddingBottom: 8,
-                          borderBottom: '1px solid #f3f4f6',
-                        }}
-                      >
-                        <h4
-                          style={{
-                            fontSize: '0.82rem',
-                            fontWeight: 900,
-                            textTransform: 'uppercase',
-                            letterSpacing: '-0.01em',
-                            margin: 0,
-                            color: '#000',
-                          }}
-                        >
-                          Complete Checkpoint Scans ({displayForwardScans.length})
-                        </h4>
-                        <span style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 700 }}>
-                          Newest Checkpoints First
-                        </span>
-                      </div>
 
                       {displayForwardScans.length === 0 ? (
                         <div
@@ -3198,6 +3197,35 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       </div>
                     </div>
 
+                    {/* Fixed Replacement Checkpoints Subheader */}
+                    <div
+                      style={{
+                        padding: '12px 20px',
+                        background: '#fafafa',
+                        borderBottom: '1px solid #e5e7eb',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <h4
+                        style={{
+                          fontSize: '0.82rem',
+                          fontWeight: 900,
+                          textTransform: 'uppercase',
+                          letterSpacing: '-0.01em',
+                          margin: 0,
+                          color: '#000',
+                        }}
+                      >
+                        Replacement Checkpoint Scans ({activeReplacementScans.length})
+                      </h4>
+                      <span style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 700 }}>
+                        Newest Checkpoints First
+                      </span>
+                    </div>
+
                     {/* ONLY THIS SCROLLS: Dedicated Replacement Checkpoints Feed */}
                     <div
                       style={{
@@ -3207,36 +3235,6 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                         minHeight: 0,
                       }}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: 16,
-                          position: 'sticky',
-                          top: 0,
-                          background: '#fff',
-                          zIndex: 2,
-                          paddingBottom: 8,
-                          borderBottom: '1px solid #f3f4f6',
-                        }}
-                      >
-                        <h4
-                          style={{
-                            fontSize: '0.82rem',
-                            fontWeight: 900,
-                            textTransform: 'uppercase',
-                            letterSpacing: '-0.01em',
-                            margin: 0,
-                            color: '#000',
-                          }}
-                        >
-                          Replacement Checkpoint Scans ({activeReplacementScans.length})
-                        </h4>
-                        <span style={{ fontSize: '0.7rem', color: '#6b7280', fontWeight: 700 }}>
-                          Newest Checkpoints First
-                        </span>
-                      </div>
 
                       {activeReplacementScans.length === 0 ? (
                         <div
@@ -3498,6 +3496,32 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       </div>
                     </div>
 
+                    {/* Fixed Return & Refund Progress Subheader */}
+                    <div
+                      style={{
+                        padding: '12px 20px',
+                        background: '#fafafa',
+                        borderBottom: '1px solid #e5e7eb',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <h4
+                        style={{
+                          fontSize: '0.82rem',
+                          fontWeight: 900,
+                          textTransform: 'uppercase',
+                          letterSpacing: '-0.01em',
+                          margin: 0,
+                          color: '#000',
+                        }}
+                      >
+                        Return & Refund Progress (3 Stages)
+                      </h4>
+                    </div>
+
                     {/* ONLY THIS SCROLLS: 3-Stage Return Tracking Stepper */}
                     <div
                       style={{
@@ -3507,18 +3531,6 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                         minHeight: 0,
                       }}
                     >
-                      <h4
-                        style={{
-                          fontSize: '0.82rem',
-                          fontWeight: 900,
-                          textTransform: 'uppercase',
-                          letterSpacing: '-0.01em',
-                          margin: '0 0 16px',
-                          color: '#000',
-                        }}
-                      >
-                        Return & Refund Progress (3 Stages)
-                      </h4>
                       {(() => {
                         const isRefunded =
                           order.returnStatus === 'REFUNDED' ||
