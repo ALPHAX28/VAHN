@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 interface GeoState {
@@ -63,12 +64,30 @@ export default function GeoGate() {
       }
     }
 
-    // Check query param override: ?test_geo=US or ?test_geo=IN
+    const hostname = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+    const isProd =
+      hostname === 'vahnsports.com' ||
+      hostname === 'www.vahnsports.com' ||
+      hostname === 'admin.vahnsports.com' ||
+      (hostname.endsWith('vahnsports.com') &&
+        !hostname.startsWith('dev.') &&
+        !hostname.startsWith('dev-'));
+
+    const isDevOrLocal =
+      !isProd &&
+      (hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.endsWith('.localhost') ||
+        hostname.startsWith('dev.') ||
+        hostname.includes('dev-') ||
+        hostname.includes('staging'));
+
+    // Check query param override: ?test_geo=US or ?test_geo=IN (STRICTLY disabled on production vahnsports.com)
     const searchParams =
       typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const testGeoParam = searchParams?.get('test_geo');
+    const testGeoParam = isDevOrLocal ? searchParams?.get('test_geo') : null;
 
-    // If test query param is explicitly passed, activate immediately in 0ms!
+    // If test query param is explicitly passed on dev/local, activate immediately in 0ms!
     if (testGeoParam && /^[a-zA-Z]{2}$/.test(testGeoParam)) {
       const code = testGeoParam.toUpperCase();
       const meta = getCountryMeta(code);
@@ -99,57 +118,73 @@ export default function GeoGate() {
       // Ignore session storage errors
     }
 
-    // If cached in session, use cached geo
+    // If cached in session: on prod, purge any test session data immediately
     if (cachedGeo) {
-      setGeoState(cachedGeo);
-      return;
+      if (isProd || !isDevOrLocal) {
+        if (cachedGeo.source?.includes('test') || cachedGeo.source === 'client_instant_test') {
+          try {
+            sessionStorage.removeItem(STORAGE_KEY);
+          } catch {
+            // ignore
+          }
+          cachedGeo = null;
+        }
+      }
+
+      if (cachedGeo) {
+        setGeoState(cachedGeo);
+        return;
+      }
     }
 
-    // Otherwise, perform background geo check
-    fetchGeoCheck(null);
-  }, [isAdmin]);
+    const fetchGeoCheck = async (testGeo: string | null) => {
+      try {
+        const url =
+          isDevOrLocal && testGeo
+            ? `/api/geo/check?test_geo=${encodeURIComponent(testGeo)}`
+            : '/api/geo/check';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-  const fetchGeoCheck = async (testGeo: string | null) => {
-    try {
-      const url = testGeo ? `/api/geo/check?test_geo=${encodeURIComponent(testGeo)}` : '/api/geo/check';
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(url, {
+          signal: controller.signal,
+          headers: { Accept: 'application/json' },
+        });
+        clearTimeout(timeoutId);
 
-      const res = await fetch(url, {
-        signal: controller.signal,
-        headers: { Accept: 'application/json' },
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data: GeoState = await res.json();
-        setGeoState(data);
-        try {
-          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        } catch {
-          // ignore
+        if (res.ok) {
+          const data: GeoState = await res.json();
+          setGeoState(data);
+          try {
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          } catch {
+            // ignore
+          }
+        } else {
+          // Fail open
+          setGeoState({
+            countryCode: 'IN',
+            countryName: 'India',
+            countryFlag: '🇮🇳',
+            isServiceable: true,
+            source: 'api_fallback_open',
+          });
         }
-      } else {
-        // Fail open
+      } catch {
+        // Network timeout / offline -> fail open so customers are never blocked
         setGeoState({
           countryCode: 'IN',
           countryName: 'India',
           countryFlag: '🇮🇳',
           isServiceable: true,
-          source: 'api_fallback_open',
+          source: 'network_fallback_open',
         });
       }
-    } catch {
-      // Fail open on network error or timeout
-      setGeoState({
-        countryCode: 'IN',
-        countryName: 'India',
-        countryFlag: '🇮🇳',
-        isServiceable: true,
-        source: 'catch_fail_open',
-      });
-    }
-  };
+    };
+
+    // Perform background geo check
+    fetchGeoCheck(null);
+  }, [isAdmin]);
 
   const handleWaitlistSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,7 +266,8 @@ export default function GeoGate() {
             width: '84px',
             height: '84px',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 70%)',
+            background:
+              'radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 70%)',
             border: '1px solid rgba(255, 255, 255, 0.14)',
             display: 'flex',
             alignItems: 'center',
@@ -389,14 +425,36 @@ export default function GeoGate() {
               margin: '0 auto 16px auto',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#4ade80', fontWeight: 800, fontSize: '0.9rem', marginBottom: 6 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                color: '#4ade80',
+                fontWeight: 800,
+                fontSize: '0.9rem',
+                marginBottom: 6,
+              }}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                role="img"
+                aria-label="Success checkmark"
+              >
+                <title>Success checkmark</title>
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               <span>YOU ARE ON THE PRIORITY LIST</span>
             </div>
             <p style={{ margin: 0, fontSize: '0.82rem', color: '#86efac', lineHeight: 1.5 }}>
-              We will notify <strong>{email}</strong> the moment shipping to {geoState.countryName} begins.
+              We will notify <strong>{email}</strong> the moment shipping to {geoState.countryName}{' '}
+              begins.
             </p>
           </div>
         )}

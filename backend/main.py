@@ -7568,8 +7568,28 @@ async def check_geo_serviceability(request: Request, test_geo: Optional[str] = N
     Check if visitor's IP location is within India or abroad.
     Supports query parameter override (test_geo=US) for testing.
     """
-    # 1. Test override
-    if test_geo and len(test_geo) == 2:
+    # 1. Test override — strictly enabled ONLY in development and localhost environments
+    host = (request.headers.get("host") or "").lower().split(":")[0]
+    xf_host = (request.headers.get("x-forwarded-host") or "").lower().split(",")[0].strip().split(":")[0]
+    is_prod = (
+        host in ("vahnsports.com", "www.vahnsports.com", "admin.vahnsports.com")
+        or xf_host in ("vahnsports.com", "www.vahnsports.com", "admin.vahnsports.com")
+        or (host.endswith("vahnsports.com") and not host.startswith("dev.") and not host.startswith("dev-"))
+        or (xf_host.endswith("vahnsports.com") and not xf_host.startswith("dev.") and not xf_host.startswith("dev-"))
+        or os.getenv("ENVIRONMENT", "").lower() == "production"
+    )
+    is_dev_or_local = (not is_prod) and (
+        host in ("localhost", "127.0.0.1", "0.0.0.0")
+        or host.startswith("dev.")
+        or "dev-" in host
+        or "staging" in host
+        or xf_host in ("localhost", "127.0.0.1", "0.0.0.0")
+        or xf_host.startswith("dev.")
+        or "dev-" in xf_host
+        or "staging" in xf_host
+        or os.getenv("ENVIRONMENT", "").lower() in ("dev", "development", "staging")
+    )
+    if is_dev_or_local and test_geo and len(test_geo) == 2:
         code = test_geo.upper()
         meta = GEO_COUNTRY_NAMES.get(code, {"name": code, "flag": "🌐"})
         return {

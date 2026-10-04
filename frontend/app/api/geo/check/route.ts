@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,8 +66,32 @@ function isPrivateIp(ip: string): boolean {
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Check for testing override query param: ?test_geo=US or ?test_geo=IN
-    const testGeo = req.nextUrl.searchParams.get('test_geo');
+    const host = (req.headers.get('x-forwarded-host') || req.headers.get('host') || '')
+      .toLowerCase()
+      .split(',')[0]
+      .trim()
+      .split(':')[0];
+
+    const isProd =
+      host === 'vahnsports.com' ||
+      host === 'www.vahnsports.com' ||
+      host === 'admin.vahnsports.com' ||
+      (host.endsWith('vahnsports.com') && !host.startsWith('dev.') && !host.startsWith('dev-')) ||
+      (process.env.NODE_ENV === 'production' && !host.includes('dev'));
+
+    const isDevOrLocal =
+      !isProd &&
+      (host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host.endsWith('.localhost') ||
+        host.startsWith('dev.') ||
+        host.includes('dev-') ||
+        host.includes('staging') ||
+        process.env.NODE_ENV !== 'production' ||
+        process.env.NEXT_PUBLIC_APP_ENV === 'development');
+
+    // 1. Check for testing override query param — STRICTLY restricted to dev & localhost environments
+    const testGeo = isDevOrLocal ? req.nextUrl.searchParams.get('test_geo') : null;
     if (testGeo && /^[a-zA-Z]{2}$/.test(testGeo)) {
       const upper = testGeo.toUpperCase();
       const meta = COUNTRY_NAMES[upper] || { name: upper, flag: '🌐' };
@@ -85,7 +109,9 @@ export async function GET(req: NextRequest) {
     const vercelCountry = req.headers.get('x-vercel-ip-country');
     const cloudfrontCountry = req.headers.get('cloudfront-viewer-country');
 
-    const edgeCountry = (cfCountry || vercelCountry || cloudfrontCountry || '').trim().toUpperCase();
+    const edgeCountry = (cfCountry || vercelCountry || cloudfrontCountry || '')
+      .trim()
+      .toUpperCase();
     if (edgeCountry && /^[A-Z]{2}$/.test(edgeCountry) && edgeCountry !== 'XX') {
       const meta = COUNTRY_NAMES[edgeCountry] || { name: edgeCountry, flag: '🌐' };
       return NextResponse.json({
