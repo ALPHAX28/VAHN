@@ -53,6 +53,10 @@ export default function SchedulePickupWizardModal({
   const [breadth, setBreadth] = useState<number>(15);
   const [height, setHeight] = useState<number>(5);
 
+  // Mobile responsive UI states
+  const [showMobileOrderDetails, setShowMobileOrderDetails] = useState<boolean>(false);
+  const [activeRtoCourierId, setActiveRtoCourierId] = useState<number | null>(null);
+
   // Submission state
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string>('');
@@ -68,6 +72,8 @@ export default function SchedulePickupWizardModal({
     setLoadingCouriers(true);
     setCourierError('');
     setCurrentStep(1);
+    setShowMobileOrderDetails(false);
+    setActiveRtoCourierId(null);
 
     getAvailableCouriersForOrder(adminToken, order.id)
       .then((res: AvailableCouriersResponse) => {
@@ -376,51 +382,154 @@ export default function SchedulePickupWizardModal({
           position: fixed; top: 0; left: 0; right: 0; bottom: 0;
           background: rgba(15, 23, 42, 0.75);
           display: flex; align-items: center; justify-content: center;
-          z-index: 1050; padding: 8px; backdrop-filter: blur(4px);
+          z-index: 1050; padding: 12px; backdrop-filter: blur(4px);
         }
         .spwm-modal {
           background: #ffffff; width: 100%; max-width: 1240px; height: 100%;
-          max-height: 96vh; display: flex; flex-direction: column;
+          max-height: 94vh; display: flex; flex-direction: column;
           box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
           border: 1px solid #cbd5e1; position: relative;
-          border-radius: 2px; overflow: hidden;
+          border-radius: 8px; overflow: hidden;
         }
-        /* Step bar */
-        .spwm-step-bar { display: flex; border-bottom: 1px solid #e2e8f0; background: #f8fafc; overflow-x: auto; }
+
+        /* Modal Header */
+        .spwm-header {
+          padding: 14px 22px;
+          border-bottom: 1px solid #1e293b;
+          background: #0f172a;
+          color: #ffffff;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          flex-shrink: 0;
+        }
+        .spwm-header-info { min-width: 0; flex: 1; }
+        .spwm-header-subtitle {
+          font-size: 0.68rem;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          color: #94a3b8;
+          font-weight: 700;
+        }
+        .spwm-header-title {
+          margin: 2px 0 0;
+          font-size: 1.15rem;
+          font-weight: 900;
+          letter-spacing: -0.02em;
+          color: #ffffff;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .spwm-header-close {
+          background: transparent;
+          border: none;
+          color: #94a3b8;
+          font-size: 1.35rem;
+          cursor: pointer;
+          line-height: 1;
+          padding: 6px 10px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+          flex-shrink: 0;
+        }
+        .spwm-header-close:hover {
+          background: rgba(255, 255, 255, 0.1);
+          color: #ffffff;
+        }
+
+        /* Step Progress Bar */
+        .spwm-step-bar {
+          display: flex;
+          border-bottom: 1px solid #e2e8f0;
+          background: #f8fafc;
+          overflow-x: auto;
+          scrollbar-width: none;
+          flex-shrink: 0;
+        }
+        .spwm-step-bar::-webkit-scrollbar { display: none; }
         .spwm-step-btn {
-          flex: 1; min-width: 70px; padding: 10px 4px;
-          background: transparent; border: none;
+          flex: 1;
+          min-width: 0;
+          padding: 10px 8px;
+          background: #f8fafc;
+          border: none;
           border-bottom: 3px solid transparent;
-          font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px;
-          cursor: default; text-align: center;
-          display: flex; align-items: center; justify-content: center; gap: 4px;
-          transition: all 0.15s ease; white-space: nowrap;
+          font-size: 0.74rem;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          cursor: default;
+          text-align: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          transition: all 0.15s ease;
+          white-space: nowrap;
+          color: #94a3b8;
+          font-weight: 600;
         }
+        .spwm-step-btn.completed {
+          background: #f1f5f9;
+          color: #0f172a;
+          font-weight: 700;
+          cursor: pointer;
+        }
+        .spwm-step-btn.active {
+          background: #ffffff;
+          border-bottom-color: #4f46e5;
+          color: #4f46e5;
+          font-weight: 800;
+        }
+        .spwm-step-num {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          font-size: 0.68rem;
+          font-weight: 800;
+          background: #e2e8f0;
+          color: #475569;
+          flex-shrink: 0;
+        }
+        .spwm-step-btn.active .spwm-step-num {
+          background: #4f46e5;
+          color: #ffffff;
+        }
+        .spwm-step-btn.completed .spwm-step-num {
+          background: #10b981;
+          color: #ffffff;
+        }
+        .spwm-step-label-desktop { display: inline; }
+        .spwm-step-label-mobile { display: none; }
+
+        /* Mobile Order Details Accordion (hidden on desktop) */
+        .spwm-mobile-order-summary { display: none; }
+
         /* Sidebar + content layout */
-        .spwm-body { display: flex; flex: 1; overflow: hidden; }
+        .spwm-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
         .spwm-sidebar {
           width: 215px; min-width: 215px; background: #f8fafc;
           border-right: 1px solid #e2e8f0; padding: 18px 16px;
           display: flex; flex-direction: column; gap: 16px;
-          overflow-y: auto; flex-shrink: 0; transition: all 0.25s ease;
+          overflow-y: auto; flex-shrink: 0;
         }
-        .spwm-sidebar-toggle {
-          display: none; width: 100%; padding: 10px 16px;
-          background: #f1f5f9; border: none; border-bottom: 1px solid #e2e8f0;
-          font-size: 0.78rem; font-weight: 800; color: #334155;
-          text-align: left; cursor: pointer; gap: 8px;
-          align-items: center; justify-content: space-between;
-          text-transform: uppercase; letter-spacing: 0.04em;
+        .spwm-content {
+          flex: 1; min-width: 0; padding: 18px 24px;
+          overflow-y: auto; overflow-x: hidden;
+          background: #ffffff;
         }
-        .spwm-sidebar-panel {
-          display: flex; flex-direction: column; gap: 12px;
-          padding: 12px 16px; background: #f8fafc;
-          border-bottom: 1px solid #e2e8f0;
-        }
-        .spwm-sidebar-panel-grid {
-          display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-        }
-        .spwm-content { flex: 1; min-width: 0; padding: 18px 22px; overflow-y: auto; overflow-x: hidden; background: #ffffff; }
+
+        /* Desktop & Mobile visibility helpers */
+        .spwm-desktop-only { display: block; }
+        .spwm-mobile-only { display: none; }
+
         /* Courier table header */
         .spwm-courier-header {
           display: grid;
@@ -429,16 +538,20 @@ export default function SchedulePickupWizardModal({
           background: #f8fafc; align-items: center; gap: 10px;
           border-radius: 6px; box-sizing: border-box; margin-bottom: 8px;
         }
+
         /* Courier card row */
         .spwm-courier-row {
           display: grid;
           grid-template-columns: minmax(190px, 2fr) 70px minmax(135px, 1.2fr) 95px 80px 95px;
           align-items: center; gap: 10px;
         }
-        /* Mobile col labels (hidden on desktop) */
-        .spwm-mob-label { display: none; font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 1px; }
+        .spwm-courier-col-details {
+          display: contents;
+        }
+        .spwm-courier-col-identity { min-width: 0; }
+        .spwm-courier-col-charges { text-align: right; }
 
-        /* RTO pricing tooltip on hover */
+        /* RTO pricing tooltip on hover / mobile tap */
         .spwm-rto-trigger {
           position: relative;
           display: inline-flex;
@@ -480,7 +593,8 @@ export default function SchedulePickupWizardModal({
           transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
           z-index: 100;
         }
-        .spwm-rto-trigger:hover .spwm-rto-tooltip {
+        .spwm-rto-trigger:hover .spwm-rto-tooltip,
+        .spwm-rto-tooltip.spwm-rto-tooltip-open {
           opacity: 1;
           visibility: visible;
           transform: translateY(0);
@@ -511,92 +625,424 @@ export default function SchedulePickupWizardModal({
           font-weight: 500;
           color: #64748b;
         }
+
         /* Footer */
         .spwm-footer {
           padding: 14px 24px; border-top: 1px solid #e2e8f0;
           background: #ffffff; display: flex;
           justify-content: space-between; align-items: center; gap: 10px;
-          flex-wrap: wrap;
+          flex-wrap: wrap; flex-shrink: 0;
         }
+        .spwm-footer-left { display: flex; gap: 10px; }
         .spwm-footer-right { display: flex; gap: 10px; flex-wrap: wrap; }
 
-        /* ── Tablet (≤ 768px) ── */
-        @media (max-width: 768px) {
-          .spwm-overlay { padding: 0; align-items: flex-end; }
-          .spwm-modal { max-width: 100%; width: 100%; max-height: 100dvh; height: 100dvh; border-radius: 0; border: none; }
-          .spwm-sidebar { display: none; }
-          .spwm-sidebar-toggle { display: flex; }
-          .spwm-body { flex-direction: column; overflow: hidden; }
-          .spwm-content { padding: 14px 16px; }
-          /* Courier table — hide header, show card layout */
-          .spwm-courier-header { display: none; }
-          .spwm-courier-row {
-            display: flex; flex-direction: column; gap: 6px;
-          }
-          .spwm-mob-label { display: block; }
-          .spwm-footer { padding: 12px 16px; }
-          .spwm-footer-right { width: 100%; justify-content: stretch; }
-          .spwm-footer-right button { flex: 1; justify-content: center; }
+        /* Step 1 Filter & Sort Controls */
+        .spwm-filter-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid #e2e8f0;
+          padding-bottom: 8px;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        .spwm-filter-tabs {
+          display: flex;
+          gap: 20px;
+        }
+        .spwm-sort-select {
+          padding: 6px 12px;
+          font-size: 0.82rem;
+          font-weight: 600;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          background: #ffffff;
+          color: #1e293b;
+          cursor: pointer;
+        }
+        .spwm-secured-banner {
+          background: #f0fdf4;
+          border: 1px solid #bbf7d0;
+          border-radius: 8px;
+          padding: 12px 16px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 20px;
+        }
+        .spwm-radar-banner {
+          background: #faf8ff;
+          border: 1px solid #e0e7ff;
+          border-radius: 10px;
+          padding: 14px 18px;
+          margin-bottom: 16px;
         }
 
-        /* ── Small mobile (≤ 480px) ── */
-        @media (max-width: 480px) {
-          .spwm-content { padding: 12px; }
-          .spwm-footer { flex-direction: column-reverse; }
-          .spwm-footer > div { width: 100%; }
-          .spwm-footer > div button { width: 100%; }
+        /* Step 2 Date Controls */
+        .spwm-quick-dates-grid {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .spwm-quick-date-btn {
+          padding: 10px 14px;
+          border-radius: 6px;
+          font-weight: 800;
+          font-size: 0.8rem;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        /* Step 3 Package Presets & Form Inputs */
+        .spwm-preset-group {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .spwm-preset-btn {
+          padding: 8px 14px;
+          background: #f1f5f9;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          font-size: 0.78rem;
+          font-weight: 700;
+          cursor: pointer;
+          color: #334155;
+          transition: all 0.15s ease;
+        }
+        .spwm-form-input {
+          width: 100%;
+          padding: 10px;
+          font-size: 0.9rem;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          font-weight: 700;
+          background: #ffffff;
+          color: #0f172a;
+          box-sizing: border-box;
+        }
+        .spwm-specs-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 14px;
+          margin-bottom: 20px;
+        }
+        .spwm-weight-stats-grid {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 16px;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 14px;
+        }
+
+        /* Step 4 Review Grid */
+        .spwm-review-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 16px;
+          margin-bottom: 20px;
+        }
+
+        /* ── Tablet & Mobile Responsiveness (≤ 768px) ── */
+        @media (max-width: 768px) {
+          .spwm-overlay { padding: 0; align-items: flex-end; }
+          .spwm-modal {
+            max-width: 100%; width: 100%;
+            max-height: 100dvh; height: 100dvh;
+            border-radius: 0; border: none;
+          }
+          .spwm-header {
+            padding: 10px 14px;
+            gap: 8px;
+          }
+          .spwm-header-subtitle {
+            font-size: 0.58rem;
+            letter-spacing: 0.5px;
+          }
+          .spwm-header-title {
+            font-size: 0.88rem;
+            font-weight: 800;
+          }
+          .spwm-header-close {
+            font-size: 1.15rem;
+            padding: 4px 6px;
+          }
+
+          /* Step Bar on mobile */
+          .spwm-step-bar {
+            padding: 0 4px;
+            background: #f8fafc;
+          }
+          .spwm-step-btn {
+            padding: 8px 4px;
+            font-size: 0.68rem;
+            gap: 3px;
+          }
+          .spwm-step-num {
+            width: 16px;
+            height: 16px;
+            font-size: 0.62rem;
+          }
+          .spwm-step-label-desktop { display: none; }
+          .spwm-step-label-mobile { display: inline; font-size: 0.70rem; font-weight: 700; }
+
+          /* Mobile Order Details Accordion */
+          .spwm-mobile-order-summary {
+            display: block;
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+            flex-shrink: 0;
+          }
+          .spwm-mobile-order-toggle {
+            width: 100%;
+            padding: 7px 14px;
+            background: transparent;
+            border: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0.72rem;
+            color: #334155;
+            font-weight: 700;
+          }
+          .spwm-mobile-order-badge {
+            background: #0f172a;
+            color: #ffffff;
+            font-size: 0.62rem;
+            font-weight: 800;
+            padding: 1px 6px;
+            border-radius: 3px;
+            margin-right: 6px;
+          }
+          .spwm-mobile-order-drawer {
+            padding: 10px 14px;
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+          }
+          .spwm-mobile-order-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px 12px;
+          }
+          .spwm-mobile-order-key {
+            color: #64748b;
+            font-size: 0.62rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 1px;
+          }
+          .spwm-mobile-order-val {
+            color: #0f172a;
+            font-weight: 800;
+            font-size: 0.78rem;
+          }
+
+          /* Hide desktop sidebar */
+          .spwm-sidebar { display: none; }
+          .spwm-body { flex-direction: column; }
+          .spwm-content {
+            padding: 12px 14px;
+            -webkit-overflow-scrolling: touch;
+          }
+
+          /* Step 1 Mobile Layout */
+          .spwm-secured-banner {
+            padding: 9px 12px;
+            gap: 10px;
+            margin-bottom: 12px;
+          }
+          .spwm-radar-banner {
+            padding: 10px 12px;
+            margin-bottom: 12px;
+          }
+          .spwm-filter-bar {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+            margin-bottom: 12px;
+          }
+          .spwm-filter-tabs {
+            justify-content: flex-start;
+            gap: 16px;
+          }
+          .spwm-sort-select {
+            width: 100%;
+            height: 40px;
+            font-size: 0.82rem;
+          }
+
+          /* Courier table mobile layout */
+          .spwm-courier-header { display: none; }
+          .spwm-courier-row {
+            display: grid !important;
+            grid-template-columns: 1fr auto !important;
+            gap: 8px 10px !important;
+            align-items: center !important;
+          }
+          .spwm-courier-col-identity {
+            grid-column: 1 / 2 !important;
+            grid-row: 1 !important;
+          }
+          .spwm-courier-col-charges {
+            grid-column: 2 / 3 !important;
+            grid-row: 1 !important;
+            text-align: right !important;
+          }
+          .spwm-courier-col-details {
+            grid-column: 1 / 3 !important;
+            grid-row: 2 !important;
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 6px 10px !important;
+            padding-top: 8px !important;
+            border-top: 1px solid #f1f5f9 !important;
+          }
+
+          /* Visibility toggles */
+          .spwm-desktop-only { display: none !important; }
+          .spwm-mobile-only { display: flex !important; }
+
+          .spwm-meta-pill {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.72rem;
+            color: #334155;
+            background: #f8fafc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #f1f5f9;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .spwm-meta-key {
+            color: #64748b;
+            font-size: 0.64rem;
+            font-weight: 600;
+          }
+          .spwm-meta-val {
+            font-weight: 800;
+            color: #0f172a;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .spwm-rating-badge {
+            background: #dcfce7;
+            color: #15803d;
+            font-weight: 800;
+            font-size: 0.68rem;
+            padding: 1px 6px;
+            border-radius: 10px;
+          }
+
+          /* Step 2 Date mobile */
+          .spwm-quick-dates-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            width: 100%;
+          }
+          .spwm-quick-date-btn {
+            padding: 10px 6px;
+            font-size: 0.76rem;
+            text-align: center;
+          }
+
+          /* Step 3 Specs mobile */
+          .spwm-preset-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
+          }
+          .spwm-preset-btn {
+            width: 100%;
+            text-align: left;
+            padding: 9px 12px;
+            font-size: 0.78rem;
+          }
+          .spwm-form-input {
+            font-size: 16px !important; /* Prevents auto-zoom on iOS */
+            height: 42px;
+            padding: 8px 12px;
+          }
+          .spwm-specs-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+          }
+          .spwm-weight-stats-grid {
+            padding: 12px;
+            grid-template-columns: 1fr;
+            gap: 10px;
+          }
+
+          /* Step 4 Review mobile */
+          .spwm-review-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+          }
+
+          /* Mobile Footer: Side by side sticky bottom bar */
+          .spwm-footer {
+            padding: 10px 14px !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 8px !important;
+            background: #ffffff !important;
+            border-top: 1px solid #e2e8f0 !important;
+            padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
+          }
+          .spwm-footer-left {
+            flex: 1 !important;
+            width: auto !important;
+          }
+          .spwm-footer-left button {
+            width: 100% !important;
+            height: 44px !important;
+            padding: 0 10px !important;
+            font-size: 0.78rem !important;
+            border-radius: 6px !important;
+            justify-content: center !important;
+          }
+          .spwm-footer-right {
+            flex: 2 !important;
+            width: auto !important;
+            display: flex !important;
+            gap: 8px !important;
+          }
+          .spwm-footer-right button {
+            width: 100% !important;
+            height: 44px !important;
+            padding: 0 12px !important;
+            font-size: 0.80rem !important;
+            border-radius: 6px !important;
+            justify-content: center !important;
+          }
         }
       `}</style>
       <div className="spwm-overlay">
         <div className="spwm-modal">
           {/* MODAL HEADER */}
-          <div
-            style={{
-              padding: '16px 24px',
-              borderBottom: '1px solid #e2e8f0',
-              background: '#0f172a',
-              color: '#ffffff',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  fontSize: '0.72rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px',
-                  color: '#94a3b8',
-                  fontWeight: 700,
-                }}
-              >
+          <div className="spwm-header">
+            <div className="spwm-header-info">
+              <div className="spwm-header-subtitle">
                 Shiprocket Logistics Dispatch & Pickup Scheduling
               </div>
-              <h2
-                style={{
-                  margin: '2px 0 0',
-                  fontSize: '1.25rem',
-                  fontWeight: 900,
-                  letterSpacing: '-0.02em',
-                  color: '#ffffff',
-                }}
-              >
-                Dispatch Shipment • Order #{order.id}
-              </h2>
+              <h2 className="spwm-header-title">Dispatch Shipment • Order #{order.id}</h2>
             </div>
             <button
               type="button"
               onClick={onClose}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#94a3b8',
-                fontSize: '1.6rem',
-                cursor: 'pointer',
-                lineHeight: 1,
-                padding: '4px 8px',
-              }}
+              className="spwm-header-close"
               title="Close Wizard"
             >
               ✕
@@ -606,10 +1052,10 @@ export default function SchedulePickupWizardModal({
           {/* STEP PROGRESS BAR */}
           <div className="spwm-step-bar">
             {[
-              { num: 1, label: '1. Courier Partner' },
-              { num: 2, label: '2. Pickup Date' },
-              { num: 3, label: '3. Package Specs' },
-              { num: 4, label: '4. Review & Confirm' },
+              { num: 1, label: 'Courier Partner', short: 'Courier' },
+              { num: 2, label: 'Pickup Date', short: 'Pickup' },
+              { num: 3, label: 'Package Specs', short: 'Specs' },
+              { num: 4, label: 'Review & Confirm', short: 'Review' },
             ].map((s) => {
               const isActive = currentStep === s.num;
               const isCompleted = currentStep > s.num;
@@ -621,20 +1067,79 @@ export default function SchedulePickupWizardModal({
                     if (s.num < currentStep) setCurrentStep(s.num);
                   }}
                   disabled={s.num > currentStep}
-                  className="spwm-step-btn"
-                  style={{
-                    background: isActive ? '#ffffff' : isCompleted ? '#f1f5f9' : '#f8fafc',
-                    borderBottom: isActive ? '3px solid #4f46e5' : '3px solid transparent',
-                    color: isActive ? '#4f46e5' : isCompleted ? '#0f172a' : '#94a3b8',
-                    fontWeight: isActive ? 800 : isCompleted ? 700 : 500,
-                    cursor: s.num < currentStep ? 'pointer' : 'default',
-                  }}
+                  className={`spwm-step-btn ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
                 >
-                  <span>{isCompleted ? '✓' : `${s.num}.`}</span>
-                  <span>{s.label.split('. ')[1]}</span>
+                  <span className="spwm-step-num">{isCompleted ? '✓' : `${s.num}`}</span>
+                  <span className="spwm-step-label-desktop">{s.label}</span>
+                  <span className="spwm-step-label-mobile">{s.short}</span>
                 </button>
               );
             })}
+          </div>
+
+          {/* MOBILE ORDER SUMMARY ACCORDION */}
+          <div className="spwm-mobile-order-summary">
+            <button
+              type="button"
+              className="spwm-mobile-order-toggle"
+              onClick={() => setShowMobileOrderDetails((prev) => !prev)}
+            >
+              <div
+                style={{ display: 'flex', alignItems: 'center', minWidth: 0, overflow: 'hidden' }}
+              >
+                <span className="spwm-mobile-order-badge">ORD #{order.id}</span>
+                <span style={{ fontWeight: 800, color: '#0f172a', marginRight: 4 }}>
+                  ₹{Number(orderValue).toLocaleString('en-IN')}
+                </span>
+                <span style={{ color: '#64748b', fontSize: '0.68rem' }}>({paymentMode})</span>
+              </div>
+              <span
+                style={{ color: '#4f46e5', fontWeight: 800, fontSize: '0.68rem', flexShrink: 0 }}
+              >
+                {showMobileOrderDetails ? 'Details ▲' : 'Details ▼'}
+              </span>
+            </button>
+            {showMobileOrderDetails && (
+              <div className="spwm-mobile-order-drawer">
+                <div className="spwm-mobile-order-grid">
+                  <div>
+                    <div className="spwm-mobile-order-key">Pickup Origin</div>
+                    <div className="spwm-mobile-order-val">
+                      {pickupPincode}, {pickupCity}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="spwm-mobile-order-key">Destination</div>
+                    <div className="spwm-mobile-order-val">
+                      {deliveryPincode}, {deliveryState}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="spwm-mobile-order-key">Billed Weight</div>
+                    <div className="spwm-mobile-order-val">
+                      {billedWeight.toFixed(3)} kg{' '}
+                      {volumetricWeight > deadWeight && (
+                        <span
+                          style={{
+                            fontSize: '0.60rem',
+                            color: '#4f46e5',
+                            background: '#ede9fe',
+                            padding: '1px 4px',
+                            borderRadius: '3px',
+                          }}
+                        >
+                          Vol
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="spwm-mobile-order-key">Customer</div>
+                    <div className="spwm-mobile-order-val">{customerName}</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* MODAL MAIN CONTENT CONTAINER (WITH SIDEBAR) */}
@@ -826,18 +1331,8 @@ export default function SchedulePickupWizardModal({
               {currentStep === 1 && (
                 <div>
                   {/* AUTO SECURED GREEN BANNER (MATCHING SCREENSHOT) */}
-                  <div
-                    style={{
-                      background: '#f0fdf4',
-                      border: '1px solid #bbf7d0',
-                      borderRadius: '8px',
-                      padding: '12px 16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      marginBottom: '20px',
-                    }}
-                  >
+                  {/* AUTO SECURED GREEN BANNER (MATCHING SCREENSHOT) */}
+                  <div className="spwm-secured-banner">
                     <div
                       style={{
                         width: '24px',
@@ -872,20 +1367,9 @@ export default function SchedulePickupWizardModal({
                   </div>
 
                   {/* FILTER TABS & SORT DROPDOWN */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      borderBottom: '1px solid #e2e8f0',
-                      paddingBottom: '8px',
-                      marginBottom: '16px',
-                      flexWrap: 'wrap',
-                      gap: '12px',
-                    }}
-                  >
+                  <div className="spwm-filter-bar">
                     {/* Filter Tabs: All | Air | Surface */}
-                    <div style={{ display: 'flex', gap: '20px' }}>
+                    <div className="spwm-filter-tabs">
                       {(['all', 'air', 'surface'] as const).map((tab) => {
                         const isActive = filterTab === tab;
                         const label = tab === 'all' ? 'All' : tab === 'air' ? 'Air' : 'Surface';
@@ -920,16 +1404,7 @@ export default function SchedulePickupWizardModal({
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                        style={{
-                          padding: '6px 12px',
-                          fontSize: '0.82rem',
-                          fontWeight: 600,
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '6px',
-                          background: '#ffffff',
-                          color: '#1e293b',
-                          cursor: 'pointer',
-                        }}
+                        className="spwm-sort-select"
                       >
                         <option value="recommended">Sort By: Shiprocket Recommendation</option>
                         <option value="cheapest">Sort By: Lowest Price</option>
@@ -952,21 +1427,15 @@ export default function SchedulePickupWizardModal({
                   </div>
 
                   {/* SMARTER COURIER SELECTION WITH RADAR (AI-POWERED) BANNER */}
-                  <div
-                    style={{
-                      background: '#faf8ff',
-                      border: '1px solid #e0e7ff',
-                      borderRadius: '10px',
-                      padding: '14px 18px',
-                      marginBottom: '16px',
-                    }}
-                  >
+                  <div className="spwm-radar-banner">
                     <div
                       style={{
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'space-between',
                         gap: '8px',
                         marginBottom: '6px',
+                        flexWrap: 'wrap',
                       }}
                     >
                       <span style={{ fontSize: '0.90rem', fontWeight: 800, color: '#1e1b4b' }}>
@@ -982,6 +1451,7 @@ export default function SchedulePickupWizardModal({
                           borderRadius: '4px',
                           textTransform: 'uppercase',
                           letterSpacing: '0.04em',
+                          flexShrink: 0,
                         }}
                       >
                         AI-POWERED
@@ -1131,7 +1601,15 @@ export default function SchedulePickupWizardModal({
 
                             <div className="spwm-courier-row">
                               {/* Column 1: Courier Logo, Name & Subtitle */}
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div
+                                className="spwm-courier-col-identity"
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '10px',
+                                  minWidth: 0,
+                                }}
+                              >
                                 <input
                                   type="radio"
                                   name="courier_selection"
@@ -1149,8 +1627,8 @@ export default function SchedulePickupWizardModal({
                                 {/* Provider Brand Logo */}
                                 <div
                                   style={{
-                                    width: '46px',
-                                    height: '34px',
+                                    width: '42px',
+                                    height: '30px',
                                     borderRadius: '6px',
                                     background: '#ffffff',
                                     border: '1px solid #e2e8f0',
@@ -1200,171 +1678,200 @@ export default function SchedulePickupWizardModal({
                                     {badge.initials}
                                   </div>
                                 </div>
-                                <div style={{ minWidth: 0 }}>
+                                <div style={{ minWidth: 0, flex: 1 }}>
                                   <div
                                     style={{
-                                      fontSize: '0.88rem',
+                                      fontSize: '0.86rem',
                                       fontWeight: 800,
                                       color: '#0f172a',
                                       lineHeight: 1.25,
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
                                     }}
                                   >
                                     {c.courier_name}
                                   </div>
                                   <div
                                     style={{
-                                      fontSize: '0.72rem',
+                                      fontSize: '0.70rem',
                                       color: '#64748b',
-                                      marginTop: '3px',
-                                      lineHeight: 1.4,
+                                      marginTop: '2px',
+                                      lineHeight: 1.3,
                                     }}
                                   >
-                                    <div>
-                                      <span>{c.is_surface ? 'Surface' : 'Air'}</span>
-                                      <span> | Min-weight: {c.min_weight || 0.5} Kg</span>
-                                    </div>
-                                    {c.rto_charges !== undefined &&
-                                      c.rto_charges !== null &&
-                                      Number(c.rto_charges) > 0 && (
-                                        <div>RTO Charges: ₹{c.rto_charges}</div>
-                                      )}
+                                    <span>{c.is_surface ? 'Surface' : 'Air'}</span>
+                                    <span> | Min: {c.min_weight || 0.5} Kg</span>
                                   </div>
                                 </div>
                               </div>
 
-                              {/* Column 2: Rating (shown inline on mobile) */}
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                }}
-                              >
-                                <div className="spwm-mob-label">Radar Rating</div>
-                                <div
-                                  style={{
-                                    width: '32px',
-                                    height: '32px',
-                                    borderRadius: '50%',
-                                    border: '2px solid #22c55e',
-                                    background: '#f0fdf4',
-                                    color: '#15803d',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '0.82rem',
-                                    fontWeight: 900,
-                                  }}
-                                >
-                                  {ratingVal}
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: '0.60rem',
-                                    color: '#64748b',
-                                    marginTop: '2px',
-                                  }}
-                                >
-                                  Radar
-                                </div>
-                              </div>
-
-                              {/* Column 3: Expected Pickup */}
-                              <div>
-                                <div className="spwm-mob-label">Expected Pickup</div>
-                                {c.is_auto_pickup ? (
-                                  <>
+                              {/* Details container (display: contents on desktop, 2x2 grid on mobile) */}
+                              <div className="spwm-courier-col-details">
+                                {/* Detail 1: Rating */}
+                                <div className="spwm-detail-col spwm-detail-rating">
+                                  <div
+                                    className="spwm-desktop-only"
+                                    style={{
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      alignItems: 'center',
+                                    }}
+                                  >
                                     <div
                                       style={{
-                                        fontSize: '0.74rem',
-                                        fontWeight: 700,
-                                        color: '#0284c7',
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '50%',
+                                        border: '2px solid #22c55e',
+                                        background: '#f0fdf4',
+                                        color: '#15803d',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '4px',
+                                        justifyContent: 'center',
+                                        fontSize: '0.82rem',
+                                        fontWeight: 900,
                                       }}
                                     >
-                                      <span>⏱</span> Auto-Scheduled Pickup
+                                      {ratingVal}
                                     </div>
                                     <div
                                       style={{
-                                        fontSize: '0.78rem',
-                                        fontWeight: 800,
-                                        color: '#0f172a',
-                                        marginTop: '1px',
+                                        fontSize: '0.60rem',
+                                        color: '#64748b',
+                                        marginTop: '2px',
                                       }}
                                     >
-                                      for{' '}
+                                      Radar
+                                    </div>
+                                  </div>
+                                  <div className="spwm-mobile-only spwm-meta-pill">
+                                    <span className="spwm-meta-key">Rating:</span>
+                                    <span className="spwm-rating-badge">★ {ratingVal}</span>
+                                  </div>
+                                </div>
+
+                                {/* Detail 2: Expected Pickup */}
+                                <div className="spwm-detail-col spwm-detail-pickup">
+                                  <div className="spwm-desktop-only">
+                                    {c.is_auto_pickup ? (
+                                      <>
+                                        <div
+                                          style={{
+                                            fontSize: '0.74rem',
+                                            fontWeight: 700,
+                                            color: '#0284c7',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                          }}
+                                        >
+                                          <span>⏱</span> Auto-Scheduled
+                                        </div>
+                                        <div
+                                          style={{
+                                            fontSize: '0.78rem',
+                                            fontWeight: 800,
+                                            color: '#0f172a',
+                                            marginTop: '1px',
+                                          }}
+                                        >
+                                          for{' '}
+                                          {c.expected_pickup
+                                            ? c.expected_pickup.replace(
+                                                /^Auto-Scheduled Pickup for\s*/i,
+                                                ''
+                                              )
+                                            : 'Monday'}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div
+                                        style={{
+                                          fontSize: '0.80rem',
+                                          fontWeight: 800,
+                                          color: '#0f172a',
+                                        }}
+                                      >
+                                        {c.expected_pickup || 'Monday'}
+                                      </div>
+                                    )}
+                                    <div
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        background: '#ecfdf5',
+                                        color: '#047857',
+                                        fontSize: '0.64rem',
+                                        fontWeight: 700,
+                                        padding: '2px 7px',
+                                        borderRadius: '4px',
+                                        marginTop: '4px',
+                                      }}
+                                    >
+                                      Pickup by{' '}
+                                      <span style={{ color: '#000000', fontWeight: 900 }}>▷</span>{' '}
+                                      Shiprocket
+                                    </div>
+                                  </div>
+                                  <div className="spwm-mobile-only spwm-meta-pill">
+                                    <span className="spwm-meta-key">Pickup:</span>
+                                    <span className="spwm-meta-val">
                                       {c.expected_pickup
                                         ? c.expected_pickup.replace(
                                             /^Auto-Scheduled Pickup for\s*/i,
                                             ''
                                           )
                                         : 'Monday'}
-                                    </div>
-                                  </>
-                                ) : (
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Detail 3: Estimated Delivery */}
+                                <div className="spwm-detail-col spwm-detail-delivery">
                                   <div
+                                    className="spwm-desktop-only"
                                     style={{
-                                      fontSize: '0.80rem',
-                                      fontWeight: 800,
-                                      color: '#0f172a',
+                                      fontSize: '0.82rem',
+                                      fontWeight: 700,
+                                      color: '#1e293b',
                                     }}
                                   >
-                                    {c.expected_pickup || 'Monday'}
+                                    {getDeliveryDateString(c)}
                                   </div>
-                                )}
-                                <div
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '3px',
-                                    background: '#ecfdf5',
-                                    color: '#047857',
-                                    fontSize: '0.64rem',
-                                    fontWeight: 700,
-                                    padding: '2px 7px',
-                                    borderRadius: '4px',
-                                    marginTop: '4px',
-                                  }}
-                                >
-                                  Pickup by{' '}
-                                  <span style={{ color: '#000000', fontWeight: 900 }}>▷</span>{' '}
-                                  Shiprocket
+                                  <div className="spwm-mobile-only spwm-meta-pill">
+                                    <span className="spwm-meta-key">Delivery:</span>
+                                    <span className="spwm-meta-val">
+                                      {getDeliveryDateString(c)}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
 
-                              {/* Column 4: Estimated Delivery */}
-                              <div
-                                style={{
-                                  fontSize: '0.82rem',
-                                  fontWeight: 700,
-                                  color: '#1e293b',
-                                }}
-                              >
-                                <div className="spwm-mob-label">Est. Delivery</div>
-                                {getDeliveryDateString(c)}
-                              </div>
-
-                              {/* Column 5: Chargeable Weight */}
-                              <div
-                                style={{
-                                  fontSize: '0.82rem',
-                                  fontWeight: 700,
-                                  color: '#475569',
-                                  textAlign: 'center',
-                                }}
-                              >
-                                <div className="spwm-mob-label">Chargeable Wt</div>
-                                {c.charge_weight || billedWeight || 0.5} Kg
+                                {/* Detail 4: Chargeable Weight */}
+                                <div className="spwm-detail-col spwm-detail-weight">
+                                  <div
+                                    className="spwm-desktop-only"
+                                    style={{
+                                      fontSize: '0.82rem',
+                                      fontWeight: 700,
+                                      color: '#475569',
+                                      textAlign: 'center',
+                                    }}
+                                  >
+                                    {c.charge_weight || billedWeight || 0.5} Kg
+                                  </div>
+                                  <div className="spwm-mobile-only spwm-meta-pill">
+                                    <span className="spwm-meta-key">Weight:</span>
+                                    <span className="spwm-meta-val">
+                                      {c.charge_weight || billedWeight || 0.5} Kg
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
 
                               {/* Column 6: Charges */}
-                              <div style={{ textAlign: 'right' }}>
-                                <div className="spwm-mob-label" style={{ textAlign: 'left' }}>
-                                  Charges
-                                </div>
+                              <div className="spwm-courier-col-charges">
                                 <div
                                   style={{
                                     fontSize: '0.98rem',
@@ -1374,20 +1881,34 @@ export default function SchedulePickupWizardModal({
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'flex-end',
-                                    gap: '5px',
+                                    gap: '4px',
                                   }}
                                 >
                                   <span>₹{c.rate.toFixed(2)}</span>
                                   {c.rto_charges !== undefined &&
                                     c.rto_charges !== null &&
                                     Number(c.rto_charges) > 0 && (
+                                      // biome-ignore lint/a11y/noStaticElementInteractions: rto tooltip tap trigger
                                       <span
                                         className="spwm-rto-trigger"
-                                        onClick={(e) => e.stopPropagation()}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveRtoCourierId((prev) =>
+                                            prev === c.courier_company_id
+                                              ? null
+                                              : c.courier_company_id
+                                          );
+                                        }}
                                         title={`RTO Charges: ₹${c.rto_charges}`}
                                       >
                                         <span className="spwm-rto-icon">ⓘ</span>
-                                        <span className="spwm-rto-tooltip">
+                                        <span
+                                          className={`spwm-rto-tooltip ${
+                                            activeRtoCourierId === c.courier_company_id
+                                              ? 'spwm-rto-tooltip-open'
+                                              : ''
+                                          }`}
+                                        >
                                           <span className="spwm-rto-tooltip-title">
                                             Return To Origin (RTO)
                                           </span>
@@ -1576,7 +2097,7 @@ export default function SchedulePickupWizardModal({
                     >
                       Quick Date Selection:
                     </span>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <div className="spwm-quick-dates-grid">
                       {(() => {
                         const buttons = [];
                         const d0 = new Date();
@@ -1603,17 +2124,12 @@ export default function SchedulePickupWizardModal({
                             key={b.val}
                             type="button"
                             onClick={() => setPickupDate(b.val)}
+                            className="spwm-quick-date-btn"
                             style={{
-                              padding: '10px 14px',
                               border:
                                 pickupDate === b.val ? '2px solid #4f46e5' : '1px solid #cbd5e1',
-                              borderRadius: '6px',
                               background: pickupDate === b.val ? '#ede9fe' : '#ffffff',
                               color: pickupDate === b.val ? '#4f46e5' : '#1e293b',
-                              fontWeight: 800,
-                              fontSize: '0.8rem',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease',
                             }}
                           >
                             {b.label}
@@ -1650,16 +2166,10 @@ export default function SchedulePickupWizardModal({
                         else if (v < todayStr) setPickupDate(todayStr);
                         else setPickupDate(v);
                       }}
+                      className="spwm-form-input"
                       style={{
-                        width: '100%',
                         maxWidth: '340px',
-                        padding: '10px 14px',
-                        fontSize: '0.9rem',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '6px',
-                        background: '#ffffff',
                         fontFamily: 'inherit',
-                        fontWeight: 700,
                       }}
                     />
                     <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: 4 }}>
@@ -1736,7 +2246,7 @@ export default function SchedulePickupWizardModal({
                     >
                       Quick Package Presets:
                     </span>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <div className="spwm-preset-group">
                       {presets.map((p) => (
                         <button
                           key={p.label}
@@ -1747,16 +2257,7 @@ export default function SchedulePickupWizardModal({
                             setBreadth(p.b);
                             setHeight(p.h);
                           }}
-                          style={{
-                            padding: '8px 14px',
-                            background: '#f1f5f9',
-                            border: '1px solid #cbd5e1',
-                            borderRadius: '6px',
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            color: '#334155',
-                          }}
+                          className="spwm-preset-btn"
                         >
                           {p.label} ({p.l}×{p.b}×{p.h}cm, {p.w}kg)
                         </button>
@@ -1765,14 +2266,7 @@ export default function SchedulePickupWizardModal({
                   </div>
 
                   {/* INPUT FIELDS */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                      gap: '14px',
-                      marginBottom: 20,
-                    }}
-                  >
+                  <div className="spwm-specs-grid">
                     <div>
                       <label
                         htmlFor="pkg-dead-weight"
@@ -1794,14 +2288,7 @@ export default function SchedulePickupWizardModal({
                         min="0.05"
                         value={deadWeight}
                         onChange={(e) => setDeadWeight(Number(e.target.value) || 0)}
-                        style={{
-                          width: '100%',
-                          padding: '10px',
-                          fontSize: '0.9rem',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '6px',
-                          fontWeight: 700,
-                        }}
+                        className="spwm-form-input"
                       />
                     </div>
                     <div>
@@ -1825,14 +2312,7 @@ export default function SchedulePickupWizardModal({
                         min="1"
                         value={length}
                         onChange={(e) => setLength(Number(e.target.value) || 0)}
-                        style={{
-                          width: '100%',
-                          padding: '10px',
-                          fontSize: '0.9rem',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '6px',
-                          fontWeight: 700,
-                        }}
+                        className="spwm-form-input"
                       />
                     </div>
                     <div>
@@ -1856,14 +2336,7 @@ export default function SchedulePickupWizardModal({
                         min="1"
                         value={breadth}
                         onChange={(e) => setBreadth(Number(e.target.value) || 0)}
-                        style={{
-                          width: '100%',
-                          padding: '10px',
-                          fontSize: '0.9rem',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '6px',
-                          fontWeight: 700,
-                        }}
+                        className="spwm-form-input"
                       />
                     </div>
                     <div>
@@ -1887,30 +2360,13 @@ export default function SchedulePickupWizardModal({
                         min="1"
                         value={height}
                         onChange={(e) => setHeight(Number(e.target.value) || 0)}
-                        style={{
-                          width: '100%',
-                          padding: '10px',
-                          fontSize: '0.9rem',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '6px',
-                          fontWeight: 700,
-                        }}
+                        className="spwm-form-input"
                       />
                     </div>
                   </div>
 
                   {/* VOLUMETRIC WEIGHT DISPLAY */}
-                  <div
-                    style={{
-                      background: '#f8fafc',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      padding: '16px',
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                      gap: '14px',
-                    }}
-                  >
+                  <div className="spwm-weight-stats-grid">
                     <div>
                       <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700 }}>
                         Actual Dead Weight
@@ -2000,14 +2456,7 @@ export default function SchedulePickupWizardModal({
                   </div>
 
                   {/* SUMMARY DETAILS GRID */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                      gap: '16px',
-                      marginBottom: 20,
-                    }}
-                  >
+                  <div className="spwm-review-grid">
                     {/* Courier & Date Card */}
                     <div
                       style={{
@@ -2224,7 +2673,7 @@ export default function SchedulePickupWizardModal({
 
           {/* MODAL FOOTER BUTTONS */}
           <div className="spwm-footer">
-            <div>
+            <div className="spwm-footer-left">
               {currentStep > 1 ? (
                 <button
                   type="button"
@@ -2299,6 +2748,7 @@ export default function SchedulePickupWizardModal({
                     type="button"
                     onClick={onClose}
                     disabled={submitting}
+                    className="spwm-desktop-only"
                     style={{
                       background: '#ffffff',
                       border: '1px solid #cbd5e1',
