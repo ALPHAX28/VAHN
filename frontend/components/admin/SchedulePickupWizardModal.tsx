@@ -437,6 +437,80 @@ export default function SchedulePickupWizardModal({
         }
         /* Mobile col labels (hidden on desktop) */
         .spwm-mob-label { display: none; font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-bottom: 1px; }
+
+        /* RTO pricing tooltip on hover */
+        .spwm-rto-trigger {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+        }
+        .spwm-rto-icon {
+          font-size: 0.72rem;
+          color: #94a3b8;
+          font-weight: 600;
+          line-height: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: color 0.15s ease;
+        }
+        .spwm-rto-trigger:hover .spwm-rto-icon {
+          color: #4f46e5;
+        }
+        .spwm-rto-tooltip {
+          position: absolute;
+          bottom: calc(100% + 8px);
+          right: 0;
+          background: #0f172a;
+          color: #ffffff;
+          padding: 8px 12px;
+          border-radius: 6px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 2px;
+          white-space: nowrap;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+          pointer-events: none;
+          opacity: 0;
+          visibility: hidden;
+          transform: translateY(4px);
+          transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+          z-index: 100;
+        }
+        .spwm-rto-trigger:hover .spwm-rto-tooltip {
+          opacity: 1;
+          visibility: visible;
+          transform: translateY(0);
+        }
+        .spwm-rto-tooltip::after {
+          content: '';
+          position: absolute;
+          top: 100%;
+          right: 5px;
+          border-width: 5px;
+          border-style: solid;
+          border-color: #0f172a transparent transparent transparent;
+        }
+        .spwm-rto-tooltip-title {
+          font-size: 0.62rem;
+          font-weight: 700;
+          color: #94a3b8;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .spwm-rto-tooltip-amount {
+          font-size: 0.88rem;
+          font-weight: 800;
+          color: #ffffff;
+        }
+        .spwm-rto-tooltip-sub {
+          font-size: 0.60rem;
+          font-weight: 500;
+          color: #64748b;
+        }
         /* Footer */
         .spwm-footer {
           padding: 14px 24px; border-top: 1px solid #e2e8f0;
@@ -943,12 +1017,8 @@ export default function SchedulePickupWizardModal({
                     <div style={{ textAlign: 'center' }}>Rating (Radar)</div>
                     <div>Expected Pickup</div>
                     <div>Estimated Delivery</div>
-                    <div style={{ textAlign: 'center' }}>
-                      Chargeable Wt <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>ⓘ</span>
-                    </div>
-                    <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      Charges <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>ⓘ</span>
-                    </div>
+                    <div style={{ textAlign: 'center' }}>Chargeable Wt</div>
+                    <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Charges</div>
                   </div>
 
                   {/* LOADING STATE */}
@@ -1153,7 +1223,11 @@ export default function SchedulePickupWizardModal({
                                       <span>{c.is_surface ? 'Surface' : 'Air'}</span>
                                       <span> | Min-weight: {c.min_weight || 0.5} Kg</span>
                                     </div>
-                                    <div>RTO Charges: ₹{c.rto_charges ?? 70}</div>
+                                    {c.rto_charges !== undefined &&
+                                      c.rto_charges !== null &&
+                                      Number(c.rto_charges) > 0 && (
+                                        <div>RTO Charges: ₹{c.rto_charges}</div>
+                                      )}
                                   </div>
                                 </div>
                               </div>
@@ -1297,18 +1371,35 @@ export default function SchedulePickupWizardModal({
                                     fontWeight: 900,
                                     color: '#0f172a',
                                     whiteSpace: 'nowrap',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'flex-end',
+                                    gap: '5px',
                                   }}
                                 >
-                                  ₹{c.rate.toFixed(2)}{' '}
-                                  <span
-                                    style={{
-                                      fontSize: '0.68rem',
-                                      color: '#94a3b8',
-                                      fontWeight: 500,
-                                    }}
-                                  >
-                                    ⓘ
-                                  </span>
+                                  <span>₹{c.rate.toFixed(2)}</span>
+                                  {c.rto_charges !== undefined &&
+                                    c.rto_charges !== null &&
+                                    Number(c.rto_charges) > 0 && (
+                                      <span
+                                        className="spwm-rto-trigger"
+                                        onClick={(e) => e.stopPropagation()}
+                                        title={`RTO Charges: ₹${c.rto_charges}`}
+                                      >
+                                        <span className="spwm-rto-icon">ⓘ</span>
+                                        <span className="spwm-rto-tooltip">
+                                          <span className="spwm-rto-tooltip-title">
+                                            Return To Origin (RTO)
+                                          </span>
+                                          <span className="spwm-rto-tooltip-amount">
+                                            ₹{Number(c.rto_charges).toFixed(2)}
+                                          </span>
+                                          <span className="spwm-rto-tooltip-sub">
+                                            Directly from Shiprocket API
+                                          </span>
+                                        </span>
+                                      </span>
+                                    )}
                                 </div>
                               </div>
                             </div>

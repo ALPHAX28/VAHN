@@ -628,12 +628,12 @@ def get_available_couriers_for_order(
                 except Exception:
                     rating_val = 4.5
 
-                # RTO charges
+                # RTO charges directly from Shiprocket serviceability response
                 raw_rto = c.get("rto_charges")
                 try:
-                    rto_val = round(float(raw_rto), 1) if raw_rto is not None else 70.0
+                    rto_val = round(float(raw_rto), 2) if raw_rto is not None and str(raw_rto).strip() != "" else None
                 except Exception:
-                    rto_val = 70.0
+                    rto_val = None
 
                 # Top recommended courier: Amazon Prepaid Surface 500g (ID 142) has 5.0 Radar rating & auto pickup
                 is_rec = bool(
