@@ -2868,6 +2868,13 @@ select.input::-ms-expand {
 
 .btn-buy-it-now:hover:not(.disabled):not(:disabled) .btn-checkout-arrow,
 .btn-buy-it-now:active:not(.disabled):not(:disabled) .btn-checkout-arrow,
+.cart-checkout-btn:hover:not(.disabled):not(:disabled) .btn-checkout-arrow,
+.cart-checkout-btn:active:not(.disabled):not(:disabled) .btn-checkout-arrow,
+.hero-banner-btn:hover .btn-checkout-arrow,
+.hero-banner-btn:active .btn-checkout-arrow,
+.pick-your-side-panel:hover .btn-checkout-arrow,
+.pick-your-side-panel:active .btn-checkout-arrow,
+.pick-your-side-btn:hover .btn-checkout-arrow,
 .btn:hover:not(.disabled):not(:disabled) .btn-checkout-arrow,
 .btn:active:not(.disabled):not(:disabled) .btn-checkout-arrow,
 button:hover:not(:disabled) .btn-checkout-arrow,

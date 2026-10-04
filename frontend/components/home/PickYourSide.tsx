@@ -216,13 +216,29 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
               textTransform: 'uppercase',
               letterSpacing: '-0.01em',
               textDecoration: 'none',
-              display: 'inline-block',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
               transition:
                 'background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
-            Buy Now
+            <span>Buy Now</span>
+            <svg
+              className="btn-checkout-arrow"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
           </span>
         </Link>
 
@@ -282,13 +298,29 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
               textTransform: 'uppercase',
               letterSpacing: '-0.01em',
               textDecoration: 'none',
-              display: 'inline-block',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
               transition:
                 'background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
-            Buy Now
+            <span>Buy Now</span>
+            <svg
+              className="btn-checkout-arrow"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
           </span>
         </Link>
       </div>

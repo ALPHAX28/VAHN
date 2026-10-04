@@ -445,9 +445,28 @@ export default function GeoGate() {
                   cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   opacity: isSubmitting ? 0.7 : 1,
                   transition: 'opacity 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                {isSubmitting ? 'Adding to Waitlist...' : 'Notify Me on Launch →'}
+                <span>{isSubmitting ? 'Adding to Waitlist...' : 'Notify Me on Launch'}</span>
+                {!isSubmitting && (
+                  <svg
+                    className="btn-checkout-arrow"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                )}
               </button>
             </div>
           </form>

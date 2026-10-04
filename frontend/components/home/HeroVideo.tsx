@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRef, useState } from 'react';
 
 export default function HeroVideo() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -13,9 +13,7 @@ export default function HeroVideo() {
       aria-label="Hero banner"
       style={{
         background: 'var(--color-black)',
-        backgroundImage: videoError
-          ? 'url(/assets/bull-banner.png)'
-          : 'none',
+        backgroundImage: videoError ? 'url(/assets/bull-banner.png)' : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         height: '100svh',
@@ -49,7 +47,8 @@ export default function HeroVideo() {
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.1) 60%, transparent 100%)',
+          background:
+            'linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.1) 60%, transparent 100%)',
           zIndex: 1,
         }}
         aria-hidden="true"
@@ -74,9 +73,28 @@ export default function HeroVideo() {
         <Link
           href="/products"
           className="btn btn-hero-cta"
-          style={{ letterSpacing: '-0.025em' }}
+          style={{
+            letterSpacing: '-0.025em',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          Explore Products
+          <span>Explore Products</span>
+          <svg
+            className="btn-checkout-arrow"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
         </Link>
       </div>
     </section>

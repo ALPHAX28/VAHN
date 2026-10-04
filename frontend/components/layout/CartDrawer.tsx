@@ -215,9 +215,26 @@ export default function CartDrawer() {
                   textTransform: 'uppercase',
                   fontWeight: 700,
                   letterSpacing: '0.05em',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                Explore Products
+                <span>Explore Products</span>
+                <svg
+                  className="btn-checkout-arrow"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </Link>
             </div>
           ) : (
@@ -342,7 +359,23 @@ export default function CartDrawer() {
               disabled={checkoutLoading || isLoading}
               className="cart-checkout-btn"
             >
-              {checkoutLoading ? 'PROCESSING...' : 'PROCEED TO CHECKOUT'}
+              <span>{checkoutLoading ? 'PROCESSING...' : 'PROCEED TO CHECKOUT'}</span>
+              {!checkoutLoading && (
+                <svg
+                  className="btn-checkout-arrow"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              )}
             </button>
             <button
               type="button"
