@@ -13,7 +13,6 @@ interface GeoState {
 }
 
 const STORAGE_KEY = 'vahn_geo_status';
-const PREVIEW_KEY = 'vahn_geo_preview';
 
 function getCountryMeta(code: string): { name: string; flag: string } {
   if (!code || code.length !== 2) return { name: 'International', flag: '🌐' };
@@ -39,7 +38,6 @@ export default function GeoGate() {
   const pathname = usePathname();
 
   const [geoState, setGeoState] = useState<GeoState | null>(null);
-  const [isPreviewMode, setIsPreviewMode] = useState<boolean>(false);
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -64,11 +62,6 @@ export default function GeoGate() {
       ) {
         return;
       }
-    }
-
-    // Check preview mode in session
-    if (typeof sessionStorage !== 'undefined') {
-      setIsPreviewMode(sessionStorage.getItem(PREVIEW_KEY) === 'true');
     }
 
     // Check query param override: ?test_geo=US or ?test_geo=IN
@@ -192,25 +185,6 @@ export default function GeoGate() {
     }
   };
 
-  const handleEnterPreviewMode = () => {
-    setIsPreviewMode(true);
-    try {
-      sessionStorage.setItem(PREVIEW_KEY, 'true');
-    } catch {
-      // ignore
-    }
-    toast.info('Store catalog is in Preview Mode. Checkout is reserved for India.');
-  };
-
-  const handleExitPreviewMode = () => {
-    setIsPreviewMode(false);
-    try {
-      sessionStorage.removeItem(PREVIEW_KEY);
-    } catch {
-      // ignore
-    }
-  };
-
   const handleSwitchGeoTest = (code: string) => {
     startTransition(() => {
       const upper = code.toUpperCase();
@@ -223,10 +197,8 @@ export default function GeoGate() {
         source: 'client_switch_test',
       };
       setGeoState(state);
-      setIsPreviewMode(false);
       try {
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        sessionStorage.removeItem(PREVIEW_KEY);
       } catch {
         // ignore
       }
@@ -238,59 +210,7 @@ export default function GeoGate() {
     return null;
   }
 
-  // If outside India and in Preview Mode -> show persistent luxury top banner
-  if (isPreviewMode) {
-    return (
-      <aside
-        id="geo-preview-mode-banner"
-        aria-label="International Preview Mode"
-        style={{
-          background: 'linear-gradient(90deg, #09090b 0%, #18181b 50%, #09090b 100%)',
-          color: '#f4f4f5',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
-          padding: '8px 16px',
-          fontSize: '0.8rem',
-          position: 'sticky',
-          top: 0,
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 10,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500 }}>
-          <span style={{ fontSize: '1rem' }}>{geoState.countryFlag || '🌐'}</span>
-          <span>
-            Browsing from <strong>{geoState.countryName}</strong> · Fulfilling exclusively in India
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            type="button"
-            onClick={handleExitPreviewMode}
-            style={{
-              background: '#ffffff',
-              color: '#000000',
-              border: 'none',
-              borderRadius: '2px',
-              padding: '4px 10px',
-              fontSize: '0.72rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-            }}
-          >
-            Launch Waitlist →
-          </button>
-        </div>
-      </aside>
-    );
-  }
-
-  // Full-screen, premium non-serviceable takeover modal
+  // Full-screen, premium non-serviceable takeover page
   return (
     <div
       id="geo-restriction-modal-root"
@@ -301,13 +221,13 @@ export default function GeoGate() {
         position: 'fixed',
         inset: 0,
         zIndex: 999999,
-        background: 'rgba(5, 5, 5, 0.94)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
+        background: 'rgba(5, 5, 5, 0.96)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px',
+        padding: '24px',
         overflowY: 'auto',
       }}
     >
@@ -315,11 +235,11 @@ export default function GeoGate() {
         style={{
           width: '100%',
           maxWidth: '520px',
-          background: 'linear-gradient(180deg, #111113 0%, #09090b 100%)',
+          background: 'linear-gradient(180deg, #111113 0%, #08080a 100%)',
           border: '1px solid rgba(255, 255, 255, 0.12)',
-          boxShadow: '0 24px 64px -12px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.05)',
+          boxShadow: '0 30px 80px -15px rgba(0, 0, 0, 0.9), 0 0 1px 1px rgba(255, 255, 255, 0.06)',
           borderRadius: '4px',
-          padding: '40px 32px',
+          padding: '44px 32px',
           textAlign: 'center',
           color: '#ffffff',
           position: 'relative',
@@ -374,7 +294,7 @@ export default function GeoGate() {
             display: 'inline-flex',
             alignItems: 'center',
             gap: 8,
-            padding: '5px 14px',
+            padding: '6px 16px',
             background: 'rgba(255, 255, 255, 0.06)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: '100px',
@@ -382,7 +302,7 @@ export default function GeoGate() {
             letterSpacing: '0.04em',
             textTransform: 'uppercase',
             color: '#a1a1aa',
-            marginBottom: '18px',
+            marginBottom: '20px',
           }}
         >
           <span style={{ fontSize: '1rem' }}>{geoState.countryFlag || '📍'}</span>
@@ -400,7 +320,7 @@ export default function GeoGate() {
             fontWeight: 900,
             letterSpacing: '0.05em',
             textTransform: 'uppercase',
-            margin: '0 0 12px 0',
+            margin: '0 0 14px 0',
             lineHeight: 1.25,
             color: '#ffffff',
           }}
@@ -414,18 +334,18 @@ export default function GeoGate() {
             fontSize: '0.88rem',
             lineHeight: 1.65,
             color: '#a1a1aa',
-            margin: '0 auto 28px auto',
+            margin: '0 auto 30px auto',
             maxWidth: '440px',
           }}
         >
           VAHN bespoke sportswear is currently handcrafted and dispatched exclusively for athletes
-          and clubs across India. We are expanding rapidly, and international delivery to{' '}
+          across India. We are expanding rapidly, and international delivery to{' '}
           <strong style={{ color: '#ffffff' }}>{geoState.countryName}</strong> is launching soon.
         </p>
 
         {/* Waitlist Form or Success Message */}
         {!isSubmitted ? (
-          <form onSubmit={handleWaitlistSubmit} style={{ marginBottom: 20 }}>
+          <form onSubmit={handleWaitlistSubmit} style={{ marginBottom: 16 }}>
             <div
               style={{
                 display: 'flex',
@@ -441,13 +361,13 @@ export default function GeoGate() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email for launch access..."
+                placeholder="Enter your email to get notified on launch..."
                 style={{
                   width: '100%',
                   background: '#09090b',
                   border: '1px solid rgba(255, 255, 255, 0.18)',
                   borderRadius: '2px',
-                  padding: '13px 16px',
+                  padding: '14px 16px',
                   color: '#ffffff',
                   fontSize: '0.88rem',
                   outline: 'none',
@@ -464,7 +384,7 @@ export default function GeoGate() {
                   color: '#000000',
                   border: 'none',
                   borderRadius: '2px',
-                  padding: '13px 20px',
+                  padding: '14px 20px',
                   fontSize: '0.82rem',
                   fontWeight: 900,
                   letterSpacing: '0.08em',
@@ -481,55 +401,33 @@ export default function GeoGate() {
         ) : (
           <div
             style={{
-              padding: '18px 20px',
+              padding: '20px',
               background: 'rgba(34, 197, 94, 0.08)',
               border: '1px solid rgba(34, 197, 94, 0.25)',
               borderRadius: '2px',
-              marginBottom: 24,
+              marginBottom: 16,
               maxWidth: '420px',
-              margin: '0 auto 24px auto',
+              margin: '0 auto 16px auto',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#4ade80', fontWeight: 800, fontSize: '0.9rem', marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#4ade80', fontWeight: 800, fontSize: '0.9rem', marginBottom: 6 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               <span>YOU ARE ON THE PRIORITY LIST</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.8rem', color: '#86efac' }}>
-              We will reach out to <strong>{email}</strong> the moment shipping to {geoState.countryName} is unlocked.
+            <p style={{ margin: 0, fontSize: '0.82rem', color: '#86efac', lineHeight: 1.5 }}>
+              We will notify <strong>{email}</strong> the moment shipping to {geoState.countryName} begins.
             </p>
           </div>
         )}
 
-        {/* Preview Catalog Option */}
-        <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-          <button
-            id="btn-geo-preview-catalog"
-            type="button"
-            onClick={handleEnterPreviewMode}
-            style={{
-              background: 'transparent',
-              color: '#d4d4d8',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '2px',
-              padding: '10px 18px',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            Explore Catalog (Preview Mode)
-          </button>
-        </div>
-
         {/* Developer / Store Owner Location Test Controls */}
         <div
           style={{
-            marginTop: 20,
+            marginTop: 28,
+            paddingTop: 16,
+            borderTop: '1px solid rgba(255, 255, 255, 0.06)',
             fontSize: '0.72rem',
             color: '#71717a',
             display: 'flex',
