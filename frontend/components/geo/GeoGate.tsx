@@ -16,7 +16,7 @@ interface GeoState {
 const STORAGE_KEY = 'vahn_geo_status';
 
 function getCountryMeta(code: string): { name: string; flag: string } {
-  if (!code || code.length !== 2) return { name: 'International', flag: '🌐' };
+  if (code?.length !== 2) return { name: 'International', flag: '🌐' };
   const upper = code.toUpperCase();
   let name = upper;
   try {
@@ -132,7 +132,19 @@ export default function GeoGate() {
       }
 
       if (cachedGeo) {
-        setGeoState(cachedGeo);
+        const meta = getCountryMeta(cachedGeo.countryCode);
+        const resolvedGeo: GeoState = {
+          ...cachedGeo,
+          countryName:
+            !cachedGeo.countryName || cachedGeo.countryName.length <= 2
+              ? meta.name
+              : cachedGeo.countryName,
+          countryFlag:
+            !cachedGeo.countryFlag || cachedGeo.countryFlag === '🌐'
+              ? meta.flag
+              : cachedGeo.countryFlag,
+        };
+        setGeoState(resolvedGeo);
         return;
       }
     }
@@ -154,9 +166,17 @@ export default function GeoGate() {
 
         if (res.ok) {
           const data: GeoState = await res.json();
-          setGeoState(data);
+          const meta = getCountryMeta(data.countryCode);
+          const resolvedData: GeoState = {
+            ...data,
+            countryName:
+              !data.countryName || data.countryName.length <= 2 ? meta.name : data.countryName,
+            countryFlag:
+              !data.countryFlag || data.countryFlag === '🌐' ? meta.flag : data.countryFlag,
+          };
+          setGeoState(resolvedData);
           try {
-            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(resolvedData));
           } catch {
             // ignore
           }
@@ -188,10 +208,18 @@ export default function GeoGate() {
 
   const handleWaitlistSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !email.includes('@')) {
+    if (!email?.includes('@')) {
       toast.error('Please enter a valid email address.');
       return;
     }
+
+    const countryMeta = geoState
+      ? getCountryMeta(geoState.countryCode)
+      : { name: 'International', flag: '🌐' };
+    const countryDisplayName =
+      geoState?.countryName && geoState.countryName.length > 2
+        ? geoState.countryName
+        : countryMeta.name;
 
     setIsSubmitting(true);
     try {
@@ -201,14 +229,16 @@ export default function GeoGate() {
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           country_code: geoState?.countryCode || 'INTL',
-          country_name: geoState?.countryName || 'International',
+          country_name: countryDisplayName,
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         setIsSubmitted(true);
-        toast.success(data.message || 'You have been added to the priority waitlist!');
+        toast.success(
+          data.message || `You have been added to the priority waitlist for ${countryDisplayName}!`
+        );
       } else {
         toast.error(data.message || 'Could not register email. Please try again.');
       }
@@ -223,6 +253,14 @@ export default function GeoGate() {
   if (isAdmin || !geoState || geoState.isServiceable) {
     return null;
   }
+
+  const countryMeta = getCountryMeta(geoState.countryCode);
+  const countryDisplayName =
+    geoState.countryName && geoState.countryName.length > 2
+      ? geoState.countryName
+      : countryMeta.name;
+  const countryDisplayFlag =
+    geoState.countryFlag && geoState.countryFlag !== '🌐' ? geoState.countryFlag : countryMeta.flag;
 
   // Full-screen, premium non-serviceable takeover page
   return (
@@ -320,10 +358,10 @@ export default function GeoGate() {
             marginBottom: '20px',
           }}
         >
-          <span style={{ fontSize: '1rem' }}>{geoState.countryFlag || '📍'}</span>
+          <span style={{ fontSize: '1rem' }}>{countryDisplayFlag || '📍'}</span>
           <span>
             Detected Location:{' '}
-            <strong style={{ color: '#ffffff', fontWeight: 700 }}>{geoState.countryName}</strong>
+            <strong style={{ color: '#ffffff', fontWeight: 700 }}>{countryDisplayName}</strong>
           </span>
         </div>
 
@@ -355,7 +393,7 @@ export default function GeoGate() {
         >
           VAHN bespoke sportswear is currently handcrafted and dispatched exclusively for athletes
           across India. We are expanding rapidly, and international delivery to{' '}
-          <strong style={{ color: '#ffffff' }}>{geoState.countryName}</strong> is launching soon.
+          <strong style={{ color: '#ffffff' }}>{countryDisplayName}</strong> is launching soon.
         </p>
 
         {/* Waitlist Form or Success Message */}
@@ -453,7 +491,7 @@ export default function GeoGate() {
               <span>YOU ARE ON THE PRIORITY LIST</span>
             </div>
             <p style={{ margin: 0, fontSize: '0.82rem', color: '#86efac', lineHeight: 1.5 }}>
-              We will notify <strong>{email}</strong> the moment shipping to {geoState.countryName}{' '}
+              We will notify <strong>{email}</strong> the moment shipping to {countryDisplayName}{' '}
               begins.
             </p>
           </div>

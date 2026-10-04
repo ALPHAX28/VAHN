@@ -30,6 +30,7 @@ import razorpay_service
 import schemas
 import shiprocket_service
 from database import engine, get_db
+from geo_utils import get_country_meta
 
 logger = logging.getLogger(__name__)
 import asyncio
@@ -7526,42 +7527,6 @@ def submit_contact_inquiry(
     }
 
 
-GEO_COUNTRY_NAMES = {
-    "IN": {"name": "India", "flag": "🇮🇳"},
-    "US": {"name": "United States", "flag": "🇺🇸"},
-    "GB": {"name": "United Kingdom", "flag": "🇬🇧"},
-    "CA": {"name": "Canada", "flag": "🇨🇦"},
-    "AU": {"name": "Australia", "flag": "🇦🇺"},
-    "AE": {"name": "United Arab Emirates", "flag": "🇦🇪"},
-    "SG": {"name": "Singapore", "flag": "🇸🇬"},
-    "DE": {"name": "Germany", "flag": "🇩🇪"},
-    "FR": {"name": "France", "flag": "🇫🇷"},
-    "JP": {"name": "Japan", "flag": "🇯🇵"},
-    "NZ": {"name": "New Zealand", "flag": "🇳🇿"},
-    "ZA": {"name": "South Africa", "flag": "🇿🇦"},
-    "IE": {"name": "Ireland", "flag": "🇮🇪"},
-    "NL": {"name": "Netherlands", "flag": "🇳🇱"},
-    "IT": {"name": "Italy", "flag": "🇮🇹"},
-    "ES": {"name": "Spain", "flag": "🇪🇸"},
-    "CH": {"name": "Switzerland", "flag": "🇨🇭"},
-    "SE": {"name": "Sweden", "flag": "🇸🇪"},
-    "NO": {"name": "Norway", "flag": "🇳🇴"},
-    "DK": {"name": "Denmark", "flag": "🇩🇰"},
-    "SA": {"name": "Saudi Arabia", "flag": "🇸🇦"},
-    "QA": {"name": "Qatar", "flag": "🇶🇦"},
-    "KW": {"name": "Kuwait", "flag": "🇰🇼"},
-    "MY": {"name": "Malaysia", "flag": "🇲🇾"},
-    "TH": {"name": "Thailand", "flag": "🇹🇭"},
-    "ID": {"name": "Indonesia", "flag": "🇮🇩"},
-    "PH": {"name": "Philippines", "flag": "🇵🇭"},
-    "BD": {"name": "Bangladesh", "flag": "🇧🇩"},
-    "LK": {"name": "Sri Lanka", "flag": "🇱🇰"},
-    "NP": {"name": "Nepal", "flag": "🇳🇵"},
-    "BR": {"name": "Brazil", "flag": "🇧🇷"},
-    "MX": {"name": "Mexico", "flag": "🇲🇽"},
-}
-
-
 @app.get("/api/geo/check")
 async def check_geo_serviceability(request: Request, test_geo: Optional[str] = None):
     """
@@ -7591,7 +7556,7 @@ async def check_geo_serviceability(request: Request, test_geo: Optional[str] = N
     )
     if is_dev_or_local and test_geo and len(test_geo) == 2:
         code = test_geo.upper()
-        meta = GEO_COUNTRY_NAMES.get(code, {"name": code, "flag": "🌐"})
+        meta = get_country_meta(code)
         return {
             "countryCode": code,
             "countryName": meta["name"],
@@ -7606,7 +7571,7 @@ async def check_geo_serviceability(request: Request, test_geo: Optional[str] = N
     cf_viewer = request.headers.get("cloudfront-viewer-country")
     edge_code = (cf_country or vercel_country or cf_viewer or "").strip().upper()
     if edge_code and len(edge_code) == 2 and edge_code != "XX":
-        meta = GEO_COUNTRY_NAMES.get(edge_code, {"name": edge_code, "flag": "🌐"})
+        meta = get_country_meta(edge_code)
         return {
             "countryCode": edge_code,
             "countryName": meta["name"],
@@ -7669,7 +7634,7 @@ async def check_geo_serviceability(request: Request, test_geo: Optional[str] = N
                 data = resp.json()
                 code = (data.get("country") or "").strip().upper()
                 if code and len(code) == 2:
-                    meta = GEO_COUNTRY_NAMES.get(code, {"name": code, "flag": "🌐"})
+                    meta = get_country_meta(code)
                     return {
                         "countryCode": code,
                         "countryName": meta["name"],
@@ -7696,7 +7661,10 @@ def submit_international_waitlist(
     db: Session = Depends(get_db)
 ):
     """Save international visitor interest for future expansion."""
-    c_name = payload.country_name or payload.country_code or "International"
+    meta = get_country_meta(payload.country_code or "")
+    c_name = payload.country_name if (payload.country_name and len(payload.country_name) > 2) else meta["name"]
+    if c_name == "International" and payload.country_code and meta["name"] != "International":
+        c_name = meta["name"]
     contact_msg = models.ContactMessage(
         first_name="International",
         last_name="Waitlist",

@@ -2,40 +2,25 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const COUNTRY_NAMES: Record<string, { name: string; flag: string }> = {
-  IN: { name: 'India', flag: '🇮🇳' },
-  US: { name: 'United States', flag: '🇺🇸' },
-  GB: { name: 'United Kingdom', flag: '🇬🇧' },
-  CA: { name: 'Canada', flag: '🇨🇦' },
-  AU: { name: 'Australia', flag: '🇦🇺' },
-  AE: { name: 'United Arab Emirates', flag: '🇦🇪' },
-  SG: { name: 'Singapore', flag: '🇸🇬' },
-  DE: { name: 'Germany', flag: '🇩🇪' },
-  FR: { name: 'France', flag: '🇫🇷' },
-  JP: { name: 'Japan', flag: '🇯🇵' },
-  NZ: { name: 'New Zealand', flag: '🇳🇿' },
-  ZA: { name: 'South Africa', flag: '🇿🇦' },
-  IE: { name: 'Ireland', flag: '🇮🇪' },
-  NL: { name: 'Netherlands', flag: '🇳🇱' },
-  IT: { name: 'Italy', flag: '🇮🇹' },
-  ES: { name: 'Spain', flag: '🇪🇸' },
-  CH: { name: 'Switzerland', flag: '🇨🇭' },
-  SE: { name: 'Sweden', flag: '🇸🇪' },
-  NO: { name: 'Norway', flag: '🇳🇴' },
-  DK: { name: 'Denmark', flag: '🇩🇰' },
-  SA: { name: 'Saudi Arabia', flag: '🇸🇦' },
-  QA: { name: 'Qatar', flag: '🇶🇦' },
-  KW: { name: 'Kuwait', flag: '🇰🇼' },
-  MY: { name: 'Malaysia', flag: '🇲🇾' },
-  TH: { name: 'Thailand', flag: '🇹🇭' },
-  ID: { name: 'Indonesia', flag: '🇮🇩' },
-  PH: { name: 'Philippines', flag: '🇵🇭' },
-  BD: { name: 'Bangladesh', flag: '🇧🇩' },
-  LK: { name: 'Sri Lanka', flag: '🇱🇰' },
-  NP: { name: 'Nepal', flag: '🇳🇵' },
-  BR: { name: 'Brazil', flag: '🇧🇷' },
-  MX: { name: 'Mexico', flag: '🇲🇽' },
-};
+function getCountryMeta(code: string): { name: string; flag: string } {
+  if (code?.length !== 2) return { name: 'International', flag: '🌐' };
+  const upper = code.toUpperCase();
+  let name = upper;
+  try {
+    const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+    name = regionNames.of(upper) || upper;
+  } catch {
+    name = upper;
+  }
+  let flag = '🌐';
+  try {
+    const codePoints = upper.split('').map((c) => 127397 + c.charCodeAt(0));
+    flag = String.fromCodePoint(...codePoints);
+  } catch {
+    flag = '🌐';
+  }
+  return { name, flag };
+}
 
 function isPrivateIp(ip: string): boolean {
   if (!ip) return true;
@@ -94,7 +79,7 @@ export async function GET(req: NextRequest) {
     const testGeo = isDevOrLocal ? req.nextUrl.searchParams.get('test_geo') : null;
     if (testGeo && /^[a-zA-Z]{2}$/.test(testGeo)) {
       const upper = testGeo.toUpperCase();
-      const meta = COUNTRY_NAMES[upper] || { name: upper, flag: '🌐' };
+      const meta = getCountryMeta(upper);
       return NextResponse.json({
         countryCode: upper,
         countryName: meta.name,
@@ -113,7 +98,7 @@ export async function GET(req: NextRequest) {
       .trim()
       .toUpperCase();
     if (edgeCountry && /^[A-Z]{2}$/.test(edgeCountry) && edgeCountry !== 'XX') {
-      const meta = COUNTRY_NAMES[edgeCountry] || { name: edgeCountry, flag: '🌐' };
+      const meta = getCountryMeta(edgeCountry);
       return NextResponse.json({
         countryCode: edgeCountry,
         countryName: meta.name,
@@ -160,7 +145,7 @@ export async function GET(req: NextRequest) {
         const data = await res.json();
         const country = (data.country || '').trim().toUpperCase();
         if (country && /^[A-Z]{2}$/.test(country)) {
-          const meta = COUNTRY_NAMES[country] || { name: country, flag: '🌐' };
+          const meta = getCountryMeta(country);
           return NextResponse.json({
             countryCode: country,
             countryName: meta.name,
