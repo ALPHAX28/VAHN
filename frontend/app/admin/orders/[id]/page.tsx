@@ -2774,8 +2774,10 @@ export default function AdminOrderDetailPage() {
                       {!order.shiprocket_awb && !isCancelled && !isPaymentFailed && (
                         <button
                           type="button"
-                          onClick={handleDispatchShipment}
-                          disabled={dispatching}
+                          onClick={() => {
+                            setError('');
+                            setShowPickupModal(true);
+                          }}
                           style={{
                             background: '#000',
                             color: '#fff',
@@ -2783,7 +2785,7 @@ export default function AdminOrderDetailPage() {
                             padding: '10px 20px',
                             fontSize: '0.8rem',
                             fontWeight: 800,
-                            cursor: dispatching ? 'not-allowed' : 'pointer',
+                            cursor: 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 8,
@@ -2792,9 +2794,7 @@ export default function AdminOrderDetailPage() {
                           }}
                         >
                           <PackageIcon size={16} color="#fff" />
-                          {dispatching
-                            ? 'Dispatching in Shiprocket...'
-                            : 'Dispatch Shipment & Schedule Pickup →'}
+                          Dispatch Shipment & Schedule Pickup →
                         </button>
                       )}
 
@@ -3907,9 +3907,10 @@ export default function AdminOrderDetailPage() {
           onClose={() => setShowPickupModal(false)}
           order={order}
           adminToken={adminToken || ''}
-          onPickupScheduled={(updated) => {
+          onPickupScheduled={async (updated) => {
             setOrder(updated);
             setSuccess('Pickup scheduled successfully with courier partner!');
+            await load();
             setTimeout(() => setSuccess(''), 5000);
           }}
         />
