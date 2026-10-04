@@ -583,18 +583,26 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
           </svg>
         </button>
 
-        {/* Pagination Dots */}
+        {/* Pagination Dots matching product page square style */}
         {hasMultipleImages && (
           <div
             style={{
               position: 'absolute',
-              bottom: '10px',
+              bottom: '12px',
               left: '50%',
               transform: 'translateX(-50%)',
               display: 'flex',
               alignItems: 'center',
-              gap: '5px',
+              justifyContent: 'center',
+              gap: '6px',
               zIndex: 10,
+              padding: '5px 9px',
+              borderRadius: 0,
+              background: 'rgba(255, 255, 255, 0.85)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              border: '1px solid rgba(0, 0, 0, 0.08)',
+              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.06)',
               pointerEvents: 'none',
             }}
           >
@@ -602,12 +610,15 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
               <span
                 key={dotIdx}
                 style={{
-                  width: dotIdx === imgIdx ? '16px' : '5px',
-                  height: '5px',
-                  borderRadius: '3px',
-                  background: dotIdx === imgIdx ? BRAND_COLOR : 'rgba(255,255,255,0.7)',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                  transition: 'all 0.25s ease',
+                  width: dotIdx === imgIdx ? '22px' : '6px',
+                  height: '6px',
+                  borderRadius: 0,
+                  border: 'none',
+                  padding: 0,
+                  margin: 0,
+                  background: dotIdx === imgIdx ? BRAND_COLOR : 'rgba(0, 0, 0, 0.22)',
+                  transition:
+                    'width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease',
                 }}
               />
             ))}
