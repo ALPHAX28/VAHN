@@ -7526,6 +7526,150 @@ def submit_contact_inquiry(
     }
 
 
+GEO_COUNTRY_NAMES = {
+    "IN": {"name": "India", "flag": "🇮🇳"},
+    "US": {"name": "United States", "flag": "🇺🇸"},
+    "GB": {"name": "United Kingdom", "flag": "🇬🇧"},
+    "CA": {"name": "Canada", "flag": "🇨🇦"},
+    "AU": {"name": "Australia", "flag": "🇦🇺"},
+    "AE": {"name": "United Arab Emirates", "flag": "🇦🇪"},
+    "SG": {"name": "Singapore", "flag": "🇸🇬"},
+    "DE": {"name": "Germany", "flag": "🇩🇪"},
+    "FR": {"name": "France", "flag": "🇫🇷"},
+    "JP": {"name": "Japan", "flag": "🇯🇵"},
+    "NZ": {"name": "New Zealand", "flag": "🇳🇿"},
+    "ZA": {"name": "South Africa", "flag": "🇿🇦"},
+    "IE": {"name": "Ireland", "flag": "🇮🇪"},
+    "NL": {"name": "Netherlands", "flag": "🇳🇱"},
+    "IT": {"name": "Italy", "flag": "🇮🇹"},
+    "ES": {"name": "Spain", "flag": "🇪🇸"},
+    "CH": {"name": "Switzerland", "flag": "🇨🇭"},
+    "SE": {"name": "Sweden", "flag": "🇸🇪"},
+    "NO": {"name": "Norway", "flag": "🇳🇴"},
+    "DK": {"name": "Denmark", "flag": "🇩🇰"},
+    "SA": {"name": "Saudi Arabia", "flag": "🇸🇦"},
+    "QA": {"name": "Qatar", "flag": "🇶🇦"},
+    "KW": {"name": "Kuwait", "flag": "🇰🇼"},
+    "MY": {"name": "Malaysia", "flag": "🇲🇾"},
+    "TH": {"name": "Thailand", "flag": "🇹🇭"},
+    "ID": {"name": "Indonesia", "flag": "🇮🇩"},
+    "PH": {"name": "Philippines", "flag": "🇵🇭"},
+    "BD": {"name": "Bangladesh", "flag": "🇧🇩"},
+    "LK": {"name": "Sri Lanka", "flag": "🇱🇰"},
+    "NP": {"name": "Nepal", "flag": "🇳🇵"},
+    "BR": {"name": "Brazil", "flag": "🇧🇷"},
+    "MX": {"name": "Mexico", "flag": "🇲🇽"},
+}
+
+
+@app.get("/api/geo/check")
+async def check_geo_serviceability(request: Request, test_geo: Optional[str] = None):
+    """
+    Check if visitor's IP location is within India or abroad.
+    Supports query parameter override (test_geo=US) for testing.
+    """
+    # 1. Test override
+    if test_geo and len(test_geo) == 2:
+        code = test_geo.upper()
+        meta = GEO_COUNTRY_NAMES.get(code, {"name": code, "flag": "🌐"})
+        return {
+            "countryCode": code,
+            "countryName": meta["name"],
+            "countryFlag": meta["flag"],
+            "isServiceable": code == "IN",
+            "source": "test_override",
+        }
+
+    # 2. Check edge headers (Cloudflare, Vercel, CloudFront)
+    cf_country = request.headers.get("cf-ipcountry")
+    vercel_country = request.headers.get("x-vercel-ip-country")
+    cf_viewer = request.headers.get("cloudfront-viewer-country")
+    edge_code = (cf_country or vercel_country or cf_viewer or "").strip().upper()
+    if edge_code and len(edge_code) == 2 and edge_code != "XX":
+        meta = GEO_COUNTRY_NAMES.get(edge_code, {"name": edge_code, "flag": "🌐"})
+        return {
+            "countryCode": edge_code,
+            "countryName": meta["name"],
+            "countryFlag": meta["flag"],
+            "isServiceable": edge_code == "IN",
+            "source": "edge_header",
+        }
+
+    # 3. Client IP extraction
+    forwarded = request.headers.get("x-forwarded-for")
+    real_ip = request.headers.get("x-real-ip")
+    client_ip = ""
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    elif real_ip:
+        client_ip = real_ip.strip()
+    elif request.client:
+        client_ip = request.client.host
+
+    # Private/loopback detection
+    if (
+        not client_ip
+        or client_ip in ("127.0.0.1", "::1", "localhost")
+        or client_ip.startswith(
+            (
+                "10.",
+                "192.168.",
+                "172.16.",
+                "172.17.",
+                "172.18.",
+                "172.19.",
+                "172.20.",
+                "172.21.",
+                "172.22.",
+                "172.23.",
+                "172.24.",
+                "172.25.",
+                "172.26.",
+                "172.27.",
+                "172.28.",
+                "172.29.",
+                "172.30.",
+                "172.31.",
+            )
+        )
+    ):
+        return {
+            "countryCode": "IN",
+            "countryName": "India",
+            "countryFlag": "🇮🇳",
+            "isServiceable": True,
+            "source": "localhost_default",
+        }
+
+    # 4. Fallback lookup with httpx
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get(f"https://api.country.is/{client_ip}")
+            if resp.status_code == 200:
+                data = resp.json()
+                code = (data.get("country") or "").strip().upper()
+                if code and len(code) == 2:
+                    meta = GEO_COUNTRY_NAMES.get(code, {"name": code, "flag": "🌐"})
+                    return {
+                        "countryCode": code,
+                        "countryName": meta["name"],
+                        "countryFlag": meta["flag"],
+                        "isServiceable": code == "IN",
+                        "source": "ip_lookup",
+                    }
+    except Exception:
+        pass
+
+    # 5. Fail open
+    return {
+        "countryCode": "IN",
+        "countryName": "India",
+        "countryFlag": "🇮🇳",
+        "isServiceable": True,
+        "source": "fail_open",
+    }
+
+
 @app.post("/api/geo/waitlist")
 def submit_international_waitlist(
     payload: schemas.InternationalWaitlistRequest,
