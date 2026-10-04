@@ -35,6 +35,23 @@ export interface FormatDateTimeOptions extends Intl.DateTimeFormatOptions {
   includeTime?: boolean;
 }
 
+function hasGranularDate(opts?: Intl.DateTimeFormatOptions): boolean {
+  if (!opts) return false;
+  return 'weekday' in opts || 'era' in opts || 'year' in opts || 'month' in opts || 'day' in opts;
+}
+
+function hasGranularTime(opts?: Intl.DateTimeFormatOptions): boolean {
+  if (!opts) return false;
+  return (
+    'hour' in opts ||
+    'minute' in opts ||
+    'second' in opts ||
+    'fractionalSecondDigits' in opts ||
+    'dayPeriod' in opts ||
+    'timeZoneName' in opts
+  );
+}
+
 /**
  * Formats a date/timestamp in Indian Standard Time (IST, UTC+5:30).
  * Defaults to: "4 Oct 2026, 9:21 pm"
@@ -50,12 +67,31 @@ export function formatISTDateTime(
     return typeof dateInput === 'string' ? dateInput : '';
   }
 
-  return date.toLocaleString('en-IN', {
+  const { includeTime, ...rawOptions } = options || {};
+  const opts: Intl.DateTimeFormatOptions = {
     timeZone: 'Asia/Kolkata',
-    dateStyle: options?.dateStyle ?? 'medium',
-    timeStyle: options?.includeTime === false ? undefined : (options?.timeStyle ?? 'short'),
-    ...options,
-  });
+    ...rawOptions,
+  };
+
+  // ECMA-402: dateStyle cannot be combined with granular date fields (weekday, era, year, month, day)
+  if (!opts.dateStyle && !hasGranularDate(rawOptions)) {
+    opts.dateStyle = 'medium';
+  }
+
+  // ECMA-402: timeStyle cannot be combined with granular time fields
+  if (includeTime !== false && !opts.timeStyle && !hasGranularTime(rawOptions)) {
+    opts.timeStyle = 'short';
+  }
+
+  try {
+    return date.toLocaleString('en-IN', opts);
+  } catch {
+    try {
+      return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    } catch {
+      return date.toISOString();
+    }
+  }
 }
 
 /**
@@ -73,11 +109,25 @@ export function formatISTDate(
     return typeof dateInput === 'string' ? dateInput : '';
   }
 
-  return date.toLocaleDateString('en-IN', {
+  const opts: Intl.DateTimeFormatOptions = {
     timeZone: 'Asia/Kolkata',
-    dateStyle: options?.dateStyle ?? 'medium',
     ...options,
-  });
+  };
+
+  // ECMA-402: dateStyle cannot be combined with granular date fields (year, month, day, weekday, era)
+  if (!opts.dateStyle && !hasGranularDate(options)) {
+    opts.dateStyle = 'medium';
+  }
+
+  try {
+    return date.toLocaleDateString('en-IN', opts);
+  } catch {
+    try {
+      return date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
+    } catch {
+      return date.toISOString().split('T')[0];
+    }
+  }
 }
 
 /**
@@ -93,9 +143,23 @@ export function formatISTTime(
   const date = parseDateAsUTC(dateInput);
   if (!date) return '';
 
-  return date.toLocaleTimeString('en-IN', {
+  const opts: Intl.DateTimeFormatOptions = {
     timeZone: 'Asia/Kolkata',
-    timeStyle: options?.timeStyle ?? 'short',
     ...options,
-  });
+  };
+
+  // ECMA-402: timeStyle cannot be combined with granular time fields
+  if (!opts.timeStyle && !hasGranularTime(options)) {
+    opts.timeStyle = 'short';
+  }
+
+  try {
+    return date.toLocaleTimeString('en-IN', opts);
+  } catch {
+    try {
+      return date.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
+    } catch {
+      return '';
+    }
+  }
 }
