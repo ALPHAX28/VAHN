@@ -3,22 +3,29 @@
 // ===================================================================
 import type { Money } from './api/types';
 
-export function formatMoney(money: Money): string {
-  const amount = parseFloat(money.amount);
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: money.currencyCode || 'INR',
-    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+export function formatMoney(money?: Money | null): string {
+  if (!money || money.amount === undefined || money.amount === null) return '₹0';
+  const amount = parseFloat(String(money.amount));
+  if (Number.isNaN(amount)) return '₹0';
+  const rawCurrency = (money.currencyCode || 'INR').toUpperCase();
+  const currency = rawCurrency === 'RS' || rawCurrency === 'RS.' ? 'INR' : rawCurrency;
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `₹${amount.toLocaleString('en-IN')}`;
+  }
 }
 
 export function createUrl(
   pathname: string,
   params: URLSearchParams | Record<string, string>
 ): string {
-  const searchParams =
-    params instanceof URLSearchParams ? params : new URLSearchParams(params);
+  const searchParams = params instanceof URLSearchParams ? params : new URLSearchParams(params);
   const paramsStr = searchParams.toString();
   return `${pathname}${paramsStr ? `?${paramsStr}` : ''}`;
 }
@@ -40,7 +47,7 @@ export function shopifyUrlToPath(url: string): string {
   const shopifyPrefix = 'shopify://';
   let path = url;
   if (url.startsWith(shopifyPrefix)) {
-    path = '/' + url.replace(shopifyPrefix, '');
+    path = `/${url.replace(shopifyPrefix, '')}`;
   }
   if (path.startsWith('/collections')) {
     return '/products';
@@ -49,7 +56,7 @@ export function shopifyUrlToPath(url: string): string {
 }
 
 export function truncate(str: string, length: number) {
-  return str.length > length ? str.slice(0, length) + '...' : str;
+  return str.length > length ? `${str.slice(0, length)}...` : str;
 }
 
 /**
