@@ -23,6 +23,7 @@ import {
 } from "@/components/icons/Icons";
 import Link from "next/link";
 import { formatMoney } from "@/lib/utils";
+import { formatISTDateTime } from "@/lib/utils/date";
 
 export default function AdminUserDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -321,7 +322,7 @@ export default function AdminUserDetailPage() {
                           {order.id}
                         </td>
                         <td style={{ padding: "12px", color: "#666", fontSize: "0.8rem" }}>
-                          {order.created_at}
+                          {formatISTDateTime(order.created_at)}
                         </td>
                         <td style={{ padding: "12px" }}>
                           <AdminBadge variant={

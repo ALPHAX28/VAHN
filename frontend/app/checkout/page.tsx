@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import AddressModal from '@/components/address/AddressModal';
 import {
   AlertCircleIcon,
@@ -128,8 +129,23 @@ export default function CheckoutPage() {
   // Initial load
   useEffect(() => {
     if (typeof window === 'undefined' || isAuthLoading) return;
+    try {
+      const raw = sessionStorage.getItem('vahn_geo_status');
+      if (raw) {
+        const geo = JSON.parse(raw);
+        if (geo && !geo.isServiceable) {
+          toast.error(
+            `VAHN is currently fulfilling orders exclusively across India. Checkout for ${geo.countryName || 'international regions'} is not yet available.`
+          );
+          router.replace('/cart');
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
     ensureFreshRazorpaySdk(!user);
-  }, [user, isAuthLoading, ensureFreshRazorpaySdk]);
+  }, [user, isAuthLoading, ensureFreshRazorpaySdk, router]);
 
   const getEstimatedDeliveryText = (res: ServiceabilityResponse) => {
     if (!res.serviceable) {

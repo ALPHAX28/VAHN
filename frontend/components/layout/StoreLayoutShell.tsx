@@ -6,6 +6,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/layout/CartDrawer";
 import AuthModal from "@/components/auth/AuthModal";
+import GeoGate from "@/components/geo/GeoGate";
 
 export default function StoreLayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,6 +18,7 @@ export default function StoreLayoutShell({ children }: { children: React.ReactNo
 
   return (
     <>
+      <GeoGate />
       <Header />
       <main id="main-content" style={{ minHeight: '100vh' }}>{children}</main>
       <Footer />

@@ -29,6 +29,7 @@ import {
   getOrderTracking,
   requestOrderReturn,
 } from '@/lib/api';
+import { formatISTDate } from '@/lib/utils/date';
 import type {
   ExchangeItemOption,
   ExchangeVariantOption,
@@ -624,7 +625,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     synthesized.push({
       activity: 'Order Placed & Payment Confirmed',
       date: order.createdAt
-        ? new Date(order.createdAt).toLocaleDateString('en-IN', {
+        ? formatISTDate(order.createdAt, {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
@@ -672,7 +673,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
       synthesized.push({
         activity: 'Package Delivered',
         date: order.deliveredAt
-          ? new Date(order.deliveredAt).toLocaleDateString('en-IN', {
+          ? formatISTDate(order.deliveredAt, {
               month: 'short',
               day: 'numeric',
               year: 'numeric',

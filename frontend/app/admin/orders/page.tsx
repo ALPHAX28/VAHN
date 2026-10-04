@@ -7,6 +7,7 @@ import AdminBadge from '@/components/admin/AdminBadge';
 import Link from 'next/link';
 import { clientCache } from '@/lib/api/cache';
 import { getPublicTrackingUrl } from '@/lib/utils';
+import { formatISTDateTime } from '@/lib/utils/date';
 
 const STATUS_FILTERS = [
   { label: 'All Orders', status: '', returnStatus: '' },
@@ -337,7 +338,7 @@ export default function AdminOrdersPage() {
                         </span>
                       )}
                     </td>
-                    <td style={{ fontSize: '0.8rem', color: '#666' }}>{order.created_at}</td>
+                    <td style={{ fontSize: '0.8rem', color: '#666' }}>{formatISTDateTime(order.created_at)}</td>
                     <td>
                       <Link
                         href={`/admin/orders/${order.id}`}

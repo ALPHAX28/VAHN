@@ -25,6 +25,18 @@ _token_expiry: float = 0.0
 _cached_channel_id: Optional[str] = None
 _cached_seller_location_id: Optional[str] = None
 
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def to_ist(dt: Optional[datetime]) -> Optional[datetime]:
+    """Convert UTC/naive datetime to Indian Standard Time (IST, UTC+5:30)."""
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(IST)
+
+
 # Shiprocket Exchange & Return Reason Codes
 # 25: Defective product | 26: Damaged product | 27: Wrong item sent | 28: Quality not as expected
 # 29: Size / Fit issue (Default for exchanges) | 30: Color mismatch | 31: Missing items
@@ -861,9 +873,12 @@ def create_forward_shipment(
             "hsn": item_hsn,
         })
 
+    ist_order_dt = to_ist(order.created_at) if order.created_at else None
+    order_date_str = ist_order_dt.strftime("%Y-%m-%d %H:%M") if ist_order_dt else datetime.now(IST).strftime("%Y-%m-%d %H:%M")
+
     payload = {
         "order_id": order.id,
-        "order_date": order.created_at.strftime("%Y-%m-%d %H:%M"),
+        "order_date": order_date_str,
         "pickup_location": pickup,
         "billing_customer_name": first_name,
         "billing_last_name": last_name,
@@ -1221,12 +1236,15 @@ def create_reverse_pickup(
     pickup_state = addr.get("state") or "Maharashtra"
     pickup_pincode = str(addr.get("postalCode") or addr.get("pincode") or "400001").strip()
 
+    ist_return_dt = to_ist(order.created_at) if order.created_at else None
+    return_date_str = ist_return_dt.strftime("%Y-%m-%d %H:%M") if ist_return_dt else datetime.now(IST).strftime("%Y-%m-%d %H:%M")
+
     with httpx.Client(timeout=15.0) as client:
         res = client.post(
             f"{BASE_URL}/orders/create/return",
             json={
                 "order_id": order.id,
-                "order_date": order.created_at.strftime("%Y-%m-%d %H:%M"),
+                "order_date": return_date_str,
                 "channel_id": "",
                 "pickup_customer_name": pickup_name,
                 "pickup_address": pickup_addr_str,

@@ -38,6 +38,7 @@ import {
 } from '@/lib/api/admin';
 import { parseCheckpointDate } from '@/lib/shipStatus';
 import { getPublicTrackingUrl } from '@/lib/utils';
+import { formatISTDate, formatISTDateTime } from '@/lib/utils/date';
 
 const ORDER_STATUSES = ['PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
 const REFUND_STATUSES = ['', 'PENDING', 'REFUNDED'];
@@ -653,11 +654,7 @@ export default function AdminOrderDetailPage() {
             </span>
           </div>
           <p className="admin-page-subtitle" style={{ marginTop: 6 }}>
-            Created on{' '}
-            {new Date(order.created_at).toLocaleString('en-IN', {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-            })}
+            Created on {formatISTDateTime(order.created_at)}
           </p>
         </div>
 
@@ -2684,9 +2681,7 @@ export default function AdminOrderDetailPage() {
                         </span>
                         <strong style={{ fontSize: '0.82rem', color: '#111' }}>
                           {order.delivered_at
-                            ? new Date(order.delivered_at).toLocaleDateString('en-IN', {
-                                dateStyle: 'medium',
-                              })
+                            ? formatISTDate(order.delivered_at)
                             : forwardTracking?.etd || '3-5 Business Days'}
                         </strong>
                       </div>
@@ -4438,7 +4433,7 @@ export default function AdminOrderDetailPage() {
               </span>
               {order.delivered_at && (
                 <span style={{ marginLeft: 12, color: '#059669', fontWeight: 600 }}>
-                  Delivered {new Date(order.delivered_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  Delivered {formatISTDate(order.delivered_at, { day: 'numeric', month: 'short', year: 'numeric' })}
                 </span>
               )}
             </div>

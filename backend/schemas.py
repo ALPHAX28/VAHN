@@ -1471,3 +1471,15 @@ class ContactMessageListResponse(BaseModel):
     counts: dict
 
 
+class InternationalWaitlistRequest(BaseModel):
+    email: str
+    country_code: Optional[str] = "US"
+    country_name: Optional[str] = "International"
+
+    @field_validator('email')
+    @classmethod
+    def check_email(cls, v: str) -> str:
+        return validate_email_str(v)
+
+
+

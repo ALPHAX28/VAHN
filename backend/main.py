@@ -13,7 +13,7 @@ load_dotenv()
 import logging
 import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional, Tuple
 
 import httpx
@@ -67,6 +67,34 @@ from email_service import (
     send_return_status_update_email,
 )
 from storage import storage
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def to_ist(dt: Optional[datetime]) -> Optional[datetime]:
+    """Convert UTC or naive datetime to Indian Standard Time (IST, UTC+5:30)."""
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(IST)
+
+
+def format_iso_utc(dt: Optional[datetime]) -> Optional[str]:
+    """Format datetime as UTC ISO-8601 with Z suffix (e.g. 2026-10-04T15:51:00Z)."""
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def format_ist_str(dt: Optional[datetime], fmt: str = "%b %d, %Y %I:%M %p") -> str:
+    """Format datetime in Indian Standard Time (IST)."""
+    if not dt:
+        return ""
+    ist_dt = to_ist(dt)
+    return ist_dt.strftime(fmt) if ist_dt else ""
 
 
 async def _db_heartbeat_loop():
@@ -850,7 +878,7 @@ def _user_schema(user: models.User) -> schemas.UserSchema:
         email=user.email,
         full_name=user.full_name,
         is_verified=user.is_verified,
-        created_at=user.created_at.strftime("%b %d, %Y") if user.created_at else None,
+        created_at=format_ist_str(user.created_at, "%b %d, %Y") if user.created_at else None,
     )
 
 @app.post("/api/auth/check-email")
@@ -1075,7 +1103,7 @@ def build_order_schema(order: models.Order) -> schemas.OrderSchema:
         discountPrice=schemas.Money(amount=f"{getattr(order, 'discount_amount', 0.0) or 0.0:.2f}", currencyCode=order.currency or "INR"),
         totalPrice=schemas.Money(amount=f"{order.total_amount:.2f}", currencyCode=order.currency or "INR"),
         shippingAddress=order.shipping_address,
-        createdAt=order.created_at.strftime("%b %d, %Y") if order.created_at else "",
+        createdAt=format_ist_str(order.created_at, "%b %d, %Y") if order.created_at else "",
         items=item_schemas,
         isGuest=order.is_guest or False,
         guestName=order.guest_name,
@@ -5310,7 +5338,7 @@ def admin_list_orders(
             refund_status=o.refund_status,
             total_amount=o.total_amount,
             currency=o.currency,
-            created_at=o.created_at.strftime("%b %d, %Y") if o.created_at else "",
+            created_at=format_ist_str(o.created_at, "%b %d, %Y %I:%M %p") if o.created_at else "",
             is_guest=bool(o.is_guest),
             user_email=(o.guest_email if o.is_guest else (o.user.email if o.user else "")) or (o.user.email if o.user else "") or "",
             user_name=(o.guest_name if o.is_guest else (o.user.full_name if o.user else "")) or (o.user.full_name if o.user else "") or "",
@@ -6114,7 +6142,7 @@ def _admin_order_detail(order: models.Order) -> schemas.AdminOrderSchema:
         refund_status=order.refund_status,
         refund_note=order.refund_note,
         refund_amount=order.refund_amount or 0.0,
-        refunded_at=order.refunded_at.strftime("%Y-%m-%dT%H:%M:%S") if order.refunded_at else None,
+        refunded_at=format_iso_utc(order.refunded_at),
         cancellation_reason=order.cancellation_reason,
         subtotal_amount=order.subtotal_amount,
         shipping_amount=order.shipping_amount or 0.0,
@@ -6123,8 +6151,8 @@ def _admin_order_detail(order: models.Order) -> schemas.AdminOrderSchema:
         total_amount=order.total_amount,
         currency=order.currency,
         shipping_address=order.shipping_address,
-        created_at=order.created_at.strftime("%Y-%m-%dT%H:%M:%S") if order.created_at else "",
-        updated_at=order.updated_at.strftime("%Y-%m-%dT%H:%M:%S") if order.updated_at else None,
+        created_at=format_iso_utc(order.created_at) or "",
+        updated_at=format_iso_utc(order.updated_at),
         is_guest=bool(order.is_guest),
         guest_name=order.guest_name,
         guest_email=order.guest_email,
@@ -6144,12 +6172,12 @@ def _admin_order_detail(order: models.Order) -> schemas.AdminOrderSchema:
         shipping_status=order.shipping_status or "UNFULFILLED",
         tracking_url=order.tracking_url,
         tracking_data=order.tracking_data,
-        delivered_at=order.delivered_at.strftime("%Y-%m-%dT%H:%M:%S") if order.delivered_at else None,
+        delivered_at=format_iso_utc(order.delivered_at),
         return_status=order.return_status or "NONE",
         return_type=order.return_type or "RETURN",
         return_reason=order.return_reason,
         return_notes=order.return_notes,
-        return_requested_at=order.return_requested_at.strftime("%Y-%m-%dT%H:%M:%S") if order.return_requested_at else None,
+        return_requested_at=format_iso_utc(order.return_requested_at),
         reverse_shipment_id=order.reverse_shipment_id,
         reverse_awb=order.reverse_awb,
         reverse_courier_name=order.reverse_courier_name,
@@ -6578,7 +6606,7 @@ def admin_get_user(
             "status": o.status,
             "total_amount": o.total_amount,
             "currency": o.currency,
-            "created_at": o.created_at.strftime("%b %d, %Y %I:%M %p"),
+            "created_at": format_ist_str(o.created_at, "%b %d, %Y %I:%M %p"),
             "items_count": len(o.items or []),
             "items_summary": ", ".join(i.product_title for i in (o.items or [])[:2]) + (f" + {len(o.items) - 2} more" if len(o.items or []) > 2 else "")
         }
@@ -7495,6 +7523,34 @@ def submit_contact_inquiry(
         "success": True,
         "message": "Your message has been received. Our support team will get back to you shortly.",
         "id": contact_msg.id
+    }
+
+
+@app.post("/api/geo/waitlist")
+def submit_international_waitlist(
+    payload: schemas.InternationalWaitlistRequest,
+    db: Session = Depends(get_db)
+):
+    """Save international visitor interest for future expansion."""
+    c_name = payload.country_name or payload.country_code or "International"
+    contact_msg = models.ContactMessage(
+        first_name="International",
+        last_name="Waitlist",
+        email=payload.email,
+        country_code=payload.country_code or "INTL",
+        phone="0000000000",
+        order_number=None,
+        subject=f"[Waitlist] International Launch - {c_name}",
+        message=f"International customer registered waitlist interest for {c_name} (Code: {payload.country_code}).",
+        status="NEW",
+    )
+    db.add(contact_msg)
+    db.commit()
+    db.refresh(contact_msg)
+    return {
+        "success": True,
+        "message": f"Thank you! You're on the priority waitlist for {c_name}.",
+        "id": contact_msg.id,
     }
 
 
