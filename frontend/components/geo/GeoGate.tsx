@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useTransition } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -41,7 +41,6 @@ export default function GeoGate() {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isPending, startTransition] = useTransition();
 
   // 1. Skip completely for admin routes and search bots
   const isAdmin = pathname.startsWith('/admin');
@@ -183,26 +182,6 @@ export default function GeoGate() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleSwitchGeoTest = (code: string) => {
-    startTransition(() => {
-      const upper = code.toUpperCase();
-      const meta = getCountryMeta(upper);
-      const state: GeoState = {
-        countryCode: upper,
-        countryName: meta.name,
-        countryFlag: meta.flag,
-        isServiceable: upper === 'IN',
-        source: 'client_switch_test',
-      };
-      setGeoState(state);
-      try {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch {
-        // ignore
-      }
-    });
   };
 
   // If on admin or check hasn't run yet or user is in India -> do not render modal
@@ -377,7 +356,7 @@ export default function GeoGate() {
               <button
                 id="btn-geo-waitlist-submit"
                 type="submit"
-                disabled={isSubmitting || isPending}
+                disabled={isSubmitting}
                 style={{
                   width: '100%',
                   background: '#ffffff',
@@ -421,54 +400,6 @@ export default function GeoGate() {
             </p>
           </div>
         )}
-
-        {/* Developer / Store Owner Location Test Controls */}
-        <div
-          style={{
-            marginTop: 28,
-            paddingTop: 16,
-            borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-            fontSize: '0.72rem',
-            color: '#71717a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 12,
-          }}
-        >
-          <span>Test Location:</span>
-          <button
-            type="button"
-            onClick={() => handleSwitchGeoTest('IN')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#a1a1aa',
-              textDecoration: 'underline',
-              cursor: 'pointer',
-              fontSize: '0.72rem',
-              padding: 0,
-            }}
-          >
-            🇮🇳 India (Allow)
-          </button>
-          <span>·</span>
-          <button
-            type="button"
-            onClick={() => handleSwitchGeoTest('US')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#a1a1aa',
-              textDecoration: 'underline',
-              cursor: 'pointer',
-              fontSize: '0.72rem',
-              padding: 0,
-            }}
-          >
-            🇺🇸 United States (Block)
-          </button>
-        </div>
       </div>
     </div>
   );
