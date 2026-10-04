@@ -170,19 +170,18 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
           }}
           aria-label={`Pick Your Side — ${leftColour || 'White'} Jersey — Buy Now`}
         >
-          {/* Real Athlete Image Card 01 — White Jersey */}
+          {/* Real Athlete Image Card 01 — 002a default */}
           <Image
-            src="/assets/pick-your-side-01.png"
+            src="/assets/002a.webp"
             alt={`Pick Your Side — ${leftColour || 'White'} Jersey`}
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
-            priority
             className="pick-your-side-img pick-your-side-img-default"
           />
 
-          {/* Hover Athlete Image Card — 0010.png */}
+          {/* Hover Athlete Image Card — 002b hover */}
           <Image
-            src="/assets/0010.png"
+            src="/assets/002b.webp"
             alt={`Pick Your Side — ${leftColour || 'White'} Alternate`}
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
@@ -219,7 +218,8 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
               textDecoration: 'none',
               display: 'inline-block',
               boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
-              transition: 'background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+              transition:
+                'background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             Buy Now
@@ -236,19 +236,18 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
           }}
           aria-label={`Pick Your Side — ${rightColour || 'Black'} Jersey — Buy Now`}
         >
-          {/* Real Athlete Image Card 02 — Black Jersey */}
+          {/* Real Athlete Image Card 02 — 001a default */}
           <Image
-            src="/assets/pick-your-side-02.png"
+            src="/assets/001a.webp"
             alt={`Pick Your Side — ${rightColour || 'Black'} Jersey`}
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
-            priority
             className="pick-your-side-img pick-your-side-img-default"
           />
 
-          {/* Hover Athlete Image Card — 011.png */}
+          {/* Hover Athlete Image Card — 001bb hover */}
           <Image
-            src="/assets/011.png"
+            src="/assets/001bb.webp"
             alt={`Pick Your Side — ${rightColour || 'Black'} Alternate`}
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
@@ -285,7 +284,8 @@ export default function PickYourSide({ products = [] }: PickYourSideProps) {
               textDecoration: 'none',
               display: 'inline-block',
               boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
-              transition: 'background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+              transition:
+                'background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             Buy Now

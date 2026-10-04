@@ -8,3 +8,7 @@ yarn-error.log*
 .gitignore
 README.md
 tsconfig.tsbuildinfo
+public/assets/001a.png
+public/assets/001bb.png
+public/assets/002a.png
+public/assets/002b.png

@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Large raw uncompressed assets (use optimized .webp in production)
+public/assets/001a.png
+public/assets/001bb.png
+public/assets/002a.png
+public/assets/002b.png
