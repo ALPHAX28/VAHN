@@ -27,6 +27,24 @@ interface ExpandedCardItem {
   activity: string;
 }
 
+const STANDARD_SIZE_ORDER = [
+  '3XS',
+  '2XS',
+  'XXS',
+  'XS',
+  'S',
+  'M',
+  'L',
+  'XL',
+  '2XL',
+  'XXL',
+  '3XL',
+  'XXXL',
+  '4XL',
+  '5XL',
+  '6XL',
+];
+
 // ── FAQ Data (from mockup) ──
 const FAQ_ITEMS = [
   {
@@ -331,7 +349,7 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
   const activeImageUrl = currentImg?.url || null;
 
   const sizeVariants = useMemo(() => {
-    return item.variants.map((v) => {
+    const mapped = item.variants.map((v) => {
       const sizeOpt = v.selectedOptions?.find((o) => o.name.toLowerCase() === 'size');
       const sizeLabel = sizeOpt
         ? sizeOpt.value.trim()
@@ -343,6 +361,24 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
       const isFew =
         isAvailable && typeof v.quantityAvailable === 'number' && v.quantityAvailable <= 5;
       return { variant: v, sizeLabel, isAvailable, isFew };
+    });
+
+    return mapped.sort((a, b) => {
+      const normA = a.sizeLabel.trim().toUpperCase();
+      const normB = b.sizeLabel.trim().toUpperCase();
+      const numA = parseFloat(normA);
+      const numB = parseFloat(normB);
+      if (!Number.isNaN(numA) && !Number.isNaN(numB)) {
+        return numA - numB;
+      }
+      const indexA = STANDARD_SIZE_ORDER.indexOf(normA);
+      const indexB = STANDARD_SIZE_ORDER.indexOf(normB);
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return normA.localeCompare(normB);
     });
   }, [item]);
 
@@ -598,7 +634,7 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
               <span
                 style={{
                   fontFamily: 'var(--font-heading)',
@@ -611,35 +647,16 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
               >
                 SELECT SIZE
               </span>
-              <button
-                type="button"
-                onClick={() => setShowQuickAdd(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: '2px',
-                  cursor: 'pointer',
-                  color: '#888',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {/* Sizes Grid — 4 equal rectangular columns matching product page */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '6px',
+                width: '100%',
+              }}
+            >
               {sizeVariants.map(({ variant, sizeLabel, isAvailable }) => (
                 <button
                   key={variant.id}
@@ -649,53 +666,46 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
                     if (isAvailable) handleAddToCart(variant);
                   }}
                   style={{
-                    flex: sizeVariants.length === 1 ? '1 0 100%' : '1 0 calc(25% - 6px)',
-                    minWidth: '40px',
-                    height: '36px',
-                    padding: '0 6px',
+                    width: '100%',
+                    height: '38px',
+                    padding: 0,
                     background:
                       addedVariantId === variant.id
                         ? BRAND_COLOR
                         : isAvailable
-                          ? '#ffffff'
-                          : '#f5f5f7',
+                          ? '#ebedf0'
+                          : '#ebedf0',
                     color:
                       addedVariantId === variant.id
                         ? '#ffffff'
                         : isAvailable
-                          ? '#000000'
-                          : '#b0b0b5',
-                    border:
-                      addedVariantId === variant.id
-                        ? `1.5px solid ${BRAND_COLOR}`
-                        : isAvailable
-                          ? '1.5px solid #000000'
-                          : '1px solid rgba(0,0,0,0.12)',
-                    borderRadius: '2px',
+                          ? '#222222'
+                          : '#888888',
+                    border: addedVariantId === variant.id ? `1.5px solid ${BRAND_COLOR}` : 'none',
+                    borderRadius: '0px',
                     fontFamily: 'var(--font-heading)',
-                    fontSize: '0.75rem',
+                    fontSize: '0.8125rem',
                     fontWeight: 600,
                     letterSpacing: '-0.025em',
                     cursor: isAvailable ? 'pointer' : 'not-allowed',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    textDecoration: isAvailable ? 'none' : 'line-through',
-                    opacity: isAvailable ? 1 : 0.6,
-                    transition: 'all 0.15s ease',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    opacity: isAvailable ? 1 : 0.45,
+                    transition: 'background-color 0.15s ease, color 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
                     if (isAvailable && addedVariantId !== variant.id) {
                       e.currentTarget.style.backgroundColor = BRAND_COLOR;
-                      e.currentTarget.style.borderColor = BRAND_COLOR;
                       e.currentTarget.style.color = '#ffffff';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (isAvailable && addedVariantId !== variant.id) {
-                      e.currentTarget.style.backgroundColor = '#ffffff';
-                      e.currentTarget.style.borderColor = '#000000';
-                      e.currentTarget.style.color = '#000000';
+                      e.currentTarget.style.backgroundColor = '#ebedf0';
+                      e.currentTarget.style.color = '#222222';
                     }
                   }}
                 >
@@ -714,6 +724,32 @@ function ShopCard({ item }: { item: ExpandedCardItem }) {
                     </svg>
                   ) : (
                     sizeLabel
+                  )}
+
+                  {/* Out-of-stock diagonal strike across size box matching product page */}
+                  {!isAvailable && (
+                    <svg
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%',
+                        pointerEvents: 'none',
+                      }}
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                    >
+                      <line
+                        x1="0"
+                        y1="100"
+                        x2="100"
+                        y2="0"
+                        stroke="#999999"
+                        strokeWidth="1.2"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    </svg>
                   )}
                 </button>
               ))}

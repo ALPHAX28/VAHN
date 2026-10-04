@@ -23,6 +23,24 @@ interface ExpandedLockerItem {
   variants: ProductVariant[];
 }
 
+const STANDARD_SIZE_ORDER = [
+  '3XS',
+  '2XS',
+  'XXS',
+  'XS',
+  'S',
+  'M',
+  'L',
+  'XL',
+  '2XL',
+  'XXL',
+  '3XL',
+  'XXXL',
+  '4XL',
+  '5XL',
+  '6XL',
+];
+
 function getExpandedLockerItems(products: Product[]): ExpandedLockerItem[] {
   const items: ExpandedLockerItem[] = [];
 
@@ -67,7 +85,9 @@ function getExpandedLockerItems(products: Product[]): ExpandedLockerItem[] {
 
         const priceNum = lowestVar
           ? parseInt(lowestVar.price.amount, 10).toLocaleString('en-IN')
-          : parseInt(product.priceRange?.minVariantPrice?.amount || '0', 10).toLocaleString('en-IN');
+          : parseInt(product.priceRange?.minVariantPrice?.amount || '0', 10).toLocaleString(
+              'en-IN'
+            );
 
         const isFewLeft = pool.some(
           (v) =>
@@ -95,7 +115,10 @@ function getExpandedLockerItems(products: Product[]): ExpandedLockerItem[] {
       const variantColourSet = new Set<string>();
       allVariants.forEach((v) => {
         v.selectedOptions?.forEach((opt) => {
-          if ((opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') && opt.value.trim()) {
+          if (
+            (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') &&
+            opt.value.trim()
+          ) {
             variantColourSet.add(opt.value.trim());
           }
         });
@@ -132,7 +155,9 @@ function getExpandedLockerItems(products: Product[]): ExpandedLockerItem[] {
 
           const priceNum = lowestVar
             ? parseInt(lowestVar.price.amount, 10).toLocaleString('en-IN')
-            : parseInt(product.priceRange?.minVariantPrice?.amount || '0', 10).toLocaleString('en-IN');
+            : parseInt(product.priceRange?.minVariantPrice?.amount || '0', 10).toLocaleString(
+                'en-IN'
+              );
 
           const isFewLeft = pool.some(
             (v) =>
@@ -172,7 +197,9 @@ function getExpandedLockerItems(products: Product[]): ExpandedLockerItem[] {
 
         const priceNum = lowestVar
           ? parseInt(lowestVar.price.amount, 10).toLocaleString('en-IN')
-          : parseInt(product.priceRange?.minVariantPrice?.amount || '0', 10).toLocaleString('en-IN');
+          : parseInt(product.priceRange?.minVariantPrice?.amount || '0', 10).toLocaleString(
+              'en-IN'
+            );
 
         const isFewLeft = allVariants.some(
           (v) =>
@@ -201,11 +228,7 @@ function getExpandedLockerItems(products: Product[]): ExpandedLockerItem[] {
   return items;
 }
 
-function LockerCard({
-  item,
-}: {
-  item: ExpandedLockerItem;
-}) {
+function LockerCard({ item }: { item: ExpandedLockerItem }) {
   const { addItem } = useCart();
   const [imgIdx, setImgIdx] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
@@ -229,19 +252,41 @@ function LockerCard({
   // Extract distinct sizes from variants for this colorway
   const sizeVariants = useMemo(() => {
     const vars = item?.variants || [];
-    return vars.map((v) => {
-      const sizeOpt = v.selectedOptions?.find(
-        (o) => o.name.toLowerCase() === 'size'
-      );
-      const sizeLabel = sizeOpt ? sizeOpt.value.trim() : v.title !== 'Default Title' ? v.title : 'ONE SIZE';
-      const isAvailable = v.availableForSale && (v.quantityAvailable === undefined || v.quantityAvailable > 0);
-      const isFew = isAvailable && typeof v.quantityAvailable === 'number' && v.quantityAvailable <= 5;
+    const mapped = vars.map((v) => {
+      const sizeOpt = v.selectedOptions?.find((o) => o.name.toLowerCase() === 'size');
+      const sizeLabel = sizeOpt
+        ? sizeOpt.value.trim()
+        : v.title !== 'Default Title'
+          ? v.title
+          : 'ONE SIZE';
+      const isAvailable =
+        v.availableForSale && (v.quantityAvailable === undefined || v.quantityAvailable > 0);
+      const isFew =
+        isAvailable && typeof v.quantityAvailable === 'number' && v.quantityAvailable <= 5;
       return {
         variant: v,
         sizeLabel,
         isAvailable,
         isFew,
       };
+    });
+
+    return mapped.sort((a, b) => {
+      const normA = a.sizeLabel.trim().toUpperCase();
+      const normB = b.sizeLabel.trim().toUpperCase();
+      const numA = parseFloat(normA);
+      const numB = parseFloat(normB);
+      if (!Number.isNaN(numA) && !Number.isNaN(numB)) {
+        return numA - numB;
+      }
+      const indexA = STANDARD_SIZE_ORDER.indexOf(normA);
+      const indexB = STANDARD_SIZE_ORDER.indexOf(normB);
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return normA.localeCompare(normB);
     });
   }, [item]);
 
@@ -259,7 +304,12 @@ function LockerCard({
         variantTitle: v.title,
         price: v.price,
         image: currentImg
-          ? { url: currentImg.url, altText: currentImg.altText || item.title, width: 800, height: 800 }
+          ? {
+              url: currentImg.url,
+              altText: currentImg.altText || item.title,
+              width: 800,
+              height: 800,
+            }
           : null,
         selectedOptions: v.selectedOptions,
         quantityAvailable: v.quantityAvailable,
@@ -520,7 +570,7 @@ function LockerCard({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
               <span
                 style={{
                   fontFamily: 'var(--font-heading)',
@@ -533,29 +583,17 @@ function LockerCard({
               >
                 SELECT SIZE
               </span>
-              <button
-                type="button"
-                onClick={() => setShowQuickAdd(false)}
-                aria-label="Close size picker"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: '2px',
-                  cursor: 'pointer',
-                  color: '#888888',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
             </div>
 
-            {/* Sizes Grid */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {/* Sizes Grid — 4 equal rectangular columns matching product page */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '6px',
+                width: '100%',
+              }}
+            >
               {sizeVariants.map(({ variant, sizeLabel, isAvailable }) => (
                 <button
                   key={variant.id}
@@ -567,20 +605,25 @@ function LockerCard({
                     }
                   }}
                   style={{
-                    flex: sizeVariants.length === 1 ? '1 0 100%' : '1 0 calc(25% - 6px)',
-                    minWidth: '40px',
-                    height: '36px',
-                    padding: '0 6px',
-                    background: addedVariantId === variant.id ? BRAND_COLOR : isAvailable ? '#ffffff' : '#f5f5f7',
-                    color: addedVariantId === variant.id ? '#ffffff' : isAvailable ? '#000000' : '#b0b0b5',
-                    border: addedVariantId === variant.id
-                      ? `1.5px solid ${BRAND_COLOR}`
-                      : isAvailable
-                      ? '1.5px solid #000000'
-                      : '1px solid rgba(0,0,0,0.12)',
-                    borderRadius: '2px',
+                    width: '100%',
+                    height: '38px',
+                    padding: 0,
+                    background:
+                      addedVariantId === variant.id
+                        ? BRAND_COLOR
+                        : isAvailable
+                          ? '#ebedf0'
+                          : '#ebedf0',
+                    color:
+                      addedVariantId === variant.id
+                        ? '#ffffff'
+                        : isAvailable
+                          ? '#222222'
+                          : '#888888',
+                    border: addedVariantId === variant.id ? `1.5px solid ${BRAND_COLOR}` : 'none',
+                    borderRadius: '0px',
                     fontFamily: 'var(--font-heading)',
-                    fontSize: '0.75rem',
+                    fontSize: '0.8125rem',
                     fontWeight: 600,
                     letterSpacing: '-0.025em',
                     cursor: isAvailable ? 'pointer' : 'not-allowed',
@@ -588,31 +631,64 @@ function LockerCard({
                     alignItems: 'center',
                     justifyContent: 'center',
                     position: 'relative',
-                    textDecoration: isAvailable ? 'none' : 'line-through',
-                    opacity: isAvailable ? 1 : 0.6,
-                    transition: 'all 0.15s ease',
+                    overflow: 'hidden',
+                    opacity: isAvailable ? 1 : 0.45,
+                    transition: 'background-color 0.15s ease, color 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
                     if (isAvailable && addedVariantId !== variant.id) {
                       e.currentTarget.style.backgroundColor = BRAND_COLOR;
-                      e.currentTarget.style.borderColor = BRAND_COLOR;
                       e.currentTarget.style.color = '#ffffff';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (isAvailable && addedVariantId !== variant.id) {
-                      e.currentTarget.style.backgroundColor = '#ffffff';
-                      e.currentTarget.style.borderColor = '#000000';
-                      e.currentTarget.style.color = '#000000';
+                      e.currentTarget.style.backgroundColor = '#ebedf0';
+                      e.currentTarget.style.color = '#222222';
                     }
                   }}
                 >
                   {addedVariantId === variant.id ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   ) : (
                     sizeLabel
+                  )}
+
+                  {/* Out-of-stock diagonal strike across size box matching product page */}
+                  {!isAvailable && (
+                    <svg
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%',
+                        pointerEvents: 'none',
+                      }}
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                    >
+                      <line
+                        x1="0"
+                        y1="100"
+                        x2="100"
+                        y2="0"
+                        stroke="#999999"
+                        strokeWidth="1.2"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    </svg>
                   )}
                 </button>
               ))}
@@ -821,7 +897,8 @@ export default function FreshOutLocker({ products }: Props) {
                 lineHeight: 1.4,
               }}
             >
-              Made to move. Built to last. Designed for those who don&apos;t switch off when the game does.
+              Made to move. Built to last. Designed for those who don&apos;t switch off when the
+              game does.
             </p>
           </div>
 
