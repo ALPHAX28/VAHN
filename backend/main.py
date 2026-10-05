@@ -221,6 +221,110 @@ async def _shiprocket_status_sync_loop():
         # Poll every 10 minutes
         await asyncio.sleep(600)
 
+def resolve_variant_image_url(v: Optional[models.ProductVariant], p: Optional[models.Product]) -> Optional[str]:
+    """
+    Resolves variant/colour-specific image, prioritizing the colour group's first image
+    over any stale variant image_url, falling back to variant-level image, then featured_image_url.
+    """
+    if not v and not p:
+        return None
+
+    # Priority 1: Primary image from matching colour group on product
+    if p and p.colour_groups:
+        colour_val = None
+        if v:
+            for opt in (v.selected_options or []):
+                if isinstance(opt, dict) and str(opt.get("name", "")).strip().lower() in ("colour", "color"):
+                    colour_val = opt.get("value")
+                    break
+            # Fallback: check if colour value appears in variant title
+            if not colour_val and v.title:
+                v_title_lower = v.title.lower()
+                for cg in p.colour_groups:
+                    if cg.colour_value and cg.colour_value.strip().lower() in v_title_lower:
+                        colour_val = cg.colour_value
+                        break
+
+        if colour_val:
+            for cg in p.colour_groups:
+                if cg.colour_value and str(cg.colour_value).strip().lower() == str(colour_val).strip().lower() and cg.images:
+                    if isinstance(cg.images, list) and len(cg.images) > 0:
+                        first_img = cg.images[0]
+                        if isinstance(first_img, dict):
+                            img_url = first_img.get("url")
+                            if img_url:
+                                return str(img_url)
+                        elif isinstance(first_img, str) and first_img.strip():
+                            return str(first_img).strip()
+                    break
+
+    # Priority 2: Variant-level image_url (if directly configured)
+    if v and v.image_url and str(v.image_url).strip():
+        return str(v.image_url).strip()
+
+    # Priority 3: First image from single colour group if product only has one colour group
+    if p and p.colour_groups and len(p.colour_groups) == 1:
+        single_cg = p.colour_groups[0]
+        if single_cg.images and isinstance(single_cg.images, list) and len(single_cg.images) > 0:
+            first_img = single_cg.images[0]
+            if isinstance(first_img, dict) and first_img.get("url"):
+                return str(first_img.get("url"))
+            elif isinstance(first_img, str) and first_img.strip():
+                return str(first_img).strip()
+
+    # Priority 4: Product featured image
+    if p and p.featured_image_url and str(p.featured_image_url).strip():
+        return str(p.featured_image_url).strip()
+
+    return None
+
+def sync_colour_group_to_variants_and_orders(db: Session, product_id: int, group: models.ProductColourGroup) -> None:
+    """Synchronizes the first image of a colour group to all matching variants and their order items in the database."""
+    if not group or not group.colour_value:
+        return
+
+    first_image_url = None
+    if group.images and isinstance(group.images, list) and len(group.images) > 0:
+        first_img = group.images[0]
+        if isinstance(first_img, dict):
+            first_image_url = first_img.get("url")
+        elif isinstance(first_img, str) and first_img.strip():
+            first_image_url = first_img.strip()
+
+    target_colour = group.colour_value.strip().lower()
+    variants = db.query(models.ProductVariant).filter_by(product_id=product_id).all()
+    matching_variant_ids = []
+
+    for var in variants:
+        var_colour = None
+        for opt in (var.selected_options or []):
+            if isinstance(opt, dict) and str(opt.get("name", "")).strip().lower() in ("colour", "color"):
+                var_colour = str(opt.get("value", "")).strip().lower()
+                break
+        if not var_colour and var.title and target_colour in var.title.lower():
+            var_colour = target_colour
+
+        if var_colour == target_colour:
+            var.image_url = first_image_url
+            matching_variant_ids.append(var.id)
+
+    if matching_variant_ids and first_image_url:
+        db.query(models.OrderItem).filter(
+            models.OrderItem.variant_id.in_(matching_variant_ids)
+        ).update({"image_url": first_image_url}, synchronize_session=False)
+
+def sync_all_colour_groups_to_variants(db: Session) -> None:
+    """Startup routine to ensure all variants and order items in DB reflect the primary image of their colour group."""
+    try:
+        colour_groups = db.query(models.ProductColourGroup).all()
+        for cg in colour_groups:
+            sync_colour_group_to_variants_and_orders(db, cg.product_id, cg)
+        db.commit()
+        logger.info(f"Successfully verified and synced {len(colour_groups)} colour groups to variants and order items.")
+    except Exception as e:
+        db.rollback()
+        logger.warning(f"Error during colour group sync routine: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     heartbeat_task = asyncio.create_task(_db_heartbeat_loop())
@@ -230,8 +334,9 @@ async def lifespan(app: FastAPI):
         with database.SessionLocal() as s:
             s.execute(text("UPDATE products SET shipping_rate = NULL WHERE shipping_rate > 500;"))
             s.commit()
+            sync_all_colour_groups_to_variants(s)
     except Exception as e:
-        logger.warning(f"Could not auto-sanitize product shipping rates: {e}")
+        logger.warning(f"Could not auto-sanitize product shipping rates or sync colour groups: {e}")
     yield
     heartbeat_task.cancel()
     sr_sync_task.cancel()
@@ -311,7 +416,7 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
                     selectedOptions=[schemas.SelectedOption(name=str(opt.get("name", "")), value=str(opt.get("value", ""))) for opt in (v.selected_options or []) if isinstance(opt, dict)],
                     price=schemas.Money(amount=f"{v.price_amount:.2f}", currencyCode=v.price_currency),
                     compareAtPrice=schemas.Money(amount=f"{v.compare_at_price_amount:.2f}", currencyCode=v.compare_at_price_currency) if v.compare_at_price_amount else None,
-                    image=schemas.ImageNode(url=v.image_url, altText=v.title) if v.image_url else None,
+                    image=schemas.ImageNode(url=resolve_variant_image_url(v, prod), altText=v.title) if resolve_variant_image_url(v, prod) else None,
                     quantityAvailable=v.inventory_quantity
                 )
             )
@@ -589,7 +694,8 @@ def list_collections(db: Session = Depends(get_db)):
 def get_collection(handle: str, db: Session = Depends(get_db)):
     coll = db.query(models.Collection).options(
         selectinload(models.Collection.products).selectinload(models.Product.variants),
-        selectinload(models.Collection.products).selectinload(models.Product.reviews)
+        selectinload(models.Collection.products).selectinload(models.Product.reviews),
+        selectinload(models.Collection.products).selectinload(models.Product.colour_groups)
     ).filter_by(handle=handle).first()
     if not coll:
         raise HTTPException(status_code=404, detail="Collection not found")
@@ -621,37 +727,6 @@ def get_collection(handle: str, db: Session = Depends(get_db)):
     )
 
 # ---- CART ENDPOINTS ----
-
-def resolve_variant_image_url(v: Optional[models.ProductVariant], p: Optional[models.Product]) -> Optional[str]:
-    """Resolves variant/colour-specific image, falling back to featured_image_url."""
-    if not v:
-        if p and p.featured_image_url:
-            return str(p.featured_image_url)
-        return None
-    variant_image_url: Optional[str] = str(v.image_url) if v.image_url else None
-    if not variant_image_url and p:
-        colour_val = None
-        for opt in (v.selected_options or []):
-            if isinstance(opt, dict) and opt.get("name", "").lower() in ("colour", "color"):
-                colour_val = opt.get("value")
-                break
-        if colour_val and p.colour_groups:
-            for cg in p.colour_groups:
-                if cg.colour_value and str(cg.colour_value).strip().lower() == str(colour_val).strip().lower() and cg.images:
-                    if isinstance(cg.images, list) and len(cg.images) > 0:
-                        first_img = cg.images[0]
-                        if isinstance(first_img, dict):
-                            img_url = first_img.get("url")
-                            if img_url:
-                                variant_image_url = str(img_url)
-                        elif isinstance(first_img, str) and first_img:
-                            variant_image_url = str(first_img)
-                    break
-    if variant_image_url:
-        return variant_image_url
-    if p and p.featured_image_url:
-        return str(p.featured_image_url)
-    return None
 
 def build_cart_schema(cart: models.Cart, db: Session) -> schemas.CartSchema:
     line_edges = []
@@ -735,7 +810,7 @@ def create_cart(lines: Optional[List[dict]] = None, db: Session = Depends(get_db
 
     db.commit()
     cart = db.query(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product).selectinload(models.Product.colour_groups)
     ).filter_by(id=cart_id).first()
     return build_cart_schema(cart, db)
 
@@ -775,7 +850,7 @@ def sync_cart(cart_id: str, payload: Optional[List[dict]] = None, db: Session = 
 
     db.commit()
     cart = db.query(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product).selectinload(models.Product.colour_groups)
     ).filter_by(id=cart_id).first()
     return build_cart_schema(cart, db)
 
@@ -843,7 +918,7 @@ def update_cart_item(cart_id: str, item_id: str, payload: schemas.CartUpdateItem
 
     db.commit()
     cart = db.query(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product).selectinload(models.Product.colour_groups)
     ).filter_by(id=cart_id).first()
     return build_cart_schema(cart, db)
 
@@ -860,7 +935,7 @@ def remove_cart_item(cart_id: str, item_id: str, db: Session = Depends(get_db)):
     db.delete(item)
     db.commit()
     cart = db.query(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product).selectinload(models.Product.colour_groups)
     ).filter_by(id=cart_id).first()
     return build_cart_schema(cart, db)
 
@@ -1618,7 +1693,7 @@ def razorpay_create_order(
     db: Session = Depends(get_db)
 ):
     cart = db.query(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product).selectinload(models.Product.colour_groups)
     ).filter_by(id=payload.cart_id).first()
 
     if not cart or not cart.items:
@@ -1717,7 +1792,7 @@ def razorpay_verify_payment(
         raise HTTPException(status_code=400, detail="Cryptographic payment signature verification failed.")
 
     cart = db.query(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product).selectinload(models.Product.colour_groups)
     ).filter_by(id=payload.cart_id).first()
 
     if not cart or not cart.items:
@@ -1923,7 +1998,7 @@ def razorpay_record_failure(
         raise HTTPException(status_code=400, detail="cart_id or order_id is required to record failure.")
 
     cart = db.query(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product).selectinload(models.Product.colour_groups)
     ).filter_by(id=payload.cart_id).first()
 
     if not cart or not cart.items:
@@ -2141,7 +2216,7 @@ async def magic_checkout_shipping_info(request: Request, db: Session = Depends(g
                 cart_id = rzp_o.get("order", {}).get("notes", {}).get("cart_id")
                 if cart_id:
                     cart_obj = db.query(models.Cart).options(
-                        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+                        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product).selectinload(models.Product.colour_groups)
                     ).filter_by(id=cart_id).first()
                     if cart_obj:
                         _, cart_ship, _, _, _ = calculate_cart_pricing(cart_obj)
@@ -2193,7 +2268,7 @@ def magic_checkout_order(
     db: Session = Depends(get_db)
 ):
     cart = db.query(models.Cart).options(
-        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product)
+        selectinload(models.Cart.items).selectinload(models.CartItem.variant).selectinload(models.ProductVariant.product).selectinload(models.Product.colour_groups)
     ).filter_by(id=payload.cart_id).first()
 
     if not cart or not cart.items:
@@ -4868,6 +4943,9 @@ def admin_update_product(
 
     db.commit()
     db.refresh(product)
+    for cg in (product.colour_groups or []):
+        sync_colour_group_to_variants_and_orders(db, product.id, cg)
+    db.commit()
     return _admin_product_detail(product)
 
 @app.delete("/api/admin/products/{product_id}")
@@ -4956,7 +5034,7 @@ def _admin_product_detail(product: models.Product) -> schemas.AdminProductDetail
                 price_currency=v.price_currency,
                 compare_at_price_amount=v.compare_at_price_amount,
                 inventory_quantity=v.inventory_quantity,
-                image_url=v.image_url,
+                image_url=resolve_variant_image_url(v, product),
                 selected_options=v.selected_options or []
             ) for v in (product.variants or [])
         ],
@@ -5101,6 +5179,8 @@ def admin_create_colour_group(
     db.add(group)
     db.commit()
     db.refresh(group)
+    sync_colour_group_to_variants_and_orders(db, product_id, group)
+    db.commit()
     return schemas.ColourGroupSchema(id=group.id, product_id=group.product_id, colour_value=group.colour_value, images=group.images or [], lookbook=group.lookbook or [], display_order=group.display_order)
 
 @app.put("/api/admin/products/{product_id}/colour-groups/{group_id}", response_model=schemas.ColourGroupSchema)
@@ -5118,6 +5198,8 @@ def admin_update_colour_group(
         setattr(group, k, v)
     db.commit()
     db.refresh(group)
+    sync_colour_group_to_variants_and_orders(db, product_id, group)
+    db.commit()
     return schemas.ColourGroupSchema(id=group.id, product_id=group.product_id, colour_value=group.colour_value, images=group.images or [], lookbook=group.lookbook or [], display_order=group.display_order)
 
 @app.delete("/api/admin/products/{product_id}/colour-groups/{group_id}")

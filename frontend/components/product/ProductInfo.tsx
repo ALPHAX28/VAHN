@@ -340,13 +340,25 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
     if (!isSizeSelected) return;
     if (!selectedVariant || !available || adding) return;
 
+    const activeColourGroup = product.colourGroups?.find(
+      (cg) => activeColour && cg.colourValue.trim().toLowerCase() === activeColour.trim().toLowerCase()
+    );
+    const activeColourImage = activeColourGroup?.images?.[0]
+      ? {
+          url: activeColourGroup.images[0].url,
+          altText: activeColourGroup.images[0].altText || product.title,
+          width: 800,
+          height: 800,
+        }
+      : null;
+
     // Build full display data so the cart drawer shows real info instantly
     const displayData: AddItemDisplayData = {
       productTitle: product.title,
       productHandle: product.handle,
       variantTitle: selectedVariant.title !== 'Default Title' ? selectedVariant.title : product.title,
       price: selectedVariant.price,
-      image: selectedVariant.image ?? product.featuredImage,
+      image: activeColourImage ?? selectedVariant.image ?? product.featuredImage,
       selectedOptions: selectedVariant.selectedOptions,
       quantityAvailable: selectedVariant.quantityAvailable,
     };
@@ -369,12 +381,24 @@ export default function ProductInfo({ product, initialColour, onColourChange }: 
       setBuyingNow(true);
       // If item is not in cart yet, add 1 quantity without opening drawer
       if (!cartItem || cartItem.quantity === 0) {
+        const activeColourGroup = product.colourGroups?.find(
+          (cg) => activeColour && cg.colourValue.trim().toLowerCase() === activeColour.trim().toLowerCase()
+        );
+        const activeColourImage = activeColourGroup?.images?.[0]
+          ? {
+              url: activeColourGroup.images[0].url,
+              altText: activeColourGroup.images[0].altText || product.title,
+              width: 800,
+              height: 800,
+            }
+          : null;
+
         const displayData: AddItemDisplayData = {
           productTitle: product.title,
           productHandle: product.handle,
           variantTitle: selectedVariant.title !== 'Default Title' ? selectedVariant.title : product.title,
           price: selectedVariant.price,
-          image: selectedVariant.image ?? product.featuredImage,
+          image: activeColourImage ?? selectedVariant.image ?? product.featuredImage,
           selectedOptions: selectedVariant.selectedOptions,
           quantityAvailable: selectedVariant.quantityAvailable,
         };

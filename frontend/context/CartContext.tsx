@@ -342,6 +342,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           title: displayData?.variantTitle ?? '',
           selectedOptions: displayData?.selectedOptions ?? [],
           quantityAvailable: displayData?.quantityAvailable,
+          image: displayData?.image ?? null,
           product: {
             id: merchandiseId,
             title: displayData?.productTitle ?? '',
