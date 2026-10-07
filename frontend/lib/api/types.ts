@@ -494,10 +494,12 @@ export interface ExchangeVariantOption {
   variant_id: string;
   title: string;
   size: string;
+  colour?: string | null;
   price: number;
   inventory_quantity: number;
   is_available: boolean;
   is_current: boolean;
+  image_url?: string | null;
 }
 
 export interface ExchangeItemOption {

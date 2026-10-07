@@ -621,10 +621,12 @@ class ExchangeVariantOption(BaseModel):
     variant_id: str
     title: str
     size: str
+    colour: Optional[str] = None
     price: float
     inventory_quantity: int
     is_available: bool
     is_current: bool
+    image_url: Optional[str] = None
 
 class ExchangeItemOption(BaseModel):
     item_id: str

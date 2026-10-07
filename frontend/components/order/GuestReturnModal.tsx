@@ -17,9 +17,62 @@ import {
 } from '@/lib/api';
 import type {
   ExchangeItemOption,
+  ExchangeVariantOption,
   OrderExchangeOptionsResponse,
   TrackingInfo,
 } from '@/lib/api/types';
+
+function extractVariantColour(v: ExchangeVariantOption, currentVariantTitle?: string): string {
+  if (v.colour?.trim()) {
+    return v.colour.trim();
+  }
+  if (v.title?.includes('/')) {
+    const parts = v.title.split(/\s*\/\s*/);
+    if (parts.length >= 2 && parts[0]?.trim()) {
+      return parts[0].trim();
+    }
+  }
+  if (currentVariantTitle?.includes('/')) {
+    const parts = currentVariantTitle.split(/\s*\/\s*/);
+    if (parts.length >= 2 && parts[0]?.trim()) {
+      return parts[0].trim();
+    }
+  }
+  return '';
+}
+
+function extractVariantSize(v: ExchangeVariantOption): string {
+  if (v.size?.trim()) {
+    return v.size.trim();
+  }
+  if (v.title?.includes('/')) {
+    const parts = v.title.split(/\s*\/\s*/);
+    if (parts.length >= 2 && parts[1]?.trim()) {
+      return parts[1].trim();
+    }
+  }
+  return v.title;
+}
+
+function getItemCurrentColour(item?: ExchangeItemOption | null): string {
+  if (!item) return '';
+  const currentVar = item.variants.find((v) => v.is_current);
+  if (currentVar) {
+    const c = extractVariantColour(currentVar, item.current_variant_title);
+    if (c) return c;
+  }
+  if (item.current_variant_title?.includes('/')) {
+    const parts = item.current_variant_title.split(/\s*\/\s*/);
+    if (parts.length >= 2 && parts[0]?.trim()) {
+      return parts[0].trim();
+    }
+  }
+  const firstWithCol = item.variants.find((v) => extractVariantColour(v, item.current_variant_title));
+  if (firstWithCol) {
+    return extractVariantColour(firstWithCol, item.current_variant_title);
+  }
+  return '';
+}
 
 interface GuestReturnModalProps {
   isOpen: boolean;
@@ -47,6 +100,7 @@ export default function GuestReturnModal({
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [actionType, setActionType] = useState<'REPLACEMENT' | 'RETURN'>('REPLACEMENT');
   const [selectedItemId, setSelectedItemId] = useState('');
+  const [selectedColour, setSelectedColour] = useState('');
   const [selectedVariantId, setSelectedVariantId] = useState('');
   const [selectedVariantTitle, setSelectedVariantTitle] = useState('');
   const [returnReason, setReturnReason] = useState('SIZE_FIT');
@@ -73,7 +127,17 @@ export default function GuestReturnModal({
         if (res.items && res.items.length > 0) {
           const firstItem = res.items[0];
           setSelectedItemId(firstItem.item_id);
-          const firstAvailable = firstItem.variants.find((v) => v.is_available && !v.is_current);
+          const initialColour = getItemCurrentColour(firstItem);
+          setSelectedColour(initialColour);
+
+          const matchingVariants = initialColour
+            ? firstItem.variants.filter((v) => {
+                const c = extractVariantColour(v, firstItem.current_variant_title);
+                return !c || c.toLowerCase() === initialColour.toLowerCase();
+              })
+            : firstItem.variants;
+
+          const firstAvailable = matchingVariants.find((v) => v.is_available && !v.is_current);
           if (firstAvailable) {
             setSelectedVariantId(firstAvailable.variant_id);
             setSelectedVariantTitle(firstAvailable.title);
@@ -171,10 +235,23 @@ export default function GuestReturnModal({
       if (res.items && res.items.length > 0) {
         const firstItem = res.items[0];
         setSelectedItemId(firstItem.item_id);
-        const firstAvailable = firstItem.variants.find((v) => v.is_available && !v.is_current);
+        const initialColour = getItemCurrentColour(firstItem);
+        setSelectedColour(initialColour);
+
+        const matchingVariants = initialColour
+          ? firstItem.variants.filter((v) => {
+              const c = extractVariantColour(v, firstItem.current_variant_title);
+              return !c || c.toLowerCase() === initialColour.toLowerCase();
+            })
+          : firstItem.variants;
+
+        const firstAvailable = matchingVariants.find((v) => v.is_available && !v.is_current);
         if (firstAvailable) {
           setSelectedVariantId(firstAvailable.variant_id);
           setSelectedVariantTitle(firstAvailable.title);
+        } else {
+          setSelectedVariantId('');
+          setSelectedVariantTitle('');
         }
       }
     } catch (err: unknown) {
@@ -242,11 +319,80 @@ export default function GuestReturnModal({
     }
   }
 
-  if (!isOpen) return null;
-
   const currentItem: ExchangeItemOption | undefined =
     exchangeOptions?.items?.find((i) => i.item_id === selectedItemId) ||
     exchangeOptions?.items?.[0];
+
+  // Extract all unique colours for this product item
+  const availableColours = React.useMemo(() => {
+    if (!currentItem) return [];
+    const set = new Set<string>();
+    for (const v of currentItem.variants) {
+      const c = extractVariantColour(v, currentItem.current_variant_title);
+      if (c) set.add(c);
+    }
+    return Array.from(set);
+  }, [currentItem]);
+
+  // Sync selectedColour with currentItem if unset or invalid
+  useEffect(() => {
+    if (currentItem && availableColours.length > 0) {
+      const currCol = getItemCurrentColour(currentItem);
+      if (!selectedColour || !availableColours.some((c) => c.toLowerCase() === selectedColour.toLowerCase())) {
+        setSelectedColour(currCol || availableColours[0]);
+      }
+    }
+  }, [currentItem, availableColours, selectedColour]);
+
+  // Handler when customer taps a colour
+  const handleColourChange = (colour: string) => {
+    setSelectedColour(colour);
+    if (!currentItem) return;
+
+    const colourVariants = currentItem.variants.filter((v) => {
+      const c = extractVariantColour(v, currentItem.current_variant_title);
+      return !c || c.toLowerCase() === colour.toLowerCase();
+    });
+
+    const currentSelectedVar = currentItem.variants.find((v) => v.variant_id === selectedVariantId);
+    const targetSize = currentSelectedVar ? extractVariantSize(currentSelectedVar) : '';
+
+    const sameSizeVariant = colourVariants.find(
+      (v) => extractVariantSize(v).toLowerCase() === targetSize.toLowerCase() && v.is_available && !v.is_current
+    );
+
+    if (sameSizeVariant) {
+      setSelectedVariantId(sameSizeVariant.variant_id);
+      setSelectedVariantTitle(sameSizeVariant.title);
+    } else {
+      const firstAvail = colourVariants.find((v) => v.is_available && !v.is_current);
+      if (firstAvail) {
+        setSelectedVariantId(firstAvail.variant_id);
+        setSelectedVariantTitle(firstAvail.title);
+      } else {
+        setSelectedVariantId('');
+        setSelectedVariantTitle('');
+      }
+    }
+  };
+
+  // Filter variants to show in size grid (never show duplicates from other colours)
+  const displayedVariants = React.useMemo(() => {
+    if (!currentItem) return [];
+    if (!selectedColour || availableColours.length <= 1) {
+      return currentItem.variants;
+    }
+    return currentItem.variants.filter((v) => {
+      const c = extractVariantColour(v, currentItem.current_variant_title);
+      return !c || c.toLowerCase() === selectedColour.toLowerCase();
+    });
+  }, [currentItem, selectedColour, availableColours]);
+
+  const selectedVariantObj = currentItem?.variants.find((v) => v.variant_id === selectedVariantId);
+  const activeImage =
+    selectedVariantObj?.image_url ||
+    displayedVariants.find((v) => v.image_url)?.image_url ||
+    currentItem?.image_url;
 
   const addr = tracking.shipping_address as Record<string, string> | undefined;
   const addressLine = addr
@@ -254,6 +400,8 @@ export default function GuestReturnModal({
         .filter(Boolean)
         .join(', ')
     : 'Doorstep Delivery Address';
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -563,9 +711,9 @@ export default function GuestReturnModal({
                         overflow: 'hidden',
                       }}
                     >
-                      {currentItem.image_url ? (
+                      {activeImage ? (
                         <Image
-                          src={currentItem.image_url}
+                          src={activeImage}
                           alt={currentItem.product_title}
                           fill
                           sizes="64px"
@@ -607,20 +755,153 @@ export default function GuestReturnModal({
                 {/* Variant Selection for REPLACEMENT */}
                 {actionType === 'REPLACEMENT' && currentItem && (
                   <div style={{ marginBottom: '20px' }}>
-                    <label
-                      htmlFor="replacementVariantSelect"
+                    {/* Colour Selector */}
+                    {availableColours.length > 1 && (
+                      <div style={{ marginBottom: '18px' }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: 8,
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'block',
+                              fontSize: '0.75rem',
+                              fontWeight: 900,
+                              textTransform: 'uppercase',
+                              color: '#000000',
+                              letterSpacing: '0.04em',
+                            }}
+                          >
+                            Select Replacement Colour
+                          </span>
+                          {selectedColour && (
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                color: '#555',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.02em',
+                              }}
+                            >
+                              Selected: <strong style={{ color: '#000' }}>{selectedColour}</strong>
+                            </span>
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: 8,
+                          }}
+                        >
+                          {availableColours.map((col) => {
+                            const isColSelected = selectedColour.toLowerCase() === col.toLowerCase();
+                            const currentPurchasedCol = getItemCurrentColour(currentItem).toLowerCase();
+                            const isCurrentColour = col.toLowerCase() === currentPurchasedCol;
+                            const colVariants = currentItem.variants.filter(
+                              (v) =>
+                                extractVariantColour(v, currentItem.current_variant_title).toLowerCase() ===
+                                col.toLowerCase()
+                            );
+                            const hasAvailableStock = colVariants.some(
+                              (v) => v.is_available && !v.is_current
+                            );
+
+                            return (
+                              <button
+                                key={col}
+                                type="button"
+                                onClick={() => handleColourChange(col)}
+                                style={{
+                                  padding: '8px 16px',
+                                  border: isColSelected ? '2px solid #000000' : '1px solid #cbd5e1',
+                                  background: isColSelected ? '#000000' : '#ffffff',
+                                  color: isColSelected ? '#ffffff' : '#0f172a',
+                                  cursor: 'pointer',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 800,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.03em',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                <span>{col}</span>
+                                {isCurrentColour && (
+                                  <span
+                                    style={{
+                                      fontSize: '0.62rem',
+                                      fontWeight: 700,
+                                      padding: '1px 5px',
+                                      background: isColSelected ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
+                                      color: isColSelected ? '#ffffff' : '#64748b',
+                                      borderRadius: 2,
+                                    }}
+                                  >
+                                    Current
+                                  </span>
+                                )}
+                                {!hasAvailableStock && (
+                                  <span
+                                    style={{
+                                      fontSize: '0.62rem',
+                                      fontWeight: 700,
+                                      color: isColSelected ? '#fca5a5' : '#ef4444',
+                                    }}
+                                  >
+                                    (Low Stock)
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Replacement Size Grid */}
+                    <div
                       style={{
-                        display: 'block',
-                        fontSize: '0.75rem',
-                        fontWeight: 900,
-                        textTransform: 'uppercase',
-                        color: '#000000',
-                        letterSpacing: '0.04em',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                         marginBottom: 8,
                       }}
                     >
-                      Select New Replacement Size
-                    </label>
+                      <label
+                        htmlFor="replacementVariantSelect"
+                        style={{
+                          display: 'block',
+                          fontSize: '0.75rem',
+                          fontWeight: 900,
+                          textTransform: 'uppercase',
+                          color: '#000000',
+                          letterSpacing: '0.04em',
+                        }}
+                      >
+                        Select New Replacement Size
+                      </label>
+                      {selectedVariantTitle && (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            color: '#555',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          Selected: <strong style={{ color: '#000' }}>{selectedVariantTitle}</strong>
+                        </span>
+                      )}
+                    </div>
 
                     <div
                       style={{
@@ -629,9 +910,10 @@ export default function GuestReturnModal({
                         gap: 8,
                       }}
                     >
-                      {currentItem.variants.map((v) => {
+                      {displayedVariants.map((v) => {
                         const isSelected = selectedVariantId === v.variant_id;
                         const isAvailable = v.is_available && !v.is_current;
+                        const sizeLabel = extractVariantSize(v);
 
                         return (
                           <button
@@ -656,10 +938,11 @@ export default function GuestReturnModal({
                               textAlign: 'center',
                               cursor: isAvailable ? 'pointer' : 'not-allowed',
                               position: 'relative',
+                              transition: 'all 0.15s ease',
                             }}
                           >
                             <div style={{ fontWeight: 900, fontSize: '0.88rem' }}>
-                              {v.size || v.title}
+                              {sizeLabel}
                             </div>
                             <div
                               style={{
@@ -868,13 +1151,35 @@ export default function GuestReturnModal({
                       letterSpacing: '0.02em',
                       flex: '1 1 auto',
                       textAlign: 'center',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
                     }}
                   >
-                    {submitting
-                      ? 'Scheduling Doorstep Pickup...'
-                      : actionType === 'REPLACEMENT'
-                        ? 'Confirm & Schedule Exchange Pickup'
-                        : 'Confirm & Schedule Return Pickup'}
+                    <span>
+                      {submitting
+                        ? 'Scheduling Doorstep Pickup...'
+                        : actionType === 'REPLACEMENT'
+                          ? 'Confirm & Schedule Exchange Pickup'
+                          : 'Confirm & Schedule Return Pickup'}
+                    </span>
+                    {!submitting && (
+                      <svg
+                        className="btn-checkout-arrow"
+                        aria-hidden="true"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    )}
                   </button>
                 </div>
               </form>

@@ -3640,33 +3640,59 @@ def get_order_exchange_options(
 
         # Find all sibling variants of the product
         sibling_variants = []
+        prod = None
         if product_id:
-            sibling_variants = db.query(models.ProductVariant).filter_by(product_id=product_id).all()
+            prod = db.query(models.Product).options(
+                selectinload(models.Product.colour_groups),
+                selectinload(models.Product.variants)
+            ).filter_by(id=product_id).first()
+            if prod:
+                sibling_variants = prod.variants or []
+            else:
+                sibling_variants = db.query(models.ProductVariant).filter_by(product_id=product_id).all()
         elif item.product_title:
-            prod = db.query(models.Product).options(selectinload(models.Product.variants)).filter_by(title=item.product_title).first()
+            prod = db.query(models.Product).options(
+                selectinload(models.Product.colour_groups),
+                selectinload(models.Product.variants)
+            ).filter_by(title=item.product_title).first()
             if prod:
                 sibling_variants = prod.variants or []
 
         variant_opts = []
         for v in sibling_variants:
             size_label = v.title
+            colour_label = None
             if v.selected_options and isinstance(v.selected_options, list):
                 for opt in v.selected_options:
-                    if isinstance(opt, dict) and opt.get("name", "").lower() == "size":
-                        size_label = opt.get("value", v.title)
-                        break
+                    if isinstance(opt, dict):
+                        opt_name = str(opt.get("name", "")).strip().lower()
+                        if opt_name == "size":
+                            size_label = opt.get("value", size_label)
+                        elif opt_name in ("colour", "color"):
+                            colour_label = opt.get("value")
+
+            # Fallback if colour not found in selected_options:
+            if not colour_label and v.title and " / " in v.title:
+                parts = [p.strip() for p in v.title.split(" / ")]
+                if len(parts) >= 2:
+                    colour_label = parts[0]
+                    if size_label == v.title:
+                        size_label = parts[1]
 
             in_stock = bool(v.available_for_sale and (v.inventory_quantity or 0) > 0)
             is_curr = bool(item.variant_id and v.id == item.variant_id)
+            v_img = resolve_variant_image_url(v, prod) or v.image_url or item.image_url
 
             variant_opts.append(schemas.ExchangeVariantOption(
                 variant_id=v.id,
                 title=v.title,
                 size=size_label,
+                colour=colour_label,
                 price=v.price_amount,
                 inventory_quantity=v.inventory_quantity or 0,
                 is_available=in_stock,
-                is_current=is_curr
+                is_current=is_curr,
+                image_url=v_img
             ))
 
         items_res.append(schemas.ExchangeItemOption(
@@ -3938,31 +3964,59 @@ def admin_get_order_exchange_options(
                 product_id = current_var.product_id
 
         sibling_variants = []
+        prod = None
         if product_id:
-            sibling_variants = db.query(models.ProductVariant).filter_by(product_id=product_id).all()
+            prod = db.query(models.Product).options(
+                selectinload(models.Product.colour_groups),
+                selectinload(models.Product.variants)
+            ).filter_by(id=product_id).first()
+            if prod:
+                sibling_variants = prod.variants or []
+            else:
+                sibling_variants = db.query(models.ProductVariant).filter_by(product_id=product_id).all()
         elif item.product_title:
-            prod = db.query(models.Product).options(selectinload(models.Product.variants)).filter_by(title=item.product_title).first()
+            prod = db.query(models.Product).options(
+                selectinload(models.Product.colour_groups),
+                selectinload(models.Product.variants)
+            ).filter_by(title=item.product_title).first()
             if prod:
                 sibling_variants = prod.variants or []
 
         variant_opts = []
         for v in sibling_variants:
             size_label = v.title
+            colour_label = None
             if v.selected_options and isinstance(v.selected_options, list):
                 for opt in v.selected_options:
-                    if isinstance(opt, dict) and opt.get("name", "").lower() == "size":
-                        size_label = opt.get("value", v.title)
-                        break
+                    if isinstance(opt, dict):
+                        opt_name = str(opt.get("name", "")).strip().lower()
+                        if opt_name == "size":
+                            size_label = opt.get("value", size_label)
+                        elif opt_name in ("colour", "color"):
+                            colour_label = opt.get("value")
+
+            # Fallback if colour not found in selected_options:
+            if not colour_label and v.title and " / " in v.title:
+                parts = [p.strip() for p in v.title.split(" / ")]
+                if len(parts) >= 2:
+                    colour_label = parts[0]
+                    if size_label == v.title:
+                        size_label = parts[1]
+
             in_stock = bool(v.available_for_sale and (v.inventory_quantity or 0) > 0)
             is_curr = bool(item.variant_id and v.id == item.variant_id)
+            v_img = resolve_variant_image_url(v, prod) or v.image_url or item.image_url
+
             variant_opts.append(schemas.ExchangeVariantOption(
                 variant_id=v.id,
                 title=v.title,
                 size=size_label,
+                colour=colour_label,
                 price=v.price_amount,
                 inventory_quantity=v.inventory_quantity or 0,
                 is_available=in_stock,
-                is_current=is_curr
+                is_current=is_curr,
+                image_url=v_img
             ))
 
         items_res.append(schemas.ExchangeItemOption(
