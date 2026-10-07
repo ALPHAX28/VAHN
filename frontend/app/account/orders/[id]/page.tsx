@@ -59,6 +59,58 @@ function getStatusColor(status: string) {
   return { bg: '#fffbeb', text: '#b45309', border: '#d97706' };
 }
 
+function extractVariantColour(v: ExchangeVariantOption, currentVariantTitle?: string): string {
+  if (v.colour?.trim()) {
+    return v.colour.trim();
+  }
+  if (v.title?.includes('/')) {
+    const parts = v.title.split(/\s*\/\s*/);
+    if (parts.length >= 2 && parts[0]?.trim()) {
+      return parts[0].trim();
+    }
+  }
+  if (currentVariantTitle?.includes('/')) {
+    const parts = currentVariantTitle.split(/\s*\/\s*/);
+    if (parts.length >= 2 && parts[0]?.trim()) {
+      return parts[0].trim();
+    }
+  }
+  return '';
+}
+
+function extractVariantSize(v: ExchangeVariantOption): string {
+  if (v.size?.trim()) {
+    return v.size.trim();
+  }
+  if (v.title?.includes('/')) {
+    const parts = v.title.split(/\s*\/\s*/);
+    if (parts.length >= 2 && parts[1]?.trim()) {
+      return parts[1].trim();
+    }
+  }
+  return v.title;
+}
+
+function getItemCurrentColour(item?: ExchangeItemOption | null): string {
+  if (!item) return '';
+  const currentVar = item.variants.find((v) => v.is_current);
+  if (currentVar) {
+    const c = extractVariantColour(currentVar, item.current_variant_title);
+    if (c) return c;
+  }
+  if (item.current_variant_title?.includes('/')) {
+    const parts = item.current_variant_title.split(/\s*\/\s*/);
+    if (parts.length >= 2 && parts[0]?.trim()) {
+      return parts[0].trim();
+    }
+  }
+  const firstWithCol = item.variants.find((v) => extractVariantColour(v, item.current_variant_title));
+  if (firstWithCol) {
+    return extractVariantColour(firstWithCol, item.current_variant_title);
+  }
+  return '';
+}
+
 function getCustomerReturnBadge(order: {
   returnStatus?: string | null;
   returnType?: string | null;
@@ -251,6 +303,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
   const [exchangeOptions, setExchangeOptions] = useState<OrderExchangeOptionsResponse | null>(null);
   const [loadingExchangeOptions, setLoadingExchangeOptions] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
+  const [selectedColour, setSelectedColour] = useState<string>('');
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
   const [selectedVariantTitle, setSelectedVariantTitle] = useState<string>('');
   const [submittingAction, setSubmittingAction] = useState(false);
@@ -295,8 +348,18 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
       if (res?.items && res.items.length > 0) {
         const firstItem = res.items[0];
         setSelectedItemId(firstItem.item_id);
+        const initialColour = getItemCurrentColour(firstItem);
+        setSelectedColour(initialColour);
+
+        const matchingVariants = initialColour
+          ? firstItem.variants.filter((v) => {
+              const c = extractVariantColour(v, firstItem.current_variant_title);
+              return !c || c.toLowerCase() === initialColour.toLowerCase();
+            })
+          : firstItem.variants;
+
         // Pre-select first available replacement variant
-        const firstAvail = firstItem.variants.find((v) => v.is_available && !v.is_current);
+        const firstAvail = matchingVariants.find((v) => v.is_available && !v.is_current);
         if (firstAvail) {
           setSelectedVariantId(firstAvail.variant_id);
           setSelectedVariantTitle(firstAvail.title);
@@ -862,9 +925,26 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                       cursor: 'pointer',
                       textTransform: 'uppercase',
                       letterSpacing: '-0.025em',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
                     }}
                   >
-                    Request 10-Day Return / Exchange
+                    <span>Request 10-Day Return / Exchange</span>
+                    <svg
+                      className="btn-checkout-arrow"
+                      aria-hidden="true"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
                   </button>
                 )}
 
@@ -3955,100 +4035,234 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                           </div>
                         </div>
 
-                        <div
-                          style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 800,
-                            textTransform: 'uppercase',
-                            marginBottom: 8,
-                            color: '#444',
-                          }}
-                        >
-                          Select New Size for Replacement *
-                        </div>
+                        {(() => {
+                          const availableColours = Array.from(
+                            new Set(
+                              item.variants
+                                .map((v) => extractVariantColour(v, item.current_variant_title))
+                                .filter(Boolean)
+                            )
+                          );
+                          const activeCol = selectedColour || getItemCurrentColour(item) || availableColours[0] || '';
+                          const displayedVariants = availableColours.length > 1 && activeCol
+                            ? item.variants.filter(
+                                (v) =>
+                                  extractVariantColour(v, item.current_variant_title).toLowerCase() ===
+                                  activeCol.toLowerCase()
+                              )
+                            : item.variants;
 
-                        {/* Variants Stock Grid */}
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-                            gap: 8,
-                          }}
-                        >
-                          {item.variants.map((v) => {
-                            const isSelected = selectedVariantId === v.variant_id;
-                            const isCurrent = v.is_current;
-                            const isAvailable = v.is_available && !isCurrent;
+                          const handleAccountColourChange = (col: string) => {
+                            setSelectedColour(col);
+                            const colVariants = item.variants.filter(
+                              (v) =>
+                                extractVariantColour(v, item.current_variant_title).toLowerCase() ===
+                                col.toLowerCase()
+                            );
+                            const currentSelectedVar = item.variants.find((v) => v.variant_id === selectedVariantId);
+                            const targetSize = currentSelectedVar ? extractVariantSize(currentSelectedVar) : '';
+                            const sameSize = colVariants.find(
+                              (v) =>
+                                extractVariantSize(v).toLowerCase() === targetSize.toLowerCase() &&
+                                v.is_available &&
+                                !v.is_current
+                            );
+                            if (sameSize) {
+                              setSelectedItemId(item.item_id);
+                              setSelectedVariantId(sameSize.variant_id);
+                              setSelectedVariantTitle(sameSize.title);
+                            } else {
+                              const firstAvail = colVariants.find((v) => v.is_available && !v.is_current);
+                              if (firstAvail) {
+                                setSelectedItemId(item.item_id);
+                                setSelectedVariantId(firstAvail.variant_id);
+                                setSelectedVariantTitle(firstAvail.title);
+                              } else {
+                                setSelectedVariantId('');
+                                setSelectedVariantTitle('');
+                              }
+                            }
+                          };
 
-                            return (
-                              <button
-                                key={v.variant_id}
-                                type="button"
-                                disabled={!isAvailable}
-                                onClick={() => {
-                                  setSelectedItemId(item.item_id);
-                                  setSelectedVariantId(v.variant_id);
-                                  setSelectedVariantTitle(v.title);
-                                }}
+                          return (
+                            <>
+                              {/* Colour Selector */}
+                              {availableColours.length > 1 && (
+                                <div style={{ marginBottom: 16 }}>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontSize: '0.72rem',
+                                        fontWeight: 800,
+                                        textTransform: 'uppercase',
+                                        color: '#333',
+                                      }}
+                                    >
+                                      Select Colour
+                                    </span>
+                                    {activeCol && (
+                                      <span style={{ fontSize: '0.72rem', color: '#666', fontWeight: 700 }}>
+                                        Selected: <strong style={{ color: '#000' }}>{activeCol}</strong>
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {availableColours.map((col) => {
+                                      const isColSelected = activeCol.toLowerCase() === col.toLowerCase();
+                                      const isCurrentCol =
+                                        col.toLowerCase() === getItemCurrentColour(item).toLowerCase();
+                                      return (
+                                        <button
+                                          key={col}
+                                          type="button"
+                                          onClick={() => handleAccountColourChange(col)}
+                                          style={{
+                                            padding: '6px 14px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 800,
+                                            textTransform: 'uppercase',
+                                            border: isColSelected ? '2px solid #000' : '1px solid #d1d5db',
+                                            background: isColSelected ? '#000' : '#fff',
+                                            color: isColSelected ? '#fff' : '#111',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            transition: 'all 0.15s ease',
+                                          }}
+                                        >
+                                          <span>{col}</span>
+                                          {isCurrentCol && (
+                                            <span
+                                              style={{
+                                                fontSize: '0.6rem',
+                                                padding: '1px 4px',
+                                                background: isColSelected ? 'rgba(255,255,255,0.2)' : '#f3f4f6',
+                                                color: isColSelected ? '#fff' : '#6b7280',
+                                              }}
+                                            >
+                                              Current
+                                            </span>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div
                                 style={{
-                                  padding: '10px 8px',
-                                  border: isSelected ? '2px solid #000' : '1px solid #ccc',
-                                  background: isSelected
-                                    ? '#000'
-                                    : isCurrent
-                                      ? '#f3f4f6'
-                                      : isAvailable
-                                        ? '#fff'
-                                        : '#fafafa',
-                                  color: isSelected ? '#fff' : isAvailable ? '#000' : '#999',
-                                  cursor: isAvailable ? 'pointer' : 'not-allowed',
-                                  textAlign: 'center',
-                                  borderRadius: '0px',
-                                  opacity: isAvailable || isSelected ? 1 : 0.6,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  textTransform: 'uppercase',
+                                  marginBottom: 8,
+                                  color: '#444',
                                   display: 'flex',
-                                  flexDirection: 'column',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                  transition: 'all 0.1s ease',
+                                  justifyContent: 'space-between',
                                 }}
                               >
-                                <span style={{ fontWeight: 900, fontSize: '0.85rem' }}>
-                                  {v.size || v.title}
-                                </span>
-
-                                {isCurrent ? (
-                                  <span
-                                    style={{ fontSize: '0.65rem', fontWeight: 700, color: '#666' }}
-                                  >
-                                    (Current)
-                                  </span>
-                                ) : isAvailable ? (
-                                  <span
-                                    style={{
-                                      fontSize: '0.65rem',
-                                      fontWeight: 800,
-                                      color: isSelected ? '#fff' : '#16a34a',
-                                      textTransform: 'uppercase',
-                                    }}
-                                  >
-                                    {isSelected ? '✓ Selected' : '✓ In Stock'}
-                                  </span>
-                                ) : (
-                                  <span
-                                    style={{
-                                      fontSize: '0.62rem',
-                                      fontWeight: 700,
-                                      color: '#dc2626',
-                                      textTransform: 'uppercase',
-                                    }}
-                                  >
-                                    ✕ Out of Stock
+                                <span>Select New Size for Replacement *</span>
+                                {selectedVariantTitle && (
+                                  <span style={{ color: '#000', fontWeight: 900 }}>
+                                    {selectedVariantTitle}
                                   </span>
                                 )}
-                              </button>
-                            );
-                          })}
-                        </div>
+                              </div>
+
+                              {/* Variants Stock Grid */}
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                                  gap: 8,
+                                }}
+                              >
+                                {displayedVariants.map((v) => {
+                                  const isSelected = selectedVariantId === v.variant_id;
+                                  const isCurrent = v.is_current;
+                                  const isAvailable = v.is_available && !isCurrent;
+                                  const sizeLabel = extractVariantSize(v);
+
+                                  return (
+                                    <button
+                                      key={v.variant_id}
+                                      type="button"
+                                      disabled={!isAvailable}
+                                      onClick={() => {
+                                        setSelectedItemId(item.item_id);
+                                        setSelectedVariantId(v.variant_id);
+                                        setSelectedVariantTitle(v.title);
+                                      }}
+                                      style={{
+                                        padding: '10px 8px',
+                                        border: isSelected ? '2px solid #000' : '1px solid #ccc',
+                                        background: isSelected
+                                          ? '#000'
+                                          : isCurrent
+                                            ? '#f3f4f6'
+                                            : isAvailable
+                                              ? '#fff'
+                                              : '#fafafa',
+                                        color: isSelected ? '#fff' : isAvailable ? '#000' : '#999',
+                                        cursor: isAvailable ? 'pointer' : 'not-allowed',
+                                        textAlign: 'center',
+                                        borderRadius: '0px',
+                                        opacity: isAvailable || isSelected ? 1 : 0.6,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        transition: 'all 0.1s ease',
+                                      }}
+                                    >
+                                      <span style={{ fontWeight: 900, fontSize: '0.85rem' }}>
+                                        {sizeLabel}
+                                      </span>
+
+                                      {isCurrent ? (
+                                        <span
+                                          style={{ fontSize: '0.65rem', fontWeight: 700, color: '#666' }}
+                                        >
+                                          (Current)
+                                        </span>
+                                      ) : isAvailable ? (
+                                        <span
+                                          style={{
+                                            fontSize: '0.65rem',
+                                            fontWeight: 800,
+                                            color: isSelected ? '#fff' : '#16a34a',
+                                            textTransform: 'uppercase',
+                                          }}
+                                        >
+                                          {isSelected ? '✓ Selected' : '✓ In Stock'}
+                                        </span>
+                                      ) : (
+                                        <span
+                                          style={{
+                                            fontSize: '0.62rem',
+                                            fontWeight: 700,
+                                            color: '#dc2626',
+                                            textTransform: 'uppercase',
+                                          }}
+                                        >
+                                          ✕ Out of Stock
+                                        </span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          );
+                        })()}
 
                         {item.variants.some((v) => !v.is_available && !v.is_current) && (
                           <div
