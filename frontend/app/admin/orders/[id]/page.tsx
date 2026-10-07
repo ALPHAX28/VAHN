@@ -894,7 +894,8 @@ export default function AdminOrderDetailPage() {
             const isOutForDelivery =
               !isDelivered &&
               (order.shipping_status === 'OUT_FOR_DELIVERY' ||
-                forwardScans.some((s) => /out for delivery/i.test(s.activity || '')));
+                order.shipping_status === 'OUT FOR DELIVERY' ||
+                forwardScans.some((s) => /out for delivery|out for dispatch/i.test(s.activity || '')));
 
             const isForwardPickedUp = Boolean(
               forwardTracking?.is_picked_up ||

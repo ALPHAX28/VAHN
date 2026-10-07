@@ -263,8 +263,17 @@ function TrackingContent() {
       };
     }
 
+    const hasOutForDeliveryScan =
+      Array.isArray(t.scans) &&
+      t.scans.some(
+        (s) =>
+          !/undelivered|cancel/i.test(s.activity || '') &&
+          /out for delivery|out for dispatch|out for pickup/i.test(s.activity || '')
+      );
+
     // 5. Out for delivery
     if (
+      hasOutForDeliveryScan ||
       combined.includes('OUT FOR DELIVERY') ||
       combined.includes('OUT FOR DISPATCH') ||
       combined.includes('OUT FOR PICKUP')

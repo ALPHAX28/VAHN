@@ -678,7 +678,12 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         location: forwardCurrentLoc || 'Destination Hub',
       });
     }
-    if (order.shippingStatus === 'OUT_FOR_DELIVERY') {
+    const isOutForDelivery =
+      !isDelivered &&
+      (order.shippingStatus === 'OUT_FOR_DELIVERY' ||
+        order.shippingStatus === 'OUT FOR DELIVERY' ||
+        activeForwardScans.some((s) => /out for delivery|out for dispatch/i.test(s.activity || '')));
+    if (isOutForDelivery) {
       synthesized.push({
         activity: 'Out for Delivery',
         date: 'In Progress',

@@ -148,6 +148,22 @@ def mark_order_forward_delivered(order: models.Order, live_data: dict) -> bool:
     return changed
 
 
+def normalize_shipping_status(val: Optional[str]) -> str:
+    """Standardizes Shiprocket status strings to match system status enum."""
+    if not val:
+        return "UNFULFILLED"
+    cleaned = str(val).strip().upper()
+    if cleaned in ("OUT FOR DELIVERY", "OUT_FOR_DELIVERY", "OUT_FOR_DISPATCH", "OUT FOR DISPATCH"):
+        return "OUT_FOR_DELIVERY"
+    if cleaned in ("IN TRANSIT", "IN_TRANSIT"):
+        return "IN_TRANSIT"
+    if cleaned in ("PICKED UP", "PICKED_UP"):
+        return "PICKED_UP"
+    if cleaned in ("MANIFEST GENERATED", "MANIFEST_GENERATED"):
+        return "MANIFEST_GENERATED"
+    return cleaned
+
+
 async def _shiprocket_status_sync_loop():
     """
     Background polling loop that runs every 10 minutes.
@@ -198,7 +214,7 @@ async def _shiprocket_status_sync_loop():
                                 if bool(live.get("is_delivered")) or str(curr_st).upper() == "DELIVERED":
                                     mark_order_forward_delivered(order, live)
                                 else:
-                                    order.shipping_status = str(curr_st).upper()
+                                    order.shipping_status = normalize_shipping_status(curr_st)
                                     live_courier = live.get("courier_name")
                                     if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
                                         order.shiprocket_courier_name = live_courier
@@ -2926,7 +2942,7 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
             if bool(track_info.get("is_delivered")) or str(curr_st or "").upper() == "DELIVERED":
                 mark_order_forward_delivered(order, track_info)
             elif curr_st and order.shipping_status != "DELIVERED":
-                order.shipping_status = str(curr_st).upper()
+                order.shipping_status = normalize_shipping_status(curr_st)
                 live_courier = track_info.get("courier_name")
                 if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
                     order.shiprocket_courier_name = live_courier
@@ -4677,7 +4693,7 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
                     if bool(live_track.get("is_delivered")) or str(curr_st or "").upper() == "DELIVERED":
                         mark_order_forward_delivered(order, live_track)
                     elif curr_st and order.shipping_status != "DELIVERED":
-                        order.shipping_status = str(curr_st).upper()
+                        order.shipping_status = normalize_shipping_status(curr_st)
                         live_courier = live_track.get("courier_name")
                         if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
                             order.shiprocket_courier_name = live_courier
@@ -5574,7 +5590,7 @@ def admin_get_order(
                     if bool(live_track.get("is_delivered")) or str(curr_st or "").upper() == "DELIVERED":
                         mark_order_forward_delivered(order, live_track)
                     elif curr_st and order.shipping_status != "DELIVERED":
-                        order.shipping_status = str(curr_st).upper()
+                        order.shipping_status = normalize_shipping_status(curr_st)
                         live_courier = live_track.get("courier_name")
                         if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
                             order.shiprocket_courier_name = live_courier
@@ -5651,7 +5667,7 @@ def admin_refresh_order_tracking(
                     if bool(live_track.get("is_delivered")) or str(curr_st or "").upper() == "DELIVERED":
                         mark_order_forward_delivered(order, live_track)
                     elif curr_st and order.status != "CANCELLED" and order.shipping_status != "CANCELLED":
-                        order.shipping_status = str(curr_st).upper()
+                        order.shipping_status = normalize_shipping_status(curr_st)
                         live_courier = live_track.get("courier_name")
                         if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
                             order.shiprocket_courier_name = live_courier
