@@ -114,6 +114,40 @@ async def _db_heartbeat_loop():
             pass
 
 
+def parse_delivered_datetime(val: Optional[Any]) -> datetime:
+    """Safely parse delivery timestamp string from Shiprocket tracking response, defaulting to UTC now."""
+    if val and isinstance(val, str):
+        val_clean = val.strip().replace("T", " ")
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d", "%d-%m-%Y %H:%M:%S", "%d/%m/%Y %H:%M:%S"):
+            try:
+                return datetime.strptime(val_clean[:19], fmt)
+            except Exception:
+                pass
+    return datetime.utcnow()
+
+
+def mark_order_forward_delivered(order: models.Order, live_data: dict) -> bool:
+    """Helper to update order status, shipping_status, and delivered_at if forward delivery is confirmed."""
+    is_del = bool(live_data.get("is_delivered")) or str(live_data.get("current_status") or "").upper() == "DELIVERED"
+    if not is_del:
+        return False
+    changed = False
+    if order.shipping_status != "DELIVERED":
+        order.shipping_status = "DELIVERED"
+        changed = True
+    if order.status not in ("CANCELLED", "DELIVERED"):
+        order.status = "DELIVERED"
+        changed = True
+    if not order.delivered_at:
+        order.delivered_at = parse_delivered_datetime(live_data.get("delivered_date"))
+        changed = True
+    live_courier = live_data.get("courier_name")
+    if live_courier and live_courier not in ("Assigned Courier", "Express Courier") and order.shiprocket_courier_name != live_courier:
+        order.shiprocket_courier_name = live_courier
+        changed = True
+    return changed
+
+
 async def _shiprocket_status_sync_loop():
     """
     Background polling loop that runs every 10 minutes.
@@ -159,9 +193,15 @@ async def _shiprocket_status_sync_loop():
                                 refund_note="Automated refund: order cancelled in Shiprocket dashboard"
                             )
                         else:
-                            # Also keep shipping_status and tracking_data in sync
+                            # Keep shipping_status, status, and tracking_data in sync
                             if curr_st and order.status != "CANCELLED":
-                                order.shipping_status = str(curr_st).upper()
+                                if bool(live.get("is_delivered")) or str(curr_st).upper() == "DELIVERED":
+                                    mark_order_forward_delivered(order, live)
+                                else:
+                                    order.shipping_status = str(curr_st).upper()
+                                    live_courier = live.get("courier_name")
+                                    if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
+                                        order.shiprocket_courier_name = live_courier
                                 merged = dict(order.tracking_data or {})
                                 merged.update(live)
                                 order.tracking_data = merged
@@ -191,7 +231,7 @@ async def _shiprocket_status_sync_loop():
                 except Exception as e_returns_poll:
                     logger.warning(f"[SR Sync] Error polling Shiprocket return orders endpoint: {e_returns_poll}")
 
-                # Poll active reverse return and exchange shipments for warehouse delivery & auto-restock
+                # Poll active reverse return shipments for warehouse delivery & auto-restock
                 try:
                     active_reverse_orders = (
                         db.query(models.Order)
@@ -210,6 +250,40 @@ async def _shiprocket_status_sync_loop():
                             logger.warning(f"[SR Sync] Error syncing reverse order {rev_order.id}: {e_rev}")
                 except Exception as e_rev_loop:
                     logger.warning(f"[SR Sync] Error in reverse orders loop: {e_rev_loop}")
+
+                # Poll active replacement/exchange shipments for customer delivery & completion
+                try:
+                    active_replacement_orders = (
+                        db.query(models.Order)
+                        .options(selectinload(models.Order.items))
+                        .filter(
+                            models.Order.replacement_awb.isnot(None),
+                            models.Order.replacement_awb != "",
+                            models.Order.replacement_status.notin_(["DELIVERED", "COMPLETED", "CANCELLED"]),
+                        )
+                        .all()
+                    )
+                    for rep_order in active_replacement_orders:
+                        try:
+                            rep_track = shiprocket_service.track_awb(rep_order.replacement_awb)
+                            if rep_track and isinstance(rep_track, dict):
+                                curr_rep_st = str(rep_track.get("current_status") or "").upper()
+                                is_rep_del = bool(rep_track.get("is_delivered")) or curr_rep_st in ("DELIVERED", "COMPLETED")
+                                if is_rep_del:
+                                    rep_order.replacement_status = "DELIVERED"
+                                    rep_order.status = "COMPLETED"
+                                elif curr_rep_st:
+                                    rep_order.replacement_status = curr_rep_st
+                                if rep_track.get("courier_name") and not rep_order.replacement_courier_name:
+                                    rep_order.replacement_courier_name = rep_track.get("courier_name")
+                                merged_td = dict(rep_order.tracking_data or {})
+                                merged_td["replacement_tracking"] = rep_track
+                                merged_td["replacement_scans"] = rep_track.get("scans") or []
+                                rep_order.tracking_data = merged_td
+                        except Exception as e_rep:
+                            logger.warning(f"[SR Sync] Error syncing replacement order {rep_order.id}: {e_rep}")
+                except Exception as e_rep_loop:
+                    logger.warning(f"[SR Sync] Error in replacement orders loop: {e_rep_loop}")
 
                 db.commit()
             finally:
@@ -2835,6 +2909,7 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
 
     # Live track AWB if present
     forward_scans = []
+    track_info = None
     if order.shiprocket_awb:
         track_info = shiprocket_service.track_awb(order.shiprocket_awb)
         if order.status != "CANCELLED" and is_shiprocket_cancelled(track_info.get("current_status")):
@@ -2846,6 +2921,18 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
                 cancel_in_shiprocket=False,
                 refund_note="Automated refund on Shiprocket order cancellation"
             )
+        elif track_info and isinstance(track_info, dict):
+            curr_st = track_info.get("current_status")
+            if bool(track_info.get("is_delivered")) or str(curr_st or "").upper() == "DELIVERED":
+                mark_order_forward_delivered(order, track_info)
+            elif curr_st and order.shipping_status != "DELIVERED":
+                order.shipping_status = str(curr_st).upper()
+                live_courier = track_info.get("courier_name")
+                if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
+                    order.shiprocket_courier_name = live_courier
+            merged_td = dict(order.tracking_data or {})
+            merged_td.update(track_info)
+            order.tracking_data = merged_td
         raw_scans = track_info.get("scans") if isinstance(track_info, dict) else []
         if isinstance(raw_scans, list):
             forward_scans = [
@@ -2922,12 +3009,18 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
                 ]
             if rep_info and isinstance(rep_info, dict):
                 curr_rep_st = str(rep_info.get("current_status") or "").upper()
-                if curr_rep_st:
+                is_rep_del = bool(rep_info.get("is_delivered")) or curr_rep_st in ("DELIVERED", "COMPLETED")
+                if is_rep_del:
+                    order.replacement_status = "DELIVERED"
+                    order.status = "COMPLETED"
+                elif curr_rep_st:
                     order.replacement_status = curr_rep_st
-                    if curr_rep_st in ("DELIVERED", "COMPLETED"):
-                        order.status = "COMPLETED"
                 if rep_info.get("courier_name") and not order.replacement_courier_name:
                     order.replacement_courier_name = rep_info.get("courier_name")
+                merged_td = dict(order.tracking_data or {})
+                merged_td["replacement_tracking"] = rep_info
+                merged_td["replacement_scans"] = rep_info.get("scans") or []
+                order.tracking_data = merged_td
         except Exception as e:
             logger.warning(f"Error fetching replacement tracking scans for order {order.id}: {e}")
     elif order.tracking_data and isinstance(order.tracking_data, dict) and "replacement_scans" in order.tracking_data:
@@ -2990,7 +3083,8 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
     ):
         curr_location = None
 
-    is_picked_up_status = any("pick" in str(s.activity).lower() for s in (reverse_scans or forward_scans or replacement_scans))
+    is_forward_picked_up = any("pick" in str(s.activity).lower() for s in forward_scans) or order.shipping_status in ("PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED")
+    is_return_picked_up = (order.return_status in ("PICKED_UP", "DELIVERED_TO_WAREHOUSE", "REFUNDED")) or any("pick" in str(s.activity).lower() for s in reverse_scans)
 
     t_data = order.tracking_data if isinstance(order.tracking_data, dict) else {}
     invoice_url = shiprocket_service.sanitize_shiprocket_url(t_data.get("invoice_url")) if t_data.get("invoice_url") else None
@@ -3018,7 +3112,8 @@ def public_track_order(query: str, db: Session = Depends(get_db)):
         "items": items_list,
         "current_location": curr_location,
         "current_status": order.shipping_status or "UNFULFILLED",
-        "is_picked_up": is_picked_up_status or (order.return_status in ("PICKED_UP", "DELIVERED_TO_WAREHOUSE", "REFUNDED")),
+        "is_picked_up": is_return_picked_up if (order.return_status and order.return_status != "NONE") else is_forward_picked_up,
+        "is_delivered": bool(order.status == "DELIVERED" or order.shipping_status == "DELIVERED" or (isinstance(track_info, dict) and track_info.get("is_delivered"))),
         "total_amount": order.total_amount,
         "currency": order.currency or "INR",
         "shipping_address": order.shipping_address,
@@ -4579,11 +4674,13 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
                     merged_td.update(live_track)
                     order.tracking_data = merged_td
                     curr_st = live_track.get("current_status")
-                    if curr_st:
+                    if bool(live_track.get("is_delivered")) or str(curr_st or "").upper() == "DELIVERED":
+                        mark_order_forward_delivered(order, live_track)
+                    elif curr_st and order.shipping_status != "DELIVERED":
                         order.shipping_status = str(curr_st).upper()
-                        if order.shipping_status == "DELIVERED":
-                            order.status = "DELIVERED"
-                            order.delivered_at = datetime.utcnow()
+                        live_courier = live_track.get("courier_name")
+                        if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
+                            order.shiprocket_courier_name = live_courier
                     updated = True
         except Exception as e:
             logger.warning(f"Failed to sync forward tracking for order {order.id}: {e}")
@@ -4597,10 +4694,12 @@ def get_order_detail(order_id: str, current_user: models.User = Depends(get_curr
             rep_track = shiprocket_service.track_awb(order.replacement_awb)
             if rep_track and isinstance(rep_track, dict):
                 curr_rep_st = str(rep_track.get("current_status") or "").upper()
-                if curr_rep_st:
+                is_rep_del = bool(rep_track.get("is_delivered")) or curr_rep_st in ("DELIVERED", "COMPLETED")
+                if is_rep_del:
+                    order.replacement_status = "DELIVERED"
+                    order.status = "COMPLETED"
+                elif curr_rep_st:
                     order.replacement_status = curr_rep_st
-                    if curr_rep_st in ("DELIVERED", "COMPLETED"):
-                        order.status = "COMPLETED"
                 if rep_track.get("courier_name") and not order.replacement_courier_name:
                     order.replacement_courier_name = rep_track.get("courier_name")
                 merged_td = dict(order.tracking_data or {})
@@ -5472,8 +5571,13 @@ def admin_get_order(
                     merged_td = dict(order.tracking_data or {})
                     merged_td.update(live_track)
                     order.tracking_data = merged_td
-                    if curr_st:
+                    if bool(live_track.get("is_delivered")) or str(curr_st or "").upper() == "DELIVERED":
+                        mark_order_forward_delivered(order, live_track)
+                    elif curr_st and order.shipping_status != "DELIVERED":
                         order.shipping_status = str(curr_st).upper()
+                        live_courier = live_track.get("courier_name")
+                        if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
+                            order.shiprocket_courier_name = live_courier
                     updated = True
         except Exception as e:
             logger.warning(f"Failed to sync forward tracking for order {order.id}: {e}")
@@ -5488,10 +5592,12 @@ def admin_get_order(
             rep_track = shiprocket_service.track_awb(order.replacement_awb)
             if rep_track and isinstance(rep_track, dict):
                 curr_st = str(rep_track.get("current_status") or "").upper()
-                if curr_st:
+                is_rep_del = bool(rep_track.get("is_delivered")) or curr_st in ("DELIVERED", "COMPLETED")
+                if is_rep_del:
+                    order.replacement_status = "DELIVERED"
+                    order.status = "COMPLETED"
+                elif curr_st:
                     order.replacement_status = curr_st
-                    if curr_st in ("DELIVERED", "COMPLETED"):
-                        order.status = "COMPLETED"
                 if rep_track.get("courier_name") and not order.replacement_courier_name:
                     order.replacement_courier_name = rep_track.get("courier_name")
                 merged_td = dict(order.tracking_data or {})
@@ -5542,12 +5648,13 @@ def admin_refresh_order_tracking(
                     merged_td = dict(order.tracking_data or {})
                     merged_td.update(live_track)
                     order.tracking_data = merged_td
-                    if curr_st and order.status != "CANCELLED" and order.shipping_status != "CANCELLED":
+                    if bool(live_track.get("is_delivered")) or str(curr_st or "").upper() == "DELIVERED":
+                        mark_order_forward_delivered(order, live_track)
+                    elif curr_st and order.status != "CANCELLED" and order.shipping_status != "CANCELLED":
                         order.shipping_status = str(curr_st).upper()
-                    # Sync the authoritative courier name from Shiprocket live tracking
-                    live_courier = live_track.get("courier_name")
-                    if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
-                        order.shiprocket_courier_name = live_courier
+                        live_courier = live_track.get("courier_name")
+                        if live_courier and live_courier not in ("Assigned Courier", "Express Courier"):
+                            order.shiprocket_courier_name = live_courier
         except Exception as e:
             logger.warning(f"Error refreshing tracking for order {order.id}: {e}")
 
@@ -5559,10 +5666,12 @@ def admin_refresh_order_tracking(
             rep_track = shiprocket_service.track_awb(order.replacement_awb)
             if rep_track and isinstance(rep_track, dict):
                 curr_st = str(rep_track.get("current_status") or "").upper()
-                if curr_st:
+                is_rep_del = bool(rep_track.get("is_delivered")) or curr_st in ("DELIVERED", "COMPLETED")
+                if is_rep_del:
+                    order.replacement_status = "DELIVERED"
+                    order.status = "COMPLETED"
+                elif curr_st:
                     order.replacement_status = curr_st
-                    if curr_st in ("DELIVERED", "COMPLETED"):
-                        order.status = "COMPLETED"
                 if rep_track.get("courier_name") and not order.replacement_courier_name:
                     order.replacement_courier_name = rep_track.get("courier_name")
                 merged_td = dict(order.tracking_data or {})

@@ -713,9 +713,52 @@ export default function AdminOrderDetailPage() {
             const isPaymentFailed = order.payment_status === 'FAILED';
             const isCancelled =
               order.status === 'CANCELLED' || order.shipping_status === 'CANCELLED';
+
+            const forwardTracking = order.tracking_data;
+            const rawFwdScans: Array<{ date?: string; activity: string; location?: string }> =
+              Array.isArray(forwardTracking?.scans) ? forwardTracking.scans : [];
+            const forwardScans = [...rawFwdScans].sort((a, b) => {
+              const tA = parseCheckpointDate(a.date);
+              const tB = parseCheckpointDate(b.date);
+              return tB - tA;
+            });
+
+            const rawRepScans: Array<{ date?: string; activity: string; location?: string }> =
+              Array.isArray((order.tracking_data as any)?.replacement_scans)
+                ? (order.tracking_data as any).replacement_scans
+                : Array.isArray((order.tracking_data as any)?.replacement_tracking?.scans)
+                  ? (order.tracking_data as any).replacement_tracking.scans
+                  : [];
+            const replacementScans = [...rawRepScans].sort((a, b) => {
+              const tA = parseCheckpointDate(a.date);
+              const tB = parseCheckpointDate(b.date);
+              return tB - tA;
+            });
+
+            const hasForwardDeliveredScan = forwardScans.some((s) =>
+              !/undelivered|cancel/i.test(s.activity || '') &&
+              /delivered|package delivered|delivered to recipient|shipment delivered/i.test(s.activity || '')
+            );
+
             const isDelivered =
-              order.status === 'DELIVERED' || order.shipping_status === 'DELIVERED';
+              order.status === 'DELIVERED' ||
+              order.shipping_status === 'DELIVERED' ||
+              Boolean(order.delivered_at) ||
+              Boolean(forwardTracking?.is_delivered) ||
+              hasForwardDeliveredScan;
+
             const isReplacement = order.return_type === 'REPLACEMENT';
+
+            const hasReplDeliveredScan = replacementScans.some((s) =>
+              !/undelivered|cancel/i.test(s.activity || '') &&
+              /delivered|package delivered|delivered to recipient|shipment delivered/i.test(s.activity || '')
+            );
+
+            const isReplacementDelivered =
+              order.replacement_status === 'DELIVERED' ||
+              order.replacement_status === 'COMPLETED' ||
+              Boolean((order.tracking_data as any)?.replacement_tracking?.is_delivered) ||
+              hasReplDeliveredScan;
 
             // Active Return/Exchange: return requested, picked up, or replacement dispatched (NOT cancelled)
             const isReturnActive = Boolean(
@@ -797,17 +840,6 @@ export default function AdminOrderDetailPage() {
             const isRefundProcessed =
               order.refund_status === 'REFUNDED' || order.payment_status === 'REFUNDED';
 
-            const rawRepScans: Array<{ date?: string; activity: string; location?: string }> =
-              Array.isArray((order.tracking_data as any)?.replacement_scans)
-                ? (order.tracking_data as any).replacement_scans
-                : Array.isArray((order.tracking_data as any)?.replacement_tracking?.scans)
-                  ? (order.tracking_data as any).replacement_tracking.scans
-                  : [];
-            const replacementScans = [...rawRepScans].sort((a, b) => {
-              const tA = parseCheckpointDate(a.date);
-              const tB = parseCheckpointDate(b.date);
-              return tB - tA;
-            });
             const latestRepScanLoc = replacementScans.find(
               (s) =>
                 s.location &&
@@ -830,15 +862,6 @@ export default function AdminOrderDetailPage() {
               (order.tracking_data as any)?.replacement_current_location ||
               (order.tracking_data as any)?.replacement_tracking?.current_location ||
               (order.replacement_awb ? 'In Transit to Customer' : 'Warehouse / Dispatch Facility');
-
-            const forwardTracking = order.tracking_data;
-            const rawFwdScans: Array<{ date?: string; activity: string; location?: string }> =
-              Array.isArray(forwardTracking?.scans) ? forwardTracking.scans : [];
-            const forwardScans = [...rawFwdScans].sort((a, b) => {
-              const tA = parseCheckpointDate(a.date);
-              const tB = parseCheckpointDate(b.date);
-              return tB - tA;
-            });
             const latestFwdScanLoc = forwardScans.find(
               (s) =>
                 s.location &&
@@ -943,10 +966,18 @@ export default function AdminOrderDetailPage() {
               };
             } else if (isReturnActive) {
               cardTitle = isReplacement
-                ? 'Size Replacement & Exchange Logistics'
+                ? isReplacementDelivered
+                  ? 'Size Exchange Completed & Delivered'
+                  : isReplacementDispatched
+                    ? 'Replacement Parcel In Transit'
+                    : 'Size Replacement & Exchange Logistics'
                 : 'Reverse Return Logistics';
-              cardIcon = <PackageIcon size={20} color={isReplacement ? '#000' : '#fa8c16'} />;
-              borderAccent = isReplacement ? '#000' : '#fa8c16';
+              cardIcon = isReplacement && isReplacementDelivered
+                ? <CheckIcon size={20} color="#52c41a" />
+                : <PackageIcon size={20} color={isReplacement ? '#000' : '#fa8c16'} />;
+              borderAccent = isReplacement && isReplacementDelivered
+                ? '#52c41a'
+                : isReplacement ? '#000' : '#fa8c16';
               cardBg = isReplacement ? '#fafafa' : '#fffaf0';
 
               if (isReturnRejected) {
@@ -959,6 +990,13 @@ export default function AdminOrderDetailPage() {
               } else if (isRefundProcessed) {
                 statusBadge = {
                   text: 'REFUND COMPLETED',
+                  bg: '#f0fdf4',
+                  color: '#16a34a',
+                  border: '#bbf7d0',
+                };
+              } else if (isReplacementDelivered) {
+                statusBadge = {
+                  text: 'EXCHANGE DELIVERED / COMPLETED',
                   bg: '#f0fdf4',
                   color: '#16a34a',
                   border: '#bbf7d0',
