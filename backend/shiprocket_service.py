@@ -1042,15 +1042,18 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
                     shipment_track = track_data.get("shipment_track", [])
                     return_awb_code = ""
                     is_return = bool(track_data.get("is_return"))
+                    st0: Dict[str, Any] = {}
                     if isinstance(shipment_track, list) and shipment_track:
-                        st0 = shipment_track[0]
+                        st0 = shipment_track[0] or {}
                         return_awb_code = str(st0.get("return_awb_code") or "").strip()
                         if not is_return:
                             is_return = bool(st0.get("is_return"))
 
                     scans = track_data.get("shipment_track_activities", []) or []
-                    current_status = str(track_data.get("current_status", "IN_TRANSIT")).upper()
-                    courier_name = track_data.get("courier_name") or "Express Courier"
+                    st0_status = str(st0.get("current_status") or "").upper().strip() if st0 else ""
+                    top_status = str(track_data.get("current_status") or "").upper().strip()
+                    current_status = st0_status or top_status or "IN_TRANSIT"
+                    courier_name = (st0.get("courier_name") if st0 else None) or track_data.get("courier_name") or "Express Courier"
 
                     scans_list = [
                         {
@@ -1061,6 +1064,7 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
                         for s in scans
                     ]
                     latest_loc = None
+                    delivered_date = None
                     if scans_list:
                         def _parse_ts(s_dict):
                             d_str = str(s_dict.get("date") or "").strip()
@@ -1081,14 +1085,34 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
                                 latest_loc = raw_loc
                                 break
 
+                        for s_item in sorted_by_date:
+                            act = str(s_item.get("activity") or "").lower().strip()
+                            if "deliver" in act and not any(kw in act for kw in ("undeliver", "out for deliver", "scheduled for deliver", "pending deliver", "not deliver")):
+                                delivered_date = s_item.get("date")
+                                break
+
+                    if not delivered_date and st0:
+                        delivered_date = st0.get("delivered_date")
+
+                    def _is_delivered_scan(act_str: str) -> bool:
+                        act = act_str.lower().strip()
+                        if not act:
+                            return False
+                        if any(kw in act for kw in ("undeliver", "out for deliver", "scheduled for deliver", "pending deliver", "not deliver")):
+                            return False
+                        return "deliver" in act
+
                     is_delivered = (
                         current_status in ("DELIVERED", "RETURN_DELIVERED", "RTO_DELIVERED", "DELIVERED_TO_WAREHOUSE", "REACHED_WAREHOUSE")
                         or "DELIVERED" in current_status
-                        or any("deliver" in str(s.get("activity", "")).lower() for s in scans_list)
+                        or any(_is_delivered_scan(str(s.get("activity", ""))) for s in scans_list)
                     )
+                    if is_delivered:
+                        current_status = "DELIVERED_TO_WAREHOUSE" if is_return else "DELIVERED"
+
                     is_picked_up = (
                         any("pick" in str(s.get("activity", "")).lower() for s in scans_list)
-                        or current_status in ("PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED")
+                        or current_status in ("PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "DELIVERED_TO_WAREHOUSE")
                     )
 
                     return {
@@ -1098,6 +1122,7 @@ def track_awb(awb_code: str) -> Dict[str, Any]:
                         "current_location": latest_loc,
                         "is_picked_up": is_picked_up,
                         "is_delivered": is_delivered,
+                        "delivered_date": delivered_date,
                         "return_awb_code": return_awb_code,
                         "is_return": is_return,
                         "scans": scans_list

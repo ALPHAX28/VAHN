@@ -511,36 +511,6 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
     );
   }
 
-  // Order is considered shipped ONLY when admin has dispatched via Shiprocket API
-  const isShipped = Boolean(
-    order.status !== 'CANCELLED' &&
-      (order.status === 'SHIPPED' ||
-        order.status === 'DELIVERED' ||
-        order.shippingStatus === 'SHIPPED' ||
-        order.shippingStatus === 'IN_TRANSIT' ||
-        order.shippingStatus === 'PICKED_UP' ||
-        order.shippingStatus === 'MANIFEST_GENERATED' ||
-        order.shippingStatus === 'DELIVERED') &&
-      Boolean(order.shiprocketAwb || order.trackingData?.awb)
-  );
-
-  // Calculate status tracker step index & live logistics snapshot
-  let stepIndex = 0;
-  if (order.status === 'DELIVERED' || order.shippingStatus === 'DELIVERED') {
-    stepIndex = 2;
-  } else if (isShipped) {
-    stepIndex = 1;
-  } else {
-    stepIndex = 0;
-  }
-
-  const isCancelled = order.status === 'CANCELLED';
-  const isFailed =
-    order.status === 'FAILED' ||
-    order.status === 'PAYMENT_FAILED' ||
-    order.paymentStatus === 'FAILED';
-  const canDownloadInvoice = !isFailed && !isCancelled && Boolean(order.shiprocketAwb) && isShipped;
-
   // Checkpoint scans preparation
   const rawForwardScans =
     trackingModalData?.scans && trackingModalData.scans.length > 0
@@ -569,6 +539,52 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
   const activeReplacementScans = [...rawReplacementScans].sort(
     (a, b) => parseCheckpointDate(b.date) - parseCheckpointDate(a.date)
   );
+
+  const hasForwardDeliveredScan = Boolean(
+    activeForwardScans.some(
+      (s) =>
+        !/undelivered|cancel/i.test(s.activity || '') &&
+        /delivered|package delivered|delivered to recipient|shipment delivered/i.test(s.activity || '')
+    )
+  );
+
+  const isDelivered = Boolean(
+    order.status === 'DELIVERED' ||
+      order.shippingStatus === 'DELIVERED' ||
+      trackingModalData?.is_delivered ||
+      order.deliveredAt ||
+      hasForwardDeliveredScan
+  );
+
+  // Order is considered shipped ONLY when admin has dispatched via Shiprocket API
+  const isShipped = Boolean(
+    order.status !== 'CANCELLED' &&
+      (order.status === 'SHIPPED' ||
+        isDelivered ||
+        order.shippingStatus === 'SHIPPED' ||
+        order.shippingStatus === 'IN_TRANSIT' ||
+        order.shippingStatus === 'PICKED_UP' ||
+        order.shippingStatus === 'MANIFEST_GENERATED' ||
+        order.shippingStatus === 'DELIVERED') &&
+      Boolean(order.shiprocketAwb || order.trackingData?.awb)
+  );
+
+  // Calculate status tracker step index & live logistics snapshot
+  let stepIndex = 0;
+  if (isDelivered) {
+    stepIndex = 2;
+  } else if (isShipped) {
+    stepIndex = 1;
+  } else {
+    stepIndex = 0;
+  }
+
+  const isCancelled = order.status === 'CANCELLED';
+  const isFailed =
+    order.status === 'FAILED' ||
+    order.status === 'PAYMENT_FAILED' ||
+    order.paymentStatus === 'FAILED';
+  const canDownloadInvoice = !isFailed && !isCancelled && Boolean(order.shiprocketAwb) && isShipped;
 
   // Strictly dynamic courier location from API (latest chronological checkpoint with valid location)
   const latestValidFwdScan = activeForwardScans.find(
@@ -662,14 +678,19 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         location: forwardCurrentLoc || 'Destination Hub',
       });
     }
-    if (order.shippingStatus === 'OUT_FOR_DELIVERY') {
+    const isOutForDelivery =
+      !isDelivered &&
+      (order.shippingStatus === 'OUT_FOR_DELIVERY' ||
+        order.shippingStatus === 'OUT FOR DELIVERY' ||
+        activeForwardScans.some((s) => /out for delivery|out for dispatch/i.test(s.activity || '')));
+    if (isOutForDelivery) {
       synthesized.push({
         activity: 'Out for Delivery',
         date: 'In Progress',
         location: order.shippingAddress?.city || null,
       });
     }
-    if (order.status === 'DELIVERED' || order.shippingStatus === 'DELIVERED') {
+    if (isDelivered || order.status === 'DELIVERED' || order.shippingStatus === 'DELIVERED') {
       synthesized.push({
         activity: 'Package Delivered',
         date: order.deliveredAt
@@ -826,7 +847,7 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
                   </button>
                 )}
 
-              {order.status === 'DELIVERED' &&
+              {(isDelivered || order.status === 'DELIVERED') &&
                 (!order.returnStatus || order.returnStatus === 'NONE') && (
                   <button
                     type="button"
@@ -900,12 +921,12 @@ export default function CustomerOrderDetailPage({ params }: { params: Promise<{ 
         </div>
 
         {/* 10-Day Return / Exchange Real-Time Countdown Window */}
-        {order.status === 'DELIVERED' && (!order.returnStatus || order.returnStatus === 'NONE') && (
+        {(isDelivered || order.status === 'DELIVERED') && (!order.returnStatus || order.returnStatus === 'NONE') && (
           <ReturnCountdownTimer
             deliveredAt={order.deliveredAt}
             deliveredAtIso={order.deliveredAtIso}
             returnStatus={order.returnStatus}
-            isDelivered={order.status === 'DELIVERED'}
+            isDelivered={isDelivered || order.status === 'DELIVERED'}
           />
         )}
 

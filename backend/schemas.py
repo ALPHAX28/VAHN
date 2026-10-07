@@ -743,6 +743,7 @@ class OrderTrackingResponse(BaseModel):
     current_location: Optional[str] = None
     current_status: Optional[str] = None
     is_picked_up: Optional[bool] = None
+    is_delivered: Optional[bool] = False
     total_amount: Optional[float] = 0.0
     currency: Optional[str] = "INR"
     shipping_address: Optional[dict] = None

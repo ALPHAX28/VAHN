@@ -84,7 +84,7 @@ export function getOrderUnifiedStatus(order: AdminOrderSummary): {
   if (order.status === 'DELIVERED' || order.shipping_status === 'DELIVERED') {
     return { label: 'DELIVERED', variant: 'DELIVERED' };
   }
-  if (order.shipping_status === 'OUT_FOR_DELIVERY') {
+  if (order.shipping_status === 'OUT_FOR_DELIVERY' || order.shipping_status === 'OUT FOR DELIVERY') {
     return { label: 'OUT FOR DELIVERY', variant: 'SHIPPED' };
   }
   if (

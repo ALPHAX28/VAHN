@@ -238,8 +238,22 @@ function TrackingContent() {
       };
     }
 
+    const hasDeliveredScan =
+      Array.isArray(t.scans) &&
+      t.scans.some(
+        (s) =>
+          !/undelivered|cancel/i.test(s.activity || '') &&
+          /delivered|package delivered|delivered to recipient|shipment delivered/i.test(s.activity || '')
+      );
+
     // 4. Delivered
-    if (t.delivered_at || combined.includes('DELIVERED') || combined.includes('COMPLETED')) {
+    if (
+      t.delivered_at ||
+      t.is_delivered ||
+      hasDeliveredScan ||
+      combined.includes('DELIVERED') ||
+      combined.includes('COMPLETED')
+    ) {
       return {
         index: 5,
         badgeLabel: 'DELIVERED',
@@ -249,8 +263,17 @@ function TrackingContent() {
       };
     }
 
+    const hasOutForDeliveryScan =
+      Array.isArray(t.scans) &&
+      t.scans.some(
+        (s) =>
+          !/undelivered|cancel/i.test(s.activity || '') &&
+          /out for delivery|out for dispatch|out for pickup/i.test(s.activity || '')
+      );
+
     // 5. Out for delivery
     if (
+      hasOutForDeliveryScan ||
       combined.includes('OUT FOR DELIVERY') ||
       combined.includes('OUT FOR DISPATCH') ||
       combined.includes('OUT FOR PICKUP')
@@ -384,9 +407,18 @@ function TrackingContent() {
     const rawReturn = (t.return_status || '').toUpperCase().trim();
     const combined = `${rawRepl} ${rawReturn}`.replace(/[-_]/g, ' ');
 
+    const hasReplDeliveredScan =
+      Array.isArray(t.replacement_scans) &&
+      t.replacement_scans.some(
+        (s) =>
+          !/undelivered|cancel/i.test(s.activity || '') &&
+          /delivered|package delivered|delivered to recipient|shipment delivered/i.test(s.activity || '')
+      );
+
     if (
       rawRepl === 'DELIVERED' ||
       rawRepl === 'COMPLETED' ||
+      hasReplDeliveredScan ||
       (combined.includes('DELIVERED') && Boolean(t.replacement_awb) && !combined.includes('DELIVERED TO WAREHOUSE'))
     ) {
       return { index: 3, badgeLabel: 'EXCHANGE COMPLETED' };
@@ -427,10 +459,22 @@ function TrackingContent() {
 
   const isReplacement = (tracking?.return_type || '').toUpperCase() === 'REPLACEMENT';
 
+  const hasForwardDeliveredScan = Boolean(
+    tracking?.scans &&
+      Array.isArray(tracking.scans) &&
+      tracking.scans.some(
+        (s) =>
+          !/undelivered|cancel/i.test(s.activity || '') &&
+          /delivered|package delivered|delivered to recipient|shipment delivered/i.test(s.activity || '')
+      )
+  );
+
   const isDelivered = Boolean(
     tracking?.delivered_at ||
+      tracking?.is_delivered ||
       tracking?.status === 'DELIVERED' ||
-      tracking?.shipping_status === 'DELIVERED'
+      tracking?.shipping_status === 'DELIVERED' ||
+      hasForwardDeliveredScan
   );
 
   const hasActiveReturn = Boolean(
