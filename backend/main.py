@@ -662,6 +662,7 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
         lookbook=lookbook_schemas,
         reviews=review_schemas,
         colourGroups=colour_group_schemas,
+        category=prod.category or "TOPS",
         fit=prod.fit,
         kitType=prod.kit_type,
         activity=prod.activity,
@@ -711,12 +712,20 @@ def read_api_root():
     return {"status": "ok", "service": "VAHN Backend API"}
 
 @app.get("/api/products", response_model=List[schemas.ProductSchema])
-def list_products(db: Session = Depends(get_db)):
-    products = db.query(models.Product).options(
+def list_products(
+    category: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    q = db.query(models.Product).options(
         selectinload(models.Product.variants),
         selectinload(models.Product.reviews),
         selectinload(models.Product.colour_groups)
-    ).filter_by(available_for_sale=True).all()
+    ).filter_by(available_for_sale=True)
+
+    if category:
+        q = q.filter(func.upper(models.Product.category) == category.strip().upper())
+
+    products = q.all()
     return [db_product_to_schema(p) for p in products]
 
 @app.get("/api/products/{handle}", response_model=schemas.ProductSchema)
@@ -5021,6 +5030,7 @@ def admin_list_products(
             product_type=p.product_type,
             featured_image_url=p.featured_image_url,
             tags=p.tags or [],
+            category=p.category or "TOPS",
             fit=p.fit,
             kit_type=p.kit_type,
             activity=p.activity,
@@ -5056,6 +5066,7 @@ def admin_create_product(
         featured_image_alt=payload.featured_image_alt,
         images=payload.images or [],
         lookbook=[lb.dict() for lb in payload.lookbook],
+        category=payload.category or "TOPS",
         fit=payload.fit,
         kit_type=payload.kit_type,
         activity=payload.activity,
@@ -5203,6 +5214,7 @@ def _admin_product_detail(product: models.Product) -> schemas.AdminProductDetail
         featured_image_alt=product.featured_image_alt,
         images=product.images or [],
         lookbook=product.lookbook or [],
+        category=product.category or "TOPS",
         fit=product.fit,
         kit_type=product.kit_type,
         activity=product.activity,
@@ -7471,6 +7483,117 @@ def admin_reorder_size_guide(
             sg.display_order = item.display_order
     db.commit()
     return {"message": "Reordered successfully"}
+
+
+# ============================================================
+# PRODUCT ATTRIBUTE OPTIONS (SCRUM-100)
+# ============================================================
+
+@app.get("/api/attributes", response_model=List[schemas.AttributeOptionOut])
+def get_attribute_options(
+    category: Optional[str] = Query(None),
+    attribute_type: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Public storefront / admin: fetch active attribute options filtered by category and/or attribute_type."""
+    q = db.query(models.ProductAttributeOption).filter(models.ProductAttributeOption.is_active == True)
+    if attribute_type:
+        q = q.filter(func.upper(models.ProductAttributeOption.attribute_type) == attribute_type.strip().upper())
+    if category:
+        cat_upper = category.strip().upper()
+        q = q.filter(models.ProductAttributeOption.category.in_([cat_upper, "ALL"]))
+    return q.order_by(models.ProductAttributeOption.display_order.asc(), models.ProductAttributeOption.id.asc()).all()
+
+
+@app.get("/api/admin/attributes", response_model=List[schemas.AttributeOptionOut])
+def admin_get_attribute_options(
+    category: Optional[str] = Query(None),
+    attribute_type: Optional[str] = Query(None),
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: fetch all attribute options."""
+    q = db.query(models.ProductAttributeOption)
+    if attribute_type:
+        q = q.filter(func.upper(models.ProductAttributeOption.attribute_type) == attribute_type.strip().upper())
+    if category:
+        cat_upper = category.strip().upper()
+        q = q.filter(models.ProductAttributeOption.category.in_([cat_upper, "ALL"]))
+    return q.order_by(models.ProductAttributeOption.display_order.asc(), models.ProductAttributeOption.id.asc()).all()
+
+
+@app.post("/api/admin/attributes", response_model=schemas.AttributeOptionOut, status_code=201)
+def admin_create_attribute_option(
+    payload: schemas.AttributeOptionCreate,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: create a new category-scoped attribute option with uploaded logo."""
+    norm_type = payload.attribute_type.strip().upper()
+    norm_cat = payload.category.strip().upper()
+    name_clean = payload.name.strip()
+    code = payload.code.strip().upper() if payload.code else re.sub(r"[^A-Z0-9]+", "_", name_clean.upper()).strip("_")
+
+    max_order = db.query(func.max(models.ProductAttributeOption.display_order)).filter_by(
+        attribute_type=norm_type,
+        category=norm_cat
+    ).scalar() or 0
+
+    opt = models.ProductAttributeOption(
+        attribute_type=norm_type,
+        category=norm_cat,
+        name=name_clean,
+        code=code,
+        icon_url=payload.icon_url,
+        display_order=(payload.display_order or (max_order + 1)),
+        is_active=True
+    )
+    db.add(opt)
+    db.commit()
+    db.refresh(opt)
+    return opt
+
+
+@app.put("/api/admin/attributes/{attribute_id}", response_model=schemas.AttributeOptionOut)
+def admin_update_attribute_option(
+    attribute_id: int,
+    payload: schemas.AttributeOptionUpdate,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: update an existing attribute option."""
+    opt = db.query(models.ProductAttributeOption).filter_by(id=attribute_id).first()
+    if not opt:
+        raise HTTPException(status_code=404, detail="Attribute option not found")
+    if payload.name is not None:
+        opt.name = payload.name.strip()
+    if payload.code is not None:
+        opt.code = payload.code.strip().upper()
+    if payload.icon_url is not None:
+        opt.icon_url = payload.icon_url
+    if payload.display_order is not None:
+        opt.display_order = payload.display_order
+    if payload.is_active is not None:
+        opt.is_active = payload.is_active
+    db.commit()
+    db.refresh(opt)
+    return opt
+
+
+@app.delete("/api/admin/attributes/{attribute_id}", status_code=204)
+def admin_delete_attribute_option(
+    attribute_id: int,
+    admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin: delete attribute option."""
+    opt = db.query(models.ProductAttributeOption).filter_by(id=attribute_id).first()
+    if not opt:
+        raise HTTPException(status_code=404, detail="Attribute option not found")
+    db.delete(opt)
+    db.commit()
+    return None
+
 
 
 # ============================================================

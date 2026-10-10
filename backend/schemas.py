@@ -121,6 +121,7 @@ class ProductSchema(BaseModel):
     lookbook: List[LookbookSchema] = []
     reviews: List[ReviewSchema] = []
     colourGroups: List[StorefrontColourGroupSchema] = []
+    category: Optional[str] = "TOPS"
     fit: Optional[str] = None
     kitType: Optional[str] = None
     activity: Optional[str] = None
@@ -958,6 +959,7 @@ class ProductCreateRequest(BaseModel):
     featured_image_alt: Optional[str] = None
     images: List[dict] = []
     lookbook: List[LookbookItemInput] = []
+    category: str = "TOPS"
     fit: Optional[str] = None
     kit_type: Optional[str] = None
     activity: Optional[str] = None
@@ -983,6 +985,7 @@ class ProductUpdateRequest(BaseModel):
     featured_image_alt: Optional[str] = None
     images: Optional[List[dict]] = None
     lookbook: Optional[List[LookbookItemInput]] = None
+    category: Optional[str] = None
     fit: Optional[str] = None
     kit_type: Optional[str] = None
     activity: Optional[str] = None
@@ -1013,6 +1016,7 @@ class AdminProductSummary(BaseModel):
     product_type: Optional[str]
     featured_image_url: Optional[str]
     tags: List[str]
+    category: str = "TOPS"
     fit: Optional[str]
     kit_type: Optional[str]
     activity: Optional[str]
@@ -1036,6 +1040,7 @@ class AdminProductDetail(BaseModel):
     featured_image_alt: Optional[str]
     images: List[dict]
     lookbook: List[dict]
+    category: str = "TOPS"
     fit: Optional[str]
     kit_type: Optional[str]
     activity: Optional[str]
@@ -1483,6 +1488,36 @@ class InternationalWaitlistRequest(BaseModel):
     @classmethod
     def check_email(cls, v: str) -> str:
         return validate_email_str(v)
+
+
+class AttributeOptionCreate(BaseModel):
+    attribute_type: str  # FIT | KIT_TYPE | ACTIVITY
+    category: str        # TOPS | BOTTOMS | ACCESSORIES | ALL
+    name: str
+    code: Optional[str] = None
+    icon_url: Optional[str] = None
+    display_order: Optional[int] = 0
+
+class AttributeOptionUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    icon_url: Optional[str] = None
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class AttributeOptionOut(BaseModel):
+    id: int
+    attribute_type: str
+    category: str
+    name: str
+    code: str
+    icon_url: Optional[str] = None
+    display_order: int
+    is_active: bool
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 
 

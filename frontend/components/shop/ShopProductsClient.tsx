@@ -11,9 +11,10 @@ interface Props {
   initialProducts: Product[];
 }
 
-interface ExpandedCardItem {
+export interface ExpandedCardItem {
   id: string;
   product: Product;
+  category: string;
   colourName: string;
   images: { url: string; altText?: string }[];
   price: string;
@@ -46,7 +47,7 @@ const STANDARD_SIZE_ORDER = [
 ];
 
 // ── FAQ Data (from mockup) ──
-const FAQ_ITEMS = [
+export const FAQ_ITEMS = [
   {
     q: 'WHAT DOES VAHN MAKE?',
     a: 'Right now, jerseys, built for the way you actually play.\nThis is our first drop. More is coming.',
@@ -83,7 +84,7 @@ const FAQ_ITEMS = [
 ];
 
 // ── Sort Options (matching mockup) ──
-const SORT_OPTIONS = [
+export const SORT_OPTIONS = [
   { value: 'featured', label: 'FEATURED' },
   { value: 'most-relevant', label: 'MOST RELEVANT' },
   { value: 'best-selling', label: 'BEST SELLING' },
@@ -95,10 +96,10 @@ const SORT_OPTIONS = [
   { value: 'date-old', label: 'DATE, OLD TO NEW' },
 ];
 
-const BRAND_COLOR = '#4232d9';
+export const BRAND_COLOR = '#4232d9';
 
 // ── Expand products → per-colourway items (same logic as FreshOutLocker) ──
-function getExpandedItems(products: Product[]): ExpandedCardItem[] {
+export function getExpandedItems(products: Product[]): ExpandedCardItem[] {
   const items: ExpandedCardItem[] = [];
 
   products.forEach((product) => {
@@ -150,9 +151,14 @@ function getExpandedItems(products: Product[]): ExpandedCardItem[] {
             cgImages.push({ url: product.featuredImage.url, altText: product.title });
         }
         const pool = colourVariants.length > 0 ? colourVariants : allVariants;
+        const cat = (
+          product.category ||
+          (product.title.toLowerCase().includes('wristband') ? 'ACCESSORIES' : 'TOPS')
+        ).toUpperCase();
         items.push({
           id: `${product.id}-${colourName.toLowerCase().replace(/\s+/g, '-')}`,
           product,
+          category: cat,
           colourName,
           images: cgImages,
           price: calcPrice(pool),
@@ -196,9 +202,14 @@ function getExpandedItems(products: Product[]): ExpandedCardItem[] {
           if (colImages.length === 0 && product.featuredImage?.url)
             colImages.push({ url: product.featuredImage.url, altText: product.title });
           const pool = colourVariants.length > 0 ? colourVariants : allVariants;
+          const cat = (
+            product.category ||
+            (product.title.toLowerCase().includes('wristband') ? 'ACCESSORIES' : 'TOPS')
+          ).toUpperCase();
           items.push({
             id: `${product.id}-${col.toLowerCase().replace(/\s+/g, '-')}`,
             product,
+            category: cat,
             colourName: col,
             images: colImages,
             price: calcPrice(pool),
@@ -219,9 +230,14 @@ function getExpandedItems(products: Product[]): ExpandedCardItem[] {
         }));
         if (prodImages.length === 0 && product.featuredImage?.url)
           prodImages.push({ url: product.featuredImage.url, altText: product.title });
+        const cat = (
+          product.category ||
+          (product.title.toLowerCase().includes('wristband') ? 'ACCESSORIES' : 'TOPS')
+        ).toUpperCase();
         items.push({
           id: product.id,
           product,
+          category: cat,
           colourName: '',
           images: prodImages,
           price: calcPrice(allVariants),
@@ -335,7 +351,7 @@ function FaqItem({
 }
 
 // ── Product Card — identical to FreshOutLocker LockerCard, adapted for grid ──
-function ShopCard({ item }: { item: ExpandedCardItem }) {
+export function ShopCard({ item }: { item: ExpandedCardItem }) {
   const { addItem } = useCart();
   const [imgIdx, setImgIdx] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
@@ -899,6 +915,19 @@ export default function ShopProductsClient({ initialProducts }: Props) {
 
   const allItems = useMemo(() => getExpandedItems(initialProducts), [initialProducts]);
 
+  const topsItems = useMemo(
+    () => allItems.filter((i) => (i.category || 'TOPS').toUpperCase() === 'TOPS'),
+    [allItems]
+  );
+  const bottomsItems = useMemo(
+    () => allItems.filter((i) => (i.category || '').toUpperCase() === 'BOTTOMS'),
+    [allItems]
+  );
+  const accessoriesItems = useMemo(
+    () => allItems.filter((i) => (i.category || '').toUpperCase() === 'ACCESSORIES'),
+    [allItems]
+  );
+
   // Derived filter options
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -1086,6 +1115,91 @@ export default function ShopProductsClient({ initialProducts }: Props) {
         >
           Our first drop is here — limited pieces, made to move with you.
         </p>
+
+        {/* Category Quick Jump Badges */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '18px' }}>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedCategory('ALL');
+              setSelectedFit('ALL');
+            }}
+            style={{
+              padding: '6px 14px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              border:
+                selectedCategory === 'ALL' && selectedFit === 'ALL' && sortBy === 'featured'
+                  ? '1px solid #111111'
+                  : '1px solid #d0d0d0',
+              background:
+                selectedCategory === 'ALL' && selectedFit === 'ALL' && sortBy === 'featured'
+                  ? '#111111'
+                  : '#ffffff',
+              color:
+                selectedCategory === 'ALL' && selectedFit === 'ALL' && sortBy === 'featured'
+                  ? '#ffffff'
+                  : '#333333',
+              cursor: 'pointer',
+              borderRadius: 0,
+            }}
+          >
+            ALL SECTIONS ({allItems.length})
+          </button>
+          <Link
+            href="/products/tops"
+            style={{
+              padding: '6px 14px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              border: '1px solid #d0d0d0',
+              background: '#ffffff',
+              color: '#333333',
+              textDecoration: 'none',
+              borderRadius: 0,
+            }}
+          >
+            TOPS ({topsItems.length}) →
+          </Link>
+          <Link
+            href="/products/bottoms"
+            style={{
+              padding: '6px 14px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              border: '1px solid #d0d0d0',
+              background: '#ffffff',
+              color: '#333333',
+              textDecoration: 'none',
+              borderRadius: 0,
+            }}
+          >
+            BOTTOMS ({bottomsItems.length}) →
+          </Link>
+          <Link
+            href="/products/accessories"
+            style={{
+              padding: '6px 14px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              border: '1px solid #d0d0d0',
+              background: '#ffffff',
+              color: '#333333',
+              textDecoration: 'none',
+              borderRadius: 0,
+            }}
+          >
+            ACCESSORIES ({accessoriesItems.length}) →
+          </Link>
+        </div>
       </div>
 
       {/* ── Sort Bar ── */}
@@ -1165,36 +1279,329 @@ export default function ShopProductsClient({ initialProducts }: Props) {
         </div>
       </div>
 
-      {/* ── Product Grid ── */}
+      {/* ── Product Grid: Section-Wise (Default) OR Filtered Grid ── */}
       <main className="shop-container-pad shop-main-section">
-        {filteredItems.length === 0 ? (
-          <div style={{ padding: '80px 20px', textAlign: 'center', border: '1px solid #e5e5e5' }}>
-            <p
-              style={{
-                fontSize: '1.125rem',
-                fontWeight: 700,
-                margin: '0 0 6px',
-                fontFamily: 'var(--font-heading)',
-              }}
-            >
-              No products found
-            </p>
-            <p
-              style={{
-                fontSize: '0.875rem',
-                color: '#666',
-                margin: 0,
-                fontFamily: 'var(--font-body)',
-              }}
-            >
-              Check back soon for new drops.
-            </p>
-          </div>
+        {hasActiveFilters || sortBy !== 'featured' ? (
+          filteredItems.length === 0 ? (
+            <div style={{ padding: '80px 20px', textAlign: 'center', border: '1px solid #e5e5e5' }}>
+              <p
+                style={{
+                  fontSize: '1.125rem',
+                  fontWeight: 700,
+                  margin: '0 0 6px',
+                  fontFamily: 'var(--font-heading)',
+                }}
+              >
+                No products found
+              </p>
+              <p
+                style={{
+                  fontSize: '0.875rem',
+                  color: '#666',
+                  margin: 0,
+                  fontFamily: 'var(--font-body)',
+                }}
+              >
+                Try clearing your active filters or sort selection.
+              </p>
+            </div>
+          ) : (
+            <div className="shop-grid">
+              {filteredItems.map((item) => (
+                <ShopCard key={item.id} item={item} />
+              ))}
+            </div>
+          )
         ) : (
-          <div className="shop-grid">
-            {filteredItems.map((item) => (
-              <ShopCard key={item.id} item={item} />
-            ))}
+          /* Default Section-Wise View: TOPS, BOTTOMS, ACCESSORIES (10-12 items each + View All link) */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
+            {/* Section 1: TOPS */}
+            <section>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '24px',
+                  borderBottom: '2px solid #111111',
+                  paddingBottom: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                  <h2
+                    style={{
+                      fontFamily: 'var(--font-heading)',
+                      fontSize: 'clamp(1.15rem, 2.5vw, 1.45rem)',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      letterSpacing: '-0.01em',
+                      margin: 0,
+                    }}
+                  >
+                    TOPS
+                  </h2>
+                  <span style={{ fontSize: '0.75rem', color: '#666666', fontWeight: 600 }}>
+                    ({topsItems.length} ITEMS)
+                  </span>
+                </div>
+                <Link
+                  href="/products/tops"
+                  style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    color: BRAND_COLOR,
+                    textDecoration: 'none',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  VIEW ALL TOPS ({topsItems.length}) →
+                </Link>
+              </div>
+
+              {topsItems.length === 0 ? (
+                <div
+                  style={{
+                    padding: '40px 20px',
+                    textAlign: 'center',
+                    border: '1px solid #ebebeb',
+                    background: '#fafafa',
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>No tops found.</p>
+                </div>
+              ) : (
+                <div className="shop-grid">
+                  {topsItems.slice(0, 12).map((item) => (
+                    <ShopCard key={item.id} item={item} />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Section 2: BOTTOMS */}
+            <section>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '24px',
+                  borderBottom: '2px solid #111111',
+                  paddingBottom: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                  <h2
+                    style={{
+                      fontFamily: 'var(--font-heading)',
+                      fontSize: 'clamp(1.15rem, 2.5vw, 1.45rem)',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      letterSpacing: '-0.01em',
+                      margin: 0,
+                    }}
+                  >
+                    BOTTOMS
+                  </h2>
+                  <span style={{ fontSize: '0.75rem', color: '#666666', fontWeight: 600 }}>
+                    ({bottomsItems.length} ITEMS)
+                  </span>
+                </div>
+                <Link
+                  href="/products/bottoms"
+                  style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    color: BRAND_COLOR,
+                    textDecoration: 'none',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  VIEW ALL BOTTOMS ({bottomsItems.length}) →
+                </Link>
+              </div>
+
+              {bottomsItems.length === 0 ? (
+                <div
+                  style={{
+                    padding: '56px 24px',
+                    textAlign: 'center',
+                    border: '1px solid #e0e0e0',
+                    background: '#fafafa',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'inline-block',
+                      padding: '3px 10px',
+                      background: '#111111',
+                      color: '#ffffff',
+                      fontSize: '0.6875rem',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    NEXT DROP
+                  </div>
+                  <h3
+                    style={{
+                      fontFamily: 'var(--font-heading)',
+                      fontSize: '1.15rem',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      margin: '0 0 8px',
+                    }}
+                  >
+                    BOTTOMS — DROP COMING SOON
+                  </h3>
+                  <p
+                    style={{
+                      fontSize: '0.85rem',
+                      color: '#666666',
+                      margin: '0 auto 16px',
+                      maxWidth: '440px',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Performance shorts, trackpants & base layers engineered with precision.
+                  </p>
+                  <Link
+                    href="/products/bottoms"
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 800,
+                      color: '#111111',
+                      textDecoration: 'underline',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    VIEW BOTTOMS COLLECTION →
+                  </Link>
+                </div>
+              ) : (
+                <div className="shop-grid">
+                  {bottomsItems.slice(0, 12).map((item) => (
+                    <ShopCard key={item.id} item={item} />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Section 3: ACCESSORIES */}
+            <section>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '24px',
+                  borderBottom: '2px solid #111111',
+                  paddingBottom: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                  <h2
+                    style={{
+                      fontFamily: 'var(--font-heading)',
+                      fontSize: 'clamp(1.15rem, 2.5vw, 1.45rem)',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      letterSpacing: '-0.01em',
+                      margin: 0,
+                    }}
+                  >
+                    ACCESSORIES
+                  </h2>
+                  <span style={{ fontSize: '0.75rem', color: '#666666', fontWeight: 600 }}>
+                    ({accessoriesItems.length} ITEMS)
+                  </span>
+                </div>
+                <Link
+                  href="/products/accessories"
+                  style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    color: BRAND_COLOR,
+                    textDecoration: 'none',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  VIEW ALL ACCESSORIES ({accessoriesItems.length}) →
+                </Link>
+              </div>
+
+              {accessoriesItems.length === 0 ? (
+                <div
+                  style={{
+                    padding: '56px 24px',
+                    textAlign: 'center',
+                    border: '1px solid #e0e0e0',
+                    background: '#fafafa',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'inline-block',
+                      padding: '3px 10px',
+                      background: '#111111',
+                      color: '#ffffff',
+                      fontSize: '0.6875rem',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    NEXT DROP
+                  </div>
+                  <h3
+                    style={{
+                      fontFamily: 'var(--font-heading)',
+                      fontSize: '1.15rem',
+                      fontWeight: 900,
+                      textTransform: 'uppercase',
+                      margin: '0 0 8px',
+                    }}
+                  >
+                    ACCESSORIES — DROP COMING SOON
+                  </h3>
+                  <p
+                    style={{
+                      fontSize: '0.85rem',
+                      color: '#666666',
+                      margin: '0 auto 16px',
+                      maxWidth: '440px',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Wristbands, sweatbands & performance gear built for movement.
+                  </p>
+                  <Link
+                    href="/products/accessories"
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 800,
+                      color: '#111111',
+                      textDecoration: 'underline',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    VIEW ACCESSORIES COLLECTION →
+                  </Link>
+                </div>
+              ) : (
+                <div className="shop-grid">
+                  {accessoriesItems.slice(0, 12).map((item) => (
+                    <ShopCard key={item.id} item={item} />
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         )}
       </main>

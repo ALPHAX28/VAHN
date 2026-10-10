@@ -44,6 +44,7 @@ class Product(Base):
     featured_image_alt = Column(String, nullable=True)
     images = Column(JSON, default=list)  # [{url, altText}]
     lookbook = Column(JSON, default=list)  # [{id, imageUrl, title, description}]
+    category = Column(String(32), default="TOPS", nullable=False, index=True) # TOPS | BOTTOMS | ACCESSORIES
     fit = Column(String, nullable=True)      # SLIM | OVERSIZED | REGULAR
     kit_type = Column(String, nullable=True) # HOME | SIGNATURE | JERSEY
     activity = Column(String, nullable=True) # FOOTBALL | LIFESTYLE | STREETWEAR
@@ -399,6 +400,22 @@ class WarehouseLocation(Base):
     pin_code = Column(String, nullable=False)
     is_primary = Column(Boolean, default=False, nullable=False)
     shiprocket_pickup_id = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ProductAttributeOption(Base):
+    """Dynamic, category-scoped attribute options with uploaded brand icons (SCRUM-100)."""
+    __tablename__ = "product_attribute_options"
+
+    id = Column(Integer, primary_key=True, index=True)
+    attribute_type = Column(String(32), nullable=False, index=True)  # FIT | KIT_TYPE | ACTIVITY
+    category = Column(String(32), nullable=False, index=True)        # TOPS | BOTTOMS | ACCESSORIES | ALL
+    name = Column(String(100), nullable=False)                       # e.g. "Relaxed Fit", "Tapered Fit"
+    code = Column(String(100), nullable=False)                       # Normalized key, e.g. "RELAXED_FIT"
+    icon_url = Column(String(500), nullable=True)                    # S3 URL to transparent icon
+    display_order = Column(Integer, default=0, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

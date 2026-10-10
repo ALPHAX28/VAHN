@@ -68,6 +68,7 @@ export interface Product {
   lookbook?: LookbookItem[];
   reviews?: Review[];
   colourGroups?: ColourGroup[];
+  category?: 'TOPS' | 'BOTTOMS' | 'ACCESSORIES' | string;
   fit?: string | null;
   kitType?: string | null;
   activity?: string | null;

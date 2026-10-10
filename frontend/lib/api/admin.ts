@@ -20,6 +20,7 @@ export interface AdminProductSummary {
   product_type: string | null;
   featured_image_url: string | null;
   tags: string[];
+  category?: string;
   fit: string | null;
   kit_type: string | null;
   activity: string | null;
@@ -980,5 +981,61 @@ export const initiateAdminOrderReturn = (
   adminFetch<AdminOrder>(`/admin/orders/${orderId}/initiate-return`, token, {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+
+// ── Product Attribute Options (SCRUM-100) ───────────────────────────────────
+
+export interface AttributeOption {
+  id: number;
+  attribute_type: string; // 'FIT' | 'KIT_TYPE' | 'ACTIVITY'
+  category: string;       // 'TOPS' | 'BOTTOMS' | 'ACCESSORIES' | 'ALL'
+  name: string;
+  code: string;
+  icon_url: string | null;
+  display_order: number;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export const getAttributeOptions = async (category?: string, attributeType?: string): Promise<AttributeOption[]> => {
+  const params = new URLSearchParams();
+  if (category) params.set('category', category);
+  if (attributeType) params.set('attribute_type', attributeType);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(`${getApiBaseUrl()}/attributes${qs}`);
+  if (!res.ok) throw new Error('Failed to fetch attribute options');
+  return res.json();
+};
+
+export const getAdminAttributeOptions = (token: string, category?: string, attributeType?: string) => {
+  const params = new URLSearchParams();
+  if (category) params.set('category', category);
+  if (attributeType) params.set('attribute_type', attributeType);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  return adminFetch<AttributeOption[]>(`/admin/attributes${qs}`, token);
+};
+
+export const createAdminAttributeOption = (
+  token: string,
+  payload: { attribute_type: string; category: string; name: string; code?: string; icon_url?: string; display_order?: number }
+) =>
+  adminFetch<AttributeOption>('/admin/attributes', token, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+export const updateAdminAttributeOption = (
+  token: string,
+  id: number,
+  payload: Partial<AttributeOption>
+) =>
+  adminFetch<AttributeOption>(`/admin/attributes/${id}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+
+export const deleteAdminAttributeOption = (token: string, id: number) =>
+  adminFetch<void>(`/admin/attributes/${id}`, token, {
+    method: 'DELETE',
   });
 

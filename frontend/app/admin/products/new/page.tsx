@@ -1,79 +1,123 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAdminAuth } from "@/context/AdminAuthContext";
-import { getAdminProducts, createAdminProduct, createColourGroup } from "@/lib/api/admin";
-import { adminListSizeGuide, type SizeGuideType } from "@/lib/api/sizeGuide";
-import AdminImageUploader, { type UploadedImage, uploadPendingImages } from "@/components/admin/AdminImageUploader";
-import AdminTagInput from "@/components/admin/AdminTagInput";
-import AdminLookbookManager, { type LookbookItem, uploadPendingLookbookImages } from "@/components/admin/AdminLookbookManager";
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import AdminAttributeModal from '@/components/admin/AdminAttributeModal';
+import AdminImageUploader, {
+  type UploadedImage,
+  uploadPendingImages,
+} from '@/components/admin/AdminImageUploader';
+import AdminLookbookManager, {
+  type LookbookItem,
+  uploadPendingLookbookImages,
+} from '@/components/admin/AdminLookbookManager';
+import AdminTagInput from '@/components/admin/AdminTagInput';
+import { useAdminAuth } from '@/context/AdminAuthContext';
+import {
+  type AttributeOption,
+  createAdminProduct,
+  createColourGroup,
+  getAdminAttributeOptions,
+  getAdminProducts,
+} from '@/lib/api/admin';
+import { adminListSizeGuide, type SizeGuideType } from '@/lib/api/sizeGuide';
 
-const STANDARD_SIZES = ["S", "M", "L", "XL", "2XL", "3XL"];
+const STANDARD_SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL'];
 
 interface ColourGroupForm {
   colour_value: string;
   images: UploadedImage[];
   lookbook?: LookbookItem[];
-  sizes: Record<string, { inventory_quantity: number | string; price_amount: number | string; compare_at_price_amount: string }>;
+  sizes: Record<
+    string,
+    {
+      inventory_quantity: number | string;
+      price_amount: number | string;
+      compare_at_price_amount: string;
+    }
+  >;
 }
 
 export default function NewProductPage() {
   const { adminToken } = useAdminAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [allSizeGuides, setAllSizeGuides] = useState<SizeGuideType[]>([]);
   const [selectedSizeGuideIds, setSelectedSizeGuideIds] = useState<number[]>([]);
   const [lookbookItems, setLookbookItems] = useState<LookbookItem[]>([]);
   const [selectedColourIndex, setSelectedColourIndex] = useState<number>(0);
 
-
   const [form, setForm] = useState({
-    title: "",
-    description: "",
-    size_fit_details: "",
-    care_instructions: "",
-    product_details: "",
-    vendor: "VAHN",
-    product_type: "Jersey",
+    title: '',
+    category: 'TOPS' as 'TOPS' | 'BOTTOMS' | 'ACCESSORIES',
+    description: '',
+    size_fit_details: '',
+    care_instructions: '',
+    product_details: '',
+    vendor: 'VAHN',
+    product_type: 'Jersey',
     available_for_sale: true,
-    fit: "",
-    kit_type: "",
-    activity: "",
+    fit: '',
+    kit_type: '',
+    activity: '',
     gst_percent: 12,
     shipping_rate: null as number | null,
   });
 
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    type: 'FIT' | 'KIT_TYPE' | 'ACTIVITY';
+  }>({
+    isOpen: false,
+    type: 'FIT',
+  });
 
   // Dynamic Options lists for Product Type, Fit, Kit Type, Activity
-  const [productTypeOptions, setProductTypeOptions] = useState(["Jersey", "T-Shirt", "Hoodie", "Sweatshirt", "Pants", "Shorts", "Jacket", "Accessories", "Streetwear", "Footwear"]);
-  const [fitOptions, setFitOptions] = useState(["SLIM", "REGULAR", "RELAXED FIT", "OVERSIZED"]);
+  const [productTypeOptions, setProductTypeOptions] = useState([
+    'Jersey',
+    'T-Shirt',
+    'Hoodie',
+    'Sweatshirt',
+    'Pants',
+    'Shorts',
+    'Jacket',
+    'Accessories',
+    'Streetwear',
+    'Footwear',
+  ]);
+  const [fitOptions, setFitOptions] = useState(['SLIM', 'REGULAR', 'RELAXED FIT', 'OVERSIZED']);
 
-  const [kitTypeOptions, setKitTypeOptions] = useState(["JERSEY", "HOME", "SIGNATURE"]);
-  const [activityOptions, setActivityOptions] = useState(["FOOTBALL", "LIFESTYLE", "STREETWEAR", "CRICKET", "BASKETBALL"]);
+  const [kitTypeOptions, setKitTypeOptions] = useState(['JERSEY', 'HOME', 'SIGNATURE']);
+  const [activityOptions, setActivityOptions] = useState([
+    'FOOTBALL',
+    'LIFESTYLE',
+    'STREETWEAR',
+    'CRICKET',
+    'BASKETBALL',
+  ]);
 
   // Custom addition inputs
-  const [newProductTypeInput, setNewProductTypeInput] = useState("");
+  const [newProductTypeInput, setNewProductTypeInput] = useState('');
   const [showNewProductTypeInput, setShowNewProductTypeInput] = useState(false);
 
-  const [newFitInput, setNewFitInput] = useState("");
+  const [newFitInput, setNewFitInput] = useState('');
   const [showNewFitInput, setShowNewFitInput] = useState(false);
 
-  const [newKitTypeInput, setNewKitTypeInput] = useState("");
+  const [newKitTypeInput, setNewKitTypeInput] = useState('');
   const [showNewKitTypeInput, setShowNewKitTypeInput] = useState(false);
 
-  const [newActivityInput, setNewActivityInput] = useState("");
+  const [newActivityInput, setNewActivityInput] = useState('');
   const [showNewActivityInput, setShowNewActivityInput] = useState(false);
 
   function handleAddCustomProductType() {
     const val = newProductTypeInput.trim();
     if (!val) return;
     if (!productTypeOptions.includes(val)) {
-      setProductTypeOptions(opts => [...opts, val]);
+      setProductTypeOptions((opts) => [...opts, val]);
     }
-    setForm(f => ({ ...f, product_type: val }));
-    setNewProductTypeInput("");
+    setForm((f) => ({ ...f, product_type: val }));
+    setNewProductTypeInput('');
     setShowNewProductTypeInput(false);
   }
 
@@ -81,18 +125,22 @@ export default function NewProductPage() {
     if (!typeToDelete) return;
     if (!confirm(`Remove "${typeToDelete}" from Product Type options?`)) return;
 
-    setProductTypeOptions(prev => prev.filter(t => t.toLowerCase() !== typeToDelete.toLowerCase()));
+    setProductTypeOptions((prev) =>
+      prev.filter((t) => t.toLowerCase() !== typeToDelete.toLowerCase())
+    );
 
     try {
-      const storedDeleted = JSON.parse(localStorage.getItem("vahn_deleted_product_types") || "[]");
+      const storedDeleted = JSON.parse(localStorage.getItem('vahn_deleted_product_types') || '[]');
       if (!storedDeleted.some((dt: string) => dt.toLowerCase() === typeToDelete.toLowerCase())) {
         storedDeleted.push(typeToDelete);
-        localStorage.setItem("vahn_deleted_product_types", JSON.stringify(storedDeleted));
+        localStorage.setItem('vahn_deleted_product_types', JSON.stringify(storedDeleted));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
 
     if (form.product_type === typeToDelete) {
-      setForm(f => ({ ...f, product_type: "" }));
+      setForm((f) => ({ ...f, product_type: '' }));
     }
   }
 
@@ -111,60 +159,104 @@ export default function NewProductPage() {
 
     getAdminProducts(adminToken)
 
-      .then(res => {
+      .then((res) => {
         let deletedTypes: string[] = [];
         try {
-          deletedTypes = JSON.parse(localStorage.getItem("vahn_deleted_product_types") || "[]");
-        } catch (e) { console.error(e); }
+          deletedTypes = JSON.parse(localStorage.getItem('vahn_deleted_product_types') || '[]');
+        } catch (e) {
+          console.error(e);
+        }
 
-        const defaultTypes = ["Jersey", "T-Shirt", "Hoodie", "Sweatshirt", "Pants", "Shorts", "Jacket", "Accessories", "Streetwear", "Footwear"];
-        const dbTypes = (res.items || []).map(item => item.product_type).filter((t): t is string => Boolean(t && t.trim()));
+        const defaultTypes = [
+          'Jersey',
+          'T-Shirt',
+          'Hoodie',
+          'Sweatshirt',
+          'Pants',
+          'Shorts',
+          'Jacket',
+          'Accessories',
+          'Streetwear',
+          'Footwear',
+        ];
+        const dbTypes = (res.items || [])
+          .map((item) => item.product_type)
+          .filter((t): t is string => Boolean(t && t.trim()));
         const merged = Array.from(new Set([...defaultTypes, ...dbTypes]));
-        const filtered = merged.filter(t => !deletedTypes.some(dt => dt.toLowerCase() === t.toLowerCase()));
+        const filtered = merged.filter(
+          (t) => !deletedTypes.some((dt) => dt.toLowerCase() === t.toLowerCase())
+        );
         setProductTypeOptions(filtered);
 
-        const defaultFits = ["SLIM", "REGULAR", "RELAXED FIT", "OVERSIZED"];
+        const defaultFits = ['SLIM', 'REGULAR', 'RELAXED FIT', 'OVERSIZED'];
 
-        const dbFits = (res.items || []).map(item => item.fit).filter((f): f is string => Boolean(f && f.trim()));
+        const dbFits = (res.items || [])
+          .map((item) => item.fit)
+          .filter((f): f is string => Boolean(f && f.trim()));
         setFitOptions(Array.from(new Set([...defaultFits, ...dbFits])));
 
-        const defaultKits = ["JERSEY", "HOME", "SIGNATURE"];
-        const dbKits = (res.items || []).map(item => item.kit_type).filter((k): k is string => Boolean(k && k.trim()));
+        const defaultKits = ['JERSEY', 'HOME', 'SIGNATURE'];
+        const dbKits = (res.items || [])
+          .map((item) => item.kit_type)
+          .filter((k): k is string => Boolean(k && k.trim()));
         setKitTypeOptions(Array.from(new Set([...defaultKits, ...dbKits])));
 
-        const defaultActivities = ["FOOTBALL", "LIFESTYLE", "STREETWEAR", "CRICKET", "BASKETBALL"];
-        const dbActivities = (res.items || []).map(item => item.activity).filter((a): a is string => Boolean(a && a.trim()));
+        const defaultActivities = ['FOOTBALL', 'LIFESTYLE', 'STREETWEAR', 'CRICKET', 'BASKETBALL'];
+        const dbActivities = (res.items || [])
+          .map((item) => item.activity)
+          .filter((a): a is string => Boolean(a && a.trim()));
         setActivityOptions(Array.from(new Set([...defaultActivities, ...dbActivities])));
       })
       .catch(() => {});
   }, [adminToken]);
 
+  // Load category-scoped attribute options from DB whenever selected category changes
+  useEffect(() => {
+    if (!adminToken) return;
+    getAdminAttributeOptions(adminToken, form.category)
+      .then((opts) => {
+        const fits = opts.filter((o) => o.attribute_type === 'FIT').map((o) => o.name);
+        if (fits.length > 0) setFitOptions(fits);
+        const kits = opts.filter((o) => o.attribute_type === 'KIT_TYPE').map((o) => o.name);
+        if (kits.length > 0) setKitTypeOptions(kits);
+        const acts = opts.filter((o) => o.attribute_type === 'ACTIVITY').map((o) => o.name);
+        if (acts.length > 0) setActivityOptions(acts);
+      })
+      .catch(() => {});
+  }, [adminToken, form.category]);
+
   const [tags, setTags] = useState<string[]>([]);
   const [featuredThumbnail, setFeaturedThumbnail] = useState<UploadedImage[]>([]);
-  const [sizeFitInput, setSizeFitInput] = useState<string>("");
-  const [customSizeInput, setCustomSizeInput] = useState("");
+  const [sizeFitInput, setSizeFitInput] = useState<string>('');
+  const [customSizeInput, setCustomSizeInput] = useState('');
 
   // Colour Groups hierarchy state (SCRUM-19: Start with no pre-selected sizes by default)
   const [colourGroups, setColourGroups] = useState<ColourGroupForm[]>([
     {
-      colour_value: "Maroon",
+      colour_value: 'Maroon',
       images: [],
       sizes: {},
     },
   ]);
 
-  const updateForm = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
-    setForm(f => ({ ...f, [field]: e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value }));
+  const updateForm =
+    (field: string) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setForm((f) => ({
+        ...f,
+        [field]:
+          e.target.type === 'checkbox' ? (e.target as HTMLInputElement).checked : e.target.value,
+      }));
 
   // Fit / Kit Type / Activity Addition Helpers
   function handleAddCustomFit() {
     const val = newFitInput.trim().toUpperCase();
     if (!val) return;
     if (!fitOptions.includes(val)) {
-      setFitOptions(opts => [...opts, val]);
+      setFitOptions((opts) => [...opts, val]);
     }
-    setForm(f => ({ ...f, fit: val }));
-    setNewFitInput("");
+    setForm((f) => ({ ...f, fit: val }));
+    setNewFitInput('');
     setShowNewFitInput(false);
   }
 
@@ -172,10 +264,10 @@ export default function NewProductPage() {
     const val = newKitTypeInput.trim().toUpperCase();
     if (!val) return;
     if (!kitTypeOptions.includes(val)) {
-      setKitTypeOptions(opts => [...opts, val]);
+      setKitTypeOptions((opts) => [...opts, val]);
     }
-    setForm(f => ({ ...f, kit_type: val }));
-    setNewKitTypeInput("");
+    setForm((f) => ({ ...f, kit_type: val }));
+    setNewKitTypeInput('');
     setShowNewKitTypeInput(false);
   }
 
@@ -183,19 +275,19 @@ export default function NewProductPage() {
     const val = newActivityInput.trim().toUpperCase();
     if (!val) return;
     if (!activityOptions.includes(val)) {
-      setActivityOptions(opts => [...opts, val]);
+      setActivityOptions((opts) => [...opts, val]);
     }
-    setForm(f => ({ ...f, activity: val }));
-    setNewActivityInput("");
+    setForm((f) => ({ ...f, activity: val }));
+    setNewActivityInput('');
     setShowNewActivityInput(false);
   }
 
   // Colour Group Helpers
   function addColourGroup() {
-    setColourGroups(groups => [
+    setColourGroups((groups) => [
       ...groups,
       {
-        colour_value: "",
+        colour_value: '',
         images: [],
         sizes: {}, // SCRUM-19: No pre-selected sizes
       },
@@ -203,138 +295,158 @@ export default function NewProductPage() {
   }
 
   function removeColourGroup(groupIndex: number) {
-    setColourGroups(groups => groups.filter((_, idx) => idx !== groupIndex));
+    setColourGroups((groups) => groups.filter((_, idx) => idx !== groupIndex));
   }
 
   function updateColourName(groupIndex: number, name: string) {
-    setColourGroups(groups => groups.map((g, idx) => idx === groupIndex ? { ...g, colour_value: name } : g));
+    setColourGroups((groups) =>
+      groups.map((g, idx) => (idx === groupIndex ? { ...g, colour_value: name } : g))
+    );
   }
 
   function updateColourImages(groupIndex: number, images: UploadedImage[]) {
-    setColourGroups(groups => groups.map((g, idx) => idx === groupIndex ? { ...g, images } : g));
+    setColourGroups((groups) =>
+      groups.map((g, idx) => (idx === groupIndex ? { ...g, images } : g))
+    );
   }
 
   function toggleSizeForGroup(groupIndex: number, size: string) {
-    setColourGroups(groups => groups.map((g, idx) => {
-      if (idx !== groupIndex) return g;
-      const sizes = { ...g.sizes };
-      if (sizes[size]) {
-        delete sizes[size];
-      } else {
-        // Start with clean empty values so no leading 0 is locked
-        sizes[size] = { inventory_quantity: "", price_amount: "", compare_at_price_amount: "" };
-      }
-      return { ...g, sizes };
-    }));
+    setColourGroups((groups) =>
+      groups.map((g, idx) => {
+        if (idx !== groupIndex) return g;
+        const sizes = { ...g.sizes };
+        if (sizes[size]) {
+          delete sizes[size];
+        } else {
+          // Start with clean empty values so no leading 0 is locked
+          sizes[size] = { inventory_quantity: '', price_amount: '', compare_at_price_amount: '' };
+        }
+        return { ...g, sizes };
+      })
+    );
   }
 
   // SCRUM-20: Remove added size record directly from size matrix
   function removeSizeFromGroup(groupIndex: number, size: string) {
-    setColourGroups(groups => groups.map((g, idx) => {
-      if (idx !== groupIndex) return g;
-      const sizes = { ...g.sizes };
-      delete sizes[size];
-      return { ...g, sizes };
-    }));
+    setColourGroups((groups) =>
+      groups.map((g, idx) => {
+        if (idx !== groupIndex) return g;
+        const sizes = { ...g.sizes };
+        delete sizes[size];
+        return { ...g, sizes };
+      })
+    );
   }
 
   function addCustomSizeToGroup(groupIndex: number) {
     const size = customSizeInput.trim().toUpperCase();
     if (!size) return;
-    setColourGroups(groups => groups.map((g, idx) => {
-      if (idx !== groupIndex) return g;
-      return {
-        ...g,
-        sizes: {
-          ...g.sizes,
-          // Start with clean empty values so no leading 0 is locked
-          [size]: { inventory_quantity: "", price_amount: "", compare_at_price_amount: "" },
-        },
-      };
-    }));
-    setCustomSizeInput("");
+    setColourGroups((groups) =>
+      groups.map((g, idx) => {
+        if (idx !== groupIndex) return g;
+        return {
+          ...g,
+          sizes: {
+            ...g.sizes,
+            // Start with clean empty values so no leading 0 is locked
+            [size]: { inventory_quantity: '', price_amount: '', compare_at_price_amount: '' },
+          },
+        };
+      })
+    );
+    setCustomSizeInput('');
   }
 
-  function updateSizeMatrix(groupIndex: number, size: string, field: "inventory_quantity" | "price_amount" | "compare_at_price_amount" | "discount_percent", val: string | number) {
-    setColourGroups(groups => groups.map((g, idx) => {
-      if (idx !== groupIndex) return g;
-      const currentMeta = g.sizes[size] || { inventory_quantity: "", price_amount: "", compare_at_price_amount: "" };
-      let updatedQty = currentMeta.inventory_quantity;
-      let updatedPrice = currentMeta.price_amount;
-      let updatedCompare = currentMeta.compare_at_price_amount;
+  function updateSizeMatrix(
+    groupIndex: number,
+    size: string,
+    field: 'inventory_quantity' | 'price_amount' | 'compare_at_price_amount' | 'discount_percent',
+    val: string | number
+  ) {
+    setColourGroups((groups) =>
+      groups.map((g, idx) => {
+        if (idx !== groupIndex) return g;
+        const currentMeta = g.sizes[size] || {
+          inventory_quantity: '',
+          price_amount: '',
+          compare_at_price_amount: '',
+        };
+        let updatedQty = currentMeta.inventory_quantity;
+        let updatedPrice = currentMeta.price_amount;
+        let updatedCompare = currentMeta.compare_at_price_amount;
 
-      if (field === "inventory_quantity") {
-        if (val === "" || val === null || val === undefined) {
-          updatedQty = "";
-        } else {
-          const cleanStr = String(val).replace(/^0+(?=\d)/, ""); // Strips unwanted leading zeros e.g. "022" -> "22"
-          const parsed = parseInt(cleanStr, 10);
-          updatedQty = isNaN(parsed) ? "" : Math.max(0, parsed);
+        if (field === 'inventory_quantity') {
+          if (val === '' || val === null || val === undefined) {
+            updatedQty = '';
+          } else {
+            const cleanStr = String(val).replace(/^0+(?=\d)/, ''); // Strips unwanted leading zeros e.g. "022" -> "22"
+            const parsed = parseInt(cleanStr, 10);
+            updatedQty = isNaN(parsed) ? '' : Math.max(0, parsed);
+          }
+        } else if (field === 'price_amount') {
+          if (val === '' || val === null || val === undefined) {
+            updatedPrice = '';
+          } else {
+            const cleanStr = String(val).replace(/^0+(?=\d)/, '');
+            const parsed = parseInt(cleanStr, 10);
+            updatedPrice = isNaN(parsed) ? '' : Math.max(0, parsed);
+          }
+        } else if (field === 'compare_at_price_amount') {
+          if (val === '' || val === null || val === undefined) {
+            updatedCompare = '';
+          } else {
+            const cleanStr = String(val).replace(/^0+(?=\d)/, '');
+            const parsed = parseInt(cleanStr, 10);
+            updatedCompare = isNaN(parsed) ? '' : String(Math.max(0, parsed));
+          }
+        } else if (field === 'discount_percent') {
+          const discPct = Math.round(Math.max(0, Number(val) || 0));
+          const numPrice = Number(updatedPrice) || 0;
+          if (discPct > 0 && numPrice > 0) {
+            updatedCompare = String(Math.round(numPrice / (1 - discPct / 100)));
+          } else if (discPct === 0) {
+            updatedCompare = '';
+          }
         }
-      } else if (field === "price_amount") {
-        if (val === "" || val === null || val === undefined) {
-          updatedPrice = "";
-        } else {
-          const cleanStr = String(val).replace(/^0+(?=\d)/, "");
-          const parsed = parseInt(cleanStr, 10);
-          updatedPrice = isNaN(parsed) ? "" : Math.max(0, parsed);
-        }
-      } else if (field === "compare_at_price_amount") {
-        if (val === "" || val === null || val === undefined) {
-          updatedCompare = "";
-        } else {
-          const cleanStr = String(val).replace(/^0+(?=\d)/, "");
-          const parsed = parseInt(cleanStr, 10);
-          updatedCompare = isNaN(parsed) ? "" : String(Math.max(0, parsed));
-        }
-      } else if (field === "discount_percent") {
-        const discPct = Math.round(Math.max(0, Number(val) || 0));
-        const numPrice = Number(updatedPrice) || 0;
-        if (discPct > 0 && numPrice > 0) {
-          updatedCompare = String(Math.round(numPrice / (1 - discPct / 100)));
-        } else if (discPct === 0) {
-          updatedCompare = "";
-        }
-      }
 
-      return {
-        ...g,
-        sizes: {
-          ...g.sizes,
-          [size]: {
-            inventory_quantity: updatedQty,
-            price_amount: updatedPrice,
-            compare_at_price_amount: updatedCompare,
+        return {
+          ...g,
+          sizes: {
+            ...g.sizes,
+            [size]: {
+              inventory_quantity: updatedQty,
+              price_amount: updatedPrice,
+              compare_at_price_amount: updatedCompare,
+            },
           },
-        },
-      };
-    }));
+        };
+      })
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!adminToken) return;
-    setError("");
+    setError('');
 
     if (!form.title.trim()) {
-      setError("Please enter a product title.");
+      setError('Please enter a product title.');
       return;
     }
 
     const activeGuides = allSizeGuides.filter((s) => s.is_visible);
     if (activeGuides.length > 0 && selectedSizeGuideIds.length === 0) {
-      setError("Please select at least one Size Guide for this product.");
+      setError('Please select at least one Size Guide for this product.');
       return;
     }
 
     if (!form.gst_percent && form.gst_percent !== 0) {
-
-      setError("GST Rate is required. Please select a GST percentage.");
+      setError('GST Rate is required. Please select a GST percentage.');
       return;
     }
 
-    if (colourGroups.length === 0 || colourGroups.some(g => !g.colour_value.trim())) {
-      setError("Please specify at least one valid Colour Name for your Colour Group.");
+    if (colourGroups.length === 0 || colourGroups.some((g) => !g.colour_value.trim())) {
+      setError('Please specify at least one valid Colour Name for your Colour Group.');
       return;
     }
 
@@ -342,18 +454,24 @@ export default function NewProductPage() {
     for (const group of colourGroups) {
       for (const [size, meta] of Object.entries(group.sizes)) {
         const sellingPrice = Number(meta.price_amount) || 0;
-        const comparePrice = meta.compare_at_price_amount ? Number(meta.compare_at_price_amount) : 0;
+        const comparePrice = meta.compare_at_price_amount
+          ? Number(meta.compare_at_price_amount)
+          : 0;
         const qty = Number(meta.inventory_quantity) || 0;
 
         // SCRUM-21: Negative check
         if (sellingPrice < 0 || comparePrice < 0 || qty < 0) {
-          setError(`Price and quantity cannot be negative for size '${size}' in ${group.colour_value || 'Colour Group'}.`);
+          setError(
+            `Price and quantity cannot be negative for size '${size}' in ${group.colour_value || 'Colour Group'}.`
+          );
           return;
         }
 
         // SCRUM-22: Compare price cannot be less than selling price
         if (comparePrice > 0 && comparePrice < sellingPrice) {
-          setError(`Original Price (MRP ₹${comparePrice}) cannot be less than Selling Price (₹${sellingPrice}) for size '${size}' in ${group.colour_value || 'Colour Group'}.`);
+          setError(
+            `Original Price (MRP ₹${comparePrice}) cannot be less than Selling Price (₹${sellingPrice}) for size '${size}' in ${group.colour_value || 'Colour Group'}.`
+          );
           return;
         }
       }
@@ -363,12 +481,12 @@ export default function NewProductPage() {
 
     try {
       // 1. Upload any pending Featured Thumbnail image to S3
-      const uploadedFeatured = await uploadPendingImages(featuredThumbnail, "products", adminToken);
+      const uploadedFeatured = await uploadPendingImages(featuredThumbnail, 'products', adminToken);
 
       // 2. Upload any pending Colour Group images to S3
       const uploadedColourGroups: ColourGroupForm[] = [];
       for (const group of colourGroups) {
-        const uploadedGroupImages = await uploadPendingImages(group.images, "products", adminToken);
+        const uploadedGroupImages = await uploadPendingImages(group.images, 'products', adminToken);
         const uploadedGroupLookbook = await uploadPendingLookbookImages(group.lookbook || []);
         uploadedColourGroups.push({
           ...group,
@@ -380,12 +498,12 @@ export default function NewProductPage() {
       // 3. Upload any pending Lookbook image files to S3
       const uploadedLookbook = await uploadPendingLookbookImages(lookbookItems);
 
-      const allColours = uploadedColourGroups.map(g => g.colour_value.trim());
-      const allSizes = [...new Set(uploadedColourGroups.flatMap(g => Object.keys(g.sizes)))];
+      const allColours = uploadedColourGroups.map((g) => g.colour_value.trim());
+      const allSizes = [...new Set(uploadedColourGroups.flatMap((g) => Object.keys(g.sizes)))];
 
       const options = [
-        { id: "colour", name: "Colour", values: allColours },
-        { id: "size", name: "Size", values: allSizes },
+        { id: 'colour', name: 'Colour', values: allColours },
+        { id: 'size', name: 'Size', values: allSizes },
       ];
 
       // Build product variants matrix
@@ -407,28 +525,36 @@ export default function NewProductPage() {
           variants.push({
             title: `${colourName} / ${size}`,
             price_amount: Number(meta.price_amount) || 2499,
-            compare_at_price_amount: meta.compare_at_price_amount ? Number(meta.compare_at_price_amount) : null,
+            compare_at_price_amount: meta.compare_at_price_amount
+              ? Number(meta.compare_at_price_amount)
+              : null,
             inventory_quantity: Number(meta.inventory_quantity) || 0,
             available_for_sale: form.available_for_sale,
             image_url: primaryImage,
             selected_options: [
-              { name: "Colour", value: colourName },
-              { name: "Size", value: size },
+              { name: 'Colour', value: colourName },
+              { name: 'Size', value: size },
             ],
           });
         }
       }
 
-      const allImages = uploadedColourGroups.flatMap(g => g.images.map(img => ({ url: img.url, altText: `${g.colour_value} image` })));
-      const autoHandle = `${form.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString(36)}`;
+      const allImages = uploadedColourGroups.flatMap((g) =>
+        g.images.map((img) => ({ url: img.url, altText: `${g.colour_value} image` }))
+      );
+      const autoHandle = `${form.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`;
 
-      const sizeFitBullets = sizeFitInput.split("\n").map(b => b.trim()).filter(Boolean);
-      const descriptionHtml = `<p>${form.description}</p>${sizeFitBullets.length > 0 ? `<ul>${sizeFitBullets.map(b => `<li>${b}</li>`).join("")}</ul>` : ""}`;
+      const sizeFitBullets = sizeFitInput
+        .split('\n')
+        .map((b) => b.trim())
+        .filter(Boolean);
+      const descriptionHtml = `<p>${form.description}</p>${sizeFitBullets.length > 0 ? `<ul>${sizeFitBullets.map((b) => `<li>${b}</li>`).join('')}</ul>` : ''}`;
 
       // 1. Create main Product
       const product = await createAdminProduct(adminToken, {
         title: form.title,
         handle: autoHandle,
+        category: form.category,
         description: form.description,
         description_html: descriptionHtml,
         vendor: form.vendor,
@@ -439,8 +565,8 @@ export default function NewProductPage() {
         lookbook: uploadedLookbook,
         variants,
         available_for_sale: form.available_for_sale,
-        fit: form.fit || null,
-        kit_type: form.kit_type || null,
+        fit: form.category === 'ACCESSORIES' ? null : form.fit || null,
+        kit_type: form.category === 'TOPS' ? form.kit_type || null : null,
         activity: form.activity || null,
         featured_image_url: uploadedFeatured[0]?.url || allImages[0]?.url || null,
         featured_image_alt: form.title,
@@ -457,7 +583,7 @@ export default function NewProductPage() {
         const g = uploadedColourGroups[i];
         await createColourGroup(adminToken, product.id, {
           colour_value: g.colour_value.trim(),
-          images: g.images.map(img => ({ url: img.url, altText: `${g.colour_value} photo` })),
+          images: g.images.map((img) => ({ url: img.url, altText: `${g.colour_value} photo` })),
           lookbook: g.lookbook || [],
           display_order: i,
         });
@@ -465,7 +591,7 @@ export default function NewProductPage() {
 
       router.push(`/admin/products/${product.id}`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to create product");
+      setError(err instanceof Error ? err.message : 'Failed to create product');
     } finally {
       setLoading(false);
     }
@@ -479,15 +605,28 @@ export default function NewProductPage() {
             type="button"
             onClick={() => router.back()}
             className="admin-btn-inline-link"
-            style={{ display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 8, fontSize: "0.8125rem", color: "var(--admin-text-secondary)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: 0 }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              marginBottom: 8,
+              fontSize: '0.8125rem',
+              color: 'var(--admin-text-secondary)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
+              padding: 0,
+            }}
           >
             ← Back to Products
           </button>
           <h1 className="admin-page-title">New Product</h1>
-          <p className="admin-page-subtitle">Configure product details, attributes, colour image groups, and size matrix</p>
+          <p className="admin-page-subtitle">
+            Configure product details, attributes, colour image groups, and size matrix
+          </p>
         </div>
       </div>
-
 
       {error && <div className="admin-alert admin-alert--error">{error}</div>}
 
@@ -496,8 +635,9 @@ export default function NewProductPage() {
           {/* Featured Thumbnail Card */}
           <div className="admin-card">
             <h2 className="admin-card-section-title">Product Featured Thumbnail</h2>
-            <p className="admin-page-subtitle" style={{ fontSize: "0.78rem", marginBottom: 12 }}>
-              Upload a main thumbnail image for storefront product cards & search results (if empty, first gallery image will be used).
+            <p className="admin-page-subtitle" style={{ fontSize: '0.78rem', marginBottom: 12 }}>
+              Upload a main thumbnail image for storefront product cards & search results (if empty,
+              first gallery image will be used).
             </p>
             <AdminImageUploader
               endpoint="productImage"
@@ -507,6 +647,104 @@ export default function NewProductPage() {
               onReorderExisting={setFeaturedThumbnail}
               onUploadComplete={setFeaturedThumbnail}
             />
+          </div>
+
+          {/* MANDATORY CATEGORY SELECTION */}
+          <div
+            className="admin-card"
+            style={{ borderLeft: '4px solid var(--admin-primary)', borderRadius: '0px' }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 6,
+              }}
+            >
+              <h2 className="admin-card-section-title" style={{ margin: 0 }}>
+                Category * (Mandatory)
+              </h2>
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  color: 'var(--admin-primary)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Active: {form.category}
+              </span>
+            </div>
+            <p className="admin-page-subtitle" style={{ fontSize: '0.8rem', marginBottom: 16 }}>
+              Select the product category. Attributes (Fit, Kit Type) and storefront catalog routing
+              are scoped automatically.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              {[
+                { id: 'TOPS', label: 'Tops', desc: 'Jerseys, Tees, Hoodies & Tops' },
+                { id: 'BOTTOMS', label: 'Bottoms', desc: 'Shorts, Trackpants, Tights & Bottoms' },
+                {
+                  id: 'ACCESSORIES',
+                  label: 'Accessories',
+                  desc: 'Wristbands, Socks, Headbands & Gear',
+                },
+              ].map((cat) => {
+                const isSelected = form.category === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setForm((f) => ({
+                        ...f,
+                        category: cat.id as 'TOPS' | 'BOTTOMS' | 'ACCESSORIES',
+                        kit_type: cat.id !== 'TOPS' ? '' : f.kit_type,
+                        fit: cat.id === 'ACCESSORIES' ? '' : f.fit,
+                      }));
+                    }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                      padding: '16px 14px',
+                      border: isSelected
+                        ? '2px solid #111111'
+                        : '1px solid var(--admin-card-border)',
+                      background: isSelected ? '#111111' : 'var(--admin-bg-page)',
+                      color: isSelected ? '#ffffff' : '#111111',
+                      textAlign: 'left',
+                      borderRadius: '0px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: 800,
+                          fontSize: '0.95rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        {cat.label}
+                      </span>
+                      {isSelected && <span style={{ fontSize: '0.85rem' }}>✓</span>}
+                    </div>
+                    <span style={{ fontSize: '0.75rem', opacity: isSelected ? 0.85 : 0.65 }}>
+                      {cat.desc}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Basic Info */}
@@ -520,41 +758,79 @@ export default function NewProductPage() {
                   className="admin-form-input"
                   placeholder="e.g. VAHN Signature Oversized Jersey"
                   value={form.title}
-                  onChange={updateForm("title")}
+                  onChange={updateForm('title')}
                   required
                 />
               </div>
 
               <div className="admin-form-group">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, minHeight: 18 }}>
-                  <label className="admin-form-label" style={{ marginBottom: 0 }}>Vendor</label>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 6,
+                    minHeight: 18,
+                  }}
+                >
+                  <label className="admin-form-label" style={{ marginBottom: 0 }}>
+                    Vendor
+                  </label>
                 </div>
-                <input type="text" className="admin-form-input" value={form.vendor} onChange={updateForm("vendor")} />
+                <input
+                  type="text"
+                  className="admin-form-input"
+                  value={form.vendor}
+                  onChange={updateForm('vendor')}
+                />
               </div>
 
               <div className="admin-form-group">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, minHeight: 18 }}>
-                  <label className="admin-form-label" style={{ marginBottom: 0 }}>Product Type</label>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 6,
+                    minHeight: 18,
+                  }}
+                >
+                  <label className="admin-form-label" style={{ marginBottom: 0 }}>
+                    Product Type
+                  </label>
                   <button
                     type="button"
                     className="admin-btn-inline-link"
                     onClick={() => setShowNewProductTypeInput(!showNewProductTypeInput)}
-                    style={{ fontSize: "0.72rem", color: "var(--admin-primary)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: 0 }}
+                    style={{
+                      fontSize: '0.72rem',
+                      color: 'var(--admin-primary)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      padding: 0,
+                    }}
                   >
-                    {showNewProductTypeInput ? "Cancel" : "+ Add New Type"}
+                    {showNewProductTypeInput ? 'Cancel' : '+ Add New Type'}
                   </button>
                 </div>
 
                 {showNewProductTypeInput ? (
-                  <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
                     <input
                       type="text"
                       className="admin-form-input"
                       placeholder="e.g. Tank Top"
                       value={newProductTypeInput}
-                      onChange={e => setNewProductTypeInput(e.target.value)}
+                      onChange={(e) => setNewProductTypeInput(e.target.value)}
                     />
-                    <button type="button" className="admin-btn admin-btn--primary" style={{ padding: "6px 12px", fontSize: "0.78rem" }} onClick={handleAddCustomProductType}>
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn--primary"
+                      style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+                      onClick={handleAddCustomProductType}
+                    >
                       Add
                     </button>
                   </div>
@@ -563,27 +839,29 @@ export default function NewProductPage() {
                     <select
                       className="admin-form-select"
                       value={form.product_type}
-                      onChange={updateForm("product_type")}
+                      onChange={updateForm('product_type')}
                     >
                       <option value="">— Select Product Type —</option>
-                      {productTypeOptions.map(pt => (
-                        <option key={pt} value={pt}>{pt}</option>
+                      {productTypeOptions.map((pt) => (
+                        <option key={pt} value={pt}>
+                          {pt}
+                        </option>
                       ))}
                     </select>
                     {form.product_type && (
-                      <div style={{ marginTop: 4, display: "flex", justifyContent: "flex-end" }}>
+                      <div style={{ marginTop: 4, display: 'flex', justifyContent: 'flex-end' }}>
                         <button
                           type="button"
                           onClick={() => handleDeleteProductType(form.product_type)}
                           style={{
-                            color: "#d32f2f",
-                            fontSize: "0.72rem",
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
+                            color: '#d32f2f',
+                            fontSize: '0.72rem',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
                             fontWeight: 600,
                             padding: 0,
-                            textDecoration: "underline"
+                            textDecoration: 'underline',
                           }}
                         >
                           ✕ Delete "{form.product_type}" from options
@@ -605,63 +883,72 @@ export default function NewProductPage() {
           {/* Product Accordions Section */}
           <div className="admin-card">
             <h2 className="admin-card-section-title">Product Information Accordions</h2>
-            <p className="admin-page-subtitle" style={{ marginBottom: 16, fontSize: "0.8rem" }}>
-              Configure content for the four expandable accordions on the Product Details Page (PDP).
+            <p className="admin-page-subtitle" style={{ marginBottom: 16, fontSize: '0.8rem' }}>
+              Configure content for the four expandable accordions on the Product Details Page
+              (PDP).
             </p>
             <div className="admin-form-grid">
               <div className="admin-form-group admin-form-group--full">
-                <label className="admin-form-label">1. Description (Displayed in DESCRIPTION Accordion)</label>
+                <label className="admin-form-label">
+                  1. Description (Displayed in DESCRIPTION Accordion)
+                </label>
                 <textarea
                   className="admin-form-textarea"
                   rows={4}
                   placeholder="e.g. A classic training tee ready for everything from cardio to weights. No matter how intense the workout, you'll stay dry and focused..."
                   value={form.description}
-                  onChange={updateForm("description")}
+                  onChange={updateForm('description')}
                 />
               </div>
 
               <div className="admin-form-group admin-form-group--full">
-                <label className="admin-form-label">2. Size & Fit Details (Displayed in SIZE & FIT Accordion)</label>
+                <label className="admin-form-label">
+                  2. Size & Fit Details (Displayed in SIZE & FIT Accordion)
+                </label>
                 <textarea
                   className="admin-form-textarea"
                   rows={4}
                   placeholder="e.g. Slim fit design. Model is 6'1 wearing size L. Fits true to size with tailored shoulder seams..."
                   value={form.size_fit_details}
-                  onChange={updateForm("size_fit_details")}
+                  onChange={updateForm('size_fit_details')}
                 />
               </div>
 
               <div className="admin-form-group admin-form-group--full">
-                <label className="admin-form-label">3. Care Instructions (Displayed in CARE Accordion)</label>
+                <label className="admin-form-label">
+                  3. Care Instructions (Displayed in CARE Accordion)
+                </label>
                 <textarea
                   className="admin-form-textarea"
                   rows={3}
                   placeholder="e.g. Machine wash cold delicate cycle. Do not bleach. Do not tumble dry. Touch up with cool iron..."
                   value={form.care_instructions}
-                  onChange={updateForm("care_instructions")}
+                  onChange={updateForm('care_instructions')}
                 />
               </div>
 
               <div className="admin-form-group admin-form-group--full">
-                <label className="admin-form-label">4. Details & Specifications (Displayed in DETAILS Accordion)</label>
+                <label className="admin-form-label">
+                  4. Details & Specifications (Displayed in DETAILS Accordion)
+                </label>
                 <textarea
                   className="admin-form-textarea"
                   rows={4}
                   placeholder="e.g. 100% Recycled Polyester. AEROREADY moisture-wicking technology. Crewneck collar. Imported."
                   value={form.product_details}
-                  onChange={updateForm("product_details")}
+                  onChange={updateForm('product_details')}
                 />
               </div>
             </div>
           </div>
 
-
           {/* PRICING & TAX */}
           <div className="admin-card">
             <h2 className="admin-card-section-title">Pricing & Tax</h2>
-            <p className="admin-page-subtitle" style={{ marginBottom: 16, fontSize: "0.8rem" }}>
-              GST is calculated <strong>inclusively</strong> from the variant selling price. Select the applicable GST slab for this product category.
-              Leave Shipping Rate blank to use the global rule (free ≥ ₹1999, else ₹99).
+            <p className="admin-page-subtitle" style={{ marginBottom: 16, fontSize: '0.8rem' }}>
+              GST is calculated <strong>inclusively</strong> from the variant selling price. Select
+              the applicable GST slab for this product category. Leave Shipping Rate blank to use
+              the global rule (free ≥ ₹1999, else ₹99).
             </p>
             <div className="admin-form-grid">
               <div className="admin-form-group">
@@ -669,7 +956,7 @@ export default function NewProductPage() {
                 <select
                   className="admin-form-select"
                   value={String(form.gst_percent)}
-                  onChange={e => setForm(f => ({ ...f, gst_percent: Number(e.target.value) }))}
+                  onChange={(e) => setForm((f) => ({ ...f, gst_percent: Number(e.target.value) }))}
                   required
                 >
                   <option value="0">0% — Exempt (Books, raw food)</option>
@@ -679,34 +966,75 @@ export default function NewProductPage() {
                   <option value="28">28% — Luxury / sin goods</option>
                 </select>
                 {form.gst_percent > 0 && (
-                  <div style={{ marginTop: 6, fontSize: "0.75rem", color: "var(--admin-text-secondary)", background: "rgba(25,118,210,0.07)", border: "1px solid rgba(25,118,210,0.2)", padding: "6px 10px" }}>
-                    Example: On a ₹2,499 price — GST portion = <strong>₹{Math.round((2499 * form.gst_percent) / (100 + form.gst_percent)).toLocaleString()}</strong>
-                    &nbsp;·&nbsp; Base (ex-GST) = ₹{(2499 - Math.round((2499 * form.gst_percent) / (100 + form.gst_percent))).toLocaleString()}
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: '0.75rem',
+                      color: 'var(--admin-text-secondary)',
+                      background: 'rgba(25,118,210,0.07)',
+                      border: '1px solid rgba(25,118,210,0.2)',
+                      padding: '6px 10px',
+                    }}
+                  >
+                    Example: On a ₹2,499 price — GST portion ={' '}
+                    <strong>
+                      ₹
+                      {Math.round(
+                        (2499 * form.gst_percent) / (100 + form.gst_percent)
+                      ).toLocaleString()}
+                    </strong>
+                    &nbsp;·&nbsp; Base (ex-GST) = ₹
+                    {(
+                      2499 - Math.round((2499 * form.gst_percent) / (100 + form.gst_percent))
+                    ).toLocaleString()}
                   </div>
                 )}
               </div>
 
               <div className="admin-form-group">
                 <label className="admin-form-label">Shipping Rate (₹) — Per Product Override</label>
-                <div style={{ position: "relative" }}>
-                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: "0.9rem", fontWeight: 700, color: "var(--admin-text-secondary)" }}>₹</span>
+                <div style={{ position: 'relative' }}>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                      color: 'var(--admin-text-secondary)',
+                    }}
+                  >
+                    ₹
+                  </span>
                   <input
                     type="number"
                     className="admin-form-input"
                     style={{ paddingLeft: 26 }}
                     placeholder="Leave blank for global rule"
                     min={0}
-                    value={form.shipping_rate ?? ""}
-                    onFocus={e => e.target.select()}
-                    onChange={e => setForm(f => ({ ...f, shipping_rate: e.target.value === "" ? null : Number(e.target.value) }))}
+                    value={form.shipping_rate ?? ''}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        shipping_rate: e.target.value === '' ? null : Number(e.target.value),
+                      }))
+                    }
                   />
                 </div>
-                <div style={{ marginTop: 6, fontSize: "0.75rem", color: "var(--admin-text-secondary)" }}>
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: '0.75rem',
+                    color: 'var(--admin-text-secondary)',
+                  }}
+                >
                   {form.shipping_rate === null
-                    ? "Global rule: Free ≥ ₹1,999 · ₹99 otherwise"
+                    ? 'Global rule: Free ≥ ₹1,999 · ₹99 otherwise'
                     : form.shipping_rate === 0
-                    ? "✓ Free shipping for all orders of this product"
-                    : `₹${form.shipping_rate} flat shipping rate`}
+                      ? '✓ Free shipping for all orders of this product'
+                      : `₹${form.shipping_rate} flat shipping rate`}
                 </div>
               </div>
             </div>
@@ -715,16 +1043,17 @@ export default function NewProductPage() {
           {/* SIZE GUIDES SECTION */}
           <div className="admin-card">
             <h2 className="admin-card-section-title">Size Guides</h2>
-            <p className="admin-page-subtitle" style={{ fontSize: "0.78rem", marginBottom: 12 }}>
-              Select which size guides (measurement types) to display for this product on the storefront.
+            <p className="admin-page-subtitle" style={{ fontSize: '0.78rem', marginBottom: 12 }}>
+              Select which size guides (measurement types) to display for this product on the
+              storefront.
             </p>
             {allSizeGuides.filter((sg) => sg.is_visible).length === 0 ? (
-              <p style={{ fontSize: "0.8125rem", color: "var(--admin-text-secondary)" }}>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--admin-text-secondary)' }}>
                 No active size guides configured in system.
               </p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                   {allSizeGuides
                     .filter((sg) => sg.is_visible)
                     .map((sg) => {
@@ -733,21 +1062,21 @@ export default function NewProductPage() {
                         <label
                           key={sg.id}
                           style={{
-                            display: "flex",
-                            alignItems: "center",
+                            display: 'flex',
+                            alignItems: 'center',
                             gap: 8,
-                            padding: "8px 14px",
+                            padding: '8px 14px',
                             borderRadius: 6,
                             border: isSelected
-                              ? "2px solid var(--admin-primary)"
-                              : "1px solid var(--admin-card-border)",
+                              ? '2px solid var(--admin-primary)'
+                              : '1px solid var(--admin-card-border)',
                             background: isSelected
-                              ? "rgba(58, 54, 153, 0.05)"
-                              : "var(--admin-bg-page)",
-                            cursor: "pointer",
+                              ? 'rgba(58, 54, 153, 0.05)'
+                              : 'var(--admin-bg-page)',
+                            cursor: 'pointer',
                             fontWeight: 600,
-                            fontSize: "0.875rem",
-                            userSelect: "none",
+                            fontSize: '0.875rem',
+                            userSelect: 'none',
                           }}
                         >
                           <input
@@ -759,7 +1088,7 @@ export default function NewProductPage() {
                                 checked ? [...prev, sg.id] : prev.filter((id) => id !== sg.id)
                               );
                             }}
-                            style={{ accentColor: "var(--admin-primary)", width: 16, height: 16 }}
+                            style={{ accentColor: 'var(--admin-primary)', width: 16, height: 16 }}
                           />
                           <span>{sg.name}</span>
                         </label>
@@ -767,7 +1096,9 @@ export default function NewProductPage() {
                     })}
                 </div>
                 {selectedSizeGuideIds.length === 0 && (
-                  <div style={{ fontSize: "0.75rem", color: "#d32f2f", fontWeight: 600, marginTop: 4 }}>
+                  <div
+                    style={{ fontSize: '0.75rem', color: '#d32f2f', fontWeight: 600, marginTop: 4 }}
+                  >
                     ⚠️ At least one size guide must be selected for this product.
                   </div>
                 )}
@@ -778,115 +1109,134 @@ export default function NewProductPage() {
           {/* ATTRIBUTES SECTION */}
 
           <div className="admin-card">
-            <h2 className="admin-card-section-title">Attributes</h2>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 6,
+              }}
+            >
+              <h2 className="admin-card-section-title" style={{ margin: 0 }}>
+                Attributes ({form.category})
+              </h2>
+              <span style={{ fontSize: '0.72rem', color: 'var(--admin-text-secondary)' }}>
+                {form.category === 'ACCESSORIES'
+                  ? 'Fit and Kit Type hidden for Accessories'
+                  : form.category === 'BOTTOMS'
+                    ? 'Kit Type hidden for Bottoms'
+                    : 'All Top attributes enabled'}
+              </span>
+            </div>
 
             <div className="admin-form-grid">
-              {/* Fit with Add Custom Option */}
-              <div className="admin-form-group">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <label className="admin-form-label">Fit</label>
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn--ghost"
-                    style={{ fontSize: "0.72rem", padding: 0 }}
-                    onClick={() => setShowNewFitInput(s => !s)}
+              {/* Fit with Add Custom Modal (Visible for TOPS and BOTTOMS) */}
+              {form.category !== 'ACCESSORIES' && (
+                <div className="admin-form-group">
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
                   >
-                    {showNewFitInput ? "Cancel" : "+ Add New Fit"}
-                  </button>
-                </div>
-                {showNewFitInput ? (
-                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                    <input
-                      type="text"
-                      className="admin-form-input"
-                      placeholder="e.g. COMPRESSION"
-                      value={newFitInput}
-                      onChange={e => setNewFitInput(e.target.value)}
-                    />
-                    <button type="button" className="admin-btn admin-btn--secondary" onClick={handleAddCustomFit}>
-                      Add
+                    <label className="admin-form-label">Fit ({form.category})</label>
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn--ghost"
+                      style={{ fontSize: '0.72rem', padding: 0 }}
+                      onClick={() => setModalConfig({ isOpen: true, type: 'FIT' })}
+                    >
+                      + Add New Fit
                     </button>
                   </div>
-                ) : (
-                  <select className="admin-form-select" value={form.fit} onChange={updateForm("fit")}>
+                  <select
+                    className="admin-form-select"
+                    value={form.fit}
+                    onChange={updateForm('fit')}
+                  >
                     <option value="">— Select fit —</option>
-                    {fitOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                    {fitOptions.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
                   </select>
-                )}
-              </div>
-
-              {/* Kit Type with Add Custom Option */}
-              <div className="admin-form-group">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <label className="admin-form-label">Kit Type</label>
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn--ghost"
-                    style={{ fontSize: "0.72rem", padding: 0 }}
-                    onClick={() => setShowNewKitTypeInput(s => !s)}
-                  >
-                    {showNewKitTypeInput ? "Cancel" : "+ Add New Kit Type"}
-                  </button>
                 </div>
-                {showNewKitTypeInput ? (
-                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                    <input
-                      type="text"
-                      className="admin-form-input"
-                      placeholder="e.g. AWAY, THIRD, TRAINING"
-                      value={newKitTypeInput}
-                      onChange={e => setNewKitTypeInput(e.target.value)}
-                    />
-                    <button type="button" className="admin-btn admin-btn--secondary" onClick={handleAddCustomKitType}>
-                      Add
+              )}
+
+              {/* Kit Type with Add Custom Modal (Visible strictly for TOPS) */}
+              {form.category === 'TOPS' && (
+                <div className="admin-form-group">
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <label className="admin-form-label">Kit Type</label>
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn--ghost"
+                      style={{ fontSize: '0.72rem', padding: 0 }}
+                      onClick={() => setModalConfig({ isOpen: true, type: 'KIT_TYPE' })}
+                    >
+                      + Add New Kit Type
                     </button>
                   </div>
-                ) : (
-                  <select className="admin-form-select" value={form.kit_type} onChange={updateForm("kit_type")}>
+                  <select
+                    className="admin-form-select"
+                    value={form.kit_type}
+                    onChange={updateForm('kit_type')}
+                  >
                     <option value="">— Select kit type —</option>
-                    {kitTypeOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                    {kitTypeOptions.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
                   </select>
-                )}
-              </div>
+                </div>
+              )}
 
-              {/* Activity with Add Custom Option */}
+              {/* Activity with Add Custom Modal (Universal) */}
               <div className="admin-form-group">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
                   <label className="admin-form-label">Activity</label>
                   <button
                     type="button"
                     className="admin-btn admin-btn--ghost"
-                    style={{ fontSize: "0.72rem", padding: 0 }}
-                    onClick={() => setShowNewActivityInput(s => !s)}
+                    style={{ fontSize: '0.72rem', padding: 0 }}
+                    onClick={() => setModalConfig({ isOpen: true, type: 'ACTIVITY' })}
                   >
-                    {showNewActivityInput ? "Cancel" : "+ Add New Activity"}
+                    + Add New Activity
                   </button>
                 </div>
-                {showNewActivityInput ? (
-                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                    <input
-                      type="text"
-                      className="admin-form-input"
-                      placeholder="e.g. RUNNING, PADEL, GYM"
-                      value={newActivityInput}
-                      onChange={e => setNewActivityInput(e.target.value)}
-                    />
-                    <button type="button" className="admin-btn admin-btn--secondary" onClick={handleAddCustomActivity}>
-                      Add
-                    </button>
-                  </div>
-                ) : (
-                  <select className="admin-form-select" value={form.activity} onChange={updateForm("activity")}>
-                    <option value="">— Select activity —</option>
-                    {activityOptions.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                )}
+                <select
+                  className="admin-form-select"
+                  value={form.activity}
+                  onChange={updateForm('activity')}
+                >
+                  <option value="">— Select activity —</option>
+                  {activityOptions.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="admin-form-group">
                 <label className="admin-form-label">Store Visibility</label>
                 <label className="admin-toggle" style={{ marginTop: 6 }}>
-                  <input type="checkbox" checked={form.available_for_sale} onChange={updateForm("available_for_sale")} />
+                  <input
+                    type="checkbox"
+                    checked={form.available_for_sale}
+                    onChange={updateForm('available_for_sale')}
+                  />
                   <span className="admin-toggle-track" />
                   <span className="admin-toggle-label">Available for sale</span>
                 </label>
@@ -898,12 +1248,19 @@ export default function NewProductPage() {
           <div className="admin-card">
             <div className="admin-card-header">
               <div>
-                <h2 className="admin-card-section-title" style={{ margin: 0 }}>Colour Image & Size Stock Hierarchy</h2>
-                <p className="admin-page-subtitle" style={{ fontSize: "0.78rem" }}>
-                  Upload & rearrange 5+ images per colour. Customers will see these exact images when switching colours on storefront.
+                <h2 className="admin-card-section-title" style={{ margin: 0 }}>
+                  Colour Image & Size Stock Hierarchy
+                </h2>
+                <p className="admin-page-subtitle" style={{ fontSize: '0.78rem' }}>
+                  Upload & rearrange 5+ images per colour. Customers will see these exact images
+                  when switching colours on storefront.
                 </p>
               </div>
-              <button type="button" className="admin-btn admin-btn--secondary" onClick={addColourGroup}>
+              <button
+                type="button"
+                className="admin-btn admin-btn--secondary"
+                onClick={addColourGroup}
+              >
                 + Add Colour Group
               </button>
             </div>
@@ -913,10 +1270,21 @@ export default function NewProductPage() {
                 <div key={groupIdx} className="admin-colour-group-card" style={{ padding: 20 }}>
                   <div className="admin-form-grid" style={{ marginBottom: 16 }}>
                     <div className="admin-form-group admin-form-group--full">
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
                         <label className="admin-form-label">Colour Name *</label>
                         {colourGroups.length > 1 && (
-                          <button type="button" className="admin-btn admin-btn--ghost" style={{ color: "#e53935", padding: 0 }} onClick={() => removeColourGroup(groupIdx)}>
+                          <button
+                            type="button"
+                            className="admin-btn admin-btn--ghost"
+                            style={{ color: '#e53935', padding: 0 }}
+                            onClick={() => removeColourGroup(groupIdx)}
+                          >
                             Remove Colour Group ✕
                           </button>
                         )}
@@ -926,7 +1294,7 @@ export default function NewProductPage() {
                         className="admin-form-input"
                         placeholder="e.g. Maroon, Cobalt Blue, Lemon Yellow"
                         value={group.colour_value}
-                        onChange={e => updateColourName(groupIdx, e.target.value)}
+                        onChange={(e) => updateColourName(groupIdx, e.target.value)}
                         required
                       />
                     </div>
@@ -937,7 +1305,7 @@ export default function NewProductPage() {
                     <AdminImageUploader
                       endpoint="productImage"
                       maxImages={10}
-                      label={`Images for ${group.colour_value || "this colour"} (Bulk Upload & Reorder)`}
+                      label={`Images for ${group.colour_value || 'this colour'} (Bulk Upload & Reorder)`}
                       existingImages={group.images}
                       onReorderExisting={(imgs) => updateColourImages(groupIdx, imgs)}
                       onUploadComplete={(imgs) => updateColourImages(groupIdx, imgs)}
@@ -946,16 +1314,21 @@ export default function NewProductPage() {
 
                   {/* Size Multi-Select for this Colour */}
                   <div>
-                    <label className="admin-form-label" style={{ marginBottom: 8, display: "block" }}>Select Sizes & Quantities for {group.colour_value || "this colour"}</label>
+                    <label
+                      className="admin-form-label"
+                      style={{ marginBottom: 8, display: 'block' }}
+                    >
+                      Select Sizes & Quantities for {group.colour_value || 'this colour'}
+                    </label>
 
                     <div className="admin-size-chips">
-                      {STANDARD_SIZES.map(s => {
+                      {STANDARD_SIZES.map((s) => {
                         const isSelected = !!group.sizes[s];
                         return (
                           <button
                             key={s}
                             type="button"
-                            className={`admin-size-chip ${isSelected ? "admin-size-chip--active" : ""}`}
+                            className={`admin-size-chip ${isSelected ? 'admin-size-chip--active' : ''}`}
                             onClick={() => toggleSizeForGroup(groupIdx, s)}
                           >
                             {isSelected ? `✓ ${s}` : `+ ${s}`}
@@ -965,15 +1338,19 @@ export default function NewProductPage() {
                     </div>
 
                     {/* Custom Size Addition */}
-                    <div style={{ display: "flex", gap: 8, maxWidth: 300, marginBottom: 16 }}>
+                    <div style={{ display: 'flex', gap: 8, maxWidth: 300, marginBottom: 16 }}>
                       <input
                         type="text"
                         className="admin-form-input"
                         placeholder="Add custom size (e.g. 4XL)"
                         value={customSizeInput}
-                        onChange={e => setCustomSizeInput(e.target.value)}
+                        onChange={(e) => setCustomSizeInput(e.target.value)}
                       />
-                      <button type="button" className="admin-btn admin-btn--secondary" onClick={() => addCustomSizeToGroup(groupIdx)}>
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn--secondary"
+                        onClick={() => addCustomSizeToGroup(groupIdx)}
+                      >
                         Add
                       </button>
                     </div>
@@ -988,14 +1365,19 @@ export default function NewProductPage() {
                             <th>Selling Price (₹)</th>
                             <th>Original Price (MRP ₹)</th>
                             <th>Discount (%)</th>
-                            <th style={{ width: 60, textAlign: "center" }}>Action</th>
+                            <th style={{ width: 60, textAlign: 'center' }}>Action</th>
                           </tr>
                         </thead>
                         <tbody>
                           {Object.entries(group.sizes).map(([sizeKey, meta]) => {
                             const price = Number(meta.price_amount) || 0;
-                            const compare = meta.compare_at_price_amount ? Number(meta.compare_at_price_amount) : 0;
-                            const discountPct = compare > price && compare > 0 ? Math.round(((compare - price) / compare) * 100) : 0;
+                            const compare = meta.compare_at_price_amount
+                              ? Number(meta.compare_at_price_amount)
+                              : 0;
+                            const discountPct =
+                              compare > price && compare > 0
+                                ? Math.round(((compare - price) / compare) * 100)
+                                : 0;
 
                             return (
                               <tr key={sizeKey}>
@@ -1007,9 +1389,21 @@ export default function NewProductPage() {
                                     className="admin-form-input"
                                     style={{ width: 90 }}
                                     placeholder="0"
-                                    value={meta.inventory_quantity !== undefined && meta.inventory_quantity !== null ? meta.inventory_quantity : ""}
-                                    onFocus={e => e.target.select()}
-                                    onChange={e => updateSizeMatrix(groupIdx, sizeKey, "inventory_quantity", e.target.value)}
+                                    value={
+                                      meta.inventory_quantity !== undefined &&
+                                      meta.inventory_quantity !== null
+                                        ? meta.inventory_quantity
+                                        : ''
+                                    }
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) =>
+                                      updateSizeMatrix(
+                                        groupIdx,
+                                        sizeKey,
+                                        'inventory_quantity',
+                                        e.target.value
+                                      )
+                                    }
                                   />
                                 </td>
                                 <td>
@@ -1019,9 +1413,20 @@ export default function NewProductPage() {
                                     className="admin-form-input"
                                     style={{ width: 110 }}
                                     placeholder="e.g. 2499"
-                                    value={meta.price_amount !== undefined && meta.price_amount !== null ? meta.price_amount : ""}
-                                    onFocus={e => e.target.select()}
-                                    onChange={e => updateSizeMatrix(groupIdx, sizeKey, "price_amount", e.target.value)}
+                                    value={
+                                      meta.price_amount !== undefined && meta.price_amount !== null
+                                        ? meta.price_amount
+                                        : ''
+                                    }
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) =>
+                                      updateSizeMatrix(
+                                        groupIdx,
+                                        sizeKey,
+                                        'price_amount',
+                                        e.target.value
+                                      )
+                                    }
                                   />
                                 </td>
                                 <td>
@@ -1031,13 +1436,20 @@ export default function NewProductPage() {
                                     className="admin-form-input"
                                     style={{ width: 110 }}
                                     placeholder="e.g. 2999"
-                                    value={meta.compare_at_price_amount ?? ""}
-                                    onFocus={e => e.target.select()}
-                                    onChange={e => updateSizeMatrix(groupIdx, sizeKey, "compare_at_price_amount", e.target.value)}
+                                    value={meta.compare_at_price_amount ?? ''}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) =>
+                                      updateSizeMatrix(
+                                        groupIdx,
+                                        sizeKey,
+                                        'compare_at_price_amount',
+                                        e.target.value
+                                      )
+                                    }
                                   />
                                 </td>
                                 <td>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <input
                                       type="number"
                                       min="0"
@@ -1045,18 +1457,37 @@ export default function NewProductPage() {
                                       className="admin-form-input"
                                       style={{ width: 75 }}
                                       placeholder="0"
-                                      value={discountPct || ""}
-                                      onFocus={e => e.target.select()}
-                                      onChange={e => updateSizeMatrix(groupIdx, sizeKey, "discount_percent", e.target.value)}
+                                      value={discountPct || ''}
+                                      onFocus={(e) => e.target.select()}
+                                      onChange={(e) =>
+                                        updateSizeMatrix(
+                                          groupIdx,
+                                          sizeKey,
+                                          'discount_percent',
+                                          e.target.value
+                                        )
+                                      }
                                     />
-                                    <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#d32f2f" }}>% OFF</span>
+                                    <span
+                                      style={{
+                                        fontSize: '0.8rem',
+                                        fontWeight: 700,
+                                        color: '#d32f2f',
+                                      }}
+                                    >
+                                      % OFF
+                                    </span>
                                   </div>
                                 </td>
-                                <td style={{ textAlign: "center" }}>
+                                <td style={{ textAlign: 'center' }}>
                                   <button
                                     type="button"
                                     className="admin-btn admin-btn--ghost"
-                                    style={{ color: "#e53935", padding: "2px 8px", fontSize: "0.8rem" }}
+                                    style={{
+                                      color: '#e53935',
+                                      padding: '2px 8px',
+                                      fontSize: '0.8rem',
+                                    }}
                                     title={`Remove size ${sizeKey}`}
                                     onClick={() => removeSizeFromGroup(groupIdx, sizeKey)}
                                   >
@@ -1077,13 +1508,16 @@ export default function NewProductPage() {
 
           {/* LOOKBOOK SECTION ("HOW HE WEARS IT") */}
           {(() => {
-            const effectiveIndex = selectedColourIndex < colourGroups.length ? selectedColourIndex : 0;
+            const effectiveIndex =
+              selectedColourIndex < colourGroups.length ? selectedColourIndex : 0;
             const activeNewGroup = colourGroups[effectiveIndex];
-            const activeNewGroupLookbook: LookbookItem[] = activeNewGroup ? (activeNewGroup.lookbook || []) : lookbookItems;
+            const activeNewGroupLookbook: LookbookItem[] = activeNewGroup
+              ? activeNewGroup.lookbook || []
+              : lookbookItems;
 
             function handleNewGroupLookbookChange(items: LookbookItem[]) {
               if (activeNewGroup) {
-                setColourGroups(prev =>
+                setColourGroups((prev) =>
                   prev.map((g, idx) => (idx === effectiveIndex ? { ...g, lookbook: items } : g))
                 );
               } else {
@@ -1094,11 +1528,27 @@ export default function NewProductPage() {
             return (
               <div className="admin-card">
                 {colourGroups.length > 0 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", borderBottom: "1px solid var(--admin-card-border)", paddingBottom: 16, marginBottom: 16 }}>
-                    <span style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--admin-text-secondary)" }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      flexWrap: 'wrap',
+                      borderBottom: '1px solid var(--admin-card-border)',
+                      paddingBottom: 16,
+                      marginBottom: 16,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.875rem',
+                        fontWeight: 700,
+                        color: 'var(--admin-text-secondary)',
+                      }}
+                    >
                       Select Colour:
                     </span>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {colourGroups.map((g, idx) => {
                         const isSelected = effectiveIndex === idx;
                         const count = (g.lookbook || []).length;
@@ -1107,25 +1557,27 @@ export default function NewProductPage() {
                             key={idx}
                             type="button"
                             onClick={() => setSelectedColourIndex(idx)}
-                            className={`admin-btn ${isSelected ? "admin-btn--primary" : "admin-btn--secondary"}`}
+                            className={`admin-btn ${isSelected ? 'admin-btn--primary' : 'admin-btn--secondary'}`}
                             style={{
-                              padding: "6px 14px",
-                              fontSize: "0.8125rem",
+                              padding: '6px 14px',
+                              fontSize: '0.8125rem',
                               fontWeight: 600,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
                             }}
                           >
                             <span>{g.colour_value || `Colour ${idx + 1}`}</span>
                             <span
                               style={{
-                                background: isSelected ? "rgba(255, 255, 255, 0.25)" : "var(--admin-tag-bg, #eee)",
-                                color: isSelected ? "#fff" : "inherit",
+                                background: isSelected
+                                  ? 'rgba(255, 255, 255, 0.25)'
+                                  : 'var(--admin-tag-bg, #eee)',
+                                color: isSelected ? '#fff' : 'inherit',
                                 borderRadius: 10,
-                                padding: "1px 6px",
-                                fontSize: "0.75rem",
-                                fontWeight: 700
+                                padding: '1px 6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
                               }}
                             >
                               {count}
@@ -1151,15 +1603,47 @@ export default function NewProductPage() {
         <div className="admin-form-sidebar">
           <div className="admin-card">
             <h2 className="admin-card-section-title">Publish Product</h2>
-            <button type="submit" className="admin-btn admin-btn--primary admin-btn--full" disabled={loading}>
-              {loading ? <span className="admin-btn-spinner" /> : "Save & Publish"}
+            <button
+              type="submit"
+              className="admin-btn admin-btn--primary admin-btn--full"
+              disabled={loading}
+            >
+              {loading ? <span className="admin-btn-spinner" /> : 'Save & Publish'}
             </button>
-            <button type="button" className="admin-btn admin-btn--ghost admin-btn--full" style={{ marginTop: 8 }} onClick={() => router.back()}>
+            <button
+              type="button"
+              className="admin-btn admin-btn--ghost admin-btn--full"
+              style={{ marginTop: 8 }}
+              onClick={() => router.back()}
+            >
               Cancel
             </button>
           </div>
         </div>
       </form>
+
+      {/* Dynamic Attribute Creation Modal (SCRUM-100) */}
+      {modalConfig.isOpen && (
+        <AdminAttributeModal
+          isOpen={modalConfig.isOpen}
+          onClose={() => setModalConfig((m) => ({ ...m, isOpen: false }))}
+          attributeType={modalConfig.type}
+          currentCategory={form.category}
+          adminToken={adminToken || ''}
+          onCreated={(newOpt) => {
+            if (newOpt.attribute_type === 'FIT') {
+              setFitOptions((prev) => Array.from(new Set([...prev, newOpt.name])));
+              setForm((f) => ({ ...f, fit: newOpt.name }));
+            } else if (newOpt.attribute_type === 'KIT_TYPE') {
+              setKitTypeOptions((prev) => Array.from(new Set([...prev, newOpt.name])));
+              setForm((f) => ({ ...f, kit_type: newOpt.name }));
+            } else if (newOpt.attribute_type === 'ACTIVITY') {
+              setActivityOptions((prev) => Array.from(new Set([...prev, newOpt.name])));
+              setForm((f) => ({ ...f, activity: newOpt.name }));
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

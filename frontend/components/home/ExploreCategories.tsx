@@ -13,21 +13,21 @@ interface CategoryData {
 const CATEGORIES: CategoryData[] = [
   {
     label: 'TOPS',
-    href: '/products',
+    href: '/products/tops',
     active: true,
     subLabel: 'Explore',
   },
   {
     label: 'BOTTOMS',
-    href: null,
-    active: false,
-    subLabel: 'Coming Soon',
+    href: '/products/bottoms',
+    active: true,
+    subLabel: 'Explore',
   },
   {
     label: 'ACCESSORIES',
-    href: null,
-    active: false,
-    subLabel: 'Coming Soon',
+    href: '/products/accessories',
+    active: true,
+    subLabel: 'Explore',
   },
 ];
 

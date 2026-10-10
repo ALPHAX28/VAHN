@@ -17,15 +17,17 @@ export const getProduct = cache(async (handle: string): Promise<Product | null> 
   return fetchAPI<Product>(`/products/${handle}`, { cache: 'no-store' }).catch(() => null);
 });
 
-export async function getProducts(_options?: {
+export async function getProducts(options?: {
   first?: number;
   query?: string;
   sortKey?: string;
   reverse?: boolean;
   after?: string;
+  category?: string;
 }): Promise<{ products: Product[]; hasNextPage: boolean; endCursor: string | null }> {
   try {
-    const products = await fetchAPI<Product[]>('/products', { cache: 'no-store' });
+    const qs = options?.category ? `?category=${encodeURIComponent(options.category)}` : '';
+    const products = await fetchAPI<Product[]>(`/products${qs}`, { cache: 'no-store' });
     return {
       products,
       hasNextPage: false,
