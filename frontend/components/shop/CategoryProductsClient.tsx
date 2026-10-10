@@ -733,15 +733,18 @@ export default function CategoryProductsClient({
                     }}
                   >
                     <span>{item.q}</span>
-                    <ChevronDown
-                      size={20}
+                    <span
                       style={{
+                        fontSize: '1.25rem',
+                        fontWeight: 300,
                         color: BRAND_COLOR,
-                        transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                        lineHeight: 1,
                         flexShrink: 0,
+                        userSelect: 'none',
                       }}
-                    />
+                    >
+                      {isOpen ? '−' : '+'}
+                    </span>
                   </button>
                   {isOpen && (
                     <div
