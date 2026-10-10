@@ -1252,6 +1252,12 @@ def build_order_schema(order: models.Order) -> schemas.OrderSchema:
 
     raw_status = order.status or "PROCESSING"
     effective_status = "FAILED" if (order.payment_status == "FAILED" or raw_status in ("FAILED", "PAYMENT_FAILED")) and raw_status != "CANCELLED" else raw_status
+    if (
+        order.shipping_status == "DELIVERED"
+        or order.delivered_at
+        or (isinstance(order.tracking_data, dict) and order.tracking_data.get("is_delivered"))
+    ) and effective_status not in ("CANCELLED", "REFUNDED", "RETURNED", "EXCHANGED"):
+        effective_status = "DELIVERED"
 
     return schemas.OrderSchema(
         id=order.id,
@@ -4612,7 +4618,8 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
                 return {"status": "already_cancelled", "order_id": order.id}
 
             if order.status != "CANCELLED":
-                order.shipping_status = current_status
+                norm_status = normalize_shipping_status(current_status)
+                order.shipping_status = norm_status
                 t_data = dict(order.tracking_data or {})
                 emails_sent = t_data.setdefault("emails_sent", {})
 
@@ -4622,25 +4629,37 @@ async def shiprocket_webhook(request: Request, db: Session = Depends(get_db)):
                 courier_val = order.shiprocket_courier_name or "Shiprocket"
                 track_url = f"{site_url}/track?q={awb_val}" if awb_val else f"{site_url}/orders"
 
-                if current_status in ("OUT_FOR_DELIVERY", "OUT FOR DELIVERY") and not emails_sent.get("out_for_delivery"):
-                    emails_sent["out_for_delivery"] = True
-                    order.tracking_data = t_data
-                    if target_email:
-                        try:
-                            send_out_for_delivery_email(
-                                to_email=target_email,
-                                order_id=order.id,
-                                courier_name=courier_val,
-                                awb_code=awb_val,
-                                tracking_url=track_url,
-                                customer_name=cust_name
-                            )
-                        except Exception as e_ofd:
-                            logger.warning(f"Failed to send OFD email for {order.id}: {e_ofd}")
+                is_ofd = (
+                    norm_status == "OUT_FOR_DELIVERY"
+                    or current_status in ("OUT_FOR_DELIVERY", "OUT FOR DELIVERY")
+                    or str(status_code) in ("17", "18")
+                    or "OUT FOR DELIVER" in current_status
+                )
+                if is_ofd:
+                    order.shipping_status = "OUT_FOR_DELIVERY"
+                    if not emails_sent.get("out_for_delivery"):
+                        emails_sent["out_for_delivery"] = True
+                        order.tracking_data = t_data
+                        if target_email:
+                            try:
+                                send_out_for_delivery_email(
+                                    to_email=target_email,
+                                    order_id=order.id,
+                                    courier_name=courier_val,
+                                    awb_code=awb_val,
+                                    tracking_url=track_url,
+                                    customer_name=cust_name
+                                )
+                            except Exception as e_ofd:
+                                logger.warning(f"Failed to send OFD email for {order.id}: {e_ofd}")
 
-                if current_status == "DELIVERED":
-                    order.status = "DELIVERED"
-                    order.delivered_at = datetime.utcnow()
+                is_del = (
+                    current_status == "DELIVERED"
+                    or str(status_code) in ("7", "8")
+                    or ("DELIVER" in current_status and "UNDELIVER" not in current_status and "OUT FOR" not in current_status)
+                )
+                if is_del:
+                    mark_order_forward_delivered(order, data)
                     if not emails_sent.get("delivered"):
                         emails_sent["delivered"] = True
                         order.tracking_data = t_data

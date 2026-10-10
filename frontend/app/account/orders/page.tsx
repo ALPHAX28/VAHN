@@ -22,6 +22,8 @@ interface OrderItem {
 interface Order {
   id: string;
   status: string;
+  shippingStatus?: string;
+  deliveredAt?: string | null;
   subtotalPrice: { amount: string; currencyCode: string };
   totalPrice: { amount: string; currencyCode: string };
   shippingAddress?: { name?: string; address?: string; city?: string; postalCode?: string };
@@ -154,6 +156,12 @@ export default function OrdersPage() {
           {orders.map((order) => {
             const items = order.items || [];
             const totalItemCount = items.reduce((sum, item) => sum + (item.quantity || 1), 0);
+            const isDelivered =
+              order.status === 'DELIVERED' ||
+              order.shippingStatus === 'DELIVERED' ||
+              Boolean(order.deliveredAt);
+            const displayStatus = isDelivered ? 'DELIVERED' : order.status;
+
             return (
               <div key={order.id} className="order-card">
                 {/* 1. Order Card Header */}
@@ -163,8 +171,8 @@ export default function OrdersPage() {
                     <span className="order-date">Placed on {order.createdAt}</span>
                   </div>
                   <div className="order-card-header-badge">
-                    <span className={`order-status-badge status-${order.status.toLowerCase()}`}>
-                      {order.status}
+                    <span className={`order-status-badge status-${displayStatus.toLowerCase()}`}>
+                      {displayStatus}
                     </span>
                   </div>
                 </div>

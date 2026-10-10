@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { getApiBaseUrl } from '@/lib/api/client';
 import type { Review } from '@/lib/api/types';
 
@@ -25,6 +26,41 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [expandedReviewIds, setExpandedReviewIds] = useState<Record<string, boolean>>({});
   const [visibleCount, setVisibleCount] = useState(6);
+
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  // SCRUM-98: Dismiss filter and sort dropdowns on click outside or Escape key
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(target)) {
+        setShowFilterDropdown(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(target)) {
+        setShowSortDropdown(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowFilterDropdown(false);
+        setShowSortDropdown(false);
+      }
+    };
+
+    if (showFilterDropdown || showSortDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showFilterDropdown, showSortDropdown]);
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,17 +94,18 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
       if (typeof window !== 'undefined') {
         window.location.reload();
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred. Please try again.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const totalReviews = reviews.length;
-  const averageScore = totalReviews > 0 
-    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1)
-    : '0.0';
+  const averageScore =
+    totalReviews > 0
+      ? (reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1)
+      : '0.0';
 
   const filteredReviews = reviews.filter((r) => {
     if (filterRating === 'all') return true;
@@ -79,7 +116,11 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
     const parseDate = (dStr: string) => {
       const parts = dStr.split('/');
       if (parts.length === 3) {
-        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+        return new Date(
+          parseInt(parts[2], 10),
+          parseInt(parts[1], 10) - 1,
+          parseInt(parts[0], 10)
+        ).getTime();
       }
       return new Date(dStr).getTime();
     };
@@ -102,7 +143,6 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
   return (
     <section id="product-reviews" className="reviews-section">
       <div className="container">
-
         {/* Header and Controls */}
         <div className="reviews-header-container">
           <div>
@@ -120,42 +160,97 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
                       fill={star <= Math.round(parseFloat(averageScore)) ? '#4232d9' : '#e0e0e0'}
                       style={{ display: 'inline-block' }}
                     >
+                      <title>{`${star} star`}</title>
                       <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
                     </svg>
                   ))}
                 </div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--color-grey-dark)' }}>{totalReviews} review{totalReviews !== 1 ? 's' : ''}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-grey-dark)' }}>
+                  {totalReviews} review{totalReviews !== 1 ? 's' : ''}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="reviews-controls-row">
-            <button 
-              onClick={() => setShowForm(!showForm)} 
+            <button
+              onClick={() => setShowForm(!showForm)}
               className="btn btn-primary reviews-write-btn"
             >
               Write a review
             </button>
-            
+
             {/* Filter Button */}
-            <div style={{ position: 'relative' }}>
-              <button 
-                onClick={() => { setShowFilterDropdown(!showFilterDropdown); setShowSortDropdown(false); }}
+            <div ref={filterDropdownRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => {
+                  setShowFilterDropdown(!showFilterDropdown);
+                  setShowSortDropdown(false);
+                }}
                 className="btn-icon-outline reviews-icon-btn"
                 aria-label="Filter reviews"
+                aria-expanded={showFilterDropdown}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <title>Filter reviews</title>
                   <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
                 </svg>
               </button>
               {showFilterDropdown && (
-                <div style={{ position: 'absolute', right: 0, top: '48px', zIndex: 10, background: 'white', border: '1px solid var(--color-border)', borderRadius: 0, padding: '8px', width: '160px', boxShadow: 'var(--shadow-md)' }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.75rem', padding: '6px 8px', textTransform: 'uppercase', color: 'var(--color-grey-dark)' }}>Filter by Rating</div>
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '48px',
+                    zIndex: 10,
+                    background: 'white',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 0,
+                    padding: '8px',
+                    width: '160px',
+                    boxShadow: 'var(--shadow-md)',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      fontSize: '0.75rem',
+                      padding: '6px 8px',
+                      textTransform: 'uppercase',
+                      color: 'var(--color-grey-dark)',
+                    }}
+                  >
+                    Filter by Rating
+                  </div>
                   {(['all', 5, 4, 3, 2, 1] as const).map((r) => (
                     <button
                       key={r}
-                      onClick={() => { setFilterRating(r); setShowFilterDropdown(false); }}
-                      style={{ display: 'block', width: '100%', padding: '8px', textAlign: 'left', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', backgroundColor: filterRating === r ? 'var(--color-grey-light)' : 'transparent', borderRadius: 0 }}
+                      onClick={() => {
+                        setFilterRating(r);
+                        setShowFilterDropdown(false);
+                      }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        padding: '8px',
+                        textAlign: 'left',
+                        background: 'none',
+                        border: 'none',
+                        fontSize: '0.875rem',
+                        cursor: 'pointer',
+                        backgroundColor:
+                          filterRating === r ? 'var(--color-grey-light)' : 'transparent',
+                        borderRadius: 0,
+                      }}
                     >
                       {r === 'all' ? 'All Ratings' : `${r} Stars`}
                     </button>
@@ -165,30 +260,84 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
             </div>
 
             {/* Sort Button */}
-            <div style={{ position: 'relative' }}>
-              <button 
-                onClick={() => { setShowSortDropdown(!showSortDropdown); setShowFilterDropdown(false); }}
+            <div ref={sortDropdownRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => {
+                  setShowSortDropdown(!showSortDropdown);
+                  setShowFilterDropdown(false);
+                }}
                 className="btn-icon-outline reviews-icon-btn"
                 aria-label="Sort reviews"
+                aria-expanded={showSortDropdown}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <title>Sort reviews</title>
                   <line x1="12" y1="5" x2="12" y2="19"></line>
                   <polyline points="19 12 12 19 5 12"></polyline>
                 </svg>
               </button>
               {showSortDropdown && (
-                <div style={{ position: 'absolute', right: 0, top: '48px', zIndex: 10, background: 'white', border: '1px solid var(--color-border)', borderRadius: 0, padding: '8px', width: '180px', boxShadow: 'var(--shadow-md)' }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.75rem', padding: '6px 8px', textTransform: 'uppercase', color: 'var(--color-grey-dark)' }}>Sort by</div>
-                  {([
-                    { value: 'newest', label: 'Newest First' },
-                    { value: 'oldest', label: 'Oldest First' },
-                    { value: 'highest', label: 'Highest Rating' },
-                    { value: 'lowest', label: 'Lowest Rating' }
-                  ] as const).map((opt) => (
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '48px',
+                    zIndex: 10,
+                    background: 'white',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 0,
+                    padding: '8px',
+                    width: '180px',
+                    boxShadow: 'var(--shadow-md)',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      fontSize: '0.75rem',
+                      padding: '6px 8px',
+                      textTransform: 'uppercase',
+                      color: 'var(--color-grey-dark)',
+                    }}
+                  >
+                    Sort by
+                  </div>
+                  {(
+                    [
+                      { value: 'newest', label: 'Newest First' },
+                      { value: 'oldest', label: 'Oldest First' },
+                      { value: 'highest', label: 'Highest Rating' },
+                      { value: 'lowest', label: 'Lowest Rating' },
+                    ] as const
+                  ).map((opt) => (
                     <button
                       key={opt.value}
-                      onClick={() => { setSortBy(opt.value); setShowSortDropdown(false); }}
-                      style={{ display: 'block', width: '100%', padding: '8px', textAlign: 'left', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', backgroundColor: sortBy === opt.value ? 'var(--color-grey-light)' : 'transparent', borderRadius: 0 }}
+                      onClick={() => {
+                        setSortBy(opt.value);
+                        setShowSortDropdown(false);
+                      }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        padding: '8px',
+                        textAlign: 'left',
+                        background: 'none',
+                        border: 'none',
+                        fontSize: '0.875rem',
+                        cursor: 'pointer',
+                        backgroundColor:
+                          sortBy === opt.value ? 'var(--color-grey-light)' : 'transparent',
+                        borderRadius: 0,
+                      }}
                     >
                       {opt.label}
                     </button>
@@ -202,34 +351,52 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
         {/* Review Form */}
         {showForm && (
           <form onSubmit={handleSubmitReview} className="review-form">
-            <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-heading)' }}>Write a Review</h3>
-            
+            <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-heading)' }}>
+              Write a Review
+            </h3>
+
             <div>
-              <label className="review-form-label">Your Name</label>
-              <input 
-                type="text" 
-                value={author} 
-                onChange={(e) => setAuthor(e.target.value)} 
-                required 
+              <label htmlFor="review-author" className="review-form-label">
+                Your Name
+              </label>
+              <input
+                id="review-author"
+                type="text"
+                value={author}
+                onChange={(e) => setAuthor(e.target.value)}
+                required
                 placeholder="Enter your name"
                 className="review-form-input"
               />
             </div>
 
             <div>
-              <label className="review-form-label">Review Title</label>
-              <input 
-                type="text" 
-                value={title} 
-                onChange={(e) => setTitle(e.target.value)} 
-                required 
+              <label htmlFor="review-title" className="review-form-label">
+                Review Title
+              </label>
+              <input
+                id="review-title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
                 placeholder="e.g. Extremely comfortable"
                 className="review-form-input"
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '8px' }}>Rating</label>
+              <span
+                style={{
+                  display: 'block',
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  marginBottom: '8px',
+                }}
+              >
+                Rating
+              </span>
               <div style={{ display: 'flex', gap: '6px' }}>
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -245,6 +412,7 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
                       fill={star <= rating ? '#4232d9' : '#e0e0e0'}
                       style={{ display: 'inline-block' }}
                     >
+                      <title>{`Rate ${star} star`}</title>
                       <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
                     </svg>
                   </button>
@@ -253,11 +421,14 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
             </div>
 
             <div>
-              <label className="review-form-label">Review</label>
-              <textarea 
-                value={content} 
-                onChange={(e) => setContent(e.target.value)} 
-                required 
+              <label htmlFor="review-content" className="review-form-label">
+                Review
+              </label>
+              <textarea
+                id="review-content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                required
                 rows={4}
                 placeholder="Share your thoughts about this product..."
                 className="review-form-textarea"
@@ -267,16 +438,16 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
             {error && <p style={{ color: '#D93939', fontSize: '0.875rem' }}>{error}</p>}
 
             <div className="review-form-actions">
-              <button 
-                type="submit" 
-                disabled={isSubmitting} 
+              <button
+                type="submit"
+                disabled={isSubmitting}
                 className="btn btn-primary review-form-submit-btn"
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Review'}
               </button>
-              <button 
-                type="button" 
-                onClick={() => setShowForm(false)} 
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
                 className="btn btn-secondary review-form-cancel-btn"
               >
                 Cancel
@@ -287,8 +458,15 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
 
         {/* Reviews List */}
         {sortedReviews.length === 0 ? (
-          <div style={{ background: 'var(--color-white)', padding: '40px', textAlign: 'center', borderRadius: 0, color: 'var(--color-grey-dark)' }}>
-
+          <div
+            style={{
+              background: 'var(--color-white)',
+              padding: '40px',
+              textAlign: 'center',
+              borderRadius: 0,
+              color: 'var(--color-grey-dark)',
+            }}
+          >
             No reviews found matching the selected rating.
           </div>
         ) : (
@@ -297,8 +475,9 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
               {sortedReviews.slice(0, visibleCount).map((review) => {
                 const isLong = review.content.length > 150;
                 const isExpanded = expandedReviewIds[review.id];
-                const displayContent = isLong && !isExpanded ? `${review.content.slice(0, 150)}...` : review.content;
-                
+                const displayContent =
+                  isLong && !isExpanded ? `${review.content.slice(0, 150)}...` : review.content;
+
                 return (
                   <div key={review.id} className="review-card">
                     <div className="review-stars" style={{ display: 'flex', gap: '3px' }}>
@@ -311,34 +490,32 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
                           fill={star <= Math.round(review.rating) ? '#4232d9' : '#e0e0e0'}
                           style={{ display: 'inline-block' }}
                         >
+                          <title>{`Star ${star}`}</title>
                           <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
                         </svg>
                       ))}
                     </div>
-                    
+
                     <div>
                       <span className="review-author">
                         {review.author}
-                        {review.verified && (
-                          <span className="review-verified-badge">
-                            Verified
-                          </span>
-                        )}
+                        {review.verified && <span className="review-verified-badge">Verified</span>}
                       </span>
                       <div className="review-date">{review.date}</div>
                     </div>
 
-                    {review.title && (
-                      <h4 className="review-title-text">
-                        {review.title}
-                      </h4>
-                    )}
-                    
+                    {review.title && <h4 className="review-title-text">{review.title}</h4>}
+
                     <p className="review-content">"{displayContent}"</p>
-                    
+
                     {isLong && (
                       <button
-                        onClick={() => setExpandedReviewIds((prev) => ({ ...prev, [review.id]: !prev[review.id] }))}
+                        onClick={() =>
+                          setExpandedReviewIds((prev) => ({
+                            ...prev,
+                            [review.id]: !prev[review.id],
+                          }))
+                        }
                         className="review-read-more"
                       >
                         {isExpanded ? 'Read less' : 'Read more'}
@@ -350,7 +527,10 @@ export default function ProductReviews({ initialReviews, productHandle }: Props)
             </div>
 
             {sortedReviews.length > visibleCount && (
-              <div className="reviews-load-more-wrapper" style={{ display: 'flex', justifyContent: 'center', marginTop: '28px' }}>
+              <div
+                className="reviews-load-more-wrapper"
+                style={{ display: 'flex', justifyContent: 'center', marginTop: '28px' }}
+              >
                 <button
                   onClick={() => setVisibleCount((prev) => prev + 6)}
                   className="reviews-load-more-btn"
