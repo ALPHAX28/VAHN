@@ -12,9 +12,19 @@ interface Props {
 /**
  * Maps product fit value to the exact brand illustration icon.
  */
-function getFitIconSrc(fitValue: string, customIcon?: string | null): string {
+function getFitIconSrc(fitValue: string, customIcon?: string | null, category?: string): string {
   if (customIcon) return customIcon;
   const n = fitValue.trim().toUpperCase();
+  const isBottoms = category?.toUpperCase() === 'BOTTOMS';
+
+  if (isBottoms) {
+    if (n.includes('SLIM') || n.includes('COMPRESSION') || n.includes('TAPERED'))
+      return '/icons/highlights/fits/bottoms-slim.png';
+    if (n.includes('REGULAR')) return '/icons/highlights/fits/bottoms-regular.png';
+    if (n.includes('RELAXED') || n.includes('LOOSE')) return '/icons/highlights/fits/bottoms-relaxed.png';
+    return '/icons/highlights/fits/bottoms-regular.png';
+  }
+
   if (n.includes('SLIM') || n.includes('COMPRESSION')) return '/icons/highlights/fits/slim.png';
   if (n.includes('REGULAR')) return '/icons/highlights/fits/regular.png';
   if (n.includes('RELAXED') || n.includes('LOOSE')) return '/icons/highlights/fits/relaxed-fit.png';
@@ -75,8 +85,11 @@ export default function ProductHighlights({ product }: Props) {
 
   const findCustomIcon = (type: string, val?: string | null): string | null => {
     if (!val) return null;
+    const clean = val.trim().toLowerCase();
     const match = dbOptions.find(
-      (opt) => opt.attribute_type === type && opt.name.toLowerCase() === val.toLowerCase()
+      (opt) =>
+        opt.attribute_type === type &&
+        (opt.name.toLowerCase() === clean || opt.code.toLowerCase() === clean)
     );
     return match?.icon_url || null;
   };
@@ -95,7 +108,7 @@ export default function ProductHighlights({ product }: Props) {
         id: 'fit',
         label: 'Fit',
         value: rawFit,
-        iconSrc: getFitIconSrc(rawFit, findCustomIcon('FIT', rawFit)),
+        iconSrc: getFitIconSrc(rawFit, findCustomIcon('FIT', rawFit), category),
       });
     }
   }

@@ -51,10 +51,10 @@ def upgrade() -> None:
         ('FIT', 'TOPS', 'Athletic Performance', 'ATHLETIC_PERFORMANCE', '/icons/highlights/fits/athletic-performance.png', 5),
 
         # Fits - BOTTOMS
-        ('FIT', 'BOTTOMS', 'Slim Fit', 'SLIM', '/icons/highlights/fits/slim.png', 1),
-        ('FIT', 'BOTTOMS', 'Regular Fit', 'REGULAR', '/icons/highlights/fits/regular.png', 2),
-        ('FIT', 'BOTTOMS', 'Relaxed Fit', 'RELAXED_FIT', '/icons/highlights/fits/relaxed-fit.png', 3),
-        ('FIT', 'BOTTOMS', 'Tapered Fit', 'TAPERED', '/icons/highlights/fits/regular.png', 4),
+        ('FIT', 'BOTTOMS', 'Slim Fit', 'SLIM', '/icons/highlights/fits/bottoms-slim.png', 1),
+        ('FIT', 'BOTTOMS', 'Regular Fit', 'REGULAR', '/icons/highlights/fits/bottoms-regular.png', 2),
+        ('FIT', 'BOTTOMS', 'Relaxed Fit', 'RELAXED_FIT', '/icons/highlights/fits/bottoms-relaxed.png', 3),
+        ('FIT', 'BOTTOMS', 'Tapered Fit', 'TAPERED', '/icons/highlights/fits/bottoms-slim.png', 4),
 
         # Kit Types - TOPS
         ('KIT_TYPE', 'TOPS', 'Home', 'HOME', '/icons/highlights/kit_types/home.png', 1),
