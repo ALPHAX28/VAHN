@@ -28,8 +28,9 @@ export default function AdminAttributeModal({
   const [category, setCategory] = useState<'TOPS' | 'BOTTOMS' | 'ACCESSORIES' | 'ALL'>(
     currentCategory
   );
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   const [iconUrl, setIconUrl] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewBg, setPreviewBg] = useState<'checker-light' | 'checker-dark'>('checker-light');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,7 +43,17 @@ export default function AdminAttributeModal({
     ACTIVITY: 'Activity',
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleClose = () => {
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPendingFile(null);
+    setPreviewUrl('');
+    setIconUrl('');
+    onClose();
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -51,19 +62,29 @@ export default function AdminAttributeModal({
     const isSvg = file.type === 'image/svg+xml';
     if (!isPng && !isSvg) {
       toast.error('Only transparent PNG or SVG files are allowed for attribute logos.');
+      return;
     }
 
-    try {
-      setIsUploading(true);
-      toast.loading('Uploading logo to S3...', { id: 'attr-logo-upload' });
-      const uploaded = await uploadFileToS3(file, 'attributes', adminToken);
-      setIconUrl(uploaded.url);
-      toast.success('Logo uploaded successfully!', { id: 'attr-logo-upload' });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to upload logo';
-      toast.error(msg, { id: 'attr-logo-upload' });
-    } finally {
-      setIsUploading(false);
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    // Immediate local preview without uploading to S3
+    const objectUrl = URL.createObjectURL(file);
+    setPendingFile(file);
+    setPreviewUrl(objectUrl);
+    toast.success('Logo preview loaded! It will be uploaded to S3 upon clicking Save.');
+  };
+
+  const handleRemoveImage = () => {
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPendingFile(null);
+    setPreviewUrl('');
+    setIconUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -77,19 +98,30 @@ export default function AdminAttributeModal({
 
     try {
       setIsSubmitting(true);
+      let finalIconUrl = iconUrl;
+
+      // Strictly upload to S3 ONLY when the user clicks Save
+      if (pendingFile) {
+        toast.loading('Uploading logo to S3...', { id: 'attr-save-upload' });
+        const uploaded = await uploadFileToS3(pendingFile, 'attributes', adminToken);
+        finalIconUrl = uploaded.url;
+      }
+
       const newOption = await createAdminAttributeOption(adminToken, {
         attribute_type: attributeType,
         category: category,
         name: cleanName,
-        icon_url: iconUrl || undefined,
+        icon_url: finalIconUrl || undefined,
       });
 
-      toast.success(`Created new ${typeLabels[attributeType]}: "${cleanName}"`);
+      toast.success(`Created new ${typeLabels[attributeType]}: "${cleanName}"`, {
+        id: 'attr-save-upload',
+      });
+      handleClose();
       onCreated(newOption);
-      onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create attribute option';
-      toast.error(msg);
+      toast.error(msg, { id: 'attr-save-upload' });
     } finally {
       setIsSubmitting(false);
     }
@@ -301,7 +333,7 @@ export default function AdminAttributeModal({
               >
                 Attribute Icon / Logo (Transparent PNG / SVG)
               </label>
-              {iconUrl && (
+              {(previewUrl || iconUrl) && (
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <button
                     type="button"
@@ -324,7 +356,7 @@ export default function AdminAttributeModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setIconUrl('')}
+                    onClick={handleRemoveImage}
                     style={{
                       fontSize: '0.7rem',
                       background: 'none',
@@ -349,7 +381,7 @@ export default function AdminAttributeModal({
               style={{ display: 'none' }}
             />
 
-            {iconUrl ? (
+            {previewUrl || iconUrl ? (
               <div
                 style={{
                   border: '1px solid #111111',
@@ -374,7 +406,7 @@ export default function AdminAttributeModal({
                   }}
                 >
                   <Image
-                    src={iconUrl}
+                    src={previewUrl || iconUrl}
                     alt="Attribute logo preview"
                     width={48}
                     height={48}
@@ -390,7 +422,9 @@ export default function AdminAttributeModal({
                       color: previewBg === 'checker-light' ? '#000000' : '#ffffff',
                     }}
                   >
-                    ✓ Transparent Logo Loaded
+                    {pendingFile
+                      ? '✓ Local Preview Loaded (Pending Save)'
+                      : '✓ Transparent Logo Loaded'}
                   </div>
                   <div
                     style={{
@@ -399,7 +433,9 @@ export default function AdminAttributeModal({
                       marginTop: '2px',
                     }}
                   >
-                    Correctly sized to 48×48px icon footprint
+                    {pendingFile
+                      ? 'Logo ready. It will be uploaded to S3 upon clicking Save.'
+                      : 'Correctly sized to 48×48px icon footprint'}
                   </div>
                   <button
                     type="button"
@@ -429,16 +465,16 @@ export default function AdminAttributeModal({
                   padding: '24px 16px',
                   textAlign: 'center',
                   backgroundColor: '#fafafa',
-                  cursor: isUploading ? 'not-allowed' : 'pointer',
+                  cursor: 'pointer',
                   transition: 'border-color 0.15s ease',
                 }}
               >
                 <div style={{ fontSize: '1.75rem', marginBottom: '8px' }}>📂</div>
                 <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#111111' }}>
-                  {isUploading ? 'Uploading Logo to S3...' : 'Click to Upload Transparent Logo'}
+                  Click to Select Transparent Logo
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#777777', marginTop: '4px' }}>
-                  PNG or SVG with transparent background (auto-scaled to 48×48px)
+                  PNG or SVG (shows instant local preview; uploads to S3 on Save)
                 </div>
               </div>
             )}
@@ -456,8 +492,8 @@ export default function AdminAttributeModal({
           >
             <button
               type="button"
-              onClick={onClose}
-              disabled={isSubmitting || isUploading}
+              onClick={handleClose}
+              disabled={isSubmitting}
               style={{
                 padding: '10px 18px',
                 border: '1px solid #cccccc',
@@ -475,7 +511,7 @@ export default function AdminAttributeModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || isUploading || !name.trim()}
+              disabled={isSubmitting || !name.trim()}
               style={{
                 padding: '10px 22px',
                 border: '1px solid #111111',
@@ -485,12 +521,16 @@ export default function AdminAttributeModal({
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '0.04em',
-                cursor: isSubmitting || isUploading || !name.trim() ? 'not-allowed' : 'pointer',
-                opacity: isSubmitting || isUploading || !name.trim() ? 0.6 : 1,
+                cursor: isSubmitting || !name.trim() ? 'not-allowed' : 'pointer',
+                opacity: isSubmitting || !name.trim() ? 0.6 : 1,
                 borderRadius: '0px',
               }}
             >
-              {isSubmitting ? 'Saving...' : `Save ${typeLabels[attributeType]}`}
+              {isSubmitting
+                ? pendingFile
+                  ? 'Uploading & Saving...'
+                  : 'Saving...'
+                : `Save ${typeLabels[attributeType]}`}
             </button>
           </div>
         </form>
