@@ -303,8 +303,8 @@ function FaqItem({
         </span>
         <span
           style={{
-            fontSize: '1.25rem',
-            fontWeight: 300,
+            fontSize: '1.75rem',
+            fontWeight: 400,
             color: BRAND_COLOR,
             lineHeight: 1,
             flexShrink: 0,
@@ -1546,7 +1546,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                       color: '#09090b',
                     }}
                   >
-                    NO BOTTOMS CURRENTLY AVAILABLE
+                    BOTTOMS — DROP COMING SOON
                   </h3>
                   <p
                     style={{
@@ -1655,7 +1655,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                       color: '#09090b',
                     }}
                   >
-                    NO ACCESSORIES CURRENTLY AVAILABLE
+                    ACCESSORIES — DROP COMING SOON
                   </h3>
                   <p
                     style={{

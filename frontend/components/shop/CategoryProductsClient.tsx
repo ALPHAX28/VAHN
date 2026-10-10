@@ -610,7 +610,9 @@ export default function CategoryProductsClient({
                 color: '#09090b',
               }}
             >
-              {hasActiveFilters ? 'NO MATCHING PRODUCTS FOUND' : `NO ${categoryTitle} AVAILABLE`}
+              {hasActiveFilters
+                ? 'NO MATCHING PRODUCTS FOUND'
+                : `${categoryTitle} — DROP COMING SOON`}
             </h2>
             <p
               style={{
@@ -624,7 +626,7 @@ export default function CategoryProductsClient({
             >
               {hasActiveFilters
                 ? 'Try adjusting or clearing your active filters to view all pieces in this collection.'
-                : 'We are engineering new pieces for this collection. Explore our active drops across all categories.'}
+                : 'We engineer pieces drop by drop. Stay notified for release dates and priority access.'}
             </p>
             {hasActiveFilters ? (
               <button
@@ -735,8 +737,8 @@ export default function CategoryProductsClient({
                     <span>{item.q}</span>
                     <span
                       style={{
-                        fontSize: '1.25rem',
-                        fontWeight: 300,
+                        fontSize: '1.75rem',
+                        fontWeight: 400,
                         color: BRAND_COLOR,
                         lineHeight: 1,
                         flexShrink: 0,
