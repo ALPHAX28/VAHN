@@ -1025,26 +1025,58 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           box-sizing: border-box;
         }
         .chevron-anim-right {
+          opacity: 0;
+          max-width: 0;
+          transform: translateX(-10px);
+          transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin 0.25s ease;
+          margin-left: 0;
           display: inline-block;
           vertical-align: middle;
+          pointer-events: none;
           flex-shrink: 0;
-          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         *:hover > .chevron-anim-right,
         button:hover .chevron-anim-right,
         a:hover .chevron-anim-right {
-          transform: translateX(4px);
+          opacity: 1;
+          max-width: 20px;
+          transform: translateX(0);
+          margin-left: 6px;
+        }
+        @media (hover: none) {
+          .chevron-anim-right {
+            opacity: 1;
+            max-width: 20px;
+            transform: translateX(0);
+            margin-left: 6px;
+          }
         }
         .chevron-anim-left {
+          opacity: 0;
+          max-width: 0;
+          transform: translateX(10px);
+          transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin 0.25s ease;
+          margin-right: 0;
           display: inline-block;
           vertical-align: middle;
+          pointer-events: none;
           flex-shrink: 0;
-          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         *:hover > .chevron-anim-left,
         button:hover .chevron-anim-left,
         a:hover .chevron-anim-left {
-          transform: translateX(-4px);
+          opacity: 1;
+          max-width: 20px;
+          transform: translateX(0);
+          margin-right: 6px;
+        }
+        @media (hover: none) {
+          .chevron-anim-left {
+            opacity: 1;
+            max-width: 20px;
+            transform: translateX(0);
+            margin-right: 6px;
+          }
         }
         .category-nav-scroll {
           display: flex;
@@ -1264,7 +1296,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             }}
           >
             <span>TOPS ({topsItems.length})</span>
-            <ChevronRight size={13} className="chevron-anim-right" style={{ opacity: 0.55 }} />
+            <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
           </Link>
           <Link
             href="/products/bottoms"
@@ -1295,7 +1327,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             }}
           >
             <span>BOTTOMS ({bottomsItems.length})</span>
-            <ChevronRight size={13} className="chevron-anim-right" style={{ opacity: 0.55 }} />
+            <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
           </Link>
           <Link
             href="/products/accessories"
@@ -1326,7 +1358,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             }}
           >
             <span>ACCESSORIES ({accessoriesItems.length})</span>
-            <ChevronRight size={13} className="chevron-anim-right" style={{ opacity: 0.55 }} />
+            <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
           </Link>
         </div>
       </div>
@@ -1490,7 +1522,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                   }}
                 >
                   <span>VIEW ALL TOPS ({topsItems.length})</span>
-                  <ChevronRight size={14} className="chevron-anim-right" />
+                  <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
                 </Link>
               </div>
 
@@ -1558,7 +1590,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                   }}
                 >
                   <span>VIEW ALL BOTTOMS ({bottomsItems.length})</span>
-                  <ChevronRight size={14} className="chevron-anim-right" />
+                  <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
                 </Link>
               </div>
 
@@ -1611,7 +1643,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                     }}
                   >
                     <span>EXPLORE BOTTOMS COLLECTION</span>
-                    <ChevronRight size={14} className="chevron-anim-right" />
+                    <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
                   </Link>
                 </div>
               ) : (
@@ -1667,7 +1699,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                   }}
                 >
                   <span>VIEW ALL ACCESSORIES ({accessoriesItems.length})</span>
-                  <ChevronRight size={14} className="chevron-anim-right" />
+                  <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
                 </Link>
               </div>
 
@@ -1720,7 +1752,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                     }}
                   >
                     <span>EXPLORE ACCESSORIES COLLECTION</span>
-                    <ChevronRight size={14} className="chevron-anim-right" />
+                    <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
                   </Link>
                 </div>
               ) : (

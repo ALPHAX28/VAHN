@@ -129,26 +129,58 @@ export default function CategoryProductsClient({
           box-sizing: border-box;
         }
         .chevron-anim-right {
+          opacity: 0;
+          max-width: 0;
+          transform: translateX(-10px);
+          transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin 0.25s ease;
+          margin-left: 0;
           display: inline-block;
           vertical-align: middle;
+          pointer-events: none;
           flex-shrink: 0;
-          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         *:hover > .chevron-anim-right,
         button:hover .chevron-anim-right,
         a:hover .chevron-anim-right {
-          transform: translateX(4px);
+          opacity: 1;
+          max-width: 20px;
+          transform: translateX(0);
+          margin-left: 6px;
+        }
+        @media (hover: none) {
+          .chevron-anim-right {
+            opacity: 1;
+            max-width: 20px;
+            transform: translateX(0);
+            margin-left: 6px;
+          }
         }
         .chevron-anim-left {
+          opacity: 0;
+          max-width: 0;
+          transform: translateX(10px);
+          transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin 0.25s ease;
+          margin-right: 0;
           display: inline-block;
           vertical-align: middle;
+          pointer-events: none;
           flex-shrink: 0;
-          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         *:hover > .chevron-anim-left,
         button:hover .chevron-anim-left,
         a:hover .chevron-anim-left {
-          transform: translateX(-4px);
+          opacity: 1;
+          max-width: 20px;
+          transform: translateX(0);
+          margin-right: 6px;
+        }
+        @media (hover: none) {
+          .chevron-anim-left {
+            opacity: 1;
+            max-width: 20px;
+            transform: translateX(0);
+            margin-right: 6px;
+          }
         }
         .category-nav-scroll {
           display: flex;
@@ -321,7 +353,7 @@ export default function CategoryProductsClient({
                 e.currentTarget.style.background = '#fafafa';
               }}
             >
-              <ChevronLeft size={14} className="chevron-anim-left" />
+              <ChevronLeft size={14} strokeWidth={2.5} className="chevron-anim-left" />
               <span>ALL PRODUCTS</span>
             </Link>
 
@@ -363,11 +395,7 @@ export default function CategoryProductsClient({
                 >
                   <span>{cat}</span>
                   {!isActive && (
-                    <ChevronRight
-                      size={13}
-                      className="chevron-anim-right"
-                      style={{ opacity: 0.55 }}
-                    />
+                    <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
                   )}
                 </Link>
               );
@@ -672,7 +700,7 @@ export default function CategoryProductsClient({
                 }}
               >
                 <span>EXPLORE ALL PRODUCTS</span>
-                <ChevronRight size={15} className="chevron-anim-right" />
+                <ChevronRight size={15} strokeWidth={2.5} className="chevron-anim-right" />
               </Link>
             )}
           </div>
