@@ -347,12 +347,24 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
   const [isHovered, setIsHovered] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
+  const [loadedMap, setLoadedMap] = useState<Record<number, boolean>>({});
   const cardRef = useRef<HTMLDivElement>(null);
 
   const images = item.images || [];
   const hasMultipleImages = images.length > 1;
   const currentImg = images[imgIdx] ?? null;
   const activeImageUrl = currentImg?.url || null;
+
+  // Eagerly preload all alternative card images on mount to eliminate switching lag
+  useEffect(() => {
+    if (!images || images.length <= 1) return;
+    images.forEach((img, idx) => {
+      if (idx > 0 && img?.url && typeof window !== 'undefined') {
+        const preloadImg = new window.Image();
+        preloadImg.src = img.url;
+      }
+    });
+  }, [images]);
 
   const sizeVariants = useMemo(() => {
     const mapped = item.variants.map((v) => {
@@ -455,7 +467,7 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
           overflow: 'hidden',
         }}
       >
-        {/* Left Arrow — frosted circle with animated ChevronLeft */}
+        {/* Left Arrow Button — Pure VAHN Blue, transparent & static */}
         <button
           type="button"
           onClick={handlePrev}
@@ -467,37 +479,30 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 15,
-            background: 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
-            border: '1px solid rgba(0, 0, 0, 0.08)',
-            borderRadius: '50%',
-            width: '32px',
-            height: '32px',
-            padding: 0,
+            background: 'transparent',
+            border: 'none',
+            borderRadius: 0,
+            padding: '6px',
             display: hasMultipleImages ? 'flex' : 'none',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: hasMultipleImages ? 'pointer' : 'default',
-            color: '#18181b',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            color: BRAND_COLOR,
+            boxShadow: 'none',
+            outline: 'none',
+            transition: 'color 0.15s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = BRAND_COLOR;
-            e.currentTarget.style.background = '#ffffff';
-            e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
+            e.currentTarget.style.color = '#3425b8';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = '#18181b';
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
-            e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+            e.currentTarget.style.color = BRAND_COLOR;
           }}
         >
-          <ChevronLeft size={16} strokeWidth={2.5} className="chevron-anim-left" />
+          <ChevronLeft size={22} strokeWidth={2} />
         </button>
 
-        {/* Product Image Link */}
+        {/* Product Image Link — Stacked images for 0ms lag-free switching */}
         <Link
           href={item.targetHref}
           style={{
@@ -508,12 +513,37 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
             alignItems: 'center',
             justifyContent: 'center',
             textDecoration: 'none',
+            overflow: 'hidden',
           }}
         >
-          {activeImageUrl ? (
+          {images.length > 0 ? (
+            images.map((img, idx) => (
+              <Image
+                key={img.url || `shop-card-img-${idx}`}
+                src={img.url}
+                alt={img.altText || item.title}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                loading={idx <= 1 ? 'eager' : 'lazy'}
+                onLoad={() => {
+                  setLoadedMap((prev) => (prev[idx] ? prev : { ...prev, [idx]: true }));
+                }}
+                style={{
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                  transition: 'opacity 0.2s ease, transform 0.4s ease',
+                  transform: isHovered ? 'scale(1.02)' : 'scale(1)',
+                  opacity: idx === imgIdx ? 1 : 0,
+                  visibility: idx === imgIdx ? 'visible' : 'hidden',
+                  zIndex: idx === imgIdx ? 2 : 1,
+                  pointerEvents: idx === imgIdx ? 'auto' : 'none',
+                }}
+              />
+            ))
+          ) : activeImageUrl ? (
             <Image
               src={activeImageUrl}
-              alt={currentImg?.altText || item.title}
+              alt={item.title}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               style={{
@@ -539,9 +569,22 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
               No image
             </div>
           )}
+
+          {/* Shimmer cover while active image is decoding to prevent any flash of previous image */}
+          {images.length > 0 && !loadedMap[imgIdx] && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: '#f5f5f7',
+                zIndex: 1,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
         </Link>
 
-        {/* Right Arrow — frosted circle with animated ChevronRight */}
+        {/* Right Arrow Button — Pure VAHN Blue, transparent & static */}
         <button
           type="button"
           onClick={handleNext}
@@ -553,34 +596,27 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 15,
-            background: 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
-            border: '1px solid rgba(0, 0, 0, 0.08)',
-            borderRadius: '50%',
-            width: '32px',
-            height: '32px',
-            padding: 0,
+            background: 'transparent',
+            border: 'none',
+            borderRadius: 0,
+            padding: '6px',
             display: hasMultipleImages ? 'flex' : 'none',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: hasMultipleImages ? 'pointer' : 'default',
-            color: '#18181b',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            color: BRAND_COLOR,
+            boxShadow: 'none',
+            outline: 'none',
+            transition: 'color 0.15s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = BRAND_COLOR;
-            e.currentTarget.style.background = '#ffffff';
-            e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
+            e.currentTarget.style.color = '#3425b8';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = '#18181b';
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
-            e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+            e.currentTarget.style.color = BRAND_COLOR;
           }}
         >
-          <ChevronRight size={16} strokeWidth={2.5} className="chevron-anim-right" />
+          <ChevronRight size={22} strokeWidth={2} />
         </button>
 
         {/* Pagination Dots matching product page square style */}
@@ -992,23 +1028,11 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           display: inline-block;
           vertical-align: middle;
           flex-shrink: 0;
-          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        *:hover > .chevron-anim-right,
-        button:hover .chevron-anim-right,
-        a:hover .chevron-anim-right {
-          transform: translateX(4px);
         }
         .chevron-anim-left {
           display: inline-block;
           vertical-align: middle;
           flex-shrink: 0;
-          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        *:hover > .chevron-anim-left,
-        button:hover .chevron-anim-left,
-        a:hover .chevron-anim-left {
-          transform: translateX(-4px);
         }
         .category-nav-scroll {
           display: flex;

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
-import Link from 'next/link';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
-import type { Product, ProductVariant } from '@/lib/api/types';
+import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCart } from '@/context/CartContext';
+import type { Product, ProductVariant } from '@/lib/api/types';
 
 interface Props {
   products: Product[];
@@ -234,6 +235,7 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
   const [isHovered, setIsHovered] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
+  const [loadedMap, setLoadedMap] = useState<Record<number, boolean>>({});
   const cardRef = useRef<HTMLDivElement>(null);
 
   const images = item?.images || [];
@@ -248,6 +250,17 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
   const targetHref = item?.targetHref || '/products';
 
   const BRAND_COLOR = '#4232d9';
+
+  // Eagerly preload all alternative card images on mount to eliminate switching lag
+  useEffect(() => {
+    if (!images || images.length <= 1) return;
+    images.forEach((img, idx) => {
+      if (idx > 0 && img?.url && typeof window !== 'undefined') {
+        const preloadImg = new window.Image();
+        preloadImg.src = img.url;
+      }
+    });
+  }, [images]);
 
   // Extract distinct sizes from variants for this colorway
   const sizeVariants = useMemo(() => {
@@ -352,7 +365,7 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
   };
 
   return (
-    <div
+    <article
       ref={cardRef}
       className="locker-card-wrapper"
       onMouseEnter={() => setIsHovered(true)}
@@ -379,7 +392,7 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
           justifyContent: 'center',
         }}
       >
-        {/* Left Arrow Button — Pure VAHN Blue Arrow, regular weight */}
+        {/* Left Arrow Button — Pure VAHN Blue, transparent & static */}
         {hasMultipleImages && (
           <button
             type="button"
@@ -402,33 +415,21 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
               cursor: 'pointer',
               color: BRAND_COLOR,
               boxShadow: 'none',
-              transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
+              outline: 'none',
+              transition: 'color 0.15s ease',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = '#3425b8';
-              e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = BRAND_COLOR;
-              e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
             }}
           >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+            <ChevronLeft size={22} strokeWidth={2} />
           </button>
         )}
 
-        {/* Product Image Link */}
+        {/* Product Image Link — Stacked images for 0ms lag-free switching */}
         <Link
           href={targetHref}
           style={{
@@ -439,12 +440,37 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
             alignItems: 'center',
             justifyContent: 'center',
             textDecoration: 'none',
+            overflow: 'hidden',
           }}
         >
-          {activeImageUrl ? (
+          {images.length > 0 ? (
+            images.map((img, idx) => (
+              <Image
+                key={img.url || `locker-card-img-${idx}`}
+                src={img.url}
+                alt={img.altText || title}
+                fill
+                sizes="(max-width: 768px) 100vw, 420px"
+                loading={idx <= 1 ? 'eager' : 'lazy'}
+                onLoad={() => {
+                  setLoadedMap((prev) => (prev[idx] ? prev : { ...prev, [idx]: true }));
+                }}
+                style={{
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                  transition: 'opacity 0.2s ease, transform 0.4s ease',
+                  transform: isHovered ? 'scale(1.02)' : 'scale(1)',
+                  opacity: idx === imgIdx ? 1 : 0,
+                  visibility: idx === imgIdx ? 'visible' : 'hidden',
+                  zIndex: idx === imgIdx ? 2 : 1,
+                  pointerEvents: idx === imgIdx ? 'auto' : 'none',
+                }}
+              />
+            ))
+          ) : activeImageUrl ? (
             <Image
               src={activeImageUrl}
-              alt={currentImg?.altText || title}
+              alt={title}
               fill
               sizes="(max-width: 768px) 100vw, 420px"
               style={{
@@ -468,9 +494,22 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
               }}
             />
           )}
+
+          {/* Shimmer cover while active image is decoding to prevent any flash of previous image */}
+          {images.length > 0 && !loadedMap[imgIdx] && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: '#f5f5f7',
+                zIndex: 1,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
         </Link>
 
-        {/* Right Arrow Button — Pure VAHN Blue Arrow, regular weight */}
+        {/* Right Arrow Button — Pure VAHN Blue, transparent & static */}
         {hasMultipleImages && (
           <button
             type="button"
@@ -493,29 +532,17 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
               cursor: 'pointer',
               color: BRAND_COLOR,
               boxShadow: 'none',
-              transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
+              outline: 'none',
+              transition: 'color 0.15s ease',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = '#3425b8';
-              e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = BRAND_COLOR;
-              e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
             }}
           >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
+            <ChevronRight size={22} strokeWidth={2} />
           </button>
         )}
 
@@ -542,9 +569,9 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
               pointerEvents: 'none',
             }}
           >
-            {images.map((_, dotIdx) => (
+            {images.map((img, dotIdx) => (
               <span
-                key={dotIdx}
+                key={img.url || `dot-${dotIdx}`}
                 style={{
                   width: dotIdx === imgIdx ? '22px' : '6px',
                   height: '6px',
@@ -563,7 +590,8 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
 
         {/* Quick Size Selector Slide-up Overlay */}
         {showQuickAdd && (
-          <div
+          <section
+            aria-label="Size Selector"
             style={{
               position: 'absolute',
               bottom: 0,
@@ -580,6 +608,9 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
               boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.12)',
             }}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowQuickAdd(false);
+            }}
           >
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span
@@ -670,6 +701,7 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
+                      <title>Added to Cart</title>
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   ) : (
@@ -704,7 +736,7 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
                 </button>
               ))}
             </div>
-          </div>
+          </section>
         )}
       </div>
 
@@ -813,12 +845,13 @@ function LockerCard({ item }: { item: ExpandedLockerItem }) {
             strokeWidth="1.75"
             strokeLinecap="round"
           >
+            <title>Quick Add</title>
             <line x1="12" y1="4" x2="12" y2="20" />
             <line x1="4" y1="12" x2="20" y2="12" />
           </svg>
         </button>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -829,12 +862,14 @@ export default function FreshOutLocker({ products }: Props) {
   const [canScrollRight, setCanScrollRight] = useState(false);
 
   // Check scroll positions
-  const checkScroll = () => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 10);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 10);
-  };
+  const checkScroll = useMemo(() => {
+    return () => {
+      const el = scrollContainerRef.current;
+      if (!el) return;
+      setCanScrollLeft(el.scrollLeft > 10);
+      setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 10);
+    };
+  }, []);
 
   useEffect(() => {
     checkScroll();
@@ -847,7 +882,7 @@ export default function FreshOutLocker({ products }: Props) {
         window.removeEventListener('resize', checkScroll);
       };
     }
-  }, [displayItems]);
+  }, [checkScroll]);
 
   const handleScroll = (direction: 'left' | 'right') => {
     const el = scrollContainerRef.current;
@@ -958,6 +993,7 @@ export default function FreshOutLocker({ products }: Props) {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
+                  <title>Scroll Left</title>
                   <polyline points="15 18 9 12 15 6" />
                 </svg>
               </button>
@@ -1004,6 +1040,7 @@ export default function FreshOutLocker({ products }: Props) {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
+                  <title>Scroll Right</title>
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
               </button>

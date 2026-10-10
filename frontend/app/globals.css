@@ -441,7 +441,7 @@ input, textarea, select {
 .locker-card-arrow {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  transition: opacity 0.2s ease, color 0.15s ease;
 }
 
 .locker-card-wrapper:hover .locker-card-arrow {
@@ -8494,7 +8494,7 @@ a:active .btn-checkout-arrow,
 
 .shop-card-arrow {
   opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+  transition: opacity 0.2s ease, color 0.15s ease;
 }
 
 @media (hover: hover) {
@@ -8509,29 +8509,17 @@ a:active .btn-checkout-arrow,
   }
 }
 
-/* Micro-animations for Chevrons */
+/* Chevrons (Static, No Animation) */
 .chevron-anim-right {
   display: inline-block;
   vertical-align: middle;
   flex-shrink: 0;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-*:hover > .chevron-anim-right,
-button:hover .chevron-anim-right,
-a:hover .chevron-anim-right {
-  transform: translateX(4px);
 }
 
 .chevron-anim-left {
   display: inline-block;
   vertical-align: middle;
   flex-shrink: 0;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-*:hover > .chevron-anim-left,
-button:hover .chevron-anim-left,
-a:hover .chevron-anim-left {
-  transform: translateX(-4px);
 }
 
 /* Category Navigation Horizontal Scroll */
