@@ -1028,11 +1028,23 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           display: inline-block;
           vertical-align: middle;
           flex-shrink: 0;
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        *:hover > .chevron-anim-right,
+        button:hover .chevron-anim-right,
+        a:hover .chevron-anim-right {
+          transform: translateX(4px);
         }
         .chevron-anim-left {
           display: inline-block;
           vertical-align: middle;
           flex-shrink: 0;
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        *:hover > .chevron-anim-left,
+        button:hover .chevron-anim-left,
+        a:hover .chevron-anim-left {
+          transform: translateX(-4px);
         }
         .category-nav-scroll {
           display: flex;
