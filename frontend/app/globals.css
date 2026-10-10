@@ -8438,5 +8438,153 @@ a:active .btn-checkout-arrow,
   }
 }
 
+/* ====================================================================
+   VAHN — Shop Catalog & Category Layouts (Responsive Grid & Chevrons)
+   ==================================================================== */
 
+.shop-container-pad {
+  padding-left: clamp(16px, 4.5vw, 64px);
+  padding-right: clamp(16px, 4.5vw, 64px);
+  max-width: 1680px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
 
+.shop-title-section {
+  padding-top: 36px;
+}
+
+.shop-sort-section {
+  padding-top: 20px;
+}
+
+.shop-main-section {
+  padding-top: 28px;
+  padding-bottom: 80px;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 36px 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.shop-card {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  user-select: none;
+  width: 100%;
+  min-width: 0;
+  transition: transform 0.2s ease;
+}
+
+.shop-card-img-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  background: #f5f5f7;
+  overflow: hidden;
+  border-radius: 0px;
+}
+
+.shop-card-arrow {
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+
+@media (hover: hover) {
+  .shop-card:hover .shop-card-arrow {
+    opacity: 1 !important;
+  }
+}
+
+@media (hover: none) {
+  .shop-card-arrow {
+    opacity: 0.9 !important;
+  }
+}
+
+/* Micro-animations for Chevrons */
+.chevron-anim-right {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+*:hover > .chevron-anim-right,
+button:hover .chevron-anim-right,
+a:hover .chevron-anim-right {
+  transform: translateX(4px);
+}
+
+.chevron-anim-left {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+*:hover > .chevron-anim-left,
+button:hover .chevron-anim-left,
+a:hover .chevron-anim-left {
+  transform: translateX(-4px);
+}
+
+/* Category Navigation Horizontal Scroll */
+.category-nav-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 4px;
+}
+.category-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Responsive Grid Breakpoints */
+@media (max-width: 1200px) {
+  .shop-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 28px 16px;
+  }
+}
+
+@media (max-width: 860px) {
+  .shop-title-section {
+    padding-top: 24px;
+  }
+  .shop-sort-section {
+    padding-top: 14px;
+  }
+  .shop-main-section {
+    padding-top: 20px;
+    padding-bottom: 60px;
+  }
+  .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 12px;
+  }
+  .shop-card-arrow {
+    opacity: 0.9 !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .shop-container-pad {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 10px;
+  }
+}

@@ -1,5 +1,6 @@
 'use client';
 
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -174,15 +175,16 @@ export function getExpandedItems(products: Product[]): ExpandedCardItem[] {
       });
     } else {
       const variantColourSet = new Set<string>();
-      allVariants.forEach((v) =>
+      allVariants.forEach((v) => {
         v.selectedOptions?.forEach((opt) => {
           if (
             (opt.name.toLowerCase() === 'colour' || opt.name.toLowerCase() === 'color') &&
             opt.value.trim()
-          )
+          ) {
             variantColourSet.add(opt.value.trim());
-        })
-      );
+          }
+        });
+      });
       const uniqueColours = Array.from(variantColourSet);
 
       if (uniqueColours.length > 1) {
@@ -299,30 +301,15 @@ function FaqItem({
         >
           {q}
         </span>
-        <span
+        <ChevronDown
+          size={20}
           style={{
             color: BRAND_COLOR,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             flexShrink: 0,
-            transition: 'transform 0.25s ease, color 0.2s ease',
-            transform: isOpen ? 'rotate(45deg)' : 'rotate(0deg)',
           }}
-        >
-          <svg
-            width="26"
-            height="26"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <line x1="12" y1="4" x2="12" y2="20" />
-            <line x1="4" y1="12" x2="20" y2="12" />
-          </svg>
-        </span>
+        />
       </button>
 
       {isOpen && (
@@ -448,7 +435,7 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
   };
 
   return (
-    <div
+    <article
       ref={cardRef}
       className="shop-card"
       onMouseEnter={() => setIsHovered(true)}
@@ -465,7 +452,7 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
           overflow: 'hidden',
         }}
       >
-        {/* Left Arrow — transparent background, brand blue chevron */}
+        {/* Left Arrow — frosted circle with animated ChevronLeft */}
         <button
           type="button"
           onClick={handlePrev}
@@ -473,41 +460,38 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
           className="shop-card-arrow"
           style={{
             position: 'absolute',
-            left: '4px',
+            left: '8px',
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 15,
-            background: 'transparent',
-            border: 'none',
-            padding: '6px',
+            background: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            border: '1px solid rgba(0, 0, 0, 0.08)',
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            padding: 0,
             display: hasMultipleImages ? 'flex' : 'none',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: hasMultipleImages ? 'pointer' : 'default',
-            color: BRAND_COLOR,
-            transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
+            color: '#18181b',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#3425b8';
-            e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
+            e.currentTarget.style.color = BRAND_COLOR;
+            e.currentTarget.style.background = '#ffffff';
+            e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = BRAND_COLOR;
+            e.currentTarget.style.color = '#18181b';
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
             e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
           }}
         >
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
+          <ChevronLeft size={16} strokeWidth={2.5} className="chevron-anim-left" />
         </button>
 
         {/* Product Image Link */}
@@ -528,7 +512,7 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
               src={activeImageUrl}
               alt={currentImg?.altText || item.title}
               fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 420px"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               style={{
                 objectFit: 'cover',
                 objectPosition: 'center',
@@ -554,7 +538,7 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
           )}
         </Link>
 
-        {/* Right Arrow — transparent background, brand blue chevron */}
+        {/* Right Arrow — frosted circle with animated ChevronRight */}
         <button
           type="button"
           onClick={handleNext}
@@ -562,41 +546,38 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
           className="shop-card-arrow"
           style={{
             position: 'absolute',
-            right: '4px',
+            right: '8px',
             top: '50%',
             transform: 'translateY(-50%)',
             zIndex: 15,
-            background: 'transparent',
-            border: 'none',
-            padding: '6px',
+            background: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            border: '1px solid rgba(0, 0, 0, 0.08)',
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            padding: 0,
             display: hasMultipleImages ? 'flex' : 'none',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: hasMultipleImages ? 'pointer' : 'default',
-            color: BRAND_COLOR,
-            transition: 'transform 0.2s ease, color 0.2s ease, opacity 0.2s ease',
+            color: '#18181b',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#3425b8';
-            e.currentTarget.style.transform = 'translateY(-50%) scale(1.15)';
+            e.currentTarget.style.color = BRAND_COLOR;
+            e.currentTarget.style.background = '#ffffff';
+            e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = BRAND_COLOR;
+            e.currentTarget.style.color = '#18181b';
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
             e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
           }}
         >
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
+          <ChevronRight size={16} strokeWidth={2.5} className="chevron-anim-right" />
         </button>
 
         {/* Pagination Dots matching product page square style */}
@@ -622,9 +603,9 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
               pointerEvents: 'none',
             }}
           >
-            {images.map((_, dotIdx) => (
+            {images.map((img, dotIdx) => (
               <span
-                key={dotIdx}
+                key={img.url || `dot-${dotIdx}`}
                 style={{
                   width: dotIdx === imgIdx ? '22px' : '6px',
                   height: '6px',
@@ -643,7 +624,8 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
 
         {/* Quick Size Picker Overlay */}
         {showQuickAdd && (
-          <div
+          <section
+            aria-label="Size Selector"
             style={{
               position: 'absolute',
               bottom: 0,
@@ -660,6 +642,9 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
               boxShadow: '0 -4px 20px rgba(0,0,0,0.12)',
             }}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setShowQuickAdd(false);
+            }}
           >
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span
@@ -747,6 +732,7 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
+                      <title>Added to bag</title>
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   ) : (
@@ -781,7 +767,7 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
                 </button>
               ))}
             </div>
-          </div>
+          </section>
         )}
       </div>
 
@@ -886,12 +872,13 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
             strokeWidth="1.5"
             strokeLinecap="round"
           >
+            <title>Quick Add</title>
             <line x1="12" y1="4" x2="12" y2="20" />
             <line x1="4" y1="12" x2="20" y2="12" />
           </svg>
         </button>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -929,7 +916,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
   );
 
   // Derived filter options
-  const categories = useMemo(() => {
+  const _categories = useMemo(() => {
     const set = new Set<string>();
     allItems.forEach((i) => {
       if (i.productType) set.add(i.productType);
@@ -937,7 +924,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
     return Array.from(set).sort();
   }, [allItems]);
 
-  const fits = useMemo(() => {
+  const _fits = useMemo(() => {
     const set = new Set<string>();
     allItems.forEach((i) => {
       if (i.fit) set.add(i.fit.toUpperCase());
@@ -973,23 +960,66 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       {/* ── Responsive styles ── */}
       <style>{`
         .shop-container-pad {
-          padding-left: clamp(48px, 8vw, 140px);
-          padding-right: clamp(48px, 8vw, 140px);
+          padding-left: clamp(16px, 4.5vw, 64px);
+          padding-right: clamp(16px, 4.5vw, 64px);
+          max-width: 1680px;
+          margin-left: auto;
+          margin-right: auto;
+          width: 100%;
+          box-sizing: border-box;
         }
         .shop-title-section {
-          padding-top: 48px;
+          padding-top: 36px;
         }
         .shop-sort-section {
           padding-top: 20px;
         }
         .shop-main-section {
-          padding-top: 24px;
+          padding-top: 28px;
           padding-bottom: 80px;
         }
         .shop-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 48px 24px;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 36px 20px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .chevron-anim-right {
+          display: inline-block;
+          vertical-align: middle;
+          flex-shrink: 0;
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        *:hover > .chevron-anim-right,
+        button:hover .chevron-anim-right,
+        a:hover .chevron-anim-right {
+          transform: translateX(4px);
+        }
+        .chevron-anim-left {
+          display: inline-block;
+          vertical-align: middle;
+          flex-shrink: 0;
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        *:hover > .chevron-anim-left,
+        button:hover .chevron-anim-left,
+        a:hover .chevron-anim-left {
+          transform: translateX(-4px);
+        }
+        .category-nav-scroll {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          overflow-x: auto;
+          white-space: nowrap;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          padding-bottom: 4px;
+        }
+        .category-nav-scroll::-webkit-scrollbar {
+          display: none;
         }
         .trust-badges-bar {
           background: #4232d9;
@@ -1031,35 +1061,36 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             opacity: 1 !important;
           }
         }
-
-        @media (max-width: 900px) {
-          .shop-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 36px 16px;
+        @media (hover: none) {
+          .shop-card-arrow {
+            opacity: 0.9 !important;
           }
         }
 
-        @media (max-width: 768px) {
-          .shop-container-pad {
-            padding-left: 16px;
-            padding-right: 16px;
+        @media (max-width: 1200px) {
+          .shop-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 28px 16px;
           }
+        }
+
+        @media (max-width: 860px) {
           .shop-title-section {
-            padding-top: 32px;
+            padding-top: 24px;
           }
           .shop-sort-section {
             padding-top: 14px;
           }
           .shop-main-section {
-            padding-top: 18px;
-            padding-bottom: 56px;
+            padding-top: 20px;
+            padding-bottom: 60px;
           }
           .shop-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 24px 12px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px 12px;
           }
           .shop-card-arrow {
-            opacity: 1 !important;
+            opacity: 0.9 !important;
           }
           .shop-plus-btn svg {
             width: 22px;
@@ -1084,6 +1115,17 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             font-size: 0.5625rem !important;
             letter-spacing: 0.02em !important;
             line-height: 1.2 !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .shop-container-pad {
+            padding-left: 14px;
+            padding-right: 14px;
+          }
+          .shop-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px 10px;
           }
         }
       `}</style>
@@ -1116,8 +1158,8 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           Our first drop is here — limited pieces, made to move with you.
         </p>
 
-        {/* Category Quick Jump Badges */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '18px' }}>
+        {/* Category Quick Jump Badges with Horizontal Mobile Scroll & Animated Chevrons */}
+        <div className="category-nav-scroll" style={{ marginTop: '18px' }}>
           <button
             type="button"
             onClick={() => {
@@ -1125,25 +1167,31 @@ export default function ShopProductsClient({ initialProducts }: Props) {
               setSelectedFit('ALL');
             }}
             style={{
-              padding: '6px 14px',
+              padding: '8px 14px',
               fontSize: '0.75rem',
               fontWeight: 800,
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
               border:
                 selectedCategory === 'ALL' && selectedFit === 'ALL' && sortBy === 'featured'
-                  ? '1px solid #111111'
-                  : '1px solid #d0d0d0',
+                  ? '1px solid #09090b'
+                  : '1px solid #d4d4d8',
               background:
                 selectedCategory === 'ALL' && selectedFit === 'ALL' && sortBy === 'featured'
-                  ? '#111111'
+                  ? '#09090b'
                   : '#ffffff',
               color:
                 selectedCategory === 'ALL' && selectedFit === 'ALL' && sortBy === 'featured'
                   ? '#ffffff'
-                  : '#333333',
+                  : '#27272a',
               cursor: 'pointer',
               borderRadius: 0,
+              whiteSpace: 'nowrap',
+              boxShadow:
+                selectedCategory === 'ALL' && selectedFit === 'ALL' && sortBy === 'featured'
+                  ? '0 2px 8px rgba(0,0,0,0.12)'
+                  : 'none',
+              transition: 'all 0.15s ease',
             }}
           >
             ALL SECTIONS ({allItems.length})
@@ -1151,53 +1199,95 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           <Link
             href="/products/tops"
             style={{
-              padding: '6px 14px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
               fontSize: '0.75rem',
               fontWeight: 800,
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
-              border: '1px solid #d0d0d0',
+              border: '1px solid #d4d4d8',
               background: '#ffffff',
-              color: '#333333',
+              color: '#27272a',
               textDecoration: 'none',
               borderRadius: 0,
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#18181b';
+              e.currentTarget.style.background = '#f4f4f5';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#d4d4d8';
+              e.currentTarget.style.background = '#ffffff';
             }}
           >
-            TOPS ({topsItems.length}) →
+            <span>TOPS ({topsItems.length})</span>
+            <ChevronRight size={13} className="chevron-anim-right" style={{ opacity: 0.55 }} />
           </Link>
           <Link
             href="/products/bottoms"
             style={{
-              padding: '6px 14px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
               fontSize: '0.75rem',
               fontWeight: 800,
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
-              border: '1px solid #d0d0d0',
+              border: '1px solid #d4d4d8',
               background: '#ffffff',
-              color: '#333333',
+              color: '#27272a',
               textDecoration: 'none',
               borderRadius: 0,
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#18181b';
+              e.currentTarget.style.background = '#f4f4f5';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#d4d4d8';
+              e.currentTarget.style.background = '#ffffff';
             }}
           >
-            BOTTOMS ({bottomsItems.length}) →
+            <span>BOTTOMS ({bottomsItems.length})</span>
+            <ChevronRight size={13} className="chevron-anim-right" style={{ opacity: 0.55 }} />
           </Link>
           <Link
             href="/products/accessories"
             style={{
-              padding: '6px 14px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
               fontSize: '0.75rem',
               fontWeight: 800,
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
-              border: '1px solid #d0d0d0',
+              border: '1px solid #d4d4d8',
               background: '#ffffff',
-              color: '#333333',
+              color: '#27272a',
               textDecoration: 'none',
               borderRadius: 0,
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#18181b';
+              e.currentTarget.style.background = '#f4f4f5';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#d4d4d8';
+              e.currentTarget.style.background = '#ffffff';
             }}
           >
-            ACCESSORIES ({accessoriesItems.length}) →
+            <span>ACCESSORIES ({accessoriesItems.length})</span>
+            <ChevronRight size={13} className="chevron-anim-right" style={{ opacity: 0.55 }} />
           </Link>
         </div>
       </div>
@@ -1206,34 +1296,36 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       <div className="shop-container-pad shop-sort-section">
         <div ref={sortRef} style={{ position: 'relative', display: 'inline-block' }}>
           <button
+            type="button"
             onClick={() => setSortOpen((p) => !p)}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              padding: '10px 14px',
-              border: '1px solid #c0c0c0',
+              padding: '8px 14px',
+              border: '1px solid #d4d4d8',
               background: '#ffffff',
               cursor: 'pointer',
               fontFamily: 'var(--font-heading)',
               fontSize: '0.75rem',
-              fontWeight: 600,
-              letterSpacing: '0.03em',
-              color: '#000000',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              color: '#09090b',
               minWidth: '180px',
               justifyContent: 'space-between',
+              borderRadius: 0,
+              transition: 'border-color 0.15s ease',
             }}
           >
             <span>{selectedSortLabel}</span>
-            <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-              <path
-                d="M1 1L5 5L9 1"
-                stroke="#000000"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <ChevronDown
+              size={14}
+              style={{
+                transform: sortOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                flexShrink: 0,
+              }}
+            />
           </button>
           {sortOpen && (
             <div
@@ -1347,6 +1439,9 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                 <Link
                   href="/products/tops"
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
                     fontSize: '0.75rem',
                     fontWeight: 800,
                     textTransform: 'uppercase',
@@ -1355,7 +1450,8 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                     letterSpacing: '0.04em',
                   }}
                 >
-                  VIEW ALL TOPS ({topsItems.length}) →
+                  <span>VIEW ALL TOPS ({topsItems.length})</span>
+                  <ChevronRight size={14} className="chevron-anim-right" />
                 </Link>
               </div>
 
@@ -1411,6 +1507,9 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                 <Link
                   href="/products/bottoms"
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
                     fontSize: '0.75rem',
                     fontWeight: 800,
                     textTransform: 'uppercase',
@@ -1419,49 +1518,38 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                     letterSpacing: '0.04em',
                   }}
                 >
-                  VIEW ALL BOTTOMS ({bottomsItems.length}) →
+                  <span>VIEW ALL BOTTOMS ({bottomsItems.length})</span>
+                  <ChevronRight size={14} className="chevron-anim-right" />
                 </Link>
               </div>
 
               {bottomsItems.length === 0 ? (
                 <div
                   style={{
-                    padding: '56px 24px',
+                    padding: '48px 24px',
                     textAlign: 'center',
-                    border: '1px solid #e0e0e0',
+                    border: '1px solid #e4e4e7',
                     background: '#fafafa',
                   }}
                 >
-                  <div
-                    style={{
-                      display: 'inline-block',
-                      padding: '3px 10px',
-                      background: '#111111',
-                      color: '#ffffff',
-                      fontSize: '0.6875rem',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.08em',
-                      marginBottom: '10px',
-                    }}
-                  >
-                    NEXT DROP
-                  </div>
                   <h3
                     style={{
                       fontFamily: 'var(--font-heading)',
-                      fontSize: '1.15rem',
-                      fontWeight: 900,
+                      fontSize: '1.0625rem',
+                      fontWeight: 800,
                       textTransform: 'uppercase',
-                      margin: '0 0 8px',
+                      letterSpacing: '0.02em',
+                      margin: '0 0 6px',
+                      color: '#09090b',
                     }}
                   >
-                    BOTTOMS — DROP COMING SOON
+                    NO BOTTOMS CURRENTLY AVAILABLE
                   </h3>
                   <p
                     style={{
+                      fontFamily: 'var(--font-body)',
                       fontSize: '0.85rem',
-                      color: '#666666',
+                      color: '#71717a',
                       margin: '0 auto 16px',
                       maxWidth: '440px',
                       lineHeight: 1.5,
@@ -1472,14 +1560,19 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                   <Link
                     href="/products/bottoms"
                     style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
                       fontSize: '0.75rem',
                       fontWeight: 800,
-                      color: '#111111',
-                      textDecoration: 'underline',
+                      color: BRAND_COLOR,
+                      textDecoration: 'none',
                       textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
                     }}
                   >
-                    VIEW BOTTOMS COLLECTION →
+                    <span>EXPLORE BOTTOMS COLLECTION</span>
+                    <ChevronRight size={14} className="chevron-anim-right" />
                   </Link>
                 </div>
               ) : (
@@ -1523,6 +1616,9 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                 <Link
                   href="/products/accessories"
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
                     fontSize: '0.75rem',
                     fontWeight: 800,
                     textTransform: 'uppercase',
@@ -1531,49 +1627,38 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                     letterSpacing: '0.04em',
                   }}
                 >
-                  VIEW ALL ACCESSORIES ({accessoriesItems.length}) →
+                  <span>VIEW ALL ACCESSORIES ({accessoriesItems.length})</span>
+                  <ChevronRight size={14} className="chevron-anim-right" />
                 </Link>
               </div>
 
               {accessoriesItems.length === 0 ? (
                 <div
                   style={{
-                    padding: '56px 24px',
+                    padding: '48px 24px',
                     textAlign: 'center',
-                    border: '1px solid #e0e0e0',
+                    border: '1px solid #e4e4e7',
                     background: '#fafafa',
                   }}
                 >
-                  <div
-                    style={{
-                      display: 'inline-block',
-                      padding: '3px 10px',
-                      background: '#111111',
-                      color: '#ffffff',
-                      fontSize: '0.6875rem',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.08em',
-                      marginBottom: '10px',
-                    }}
-                  >
-                    NEXT DROP
-                  </div>
                   <h3
                     style={{
                       fontFamily: 'var(--font-heading)',
-                      fontSize: '1.15rem',
-                      fontWeight: 900,
+                      fontSize: '1.0625rem',
+                      fontWeight: 800,
                       textTransform: 'uppercase',
-                      margin: '0 0 8px',
+                      letterSpacing: '0.02em',
+                      margin: '0 0 6px',
+                      color: '#09090b',
                     }}
                   >
-                    ACCESSORIES — DROP COMING SOON
+                    NO ACCESSORIES CURRENTLY AVAILABLE
                   </h3>
                   <p
                     style={{
+                      fontFamily: 'var(--font-body)',
                       fontSize: '0.85rem',
-                      color: '#666666',
+                      color: '#71717a',
                       margin: '0 auto 16px',
                       maxWidth: '440px',
                       lineHeight: 1.5,
@@ -1584,14 +1669,19 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                   <Link
                     href="/products/accessories"
                     style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
                       fontSize: '0.75rem',
                       fontWeight: 800,
-                      color: '#111111',
-                      textDecoration: 'underline',
+                      color: BRAND_COLOR,
+                      textDecoration: 'none',
                       textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
                     }}
                   >
-                    VIEW ACCESSORIES COLLECTION →
+                    <span>EXPLORE ACCESSORIES COLLECTION</span>
+                    <ChevronRight size={14} className="chevron-anim-right" />
                   </Link>
                 </div>
               ) : (
@@ -1631,7 +1721,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
           <div style={{ borderTop: '1px solid #e5e5e5' }}>
             {FAQ_ITEMS.map((item, idx) => (
               <FaqItem
-                key={idx}
+                key={item.q}
                 q={item.q}
                 a={item.a}
                 link={item.link}

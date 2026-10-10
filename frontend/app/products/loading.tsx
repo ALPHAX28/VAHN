@@ -30,13 +30,32 @@ export default function ProductsLoading() {
 
       {/* ── Page Title Skeleton ── */}
       <div className="shop-container-pad" style={{ paddingTop: '48px' }}>
-        <div className="vahn-shimmer-light" style={{ width: 'clamp(180px, 30vw, 280px)', height: '36px', borderRadius: '4px', marginBottom: '10px' }} />
-        <div className="vahn-shimmer-light" style={{ width: 'clamp(240px, 45vw, 440px)', height: '18px', borderRadius: '3px' }} />
+        <div
+          className="vahn-shimmer-light"
+          style={{
+            width: 'clamp(180px, 30vw, 280px)',
+            height: '36px',
+            borderRadius: '4px',
+            marginBottom: '10px',
+          }}
+        />
+        <div
+          className="vahn-shimmer-light"
+          style={{ width: 'clamp(240px, 45vw, 440px)', height: '18px', borderRadius: '3px' }}
+        />
       </div>
 
       {/* ── Sort Bar Skeleton ── */}
       <div className="shop-container-pad" style={{ paddingTop: '20px' }}>
-        <div className="vahn-shimmer-light" style={{ width: '180px', height: '40px', borderRadius: '2px', border: '1px solid #e8e8e8' }} />
+        <div
+          className="vahn-shimmer-light"
+          style={{
+            width: '180px',
+            height: '40px',
+            borderRadius: '2px',
+            border: '1px solid #e8e8e8',
+          }}
+        />
       </div>
 
       {/* ── Product Grid Skeleton (3 cols desktop, 2 cols mobile) ── */}
@@ -57,17 +76,36 @@ export default function ProductsLoading() {
               />
 
               {/* Meta row */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: '2px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  marginTop: '2px',
+                }}
+              >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '70%' }}>
                   {/* Color tag shimmer */}
-                  <div className="vahn-shimmer-light" style={{ width: '50px', height: '11px', borderRadius: '2px' }} />
+                  <div
+                    className="vahn-shimmer-light"
+                    style={{ width: '50px', height: '11px', borderRadius: '2px' }}
+                  />
                   {/* Product title shimmer */}
-                  <div className="vahn-shimmer-light" style={{ width: '85%', height: '15px', borderRadius: '2px' }} />
+                  <div
+                    className="vahn-shimmer-light"
+                    style={{ width: '85%', height: '15px', borderRadius: '2px' }}
+                  />
                   {/* Price shimmer */}
-                  <div className="vahn-shimmer-light" style={{ width: '45px', height: '14px', borderRadius: '2px' }} />
+                  <div
+                    className="vahn-shimmer-light"
+                    style={{ width: '45px', height: '14px', borderRadius: '2px' }}
+                  />
                 </div>
                 {/* Plus quick-add button skeleton */}
-                <div className="vahn-shimmer-light" style={{ width: '24px', height: '24px', borderRadius: '2px', opacity: 0.6 }} />
+                <div
+                  className="vahn-shimmer-light"
+                  style={{ width: '24px', height: '24px', borderRadius: '2px', opacity: 0.6 }}
+                />
               </div>
             </div>
           ))}
@@ -82,27 +120,38 @@ export default function ProductsLoading() {
             className="trust-badge-item"
             style={{ borderLeft: i > 1 ? '1px solid rgba(255,255,255,0.25)' : 'none' }}
           >
-            <div className="vahn-shimmer-blue" style={{ width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0 }} />
-            <div className="vahn-shimmer-blue" style={{ width: '120px', height: '14px', borderRadius: '3px' }} />
+            <div
+              className="vahn-shimmer-blue"
+              style={{ width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0 }}
+            />
+            <div
+              className="vahn-shimmer-blue"
+              style={{ width: '120px', height: '14px', borderRadius: '3px' }}
+            />
           </div>
         ))}
       </div>
 
       <style jsx>{`
         .shop-container-pad {
-          padding-left: clamp(48px, 8vw, 140px);
-          padding-right: clamp(48px, 8vw, 140px);
+          padding-left: clamp(16px, 4.5vw, 64px);
+          padding-right: clamp(16px, 4.5vw, 64px);
+          max-width: 1680px;
+          margin-left: auto;
+          margin-right: auto;
+          width: 100%;
+          box-sizing: border-box;
         }
         .shop-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 48px 24px;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 36px 20px;
         }
         .trust-badges-bar {
           background: #4232d9;
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
-          padding: 24px clamp(48px, 8vw, 140px);
+          padding: 24px clamp(16px, 4.5vw, 64px);
         }
         .trust-badge-item {
           display: flex;
@@ -112,21 +161,28 @@ export default function ProductsLoading() {
           padding: 0 16px;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 1200px) {
           .shop-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 36px 16px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 28px 16px;
           }
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 860px) {
+          .shop-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px 12px;
+          }
+        }
+
+        @media (max-width: 640px) {
           .shop-container-pad {
-            padding-left: 16px;
-            padding-right: 16px;
+            padding-left: 14px;
+            padding-right: 14px;
           }
           .shop-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 24px 12px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px 10px;
           }
           .trust-badges-bar {
             grid-template-columns: 1fr 1fr 1fr !important;

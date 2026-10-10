@@ -1,7 +1,8 @@
 'use client';
 
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import TrustBadgesBar from '@/components/ui/TrustBadgesBar';
 import type { Product } from '@/lib/api/types';
 import {
@@ -35,7 +36,9 @@ export default function CategoryProductsClient({
   // Close sort dropdown on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -49,7 +52,7 @@ export default function CategoryProductsClient({
     });
   }, [initialProducts, category]);
 
-  // Derived filter options for this specific category
+  // Derived filter options for this category
   const fits = useMemo(() => {
     const set = new Set<string>();
     allItems.forEach((i) => {
@@ -96,42 +99,168 @@ export default function CategoryProductsClient({
   const hasActiveFilters = selectedFit !== 'ALL' || selectedActivity !== 'ALL';
 
   return (
-    <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh' }}>
-      {/* ── Breadcrumb Bar ── */}
-      <div
+    <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh', width: '100%' }}>
+      {/* ── Scoped Fallback Styles ── */}
+      <style>{`
+        .shop-container-pad {
+          padding-left: clamp(16px, 4.5vw, 64px);
+          padding-right: clamp(16px, 4.5vw, 64px);
+          max-width: 1680px;
+          margin-left: auto;
+          margin-right: auto;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .shop-title-section {
+          padding-top: 36px;
+        }
+        .shop-sort-section {
+          padding-top: 20px;
+        }
+        .shop-main-section {
+          padding-top: 28px;
+          padding-bottom: 80px;
+        }
+        .shop-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 36px 20px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .chevron-anim-right {
+          display: inline-block;
+          vertical-align: middle;
+          flex-shrink: 0;
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        *:hover > .chevron-anim-right,
+        button:hover .chevron-anim-right,
+        a:hover .chevron-anim-right {
+          transform: translateX(4px);
+        }
+        .chevron-anim-left {
+          display: inline-block;
+          vertical-align: middle;
+          flex-shrink: 0;
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        *:hover > .chevron-anim-left,
+        button:hover .chevron-anim-left,
+        a:hover .chevron-anim-left {
+          transform: translateX(-4px);
+        }
+        .category-nav-scroll {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          overflow-x: auto;
+          white-space: nowrap;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          padding-bottom: 4px;
+        }
+        .category-nav-scroll::-webkit-scrollbar {
+          display: none;
+        }
+        @media (max-width: 1200px) {
+          .shop-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 28px 16px;
+          }
+        }
+        @media (max-width: 860px) {
+          .shop-title-section {
+            padding-top: 24px;
+          }
+          .shop-sort-section {
+            padding-top: 14px;
+          }
+          .shop-main-section {
+            padding-top: 20px;
+            padding-bottom: 60px;
+          }
+          .shop-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px 12px;
+          }
+        }
+        @media (max-width: 640px) {
+          .shop-container-pad {
+            padding-left: 14px;
+            padding-right: 14px;
+          }
+          .shop-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px 10px;
+          }
+        }
+      `}</style>
+
+      {/* ── Breadcrumb Bar with animated Chevrons ── */}
+      <nav
+        aria-label="Breadcrumb"
         className="shop-container-pad"
         style={{
-          paddingTop: '24px',
+          paddingTop: '20px',
           paddingBottom: '8px',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          fontSize: '0.75rem',
+          gap: '6px',
+          fontSize: '0.72rem',
           textTransform: 'uppercase',
-          letterSpacing: '0.04em',
+          letterSpacing: '0.05em',
           color: '#777777',
+          flexWrap: 'wrap',
         }}
       >
-        <Link href="/" style={{ color: '#777777', textDecoration: 'none' }}>
+        <Link
+          href="/"
+          style={{
+            color: '#777777',
+            textDecoration: 'none',
+            transition: 'color 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#111111';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = '#777777';
+          }}
+        >
           HOME
         </Link>
-        <span>/</span>
-        <Link href="/products" style={{ color: '#777777', textDecoration: 'none' }}>
+        <ChevronRight size={12} style={{ opacity: 0.45, flexShrink: 0 }} />
+        <Link
+          href="/products"
+          style={{
+            color: '#777777',
+            textDecoration: 'none',
+            transition: 'color 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#111111';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = '#777777';
+          }}
+        >
           ALL PRODUCTS
         </Link>
-        <span>/</span>
-        <span style={{ color: '#111111', fontWeight: 700 }}>{categoryTitle}</span>
-      </div>
+        <ChevronRight size={12} style={{ opacity: 0.45, flexShrink: 0 }} />
+        <span style={{ color: '#111111', fontWeight: 800 }}>{categoryTitle}</span>
+      </nav>
 
       {/* ── Page Header ── */}
-      <div className="shop-container-pad shop-title-section">
+      <header className="shop-container-pad shop-title-section">
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-end',
             flexWrap: 'wrap',
-            gap: '16px',
+            gap: '20px',
           }}
         >
           <div>
@@ -156,72 +285,121 @@ export default function CategoryProductsClient({
                 color: '#555555',
                 margin: 0,
                 lineHeight: 1.5,
+                maxWidth: '680px',
               }}
             >
               {categorySubtitle}
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Luxury Category Pills with Horizontal Mobile Scroll & Animated Chevrons */}
+          <div className="category-nav-scroll">
             <Link
               href="/products"
               style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
                 fontSize: '0.75rem',
-                fontWeight: 700,
+                fontWeight: 800,
                 textTransform: 'uppercase',
+                letterSpacing: '0.04em',
                 padding: '8px 14px',
-                border: '1px solid #e0e0e0',
+                border: '1px solid #d4d4d8',
                 textDecoration: 'none',
-                color: '#333333',
+                color: '#27272a',
                 background: '#fafafa',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#18181b';
+                e.currentTarget.style.background = '#f4f4f5';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#d4d4d8';
+                e.currentTarget.style.background = '#fafafa';
               }}
             >
-              ← ALL PRODUCTS
+              <ChevronLeft size={14} className="chevron-anim-left" />
+              <span>ALL PRODUCTS</span>
             </Link>
-            {(['TOPS', 'BOTTOMS', 'ACCESSORIES'] as const).map((cat) => (
-              <Link
-                key={cat}
-                href={`/products/${cat.toLowerCase()}`}
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  padding: '8px 14px',
-                  border: cat === category ? '1px solid #111111' : '1px solid #e0e0e0',
-                  background: cat === category ? '#111111' : '#ffffff',
-                  color: cat === category ? '#ffffff' : '#333333',
-                  textDecoration: 'none',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {cat}
-              </Link>
-            ))}
+
+            {(['TOPS', 'BOTTOMS', 'ACCESSORIES'] as const).map((cat) => {
+              const isActive = cat === category;
+              return (
+                <Link
+                  key={cat}
+                  href={`/products/${cat.toLowerCase()}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    padding: '8px 14px',
+                    border: isActive ? '1px solid #09090b' : '1px solid #d4d4d8',
+                    background: isActive ? '#09090b' : '#ffffff',
+                    color: isActive ? '#ffffff' : '#27272a',
+                    textDecoration: 'none',
+                    whiteSpace: 'nowrap',
+                    boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.12)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.borderColor = '#18181b';
+                      e.currentTarget.style.background = '#f4f4f5';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.borderColor = '#d4d4d8';
+                      e.currentTarget.style.background = '#ffffff';
+                    }
+                  }}
+                >
+                  <span>{cat}</span>
+                  {!isActive && (
+                    <ChevronRight
+                      size={13}
+                      className="chevron-anim-right"
+                      style={{ opacity: 0.55 }}
+                    />
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </div>
-      </div>
+      </header>
 
       {/* ── Filter & Sort Bar ── */}
-      <div
+      <section
         className="shop-container-pad shop-sort-section"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '16px',
+          gap: '14px',
+          borderBottom: '1px solid #ebebeb',
+          paddingBottom: '16px',
         }}
       >
         {/* Dynamic Category Filters (Fit / Activity) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {category !== 'ACCESSORIES' && fits.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span
                 style={{
                   fontSize: '0.72rem',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   textTransform: 'uppercase',
-                  color: '#777777',
+                  letterSpacing: '0.05em',
+                  color: '#71717a',
                 }}
               >
                 FIT:
@@ -230,14 +408,16 @@ export default function CategoryProductsClient({
                 value={selectedFit}
                 onChange={(e) => setSelectedFit(e.target.value)}
                 style={{
-                  padding: '8px 12px',
-                  border: '1px solid #c0c0c0',
+                  padding: '7px 12px',
+                  border: '1px solid #d4d4d8',
                   background: '#ffffff',
                   fontSize: '0.75rem',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   textTransform: 'uppercase',
+                  letterSpacing: '0.03em',
                   cursor: 'pointer',
                   borderRadius: 0,
+                  outline: 'none',
                 }}
               >
                 <option value="ALL">ALL FITS</option>
@@ -255,9 +435,10 @@ export default function CategoryProductsClient({
               <span
                 style={{
                   fontSize: '0.72rem',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   textTransform: 'uppercase',
-                  color: '#777777',
+                  letterSpacing: '0.05em',
+                  color: '#71717a',
                 }}
               >
                 ACTIVITY:
@@ -266,14 +447,16 @@ export default function CategoryProductsClient({
                 value={selectedActivity}
                 onChange={(e) => setSelectedActivity(e.target.value)}
                 style={{
-                  padding: '8px 12px',
-                  border: '1px solid #c0c0c0',
+                  padding: '7px 12px',
+                  border: '1px solid #d4d4d8',
                   background: '#ffffff',
                   fontSize: '0.75rem',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   textTransform: 'uppercase',
+                  letterSpacing: '0.03em',
                   cursor: 'pointer',
                   borderRadius: 0,
+                  outline: 'none',
                 }}
               >
                 <option value="ALL">ALL ACTIVITIES</option>
@@ -295,26 +478,35 @@ export default function CategoryProductsClient({
               }}
               style={{
                 fontSize: '0.72rem',
-                fontWeight: 700,
+                fontWeight: 800,
                 textTransform: 'uppercase',
-                color: '#d32f2f',
+                letterSpacing: '0.04em',
+                color: '#dc2626',
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
                 textDecoration: 'underline',
-                padding: 0,
+                textUnderlineOffset: '3px',
+                padding: '4px 0',
               }}
             >
               Clear Filters ✕
             </button>
           )}
 
-          <span style={{ fontSize: '0.75rem', color: '#888888', fontWeight: 600 }}>
-            ({filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'})
+          <span
+            style={{
+              fontSize: '0.75rem',
+              color: '#71717a',
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+            }}
+          >
+            ({filteredItems.length} {filteredItems.length === 1 ? 'ITEM' : 'ITEMS'})
           </span>
         </div>
 
-        {/* Sort Dropdown */}
+        {/* Sort Dropdown with animated ChevronDown */}
         <div ref={sortRef} style={{ position: 'relative', display: 'inline-block' }}>
           <button
             type="button"
@@ -323,31 +515,30 @@ export default function CategoryProductsClient({
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              padding: '10px 14px',
-              border: '1px solid #c0c0c0',
+              padding: '8px 14px',
+              border: '1px solid #d4d4d8',
               background: '#ffffff',
               cursor: 'pointer',
               fontFamily: 'var(--font-heading)',
               fontSize: '0.75rem',
-              fontWeight: 600,
-              letterSpacing: '0.03em',
-              color: '#000000',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              color: '#09090b',
               minWidth: '180px',
               justifyContent: 'space-between',
               borderRadius: 0,
+              transition: 'border-color 0.15s ease',
             }}
           >
             <span>{selectedSortLabel}</span>
-            <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-              <title>Chevron</title>
-              <path
-                d="M1 1L5 5L9 1"
-                stroke="#000000"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <ChevronDown
+              size={14}
+              style={{
+                transform: sortOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                flexShrink: 0,
+              }}
+            />
           </button>
           {sortOpen && (
             <div
@@ -357,10 +548,10 @@ export default function CategoryProductsClient({
                 right: 0,
                 zIndex: 50,
                 background: '#ffffff',
-                border: '1px solid #c0c0c0',
+                border: '1px solid #d4d4d8',
                 borderTop: 'none',
-                minWidth: '210px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                minWidth: '220px',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
               }}
             >
               {SORT_OPTIONS.map((opt) => (
@@ -375,15 +566,16 @@ export default function CategoryProductsClient({
                     display: 'block',
                     width: '100%',
                     padding: '10px 14px',
-                    background: 'none',
+                    background: sortBy === opt.value ? '#f4f4f5' : 'none',
                     border: 'none',
                     cursor: 'pointer',
                     fontFamily: 'var(--font-heading)',
                     fontSize: '0.75rem',
-                    fontWeight: sortBy === opt.value ? 700 : 400,
-                    color: sortBy === opt.value ? BRAND_COLOR : '#222222',
+                    fontWeight: sortBy === opt.value ? 800 : 500,
+                    color: sortBy === opt.value ? BRAND_COLOR : '#18181b',
                     textAlign: 'left',
                     letterSpacing: '0.02em',
+                    transition: 'background-color 0.15s ease',
                   }}
                 >
                   {opt.label}
@@ -392,74 +584,95 @@ export default function CategoryProductsClient({
             </div>
           )}
         </div>
-      </div>
+      </section>
 
-      {/* ── Product Grid or Drop Coming Soon State ── */}
+      {/* ── Product Grid or Clean Empty State (NO NEXT DROP / NO DROP COMING SOON) ── */}
       <main className="shop-container-pad shop-main-section">
         {filteredItems.length === 0 ? (
           <div
             style={{
-              padding: '96px 24px',
+              padding: '72px 24px',
               textAlign: 'center',
-              border: '1px solid #e0e0e0',
+              border: '1px solid #e4e4e7',
               background: '#fafafa',
-              borderRadius: 0,
+              maxWidth: '560px',
+              margin: '24px auto',
             }}
           >
-            <div
-              style={{
-                display: 'inline-block',
-                padding: '4px 12px',
-                backgroundColor: '#111111',
-                color: '#ffffff',
-                fontSize: '0.7rem',
-                fontWeight: 800,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                marginBottom: '16px',
-              }}
-            >
-              NEXT DROP
-            </div>
             <h2
               style={{
-                fontSize: '1.5rem',
+                fontSize: '1.25rem',
                 fontWeight: 900,
                 margin: '0 0 10px',
                 fontFamily: 'var(--font-heading)',
                 textTransform: 'uppercase',
-                letterSpacing: '-0.02em',
+                letterSpacing: '0.02em',
+                color: '#09090b',
               }}
             >
-              {categoryTitle} — DROP COMING SOON
+              {hasActiveFilters ? 'NO MATCHING PRODUCTS FOUND' : `NO ${categoryTitle} AVAILABLE`}
             </h2>
             <p
               style={{
-                fontSize: '0.9rem',
-                color: '#666666',
+                fontSize: '0.875rem',
+                color: '#71717a',
                 margin: '0 auto 24px',
-                maxWidth: '480px',
-                lineHeight: 1.5,
+                maxWidth: '440px',
+                lineHeight: 1.6,
+                fontFamily: 'var(--font-body)',
               }}
             >
-              We engineer pieces drop by drop. Stay notified for release dates and priority access.
+              {hasActiveFilters
+                ? 'Try adjusting or clearing your active filters to view all pieces in this collection.'
+                : 'We are engineering new pieces for this collection. Explore our active drops across all categories.'}
             </p>
-            <Link
-              href="/products"
-              style={{
-                display: 'inline-block',
-                padding: '12px 28px',
-                backgroundColor: BRAND_COLOR,
-                color: '#ffffff',
-                fontSize: '0.8125rem',
-                fontWeight: 800,
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                textDecoration: 'none',
-              }}
-            >
-              EXPLORE AVAILABLE DROPS
-            </Link>
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFit('ALL');
+                  setSelectedActivity('ALL');
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 26px',
+                  backgroundColor: '#09090b',
+                  color: '#ffffff',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
+                }}
+              >
+                CLEAR ALL FILTERS
+              </button>
+            ) : (
+              <Link
+                href="/products"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 26px',
+                  backgroundColor: BRAND_COLOR,
+                  color: '#ffffff',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  textDecoration: 'none',
+                  transition: 'background-color 0.15s ease',
+                }}
+              >
+                <span>EXPLORE ALL PRODUCTS</span>
+                <ChevronRight size={15} className="chevron-anim-right" />
+              </Link>
+            )}
           </div>
         ) : (
           <div className="shop-grid">
@@ -470,12 +683,12 @@ export default function CategoryProductsClient({
         )}
       </main>
 
-      {/* ── FAQ Section ── */}
+      {/* ── FAQ Section with animated Chevrons ── */}
       <section
         className="shop-container-pad"
         style={{ paddingBottom: 'clamp(48px, 8vw, 80px)', background: '#ffffff' }}
       >
-        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '680px', margin: '0 auto' }}>
           <h2
             style={{
               fontFamily: 'var(--font-heading)',
@@ -484,7 +697,7 @@ export default function CategoryProductsClient({
               textTransform: 'uppercase',
               textAlign: 'center',
               letterSpacing: '0.02em',
-              margin: '0 0 40px',
+              margin: '0 0 36px',
               lineHeight: 1.25,
             }}
           >
@@ -493,57 +706,72 @@ export default function CategoryProductsClient({
             QUESTIONS
           </h2>
           <div style={{ borderTop: '1px solid #e5e5e5' }}>
-            {FAQ_ITEMS.map((item, idx) => (
-              <div key={idx} style={{ borderBottom: '1px solid #e5e5e5' }}>
-                <button
-                  type="button"
-                  onClick={() => setOpenFaqIndex(openFaqIndex === idx ? null : idx)}
-                  style={{
-                    width: '100%',
-                    padding: '20px 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    fontFamily: 'var(--font-heading)',
-                    fontSize: '0.875rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.02em',
-                    textTransform: 'uppercase',
-                    color: '#000000',
-                  }}
-                >
-                  <span>{item.q}</span>
-                  <span style={{ fontSize: '1.25rem', fontWeight: 300, color: BRAND_COLOR }}>
-                    {openFaqIndex === idx ? '−' : '+'}
-                  </span>
-                </button>
-                {openFaqIndex === idx && (
-                  <div
+            {FAQ_ITEMS.map((item, idx) => {
+              const isOpen = openFaqIndex === idx;
+              return (
+                <div key={item.q} style={{ borderBottom: '1px solid #e5e5e5' }}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
                     style={{
-                      paddingBottom: '20px',
+                      width: '100%',
+                      padding: '20px 0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontFamily: 'var(--font-heading)',
                       fontSize: '0.875rem',
-                      lineHeight: 1.6,
-                      color: '#444444',
-                      fontFamily: 'var(--font-body)',
+                      fontWeight: 700,
+                      letterSpacing: '0.03em',
+                      textTransform: 'uppercase',
+                      color: '#000000',
+                      gap: '16px',
                     }}
                   >
-                    {item.a}
-                    {item.link && (
-                      <Link
-                        href={item.link.href}
-                        style={{ color: BRAND_COLOR, textDecoration: 'underline' }}
-                      >
-                        {item.link.label}
-                      </Link>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                    <span>{item.q}</span>
+                    <ChevronDown
+                      size={20}
+                      style={{
+                        color: BRAND_COLOR,
+                        transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                        flexShrink: 0,
+                      }}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div
+                      style={{
+                        paddingBottom: '20px',
+                        fontSize: '0.875rem',
+                        lineHeight: 1.7,
+                        color: '#444444',
+                        fontFamily: 'var(--font-body)',
+                        whiteSpace: 'pre-line',
+                      }}
+                    >
+                      {item.a}
+                      {item.link && (
+                        <Link
+                          href={item.link.href}
+                          style={{
+                            color: BRAND_COLOR,
+                            textDecoration: 'underline',
+                            marginLeft: '4px',
+                          }}
+                        >
+                          {item.link.label}
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
