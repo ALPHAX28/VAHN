@@ -9,11 +9,11 @@ export default function HeroSection() {
       {/* Real Top Banner Hero Image */}
       <div className="hero-banner-image-container">
         <Image
-          src="/assets/top-banner.png"
+          src="/assets/top-banner.webp"
           alt="THIS IS VAHN"
           fill
           priority
-          unoptimized
+          sizes="100vw"
           className="hero-banner-img"
         />
       </div>
