@@ -166,16 +166,18 @@ export default function AdminAttributeModal({
       toast.success(
         `Deleted "${optionToDelete.name}" and removed its associated image & references.`
       );
-      onDeleted?.(optionToDelete);
+      const deleted = optionToDelete;
       setOptionToDelete(null);
-      await fetchExistingOptions();
+      handleClose();
+      onDeleted?.(deleted);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to delete option';
       if (typeof msg === 'string' && (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('already removed'))) {
-        onDeleted?.(optionToDelete);
+        const deleted = optionToDelete;
         setOptionToDelete(null);
-        await fetchExistingOptions();
-        toast.success(`"${optionToDelete.name}" was already removed.`);
+        handleClose();
+        onDeleted?.(deleted);
+        toast.success(`"${deleted.name}" was already removed.`);
       } else {
         toast.error(msg);
       }

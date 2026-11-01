@@ -3,7 +3,7 @@
 import { toast } from 'sonner';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import AdminAttributeModal from '@/components/admin/AdminAttributeModal';
 import AdminImageUploader, {
   type UploadedImage,
@@ -96,16 +96,9 @@ export default function NewProductPage() {
     'Streetwear',
     'Footwear',
   ]);
-  const [fitOptions, setFitOptions] = useState(['SLIM', 'REGULAR', 'RELAXED FIT', 'OVERSIZED']);
-
-  const [kitTypeOptions, setKitTypeOptions] = useState(['JERSEY', 'HOME', 'SIGNATURE']);
-  const [activityOptions, setActivityOptions] = useState([
-    'FOOTBALL',
-    'LIFESTYLE',
-    'STREETWEAR',
-    'CRICKET',
-    'BASKETBALL',
-  ]);
+  const [fitOptions, setFitOptions] = useState<string[]>([]);
+  const [kitTypeOptions, setKitTypeOptions] = useState<string[]>([]);
+  const [activityOptions, setActivityOptions] = useState<string[]>([]);
 
   // Custom addition inputs
   const [newProductTypeInput, setNewProductTypeInput] = useState('');
@@ -197,44 +190,27 @@ export default function NewProductPage() {
           (t) => !deletedTypes.some((dt) => dt.toLowerCase() === t.toLowerCase())
         );
         setProductTypeOptions(filtered);
-
-        const defaultFits = ['SLIM', 'REGULAR', 'RELAXED FIT', 'OVERSIZED'];
-
-        const dbFits = (res.items || [])
-          .map((item) => item.fit)
-          .filter((f): f is string => Boolean(f && f.trim()));
-        setFitOptions(Array.from(new Set([...defaultFits, ...dbFits])));
-
-        const defaultKits = ['JERSEY', 'HOME', 'SIGNATURE'];
-        const dbKits = (res.items || [])
-          .map((item) => item.kit_type)
-          .filter((k): k is string => Boolean(k && k.trim()));
-        setKitTypeOptions(Array.from(new Set([...defaultKits, ...dbKits])));
-
-        const defaultActivities = ['FOOTBALL', 'LIFESTYLE', 'STREETWEAR', 'CRICKET', 'BASKETBALL'];
-        const dbActivities = (res.items || [])
-          .map((item) => item.activity)
-          .filter((a): a is string => Boolean(a && a.trim()));
-        setActivityOptions(Array.from(new Set([...defaultActivities, ...dbActivities])));
       })
       .catch(() => {});
   }, [adminToken]);
 
   // Load category-scoped attribute options from DB whenever selected category changes
-  useEffect(() => {
+  const refreshAttributes = useCallback(async () => {
     if (!adminToken) return;
-    getAdminAttributeOptions(adminToken, form.category)
-      .then((opts) => {
-        setRawAttributeOptions(opts);
-        const fits = opts.filter((o) => o.attribute_type === 'FIT').map((o) => o.name);
-        if (fits.length > 0) setFitOptions(fits);
-        const kits = opts.filter((o) => o.attribute_type === 'KIT_TYPE').map((o) => o.name);
-        if (kits.length > 0) setKitTypeOptions(kits);
-        const acts = opts.filter((o) => o.attribute_type === 'ACTIVITY').map((o) => o.name);
-        if (acts.length > 0) setActivityOptions(acts);
-      })
-      .catch(() => {});
+    try {
+      const opts = await getAdminAttributeOptions(adminToken, form.category);
+      setRawAttributeOptions(opts);
+      setFitOptions(opts.filter((o) => o.attribute_type === 'FIT').map((o) => o.name));
+      setKitTypeOptions(opts.filter((o) => o.attribute_type === 'KIT_TYPE').map((o) => o.name));
+      setActivityOptions(opts.filter((o) => o.attribute_type === 'ACTIVITY').map((o) => o.name));
+    } catch {
+      // non-fatal
+    }
   }, [adminToken, form.category]);
+
+  useEffect(() => {
+    refreshAttributes();
+  }, [refreshAttributes]);
 
   const [tags, setTags] = useState<string[]>([]);
   const [featuredThumbnail, setFeaturedThumbnail] = useState<UploadedImage[]>([]);
@@ -287,16 +263,8 @@ export default function NewProductPage() {
         setForm((f) => ({ ...f, activity: '' }));
       }
 
-      if (type === 'FIT')
-        setFitOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
-      if (type === 'KIT_TYPE')
-        setKitTypeOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
-      if (type === 'ACTIVITY')
-        setActivityOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
-      if (targetId) {
-        setRawAttributeOptions((prev) => prev.filter((o) => o.id !== targetId));
-      }
       setDeleteAttributeModal(null);
+      await refreshAttributes();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to delete attribute option';
       if (typeof msg === 'string' && (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('already removed'))) {
@@ -307,13 +275,8 @@ export default function NewProductPage() {
         } else if (type === 'ACTIVITY' && form.activity.toUpperCase() === name.toUpperCase()) {
           setForm((f) => ({ ...f, activity: '' }));
         }
-        if (type === 'FIT')
-          setFitOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
-        if (type === 'KIT_TYPE')
-          setKitTypeOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
-        if (type === 'ACTIVITY')
-          setActivityOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
         setDeleteAttributeModal(null);
+        await refreshAttributes();
         toast.success(`"${name}" was already removed.`);
       } else {
         toast.error(msg);
@@ -1889,42 +1852,24 @@ export default function NewProductPage() {
           currentCategory={form.category}
           adminToken={adminToken || ''}
           onCreated={(newOpt) => {
-            setRawAttributeOptions((prev) => [...prev, newOpt]);
             if (newOpt.attribute_type === 'FIT') {
-              setFitOptions((prev) => Array.from(new Set([...prev, newOpt.name])));
               setForm((f) => ({ ...f, fit: newOpt.name }));
             } else if (newOpt.attribute_type === 'KIT_TYPE') {
-              setKitTypeOptions((prev) => Array.from(new Set([...prev, newOpt.name])));
               setForm((f) => ({ ...f, kit_type: newOpt.name }));
             } else if (newOpt.attribute_type === 'ACTIVITY') {
-              setActivityOptions((prev) => Array.from(new Set([...prev, newOpt.name])));
               setForm((f) => ({ ...f, activity: newOpt.name }));
             }
+            refreshAttributes();
           }}
           onDeleted={(delOpt) => {
-            if (delOpt.attribute_type === 'FIT') {
-              setFitOptions((prev) =>
-                prev.filter((o) => o.toUpperCase() !== delOpt.name.toUpperCase())
-              );
-              if (form.fit.toUpperCase() === delOpt.name.toUpperCase()) {
-                setForm((f) => ({ ...f, fit: '' }));
-              }
-            } else if (delOpt.attribute_type === 'KIT_TYPE') {
-              setKitTypeOptions((prev) =>
-                prev.filter((o) => o.toUpperCase() !== delOpt.name.toUpperCase())
-              );
-              if (form.kit_type.toUpperCase() === delOpt.name.toUpperCase()) {
-                setForm((f) => ({ ...f, kit_type: '' }));
-              }
-            } else if (delOpt.attribute_type === 'ACTIVITY') {
-              setActivityOptions((prev) =>
-                prev.filter((o) => o.toUpperCase() !== delOpt.name.toUpperCase())
-              );
-              if (form.activity.toUpperCase() === delOpt.name.toUpperCase()) {
-                setForm((f) => ({ ...f, activity: '' }));
-              }
+            if (delOpt.attribute_type === 'FIT' && form.fit.toUpperCase() === delOpt.name.toUpperCase()) {
+              setForm((f) => ({ ...f, fit: '' }));
+            } else if (delOpt.attribute_type === 'KIT_TYPE' && form.kit_type.toUpperCase() === delOpt.name.toUpperCase()) {
+              setForm((f) => ({ ...f, kit_type: '' }));
+            } else if (delOpt.attribute_type === 'ACTIVITY' && form.activity.toUpperCase() === delOpt.name.toUpperCase()) {
+              setForm((f) => ({ ...f, activity: '' }));
             }
-            setRawAttributeOptions((prev) => prev.filter((o) => o.id !== delOpt.id));
+            refreshAttributes();
           }}
         />
       )}

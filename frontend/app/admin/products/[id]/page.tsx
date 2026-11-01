@@ -89,9 +89,9 @@ export default function AdminProductDetailPage() {
     isOpen: false,
     type: 'FIT',
   });
-  const [dynamicFitOptions, setDynamicFitOptions] = useState<string[]>(FIT_OPTIONS);
-  const [dynamicKitOptions, setDynamicKitOptions] = useState<string[]>(KIT_OPTIONS);
-  const [dynamicActivityOptions, setDynamicActivityOptions] = useState<string[]>(ACTIVITY_OPTIONS);
+  const [dynamicFitOptions, setDynamicFitOptions] = useState<string[]>([]);
+  const [dynamicKitOptions, setDynamicKitOptions] = useState<string[]>([]);
+  const [dynamicActivityOptions, setDynamicActivityOptions] = useState<string[]>([]);
   const [rawAttributeOptions, setRawAttributeOptions] = useState<AttributeOption[]>([]);
   const [deleteAttributeModal, setDeleteAttributeModal] = useState<{
     type: 'FIT' | 'KIT_TYPE' | 'ACTIVITY';
@@ -105,21 +105,22 @@ export default function AdminProductDetailPage() {
     | 'BOTTOMS'
     | 'ACCESSORIES';
 
-  useEffect(() => {
+  const refreshAttributes = useCallback(async () => {
     if (!adminToken) return;
-    getAdminAttributeOptions(adminToken, activeCategory)
-      .then((opts) => {
-        setRawAttributeOptions(opts);
-        const fits = opts.filter((o) => o.attribute_type === 'FIT').map((o) => o.name);
-        if (fits.length > 0) setDynamicFitOptions(Array.from(new Set([...fits, ...FIT_OPTIONS])));
-        const kits = opts.filter((o) => o.attribute_type === 'KIT_TYPE').map((o) => o.name);
-        if (kits.length > 0) setDynamicKitOptions(Array.from(new Set([...kits, ...KIT_OPTIONS])));
-        const acts = opts.filter((o) => o.attribute_type === 'ACTIVITY').map((o) => o.name);
-        if (acts.length > 0)
-          setDynamicActivityOptions(Array.from(new Set([...acts, ...ACTIVITY_OPTIONS])));
-      })
-      .catch(() => {});
+    try {
+      const opts = await getAdminAttributeOptions(adminToken, activeCategory);
+      setRawAttributeOptions(opts);
+      setDynamicFitOptions(opts.filter((o) => o.attribute_type === 'FIT').map((o) => o.name));
+      setDynamicKitOptions(opts.filter((o) => o.attribute_type === 'KIT_TYPE').map((o) => o.name));
+      setDynamicActivityOptions(opts.filter((o) => o.attribute_type === 'ACTIVITY').map((o) => o.name));
+    } catch {
+      // non-fatal
+    }
   }, [adminToken, activeCategory]);
+
+  useEffect(() => {
+    refreshAttributes();
+  }, [refreshAttributes]);
 
   async function handleConfirmDeleteAttribute() {
     if (!deleteAttributeModal || !adminToken) return;
@@ -155,18 +156,8 @@ export default function AdminProductDetailPage() {
         setEditForm((f) => ({ ...f, activity: '' }));
       }
 
-      if (type === 'FIT')
-        setDynamicFitOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
-      if (type === 'KIT_TYPE')
-        setDynamicKitOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
-      if (type === 'ACTIVITY')
-        setDynamicActivityOptions((prev) =>
-          prev.filter((o) => o.toUpperCase() !== name.toUpperCase())
-        );
-      if (targetId) {
-        setRawAttributeOptions((prev) => prev.filter((o) => o.id !== targetId));
-      }
       setDeleteAttributeModal(null);
+      await refreshAttributes();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to delete attribute option';
       if (typeof msg === 'string' && (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('already removed'))) {
@@ -183,15 +174,8 @@ export default function AdminProductDetailPage() {
         ) {
           setEditForm((f) => ({ ...f, activity: '' }));
         }
-        if (type === 'FIT')
-          setDynamicFitOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
-        if (type === 'KIT_TYPE')
-          setDynamicKitOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
-        if (type === 'ACTIVITY')
-          setDynamicActivityOptions((prev) =>
-            prev.filter((o) => o.toUpperCase() !== name.toUpperCase())
-          );
         setDeleteAttributeModal(null);
+        await refreshAttributes();
         toast.success(`"${name}" was already removed.`);
       } else {
         toast.error(msg);
@@ -3541,42 +3525,33 @@ export default function AdminProductDetailPage() {
           currentCategory={activeCategory}
           adminToken={adminToken || ''}
           onCreated={(newOpt) => {
-            setRawAttributeOptions((prev) => [...prev, newOpt]);
             if (newOpt.attribute_type === 'FIT') {
-              setDynamicFitOptions((prev) => Array.from(new Set([...prev, newOpt.name])));
               setEditForm((f) => ({ ...f, fit: newOpt.name }));
             } else if (newOpt.attribute_type === 'KIT_TYPE') {
-              setDynamicKitOptions((prev) => Array.from(new Set([...prev, newOpt.name])));
               setEditForm((f) => ({ ...f, kit_type: newOpt.name }));
             } else if (newOpt.attribute_type === 'ACTIVITY') {
-              setDynamicActivityOptions((prev) => Array.from(new Set([...prev, newOpt.name])));
               setEditForm((f) => ({ ...f, activity: newOpt.name }));
             }
+            refreshAttributes();
           }}
           onDeleted={(delOpt) => {
-            if (delOpt.attribute_type === 'FIT') {
-              setDynamicFitOptions((prev) =>
-                prev.filter((o) => o.toUpperCase() !== delOpt.name.toUpperCase())
-              );
-              if ((editForm.fit || '').toUpperCase() === delOpt.name.toUpperCase()) {
-                setEditForm((f) => ({ ...f, fit: '' }));
-              }
-            } else if (delOpt.attribute_type === 'KIT_TYPE') {
-              setDynamicKitOptions((prev) =>
-                prev.filter((o) => o.toUpperCase() !== delOpt.name.toUpperCase())
-              );
-              if ((editForm.kit_type || '').toUpperCase() === delOpt.name.toUpperCase()) {
-                setEditForm((f) => ({ ...f, kit_type: '' }));
-              }
-            } else if (delOpt.attribute_type === 'ACTIVITY') {
-              setDynamicActivityOptions((prev) =>
-                prev.filter((o) => o.toUpperCase() !== delOpt.name.toUpperCase())
-              );
-              if ((editForm.activity || '').toUpperCase() === delOpt.name.toUpperCase()) {
-                setEditForm((f) => ({ ...f, activity: '' }));
-              }
+            if (
+              delOpt.attribute_type === 'FIT' &&
+              (editForm.fit || '').toUpperCase() === delOpt.name.toUpperCase()
+            ) {
+              setEditForm((f) => ({ ...f, fit: '' }));
+            } else if (
+              delOpt.attribute_type === 'KIT_TYPE' &&
+              (editForm.kit_type || '').toUpperCase() === delOpt.name.toUpperCase()
+            ) {
+              setEditForm((f) => ({ ...f, kit_type: '' }));
+            } else if (
+              delOpt.attribute_type === 'ACTIVITY' &&
+              (editForm.activity || '').toUpperCase() === delOpt.name.toUpperCase()
+            ) {
+              setEditForm((f) => ({ ...f, activity: '' }));
             }
-            setRawAttributeOptions((prev) => prev.filter((o) => o.id !== delOpt.id));
+            refreshAttributes();
           }}
         />
       )}
