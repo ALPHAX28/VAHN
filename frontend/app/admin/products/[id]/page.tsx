@@ -168,7 +168,34 @@ export default function AdminProductDetailPage() {
       }
       setDeleteAttributeModal(null);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to delete attribute option');
+      const msg = e instanceof Error ? e.message : 'Failed to delete attribute option';
+      if (typeof msg === 'string' && (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('already removed'))) {
+        if (type === 'FIT' && (editForm.fit || '').toUpperCase() === name.toUpperCase()) {
+          setEditForm((f) => ({ ...f, fit: '' }));
+        } else if (
+          type === 'KIT_TYPE' &&
+          (editForm.kit_type || '').toUpperCase() === name.toUpperCase()
+        ) {
+          setEditForm((f) => ({ ...f, kit_type: '' }));
+        } else if (
+          type === 'ACTIVITY' &&
+          (editForm.activity || '').toUpperCase() === name.toUpperCase()
+        ) {
+          setEditForm((f) => ({ ...f, activity: '' }));
+        }
+        if (type === 'FIT')
+          setDynamicFitOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
+        if (type === 'KIT_TYPE')
+          setDynamicKitOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
+        if (type === 'ACTIVITY')
+          setDynamicActivityOptions((prev) =>
+            prev.filter((o) => o.toUpperCase() !== name.toUpperCase())
+          );
+        setDeleteAttributeModal(null);
+        toast.success(`"${name}" was already removed.`);
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setIsDeletingAttribute(false);
     }

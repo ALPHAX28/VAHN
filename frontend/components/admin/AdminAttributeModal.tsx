@@ -171,7 +171,14 @@ export default function AdminAttributeModal({
       await fetchExistingOptions();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to delete option';
-      toast.error(msg);
+      if (typeof msg === 'string' && (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('already removed'))) {
+        onDeleted?.(optionToDelete);
+        setOptionToDelete(null);
+        await fetchExistingOptions();
+        toast.success(`"${optionToDelete.name}" was already removed.`);
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setIsDeleting(false);
     }

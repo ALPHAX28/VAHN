@@ -298,7 +298,26 @@ export default function NewProductPage() {
       }
       setDeleteAttributeModal(null);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to delete attribute option');
+      const msg = e instanceof Error ? e.message : 'Failed to delete attribute option';
+      if (typeof msg === 'string' && (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('already removed'))) {
+        if (type === 'FIT' && form.fit.toUpperCase() === name.toUpperCase()) {
+          setForm((f) => ({ ...f, fit: '' }));
+        } else if (type === 'KIT_TYPE' && form.kit_type.toUpperCase() === name.toUpperCase()) {
+          setForm((f) => ({ ...f, kit_type: '' }));
+        } else if (type === 'ACTIVITY' && form.activity.toUpperCase() === name.toUpperCase()) {
+          setForm((f) => ({ ...f, activity: '' }));
+        }
+        if (type === 'FIT')
+          setFitOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
+        if (type === 'KIT_TYPE')
+          setKitTypeOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
+        if (type === 'ACTIVITY')
+          setActivityOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
+        setDeleteAttributeModal(null);
+        toast.success(`"${name}" was already removed.`);
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setIsDeletingAttribute(false);
     }

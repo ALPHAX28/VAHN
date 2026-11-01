@@ -7583,7 +7583,7 @@ def admin_update_attribute_option(
     return opt
 
 
-@app.delete("/api/admin/attributes/{attribute_id}", status_code=204)
+@app.delete("/api/admin/attributes/{attribute_id}")
 def admin_delete_attribute_option(
     attribute_id: int,
     admin: models.User = Depends(get_current_admin),
@@ -7592,7 +7592,7 @@ def admin_delete_attribute_option(
     """Admin: delete attribute option, remove uploaded image from storage, and clear product texts."""
     opt = db.query(models.ProductAttributeOption).filter_by(id=attribute_id).first()
     if not opt:
-        raise HTTPException(status_code=404, detail="Attribute option not found")
+        return {"success": True, "message": "Attribute option already removed."}
 
     # 1. Delete image file from storage if custom uploaded icon
     if opt.icon_url and not opt.icon_url.startswith("/icons/"):
@@ -7618,7 +7618,7 @@ def admin_delete_attribute_option(
 
     db.delete(opt)
     db.commit()
-    return None
+    return {"success": True, "message": f"Attribute option {attribute_id} deleted successfully."}
 
 
 

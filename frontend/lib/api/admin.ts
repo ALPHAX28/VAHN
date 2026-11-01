@@ -300,7 +300,17 @@ async function adminFetch<T>(path: string, token: string, options: RequestInit =
       },
     });
 
-    const data = await res.json();
+    let data: { detail?: string } & Record<string, unknown> = {};
+    if (res.status !== 204) {
+      const text = await res.text();
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = {};
+        }
+      }
+    }
     if (!res.ok) {
       if (res.status === 401 && typeof window !== 'undefined') {
         try {
