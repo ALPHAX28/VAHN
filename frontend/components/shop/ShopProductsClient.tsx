@@ -27,6 +27,7 @@ export interface ExpandedCardItem {
   productType: string;
   fit: string;
   activity: string;
+  kitType: string;
 }
 
 const STANDARD_SIZE_ORDER = [
@@ -171,6 +172,7 @@ export function getExpandedItems(products: Product[]): ExpandedCardItem[] {
           productType: (product.productType || '').trim(),
           fit: (product.fit || '').trim(),
           activity: (product.activity || '').trim(),
+          kitType: (product.kitType || '').trim(),
         });
       });
     } else {
@@ -223,6 +225,7 @@ export function getExpandedItems(products: Product[]): ExpandedCardItem[] {
             productType: (product.productType || '').trim(),
             fit: (product.fit || '').trim(),
             activity: (product.activity || '').trim(),
+            kitType: (product.kitType || '').trim(),
           });
         });
       } else {
@@ -251,6 +254,7 @@ export function getExpandedItems(products: Product[]): ExpandedCardItem[] {
           productType: (product.productType || '').trim(),
           fit: (product.fit || '').trim(),
           activity: (product.activity || '').trim(),
+          kitType: (product.kitType || '').trim(),
         });
       }
     }
@@ -844,6 +848,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
   const [sortBy, setSortBy] = useState('featured');
   const [sortOpen, setSortOpen] = useState(false);
   const [selectedFit, setSelectedFit] = useState('ALL');
+  const [selectedKitType, setSelectedKitType] = useState('ALL');
   const [selectedActivity, setSelectedActivity] = useState('ALL');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -881,6 +886,14 @@ export default function ShopProductsClient({ initialProducts }: Props) {
     return Array.from(set).sort();
   }, [allItems]);
 
+  const kitTypes = useMemo(() => {
+    const set = new Set<string>();
+    allItems.forEach((i) => {
+      if (i.kitType) set.add(i.kitType.toUpperCase());
+    });
+    return Array.from(set).sort();
+  }, [allItems]);
+
   const activities = useMemo(() => {
     const set = new Set<string>();
     allItems.forEach((i) => {
@@ -894,6 +907,9 @@ export default function ShopProductsClient({ initialProducts }: Props) {
     let result = [...allItems];
     if (selectedFit !== 'ALL') {
       result = result.filter((i) => i.fit.toUpperCase() === selectedFit.toUpperCase());
+    }
+    if (selectedKitType !== 'ALL') {
+      result = result.filter((i) => i.kitType.toUpperCase() === selectedKitType.toUpperCase());
     }
     if (selectedActivity !== 'ALL') {
       result = result.filter((i) => i.activity.toUpperCase() === selectedActivity.toUpperCase());
@@ -931,10 +947,11 @@ export default function ShopProductsClient({ initialProducts }: Props) {
       });
     }
     return result;
-  }, [allItems, selectedFit, selectedActivity, sortBy]);
+  }, [allItems, selectedFit, selectedKitType, selectedActivity, sortBy]);
 
   const selectedSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? 'FEATURED';
-  const hasActiveFilters = selectedFit !== 'ALL' || selectedActivity !== 'ALL';
+  const hasActiveFilters =
+    selectedFit !== 'ALL' || selectedKitType !== 'ALL' || selectedActivity !== 'ALL';
 
   return (
     <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh', width: '100%' }}>
@@ -1285,6 +1302,45 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             </div>
           )}
 
+          {kitTypes.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: '#71717a',
+                }}
+              >
+                KIT TYPE:
+              </span>
+              <select
+                value={selectedKitType}
+                onChange={(e) => setSelectedKitType(e.target.value)}
+                style={{
+                  padding: '7px 12px',
+                  border: '1px solid #d4d4d8',
+                  background: '#ffffff',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.03em',
+                  cursor: 'pointer',
+                  borderRadius: 0,
+                  outline: 'none',
+                }}
+              >
+                <option value="ALL">ALL KITS</option>
+                {kitTypes.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {activities.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span
@@ -1329,6 +1385,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
               type="button"
               onClick={() => {
                 setSelectedFit('ALL');
+                setSelectedKitType('ALL');
                 setSelectedActivity('ALL');
               }}
               style={{
