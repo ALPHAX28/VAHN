@@ -1,5 +1,7 @@
 'use client';
 
+import { toast } from 'sonner';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -25,6 +27,7 @@ import {
   type ColourGroup,
   createAdminReview,
   createColourGroup,
+  deleteAdminAttributeOption,
   deleteAdminReview,
   deleteColourGroup,
   deleteVariant,
@@ -89,6 +92,13 @@ export default function AdminProductDetailPage() {
   const [dynamicFitOptions, setDynamicFitOptions] = useState<string[]>(FIT_OPTIONS);
   const [dynamicKitOptions, setDynamicKitOptions] = useState<string[]>(KIT_OPTIONS);
   const [dynamicActivityOptions, setDynamicActivityOptions] = useState<string[]>(ACTIVITY_OPTIONS);
+  const [rawAttributeOptions, setRawAttributeOptions] = useState<AttributeOption[]>([]);
+  const [deleteAttributeModal, setDeleteAttributeModal] = useState<{
+    type: 'FIT' | 'KIT_TYPE' | 'ACTIVITY';
+    name: string;
+    option?: AttributeOption;
+  } | null>(null);
+  const [isDeletingAttribute, setIsDeletingAttribute] = useState(false);
 
   const activeCategory = (editForm.category || product?.category || 'TOPS') as
     | 'TOPS'
@@ -99,6 +109,7 @@ export default function AdminProductDetailPage() {
     if (!adminToken) return;
     getAdminAttributeOptions(adminToken, activeCategory)
       .then((opts) => {
+        setRawAttributeOptions(opts);
         const fits = opts.filter((o) => o.attribute_type === 'FIT').map((o) => o.name);
         if (fits.length > 0) setDynamicFitOptions(Array.from(new Set([...fits, ...FIT_OPTIONS])));
         const kits = opts.filter((o) => o.attribute_type === 'KIT_TYPE').map((o) => o.name);
@@ -109,6 +120,59 @@ export default function AdminProductDetailPage() {
       })
       .catch(() => {});
   }, [adminToken, activeCategory]);
+
+  async function handleConfirmDeleteAttribute() {
+    if (!deleteAttributeModal || !adminToken) return;
+    const { type, name, option } = deleteAttributeModal;
+    setIsDeletingAttribute(true);
+    try {
+      let targetId = option?.id;
+      if (!targetId) {
+        const allOpts = await getAdminAttributeOptions(adminToken, activeCategory, type);
+        const found = allOpts.find(
+          (o) =>
+            o.name.toUpperCase() === name.toUpperCase() ||
+            o.code.toUpperCase() === name.toUpperCase()
+        );
+        targetId = found?.id;
+      }
+      if (targetId) {
+        await deleteAdminAttributeOption(adminToken, targetId);
+      }
+      toast.success(`Deleted "${name}" option and removed associated resources.`);
+
+      if (type === 'FIT' && (editForm.fit || '').toUpperCase() === name.toUpperCase()) {
+        setEditForm((f) => ({ ...f, fit: '' }));
+      } else if (
+        type === 'KIT_TYPE' &&
+        (editForm.kit_type || '').toUpperCase() === name.toUpperCase()
+      ) {
+        setEditForm((f) => ({ ...f, kit_type: '' }));
+      } else if (
+        type === 'ACTIVITY' &&
+        (editForm.activity || '').toUpperCase() === name.toUpperCase()
+      ) {
+        setEditForm((f) => ({ ...f, activity: '' }));
+      }
+
+      if (type === 'FIT')
+        setDynamicFitOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
+      if (type === 'KIT_TYPE')
+        setDynamicKitOptions((prev) => prev.filter((o) => o.toUpperCase() !== name.toUpperCase()));
+      if (type === 'ACTIVITY')
+        setDynamicActivityOptions((prev) =>
+          prev.filter((o) => o.toUpperCase() !== name.toUpperCase())
+        );
+      if (targetId) {
+        setRawAttributeOptions((prev) => prev.filter((o) => o.id !== targetId));
+      }
+      setDeleteAttributeModal(null);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete attribute option');
+    } finally {
+      setIsDeletingAttribute(false);
+    }
+  }
 
   function handleAddCustomProductType() {
     const val = newProductTypeInput.trim();
@@ -1840,6 +1904,38 @@ export default function AdminProductDetailPage() {
                       </option>
                     ))}
                   </select>
+                  {editForm.fit && (
+                    <div style={{ marginTop: 4, display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const opt = rawAttributeOptions.find(
+                            (o) =>
+                              o.attribute_type === 'FIT' &&
+                              (o.name.toUpperCase() === (editForm.fit || '').toUpperCase() ||
+                                o.code.toUpperCase() === (editForm.fit || '').toUpperCase())
+                          );
+                          setDeleteAttributeModal({
+                            type: 'FIT',
+                            name: editForm.fit!,
+                            option: opt,
+                          });
+                        }}
+                        style={{
+                          color: '#d32f2f',
+                          fontSize: '0.72rem',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          padding: 0,
+                          textDecoration: 'underline',
+                        }}
+                      >
+                        ✕ Delete "{editForm.fit}" from options
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1875,6 +1971,38 @@ export default function AdminProductDetailPage() {
                       </option>
                     ))}
                   </select>
+                  {editForm.kit_type && (
+                    <div style={{ marginTop: 4, display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const opt = rawAttributeOptions.find(
+                            (o) =>
+                              o.attribute_type === 'KIT_TYPE' &&
+                              (o.name.toUpperCase() === (editForm.kit_type || '').toUpperCase() ||
+                                o.code.toUpperCase() === (editForm.kit_type || '').toUpperCase())
+                          );
+                          setDeleteAttributeModal({
+                            type: 'KIT_TYPE',
+                            name: editForm.kit_type!,
+                            option: opt,
+                          });
+                        }}
+                        style={{
+                          color: '#d32f2f',
+                          fontSize: '0.72rem',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          padding: 0,
+                          textDecoration: 'underline',
+                        }}
+                      >
+                        ✕ Delete "{editForm.kit_type}" from options
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1905,6 +2033,38 @@ export default function AdminProductDetailPage() {
                     </option>
                   ))}
                 </select>
+                {editForm.activity && (
+                  <div style={{ marginTop: 4, display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const opt = rawAttributeOptions.find(
+                          (o) =>
+                            o.attribute_type === 'ACTIVITY' &&
+                            (o.name.toUpperCase() === (editForm.activity || '').toUpperCase() ||
+                              o.code.toUpperCase() === (editForm.activity || '').toUpperCase())
+                        );
+                        setDeleteAttributeModal({
+                          type: 'ACTIVITY',
+                          name: editForm.activity!,
+                          option: opt,
+                        });
+                      }}
+                      style={{
+                        color: '#d32f2f',
+                        fontSize: '0.72rem',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        padding: 0,
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      ✕ Delete "{editForm.activity}" from options
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="admin-form-group">
@@ -3254,6 +3414,97 @@ export default function AdminProductDetailPage() {
         </div>
       )}
 
+      {/* Delete Attribute Confirmation Modal */}
+      {deleteAttributeModal && (
+        <div
+          className="admin-modal-overlay"
+          onClick={() => !isDeletingAttribute && setDeleteAttributeModal(null)}
+        >
+          <div
+            className="admin-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 440 }}
+          >
+            <h3
+              className="admin-modal-title"
+              style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#d32f2f' }}
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+              >
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+              </svg>
+              Delete{' '}
+              {deleteAttributeModal.type === 'FIT'
+                ? 'Fit'
+                : deleteAttributeModal.type === 'KIT_TYPE'
+                  ? 'Kit Type'
+                  : 'Activity'}
+            </h3>
+            <p
+              style={{
+                fontSize: '0.88rem',
+                color: 'var(--admin-text-secondary)',
+                margin: '14px 0 12px',
+                lineHeight: 1.5,
+              }}
+            >
+              Are you sure you want to permanently delete{' '}
+              <strong>"{deleteAttributeModal.name}"</strong>?
+            </p>
+            <div
+              style={{
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fee2e2',
+                padding: '10px 12px',
+                fontSize: '0.78rem',
+                color: '#b91c1c',
+                marginBottom: 20,
+                lineHeight: 1.45,
+              }}
+            >
+              ⚠️ <strong>Warning:</strong> Deleting this will permanently remove its respective logo
+              image from storage and clear this value from all associated products.
+            </div>
+            <div
+              className="admin-modal-actions"
+              style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}
+            >
+              <button
+                type="button"
+                className="admin-btn admin-btn--ghost"
+                onClick={() => setDeleteAttributeModal(null)}
+                disabled={isDeletingAttribute}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-btn admin-btn--danger"
+                disabled={isDeletingAttribute}
+                onClick={handleConfirmDeleteAttribute}
+              >
+                {isDeletingAttribute ? (
+                  <>
+                    <span className="admin-btn-spinner" /> Deleting...
+                  </>
+                ) : (
+                  'Permanently Delete'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Dynamic Attribute Creation Modal (SCRUM-100) */}
       {modalConfig.isOpen && (
         <AdminAttributeModal
@@ -3263,6 +3514,7 @@ export default function AdminProductDetailPage() {
           currentCategory={activeCategory}
           adminToken={adminToken || ''}
           onCreated={(newOpt) => {
+            setRawAttributeOptions((prev) => [...prev, newOpt]);
             if (newOpt.attribute_type === 'FIT') {
               setDynamicFitOptions((prev) => Array.from(new Set([...prev, newOpt.name])));
               setEditForm((f) => ({ ...f, fit: newOpt.name }));
@@ -3273,6 +3525,31 @@ export default function AdminProductDetailPage() {
               setDynamicActivityOptions((prev) => Array.from(new Set([...prev, newOpt.name])));
               setEditForm((f) => ({ ...f, activity: newOpt.name }));
             }
+          }}
+          onDeleted={(delOpt) => {
+            if (delOpt.attribute_type === 'FIT') {
+              setDynamicFitOptions((prev) =>
+                prev.filter((o) => o.toUpperCase() !== delOpt.name.toUpperCase())
+              );
+              if ((editForm.fit || '').toUpperCase() === delOpt.name.toUpperCase()) {
+                setEditForm((f) => ({ ...f, fit: '' }));
+              }
+            } else if (delOpt.attribute_type === 'KIT_TYPE') {
+              setDynamicKitOptions((prev) =>
+                prev.filter((o) => o.toUpperCase() !== delOpt.name.toUpperCase())
+              );
+              if ((editForm.kit_type || '').toUpperCase() === delOpt.name.toUpperCase()) {
+                setEditForm((f) => ({ ...f, kit_type: '' }));
+              }
+            } else if (delOpt.attribute_type === 'ACTIVITY') {
+              setDynamicActivityOptions((prev) =>
+                prev.filter((o) => o.toUpperCase() !== delOpt.name.toUpperCase())
+              );
+              if ((editForm.activity || '').toUpperCase() === delOpt.name.toUpperCase()) {
+                setEditForm((f) => ({ ...f, activity: '' }));
+              }
+            }
+            setRawAttributeOptions((prev) => prev.filter((o) => o.id !== delOpt.id));
           }}
         />
       )}

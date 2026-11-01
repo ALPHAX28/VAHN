@@ -7589,10 +7589,33 @@ def admin_delete_attribute_option(
     admin: models.User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    """Admin: delete attribute option."""
+    """Admin: delete attribute option, remove uploaded image from storage, and clear product texts."""
     opt = db.query(models.ProductAttributeOption).filter_by(id=attribute_id).first()
     if not opt:
         raise HTTPException(status_code=404, detail="Attribute option not found")
+
+    # 1. Delete image file from storage if custom uploaded icon
+    if opt.icon_url and not opt.icon_url.startswith("/icons/"):
+        try:
+            storage.delete_file(opt.icon_url)
+        except Exception as e:
+            logger.warning(f"Failed to delete attribute icon file {opt.icon_url}: {e}")
+
+    # 2. Clear respective texts on products using this option
+    opt_names = [opt.name.strip().upper(), opt.code.strip().upper()]
+    if opt.attribute_type == "FIT":
+        db.query(models.Product).filter(
+            func.upper(models.Product.fit).in_(opt_names)
+        ).update({models.Product.fit: None}, synchronize_session=False)
+    elif opt.attribute_type == "KIT_TYPE":
+        db.query(models.Product).filter(
+            func.upper(models.Product.kit_type).in_(opt_names)
+        ).update({models.Product.kit_type: None}, synchronize_session=False)
+    elif opt.attribute_type == "ACTIVITY":
+        db.query(models.Product).filter(
+            func.upper(models.Product.activity).in_(opt_names)
+        ).update({models.Product.activity: None}, synchronize_session=False)
+
     db.delete(opt)
     db.commit()
     return None
