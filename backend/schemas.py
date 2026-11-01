@@ -133,6 +133,8 @@ class ProductSchema(BaseModel):
     size_fit_details: Optional[str] = None
     care_instructions: Optional[str] = None
     product_details: Optional[str] = None
+    createdAt: Optional[datetime] = None
+    created_at: Optional[datetime] = None
 
 
 class ProductEdge(BaseModel):

@@ -81,6 +81,8 @@ export interface Product {
   size_fit_details?: string | null;
   care_instructions?: string | null;
   product_details?: string | null;
+  createdAt?: string;
+  created_at?: string;
 }
 
 export interface LookbookItem {

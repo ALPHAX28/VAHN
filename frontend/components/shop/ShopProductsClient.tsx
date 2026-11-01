@@ -258,88 +258,6 @@ export function getExpandedItems(products: Product[]): ExpandedCardItem[] {
   return items;
 }
 
-// ── FAQ Accordion Item ──
-function FaqItem({
-  q,
-  a,
-  link,
-  isOpen,
-  onToggle,
-}: {
-  q: string;
-  a: string;
-  link?: { label: string; href: string };
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div style={{ borderBottom: '1px solid #e5e5e5' }}>
-      <button
-        onClick={onToggle}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          padding: '20px 0',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          textAlign: 'left',
-          gap: '16px',
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: '1.0625rem',
-            fontWeight: 400,
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-            color: '#000000',
-          }}
-        >
-          {q}
-        </span>
-        <span
-          style={{
-            fontSize: '1.75rem',
-            fontWeight: 400,
-            color: BRAND_COLOR,
-            lineHeight: 1,
-            flexShrink: 0,
-            userSelect: 'none',
-          }}
-        >
-          {isOpen ? '−' : '+'}
-        </span>
-      </button>
-
-      {isOpen && (
-        <div style={{ paddingBottom: '20px', paddingRight: '48px' }}>
-          <p
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: '0.875rem',
-              color: '#555555',
-              lineHeight: 1.75,
-              margin: 0,
-              whiteSpace: 'pre-line',
-            }}
-          >
-            {a}
-            {link && (
-              <Link href={link.href} style={{ color: BRAND_COLOR, textDecoration: 'none' }}>
-                {link.label}
-              </Link>
-            )}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Product Card — identical to FreshOutLocker LockerCard, adapted for grid ──
 export function ShopCard({ item }: { item: ExpandedCardItem }) {
   const { addItem } = useCart();
@@ -925,45 +843,37 @@ export function ShopCard({ item }: { item: ExpandedCardItem }) {
 export default function ShopProductsClient({ initialProducts }: Props) {
   const [sortBy, setSortBy] = useState('featured');
   const [sortOpen, setSortOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedFit, setSelectedFit] = useState('ALL');
+  const [selectedActivity, setSelectedActivity] = useState('ALL');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const sortRef = useRef<HTMLDivElement>(null);
 
   // Close sort dropdown on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const allItems = useMemo(() => getExpandedItems(initialProducts), [initialProducts]);
-
-  const topsItems = useMemo(
-    () => allItems.filter((i) => (i.category || 'TOPS').toUpperCase() === 'TOPS'),
-    [allItems]
-  );
-  const bottomsItems = useMemo(
-    () => allItems.filter((i) => (i.category || '').toUpperCase() === 'BOTTOMS'),
-    [allItems]
-  );
-  const accessoriesItems = useMemo(
-    () => allItems.filter((i) => (i.category || '').toUpperCase() === 'ACCESSORIES'),
-    [allItems]
-  );
-
-  // Derived filter options
-  const _categories = useMemo(() => {
-    const set = new Set<string>();
-    allItems.forEach((i) => {
-      if (i.productType) set.add(i.productType);
+  const allItems = useMemo(() => {
+    // New products appended on first (newest created_at or highest ID first)
+    const sortedProducts = [...initialProducts].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeA && timeB && timeA !== timeB) return timeB - timeA;
+      const idA = parseInt(a.id.replace(/\D/g, '') || '0', 10);
+      const idB = parseInt(b.id.replace(/\D/g, '') || '0', 10);
+      return idB - idA;
     });
-    return Array.from(set).sort();
-  }, [allItems]);
+    return getExpandedItems(sortedProducts);
+  }, [initialProducts]);
 
-  const _fits = useMemo(() => {
+  // Derived filter options across all products
+  const fits = useMemo(() => {
     const set = new Set<string>();
     allItems.forEach((i) => {
       if (i.fit) set.add(i.fit.toUpperCase());
@@ -971,32 +881,64 @@ export default function ShopProductsClient({ initialProducts }: Props) {
     return Array.from(set).sort();
   }, [allItems]);
 
+  const activities = useMemo(() => {
+    const set = new Set<string>();
+    allItems.forEach((i) => {
+      if (i.activity) set.add(i.activity.toUpperCase());
+    });
+    return Array.from(set).sort();
+  }, [allItems]);
+
   // Apply filters + sort
   const filteredItems = useMemo(() => {
     let result = [...allItems];
-    if (selectedCategory !== 'ALL')
-      result = result.filter((i) => i.productType.toLowerCase() === selectedCategory.toLowerCase());
-    if (selectedFit !== 'ALL')
+    if (selectedFit !== 'ALL') {
       result = result.filter((i) => i.fit.toUpperCase() === selectedFit.toUpperCase());
-    if (sortBy === 'price-asc')
+    }
+    if (selectedActivity !== 'ALL') {
+      result = result.filter((i) => i.activity.toUpperCase() === selectedActivity.toUpperCase());
+    }
+
+    if (sortBy === 'price-asc') {
       result.sort(
         (a, b) => parseInt(a.price.replace(/,/g, ''), 10) - parseInt(b.price.replace(/,/g, ''), 10)
       );
-    else if (sortBy === 'price-desc')
+    } else if (sortBy === 'price-desc') {
       result.sort(
         (a, b) => parseInt(b.price.replace(/,/g, ''), 10) - parseInt(a.price.replace(/,/g, ''), 10)
       );
-    else if (sortBy === 'name-asc') result.sort((a, b) => a.title.localeCompare(b.title));
-    else if (sortBy === 'name-desc') result.sort((a, b) => b.title.localeCompare(a.title));
+    } else if (sortBy === 'name-asc') {
+      result.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sortBy === 'name-desc') {
+      result.sort((a, b) => b.title.localeCompare(a.title));
+    } else if (sortBy === 'date-new') {
+      result.sort((a, b) => {
+        const timeA = a.product.createdAt ? new Date(a.product.createdAt).getTime() : 0;
+        const timeB = b.product.createdAt ? new Date(b.product.createdAt).getTime() : 0;
+        if (timeA && timeB && timeA !== timeB) return timeB - timeA;
+        const idA = parseInt(a.product.id.replace(/\D/g, '') || '0', 10);
+        const idB = parseInt(b.product.id.replace(/\D/g, '') || '0', 10);
+        return idB - idA;
+      });
+    } else if (sortBy === 'date-old') {
+      result.sort((a, b) => {
+        const timeA = a.product.createdAt ? new Date(a.product.createdAt).getTime() : 0;
+        const timeB = b.product.createdAt ? new Date(b.product.createdAt).getTime() : 0;
+        if (timeA && timeB && timeA !== timeB) return timeA - timeB;
+        const idA = parseInt(a.product.id.replace(/\D/g, '') || '0', 10);
+        const idB = parseInt(b.product.id.replace(/\D/g, '') || '0', 10);
+        return idA - idB;
+      });
+    }
     return result;
-  }, [allItems, selectedCategory, selectedFit, sortBy]);
+  }, [allItems, selectedFit, selectedActivity, sortBy]);
 
   const selectedSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label ?? 'FEATURED';
-  const hasActiveFilters = selectedCategory !== 'ALL' || selectedFit !== 'ALL';
+  const hasActiveFilters = selectedFit !== 'ALL' || selectedActivity !== 'ALL';
 
   return (
-    <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh' }}>
-      {/* ── Responsive styles ── */}
+    <div style={{ background: '#ffffff', color: '#000000', minHeight: '100vh', width: '100%' }}>
+      {/* ── Scoped Styles ── */}
       <style>{`
         .shop-container-pad {
           padding-left: clamp(16px, 4.5vw, 64px);
@@ -1092,34 +1034,6 @@ export default function ShopProductsClient({ initialProducts }: Props) {
         .category-nav-scroll::-webkit-scrollbar {
           display: none;
         }
-        .trust-badges-bar {
-          background: #4232d9;
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          padding-top: 24px;
-          padding-bottom: 24px;
-        }
-        .trust-badge-item {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          padding: 0 16px;
-        }
-        .trust-badge-icon-wrap {
-          position: relative;
-          width: 32px;
-          height: 32px;
-          flex-shrink: 0;
-        }
-        .trust-badge-text {
-          font-family: var(--font-heading);
-          font-size: 0.75rem;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: #ffffff;
-        }
         .shop-plus-btn svg {
           width: 26px;
           height: 26px;
@@ -1167,26 +1081,6 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             width: 22px;
             height: 22px;
           }
-          .trust-badges-bar {
-            grid-template-columns: 1fr 1fr 1fr !important;
-            padding: 16px 8px !important;
-            gap: 0;
-          }
-          .trust-badge-item {
-            flex-direction: column !important;
-            gap: 6px !important;
-            padding: 0 4px !important;
-            text-align: center !important;
-          }
-          .trust-badge-icon-wrap {
-            width: 22px !important;
-            height: 22px !important;
-          }
-          .trust-badge-text {
-            font-size: 0.5625rem !important;
-            letter-spacing: 0.02em !important;
-            line-height: 1.2 !important;
-          }
         }
 
         @media (max-width: 640px) {
@@ -1201,170 +1095,273 @@ export default function ShopProductsClient({ initialProducts }: Props) {
         }
       `}</style>
 
-      {/* ── Page Title ── */}
-      <div className="shop-container-pad shop-title-section">
-        <h1
+      {/* ── Breadcrumb Bar with animated Chevrons ── */}
+      <nav
+        aria-label="Breadcrumb"
+        className="shop-container-pad"
+        style={{
+          paddingTop: '20px',
+          paddingBottom: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '0.72rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          color: '#777777',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Link
+          href="/"
           style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: 'clamp(1.625rem, 3vw, 2.25rem)',
-            fontWeight: 900,
-            letterSpacing: '-0.01em',
-            textTransform: 'uppercase',
-            color: '#000000',
-            margin: '0 0 6px',
-            lineHeight: 1.1,
+            color: '#777777',
+            textDecoration: 'none',
+            transition: 'color 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = '#111111';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = '#777777';
           }}
         >
-          ALL PRODUCTS
-        </h1>
-        <p
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.9375rem',
-            color: '#444444',
-            margin: 0,
-            lineHeight: 1.5,
-          }}
-        >
-          Our first drop is here — limited pieces, made to move with you.
-        </p>
+          HOME
+        </Link>
+        <ChevronRight size={12} style={{ opacity: 0.45, flexShrink: 0 }} />
+        <span style={{ color: '#111111', fontWeight: 800 }}>ALL PRODUCTS</span>
+      </nav>
 
-        {/* Category Quick Jump Badges with Horizontal Mobile Scroll & Animated Chevrons */}
-        <div className="category-nav-scroll" style={{ marginTop: '18px' }}>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCategory('ALL');
-              setSelectedFit('ALL');
-            }}
-            style={{
-              padding: '8px 14px',
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              border:
-                selectedCategory === 'ALL' && selectedFit === 'ALL' && sortBy === 'featured'
-                  ? '1px solid #09090b'
-                  : '1px solid #d4d4d8',
-              background:
-                selectedCategory === 'ALL' && selectedFit === 'ALL' && sortBy === 'featured'
-                  ? '#09090b'
-                  : '#ffffff',
-              color:
-                selectedCategory === 'ALL' && selectedFit === 'ALL' && sortBy === 'featured'
-                  ? '#ffffff'
-                  : '#27272a',
-              cursor: 'pointer',
-              borderRadius: 0,
-              whiteSpace: 'nowrap',
-              boxShadow:
-                selectedCategory === 'ALL' && selectedFit === 'ALL' && sortBy === 'featured'
-                  ? '0 2px 8px rgba(0,0,0,0.12)'
-                  : 'none',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            ALL SECTIONS ({allItems.length})
-          </button>
-          <Link
-            href="/products/tops"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              border: '1px solid #d4d4d8',
-              background: '#ffffff',
-              color: '#27272a',
-              textDecoration: 'none',
-              borderRadius: 0,
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#18181b';
-              e.currentTarget.style.background = '#f4f4f5';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#d4d4d8';
-              e.currentTarget.style.background = '#ffffff';
-            }}
-          >
-            <span>TOPS ({topsItems.length})</span>
-            <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
-          </Link>
-          <Link
-            href="/products/bottoms"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              border: '1px solid #d4d4d8',
-              background: '#ffffff',
-              color: '#27272a',
-              textDecoration: 'none',
-              borderRadius: 0,
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#18181b';
-              e.currentTarget.style.background = '#f4f4f5';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#d4d4d8';
-              e.currentTarget.style.background = '#ffffff';
-            }}
-          >
-            <span>BOTTOMS ({bottomsItems.length})</span>
-            <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
-          </Link>
-          <Link
-            href="/products/accessories"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              border: '1px solid #d4d4d8',
-              background: '#ffffff',
-              color: '#27272a',
-              textDecoration: 'none',
-              borderRadius: 0,
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#18181b';
-              e.currentTarget.style.background = '#f4f4f5';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#d4d4d8';
-              e.currentTarget.style.background = '#ffffff';
-            }}
-          >
-            <span>ACCESSORIES ({accessoriesItems.length})</span>
-            <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
-          </Link>
+      {/* ── Page Header ── */}
+      <header className="shop-container-pad shop-title-section">
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            flexWrap: 'wrap',
+            gap: '20px',
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                fontFamily: 'var(--font-heading)',
+                fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
+                fontWeight: 900,
+                letterSpacing: '-0.02em',
+                textTransform: 'uppercase',
+                color: '#000000',
+                margin: '0 0 6px',
+                lineHeight: 1.1,
+              }}
+            >
+              ALL PRODUCTS
+            </h1>
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.9375rem',
+                color: '#555555',
+                margin: 0,
+                lineHeight: 1.5,
+                maxWidth: '680px',
+              }}
+            >
+              Our first drop is here — limited pieces, made to move with you.
+            </p>
+          </div>
+
+          {/* Luxury Category Pills with Horizontal Mobile Scroll & Animated Chevrons */}
+          <div className="category-nav-scroll">
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                padding: '8px 14px',
+                border: '1px solid #09090b',
+                background: '#09090b',
+                color: '#ffffff',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              }}
+            >
+              ALL PRODUCTS
+            </span>
+
+            {(['TOPS', 'BOTTOMS', 'ACCESSORIES'] as const).map((cat) => (
+              <Link
+                key={cat}
+                href={`/products/${cat.toLowerCase()}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  padding: '8px 14px',
+                  border: '1px solid #d4d4d8',
+                  background: '#ffffff',
+                  color: '#27272a',
+                  textDecoration: 'none',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#18181b';
+                  e.currentTarget.style.background = '#f4f4f5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#d4d4d8';
+                  e.currentTarget.style.background = '#ffffff';
+                }}
+              >
+                <span>{cat}</span>
+                <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
+              </Link>
+            ))}
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* ── Sort Bar ── */}
-      <div className="shop-container-pad shop-sort-section">
+      {/* ── Filter & Sort Bar ── */}
+      <section
+        className="shop-container-pad shop-sort-section"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '14px',
+          borderBottom: '1px solid #ebebeb',
+          paddingBottom: '16px',
+        }}
+      >
+        {/* Dynamic Category Filters (Fit / Activity) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {fits.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: '#71717a',
+                }}
+              >
+                FIT:
+              </span>
+              <select
+                value={selectedFit}
+                onChange={(e) => setSelectedFit(e.target.value)}
+                style={{
+                  padding: '7px 12px',
+                  border: '1px solid #d4d4d8',
+                  background: '#ffffff',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.03em',
+                  cursor: 'pointer',
+                  borderRadius: 0,
+                  outline: 'none',
+                }}
+              >
+                <option value="ALL">ALL FITS</option>
+                {fits.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {activities.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: '#71717a',
+                }}
+              >
+                ACTIVITY:
+              </span>
+              <select
+                value={selectedActivity}
+                onChange={(e) => setSelectedActivity(e.target.value)}
+                style={{
+                  padding: '7px 12px',
+                  border: '1px solid #d4d4d8',
+                  background: '#ffffff',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.03em',
+                  cursor: 'pointer',
+                  borderRadius: 0,
+                  outline: 'none',
+                }}
+              >
+                <option value="ALL">ALL ACTIVITIES</option>
+                {activities.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedFit('ALL');
+                setSelectedActivity('ALL');
+              }}
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                color: '#dc2626',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                textUnderlineOffset: '3px',
+                padding: '4px 0',
+              }}
+            >
+              Clear Filters ✕
+            </button>
+          )}
+
+          <span
+            style={{
+              fontSize: '0.75rem',
+              color: '#71717a',
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+            }}
+          >
+            ({filteredItems.length} {filteredItems.length === 1 ? 'ITEM' : 'ITEMS'})
+          </span>
+        </div>
+
+        {/* Sort Dropdown with animated ChevronDown */}
         <div ref={sortRef} style={{ position: 'relative', display: 'inline-block' }}>
           <button
             type="button"
@@ -1403,18 +1400,19 @@ export default function ShopProductsClient({ initialProducts }: Props) {
               style={{
                 position: 'absolute',
                 top: '100%',
-                left: 0,
+                right: 0,
                 zIndex: 50,
                 background: '#ffffff',
-                border: '1px solid #c0c0c0',
+                border: '1px solid #d4d4d8',
                 borderTop: 'none',
-                minWidth: '210px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                minWidth: '220px',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
               }}
             >
               {SORT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
+                  type="button"
                   onClick={() => {
                     setSortBy(opt.value);
                     setSortOpen(false);
@@ -1423,15 +1421,16 @@ export default function ShopProductsClient({ initialProducts }: Props) {
                     display: 'block',
                     width: '100%',
                     padding: '10px 14px',
-                    background: 'none',
+                    background: sortBy === opt.value ? '#f4f4f5' : 'none',
                     border: 'none',
                     cursor: 'pointer',
                     fontFamily: 'var(--font-heading)',
                     fontSize: '0.75rem',
-                    fontWeight: sortBy === opt.value ? 700 : 400,
-                    color: sortBy === opt.value ? BRAND_COLOR : '#222222',
+                    fontWeight: sortBy === opt.value ? 800 : 500,
+                    color: sortBy === opt.value ? BRAND_COLOR : '#18181b',
                     textAlign: 'left',
                     letterSpacing: '0.02em',
+                    transition: 'background-color 0.15s ease',
                   }}
                 >
                   {opt.label}
@@ -1440,339 +1439,90 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             </div>
           )}
         </div>
-      </div>
+      </section>
 
-      {/* ── Product Grid: Section-Wise (Default) OR Filtered Grid ── */}
+      {/* ── Product Grid: Unified Clean Grid (No Dedicated Sections) ── */}
       <main className="shop-container-pad shop-main-section">
-        {hasActiveFilters || sortBy !== 'featured' ? (
-          filteredItems.length === 0 ? (
-            <div style={{ padding: '80px 20px', textAlign: 'center', border: '1px solid #e5e5e5' }}>
-              <p
+        {filteredItems.length === 0 ? (
+          <div
+            style={{
+              padding: '72px 24px',
+              textAlign: 'center',
+              border: '1px solid #e4e4e7',
+              background: '#fafafa',
+              maxWidth: '560px',
+              margin: '24px auto',
+            }}
+          >
+            <h2
+              style={{
+                fontSize: '1.25rem',
+                fontWeight: 900,
+                margin: '0 0 10px',
+                fontFamily: 'var(--font-heading)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.02em',
+                color: '#09090b',
+              }}
+            >
+              {hasActiveFilters ? 'NO MATCHING PRODUCTS FOUND' : 'ALL PRODUCTS — DROP COMING SOON'}
+            </h2>
+            <p
+              style={{
+                fontSize: '0.875rem',
+                color: '#71717a',
+                margin: '0 auto 24px',
+                maxWidth: '440px',
+                lineHeight: 1.6,
+                fontFamily: 'var(--font-body)',
+              }}
+            >
+              {hasActiveFilters
+                ? 'Try adjusting or clearing your active filters to view all pieces in this collection.'
+                : 'Our first drop is live. Stay tuned for new releases.'}
+            </p>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFit('ALL');
+                  setSelectedActivity('ALL');
+                }}
                 style={{
-                  fontSize: '1.125rem',
-                  fontWeight: 700,
-                  margin: '0 0 6px',
-                  fontFamily: 'var(--font-heading)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 26px',
+                  backgroundColor: '#09090b',
+                  color: '#ffffff',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
                 }}
               >
-                No products found
-              </p>
-              <p
-                style={{
-                  fontSize: '0.875rem',
-                  color: '#666',
-                  margin: 0,
-                  fontFamily: 'var(--font-body)',
-                }}
-              >
-                Try clearing your active filters or sort selection.
-              </p>
-            </div>
-          ) : (
-            <div className="shop-grid">
-              {filteredItems.map((item) => (
-                <ShopCard key={item.id} item={item} />
-              ))}
-            </div>
-          )
+                CLEAR ALL FILTERS
+              </button>
+            )}
+          </div>
         ) : (
-          /* Default Section-Wise View: TOPS, BOTTOMS, ACCESSORIES (10-12 items each + View All link) */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
-            {/* Section 1: TOPS */}
-            <section>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '24px',
-                  borderBottom: '2px solid #111111',
-                  paddingBottom: '12px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                  <h2
-                    style={{
-                      fontFamily: 'var(--font-heading)',
-                      fontSize: 'clamp(1.15rem, 2.5vw, 1.45rem)',
-                      fontWeight: 900,
-                      textTransform: 'uppercase',
-                      letterSpacing: '-0.01em',
-                      margin: 0,
-                    }}
-                  >
-                    TOPS
-                  </h2>
-                  <span style={{ fontSize: '0.75rem', color: '#666666', fontWeight: 600 }}>
-                    ({topsItems.length} ITEMS)
-                  </span>
-                </div>
-                <Link
-                  href="/products/tops"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '0.75rem',
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    color: BRAND_COLOR,
-                    textDecoration: 'none',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  <span>VIEW ALL TOPS ({topsItems.length})</span>
-                  <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
-                </Link>
-              </div>
-
-              {topsItems.length === 0 ? (
-                <div
-                  style={{
-                    padding: '40px 20px',
-                    textAlign: 'center',
-                    border: '1px solid #ebebeb',
-                    background: '#fafafa',
-                  }}
-                >
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>No tops found.</p>
-                </div>
-              ) : (
-                <div className="shop-grid">
-                  {topsItems.slice(0, 12).map((item) => (
-                    <ShopCard key={item.id} item={item} />
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* Section 2: BOTTOMS */}
-            <section>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '24px',
-                  borderBottom: '2px solid #111111',
-                  paddingBottom: '12px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                  <h2
-                    style={{
-                      fontFamily: 'var(--font-heading)',
-                      fontSize: 'clamp(1.15rem, 2.5vw, 1.45rem)',
-                      fontWeight: 900,
-                      textTransform: 'uppercase',
-                      letterSpacing: '-0.01em',
-                      margin: 0,
-                    }}
-                  >
-                    BOTTOMS
-                  </h2>
-                  <span style={{ fontSize: '0.75rem', color: '#666666', fontWeight: 600 }}>
-                    ({bottomsItems.length} ITEMS)
-                  </span>
-                </div>
-                <Link
-                  href="/products/bottoms"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '0.75rem',
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    color: BRAND_COLOR,
-                    textDecoration: 'none',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  <span>VIEW ALL BOTTOMS ({bottomsItems.length})</span>
-                  <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
-                </Link>
-              </div>
-
-              {bottomsItems.length === 0 ? (
-                <div
-                  style={{
-                    padding: '48px 24px',
-                    textAlign: 'center',
-                    border: '1px solid #e4e4e7',
-                    background: '#fafafa',
-                  }}
-                >
-                  <h3
-                    style={{
-                      fontFamily: 'var(--font-heading)',
-                      fontSize: '1.0625rem',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.02em',
-                      margin: '0 0 6px',
-                      color: '#09090b',
-                    }}
-                  >
-                    BOTTOMS — DROP COMING SOON
-                  </h3>
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '0.85rem',
-                      color: '#71717a',
-                      margin: '0 auto 16px',
-                      maxWidth: '440px',
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    Performance shorts, trackpants & base layers engineered with precision.
-                  </p>
-                  <Link
-                    href="/products/bottoms"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      fontSize: '0.75rem',
-                      fontWeight: 800,
-                      color: BRAND_COLOR,
-                      textDecoration: 'none',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    <span>EXPLORE BOTTOMS COLLECTION</span>
-                    <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
-                  </Link>
-                </div>
-              ) : (
-                <div className="shop-grid">
-                  {bottomsItems.slice(0, 12).map((item) => (
-                    <ShopCard key={item.id} item={item} />
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* Section 3: ACCESSORIES */}
-            <section>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '24px',
-                  borderBottom: '2px solid #111111',
-                  paddingBottom: '12px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                  <h2
-                    style={{
-                      fontFamily: 'var(--font-heading)',
-                      fontSize: 'clamp(1.15rem, 2.5vw, 1.45rem)',
-                      fontWeight: 900,
-                      textTransform: 'uppercase',
-                      letterSpacing: '-0.01em',
-                      margin: 0,
-                    }}
-                  >
-                    ACCESSORIES
-                  </h2>
-                  <span style={{ fontSize: '0.75rem', color: '#666666', fontWeight: 600 }}>
-                    ({accessoriesItems.length} ITEMS)
-                  </span>
-                </div>
-                <Link
-                  href="/products/accessories"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '0.75rem',
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    color: BRAND_COLOR,
-                    textDecoration: 'none',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  <span>VIEW ALL ACCESSORIES ({accessoriesItems.length})</span>
-                  <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
-                </Link>
-              </div>
-
-              {accessoriesItems.length === 0 ? (
-                <div
-                  style={{
-                    padding: '48px 24px',
-                    textAlign: 'center',
-                    border: '1px solid #e4e4e7',
-                    background: '#fafafa',
-                  }}
-                >
-                  <h3
-                    style={{
-                      fontFamily: 'var(--font-heading)',
-                      fontSize: '1.0625rem',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.02em',
-                      margin: '0 0 6px',
-                      color: '#09090b',
-                    }}
-                  >
-                    ACCESSORIES — DROP COMING SOON
-                  </h3>
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '0.85rem',
-                      color: '#71717a',
-                      margin: '0 auto 16px',
-                      maxWidth: '440px',
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    Wristbands, sweatbands & performance gear built for movement.
-                  </p>
-                  <Link
-                    href="/products/accessories"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      fontSize: '0.75rem',
-                      fontWeight: 800,
-                      color: BRAND_COLOR,
-                      textDecoration: 'none',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    <span>EXPLORE ACCESSORIES COLLECTION</span>
-                    <ChevronRight size={14} strokeWidth={2.5} className="chevron-anim-right" />
-                  </Link>
-                </div>
-              ) : (
-                <div className="shop-grid">
-                  {accessoriesItems.slice(0, 12).map((item) => (
-                    <ShopCard key={item.id} item={item} />
-                  ))}
-                </div>
-              )}
-            </section>
+          <div className="shop-grid">
+            {filteredItems.map((item) => (
+              <ShopCard key={item.id} item={item} />
+            ))}
           </div>
         )}
       </main>
 
-      {/* ── FAQ Section ── */}
+      {/* ── FAQ Section with animated Chevrons ── */}
       <section
         className="shop-container-pad"
         style={{ paddingBottom: 'clamp(48px, 8vw, 80px)', background: '#ffffff' }}
       >
-        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '680px', margin: '0 auto' }}>
           <h2
             style={{
               fontFamily: 'var(--font-heading)',
@@ -1781,7 +1531,7 @@ export default function ShopProductsClient({ initialProducts }: Props) {
               textTransform: 'uppercase',
               textAlign: 'center',
               letterSpacing: '0.02em',
-              margin: '0 0 40px',
+              margin: '0 0 36px',
               lineHeight: 1.25,
             }}
           >
@@ -1790,21 +1540,80 @@ export default function ShopProductsClient({ initialProducts }: Props) {
             QUESTIONS
           </h2>
           <div style={{ borderTop: '1px solid #e5e5e5' }}>
-            {FAQ_ITEMS.map((item, idx) => (
-              <FaqItem
-                key={item.q}
-                q={item.q}
-                a={item.a}
-                link={item.link}
-                isOpen={openFaqIndex === idx}
-                onToggle={() => setOpenFaqIndex(openFaqIndex === idx ? null : idx)}
-              />
-            ))}
+            {FAQ_ITEMS.map((item, idx) => {
+              const isOpen = openFaqIndex === idx;
+              return (
+                <div key={item.q} style={{ borderBottom: '1px solid #e5e5e5' }}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                    style={{
+                      width: '100%',
+                      padding: '20px 0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontFamily: 'var(--font-heading)',
+                      fontSize: '0.875rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.03em',
+                      textTransform: 'uppercase',
+                      color: '#000000',
+                      gap: '16px',
+                    }}
+                  >
+                    <span>{item.q}</span>
+                    <span
+                      style={{
+                        fontSize: '1.75rem',
+                        fontWeight: 400,
+                        color: BRAND_COLOR,
+                        lineHeight: 1,
+                        flexShrink: 0,
+                        userSelect: 'none',
+                      }}
+                    >
+                      {isOpen ? '−' : '+'}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div
+                      style={{
+                        paddingBottom: '20px',
+                        fontSize: '0.875rem',
+                        lineHeight: 1.7,
+                        color: '#444444',
+                        fontFamily: 'var(--font-body)',
+                        whiteSpace: 'pre-line',
+                      }}
+                    >
+                      {item.a}
+                      {item.link && (
+                        <Link
+                          href={item.link.href}
+                          style={{
+                            color: BRAND_COLOR,
+                            textDecoration: 'underline',
+                            marginLeft: '4px',
+                          }}
+                        >
+                          {item.link.label}
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* ── Trust Badges (Always in a single 3-column row) ── */}
+      {/* ── Trust Badges ── */}
       <TrustBadgesBar className="shop-container-pad" />
     </div>
   );

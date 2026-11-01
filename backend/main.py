@@ -674,7 +674,9 @@ def db_product_to_schema(prod: models.Product) -> schemas.ProductSchema:
         productDetails=prod.product_details,
         size_fit_details=prod.size_fit_details,
         care_instructions=prod.care_instructions,
-        product_details=prod.product_details
+        product_details=prod.product_details,
+        createdAt=prod.created_at,
+        created_at=prod.created_at
     )
 
 
@@ -725,6 +727,7 @@ def list_products(
     if category:
         q = q.filter(func.upper(models.Product.category) == category.strip().upper())
 
+    q = q.order_by(models.Product.created_at.desc(), models.Product.id.desc())
     products = q.all()
     return [db_product_to_schema(p) for p in products]
 

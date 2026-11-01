@@ -45,7 +45,15 @@ export default function CategoryProductsClient({
   }, []);
 
   const allItems = useMemo(() => {
-    const expanded = getExpandedItems(initialProducts);
+    const sortedProducts = [...initialProducts].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeA && timeB && timeA !== timeB) return timeB - timeA;
+      const idA = parseInt(a.id.replace(/\D/g, '') || '0', 10);
+      const idB = parseInt(b.id.replace(/\D/g, '') || '0', 10);
+      return idB - idA;
+    });
+    const expanded = getExpandedItems(sortedProducts);
     return expanded.filter((item) => {
       const itemCat = (item.category || 'TOPS').toUpperCase();
       return itemCat === category;
@@ -91,6 +99,24 @@ export default function CategoryProductsClient({
       result.sort((a, b) => a.title.localeCompare(b.title));
     } else if (sortBy === 'name-desc') {
       result.sort((a, b) => b.title.localeCompare(a.title));
+    } else if (sortBy === 'date-new') {
+      result.sort((a, b) => {
+        const timeA = a.product.createdAt ? new Date(a.product.createdAt).getTime() : 0;
+        const timeB = b.product.createdAt ? new Date(b.product.createdAt).getTime() : 0;
+        if (timeA && timeB && timeA !== timeB) return timeB - timeA;
+        const idA = parseInt(a.product.id.replace(/\D/g, '') || '0', 10);
+        const idB = parseInt(b.product.id.replace(/\D/g, '') || '0', 10);
+        return idB - idA;
+      });
+    } else if (sortBy === 'date-old') {
+      result.sort((a, b) => {
+        const timeA = a.product.createdAt ? new Date(a.product.createdAt).getTime() : 0;
+        const timeB = b.product.createdAt ? new Date(b.product.createdAt).getTime() : 0;
+        if (timeA && timeB && timeA !== timeB) return timeA - timeB;
+        const idA = parseInt(a.product.id.replace(/\D/g, '') || '0', 10);
+        const idB = parseInt(b.product.id.replace(/\D/g, '') || '0', 10);
+        return idA - idB;
+      });
     }
     return result;
   }, [allItems, selectedFit, selectedActivity, sortBy]);
