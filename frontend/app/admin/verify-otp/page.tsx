@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAdminAuth } from "@/context/AdminAuthContext";
-import Image from "next/image";
+import Image from 'next/image';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { useAdminAuth } from '@/context/AdminAuthContext';
 
 function AdminVerifyOtpInner() {
   const { adminVerifyOTP } = useAdminAuth();
   const router = useRouter();
   const params = useSearchParams();
-  const phone = params.get("phone") || "";
-  const otpToken = params.get("otp_token") || "";
+  const phone = params.get('phone') || '';
+  const otpToken = params.get('otp_token') || '';
 
-  const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
-  const [error, setError] = useState("");
+  const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const refs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -22,7 +22,7 @@ function AdminVerifyOtpInner() {
   }, []);
 
   function handleChange(idx: number, val: string) {
-    const cleaned = val.replace(/\D/g, "").slice(-1);
+    const cleaned = val.replace(/\D/g, '').slice(-1);
     const next = [...digits];
     next[idx] = cleaned;
     setDigits(next);
@@ -30,14 +30,14 @@ function AdminVerifyOtpInner() {
   }
 
   function handleKeyDown(idx: number, e: React.KeyboardEvent) {
-    if (e.key === "Backspace" && !digits[idx] && idx > 0) {
+    if (e.key === 'Backspace' && !digits[idx] && idx > 0) {
       refs.current[idx - 1]?.focus();
     }
   }
 
   function handlePaste(e: React.ClipboardEvent) {
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    const next = ["", "", "", "", "", ""];
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    const next = ['', '', '', '', '', ''];
     for (let i = 0; i < pasted.length; i++) next[i] = pasted[i];
     setDigits(next);
     refs.current[Math.min(pasted.length, 5)]?.focus();
@@ -46,16 +46,22 @@ function AdminVerifyOtpInner() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const otp = digits.join("");
-    if (otp.length < 6) { setError("Please enter all 6 digits."); return; }
-    if (!otpToken) { setError("Missing session token. Please try logging in again."); return; }
-    setError("");
+    const otp = digits.join('');
+    if (otp.length < 6) {
+      setError('Please enter all 6 digits.');
+      return;
+    }
+    if (!otpToken) {
+      setError('Missing session token. Please try logging in again.');
+      return;
+    }
+    setError('');
     setLoading(true);
     try {
       await adminVerifyOTP(phone, otp, otpToken);
-      router.push("/admin/dashboard");
+      router.push('/admin/dashboard');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Invalid OTP");
+      setError(err instanceof Error ? err.message : 'Invalid OTP');
     } finally {
       setLoading(false);
     }
@@ -65,7 +71,13 @@ function AdminVerifyOtpInner() {
     <div className="admin-auth-page">
       <div className="admin-auth-card">
         <div className="admin-auth-logo">
-          <Image src="/assets/logo.png" alt="VAHN" width={110} height={26} style={{ objectFit: "contain", height: "auto" }} />
+          <Image
+            src="/assets/logo.png"
+            alt="VAHN"
+            width={126}
+            height={26}
+            style={{ objectFit: 'contain', height: 'auto' }}
+          />
           <span className="admin-auth-logo-badge">Admin</span>
         </div>
         <h1 className="admin-auth-title">Verify your identity</h1>
@@ -80,30 +92,32 @@ function AdminVerifyOtpInner() {
             {digits.map((d, i) => (
               <input
                 key={i}
-                ref={el => { refs.current[i] = el; }}
+                ref={(el) => {
+                  refs.current[i] = el;
+                }}
                 type="text"
                 inputMode="numeric"
                 maxLength={1}
                 className="admin-otp-input"
                 value={d}
-                onChange={e => handleChange(i, e.target.value)}
-                onKeyDown={e => handleKeyDown(i, e)}
+                onChange={(e) => handleChange(i, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(i, e)}
                 aria-label={`OTP digit ${i + 1}`}
               />
             ))}
           </div>
 
           <button type="submit" className="admin-auth-btn" disabled={loading}>
-            {loading ? <span className="admin-btn-spinner" /> : "Verify & Access Dashboard"}
+            {loading ? <span className="admin-btn-spinner" /> : 'Verify & Access Dashboard'}
           </button>
         </form>
 
         <p className="admin-auth-footer">
-          Didn&apos;t receive it? Check your spam folder or{" "}
+          Didn&apos;t receive it? Check your spam folder or{' '}
           <button
             className="admin-auth-link"
             onClick={() => router.back()}
-            style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             go back to resend
           </button>
@@ -115,7 +129,13 @@ function AdminVerifyOtpInner() {
 
 export default function AdminVerifyOtpPage() {
   return (
-    <Suspense fallback={<div className="admin-auth-page"><div className="admin-auth-card" /></div>}>
+    <Suspense
+      fallback={
+        <div className="admin-auth-page">
+          <div className="admin-auth-card" />
+        </div>
+      }
+    >
       <AdminVerifyOtpInner />
     </Suspense>
   );

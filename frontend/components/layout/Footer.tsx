@@ -250,7 +250,7 @@ export default function Footer() {
             <Image
               src="/assets/logos/VAHN-Primary-colour-transparent.png"
               alt="VAHN"
-              width={110}
+              width={126}
               height={26}
               priority
               style={{

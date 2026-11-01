@@ -1,13 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 // ── Icons ────────────────────────────────────────────────────
 function MailIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
       <polyline points="22,6 12,13 2,6" />
     </svg>
@@ -16,7 +24,14 @@ function MailIcon() {
 
 function PhoneIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.56a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
     </svg>
   );
@@ -24,7 +39,17 @@ function PhoneIcon() {
 
 function ArrowRightIcon() {
   return (
-    <svg className="btn-checkout-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="btn-checkout-arrow"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="9 18 15 12 9 6" />
     </svg>
   );
@@ -32,7 +57,14 @@ function ArrowRightIcon() {
 
 function CloseIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
@@ -41,7 +73,16 @@ function CloseIcon() {
 
 function BackIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="15 18 9 12 15 6" />
     </svg>
   );
@@ -86,14 +127,16 @@ export default function AuthModal() {
     } else {
       document.body.style.overflow = '';
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isAuthModalOpen]);
 
   // Resend timer
   useEffect(() => {
     if (step !== 'otp') return;
     setResendTimer(30);
-    const id = setInterval(() => setResendTimer(p => (p > 0 ? p - 1 : 0)), 1000);
+    const id = setInterval(() => setResendTimer((p) => (p > 0 ? p - 1 : 0)), 1000);
     return () => clearInterval(id);
   }, [step]);
 
@@ -201,7 +244,10 @@ export default function AuthModal() {
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = otpDigits.join('');
-    if (code.length < 6) { setError('Please enter all 6 digits.'); return; }
+    if (code.length < 6) {
+      setError('Please enter all 6 digits.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
@@ -224,7 +270,7 @@ export default function AuthModal() {
     setError('');
     setLoading(true);
     try {
-      let formattedPhone = phone.trim().replace(/[\s\-\(\)]/g, '');
+      let formattedPhone = phone.trim().replace(/[\s\-()]/g, '');
       if (/^\d{10}$/.test(formattedPhone)) {
         formattedPhone = '+91' + formattedPhone;
       } else if (/^91\d{10}$/.test(formattedPhone)) {
@@ -233,7 +279,7 @@ export default function AuthModal() {
       const { otp_token } = await sendOTP(
         email.trim().toLowerCase(),
         isNewUser ? fullName.trim() : undefined,
-        isNewUser ? formattedPhone : undefined,
+        isNewUser ? formattedPhone : undefined
       );
       setOtpToken(otp_token);
       setOtpDigits(['', '', '', '', '', '']);
@@ -254,8 +300,7 @@ export default function AuthModal() {
   // ── Render ────────────────────────────────────────────────
   return (
     <div className="auth-modal-overlay" onClick={closeAuthModal}>
-      <div className="auth-modal-card" onClick={e => e.stopPropagation()}>
-
+      <div className="auth-modal-card" onClick={(e) => e.stopPropagation()}>
         {/* Close button */}
         <button className="auth-modal-close" onClick={closeAuthModal} aria-label="Close">
           <CloseIcon />
@@ -263,7 +308,13 @@ export default function AuthModal() {
 
         {/* Logo */}
         <div className="auth-modal-logo">
-          <Image src="/assets/logo.png" alt="VAHN" width={90} height={22} style={{ objectFit: 'contain', height: 'auto' }} />
+          <Image
+            src="/assets/logo.png"
+            alt="VAHN"
+            width={106}
+            height={22}
+            style={{ objectFit: 'contain', height: 'auto' }}
+          />
         </div>
 
         {/* ── STEP: Email ──────────────────────────────── */}
@@ -276,9 +327,13 @@ export default function AuthModal() {
 
             <form onSubmit={handleEmailContinue} className="auth-form">
               <div className="auth-input-group">
-                <label className="auth-label" htmlFor="auth-email">Email Address</label>
+                <label className="auth-label" htmlFor="auth-email">
+                  Email Address
+                </label>
                 <div className="auth-input-icon-wrapper">
-                  <span className="auth-input-icon"><MailIcon /></span>
+                  <span className="auth-input-icon">
+                    <MailIcon />
+                  </span>
                   <input
                     id="auth-email"
                     ref={emailRef}
@@ -286,17 +341,24 @@ export default function AuthModal() {
                     className="auth-input auth-input--with-icon"
                     placeholder="name@example.com"
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
                     required
                   />
                 </div>
-                <span className="auth-input-hint">We'll send a verification code to this email</span>
+                <span className="auth-input-hint">
+                  We'll send a verification code to this email
+                </span>
               </div>
 
               <button type="submit" className="auth-submit-btn" disabled={loading}>
-                {loading ? <span className="auth-spinner" /> : (
-                  <><span>Continue</span><ArrowRightIcon /></>
+                {loading ? (
+                  <span className="auth-spinner" />
+                ) : (
+                  <>
+                    <span>Continue</span>
+                    <ArrowRightIcon />
+                  </>
                 )}
               </button>
             </form>
@@ -306,8 +368,16 @@ export default function AuthModal() {
         {/* ── STEP: Details (new user) ──────────────── */}
         {step === 'details' && (
           <>
-            <button className="auth-back-btn" onClick={() => { setStep('email'); setError(''); setShowExtraFields(false); }}>
-              <BackIcon /><span>Change email</span>
+            <button
+              className="auth-back-btn"
+              onClick={() => {
+                setStep('email');
+                setError('');
+                setShowExtraFields(false);
+              }}
+            >
+              <BackIcon />
+              <span>Change email</span>
             </button>
 
             <h2 className="auth-modal-title">Create your account</h2>
@@ -317,26 +387,34 @@ export default function AuthModal() {
 
             {error && <div className="auth-error-banner">{error}</div>}
 
-            <div className={`auth-extra-fields ${showExtraFields ? 'auth-extra-fields--visible' : ''}`}>
+            <div
+              className={`auth-extra-fields ${showExtraFields ? 'auth-extra-fields--visible' : ''}`}
+            >
               <form onSubmit={handleDetailsSend} className="auth-form">
                 <div className="auth-input-group">
-                  <label className="auth-label" htmlFor="auth-name">Full Name *</label>
+                  <label className="auth-label" htmlFor="auth-name">
+                    Full Name *
+                  </label>
                   <input
                     id="auth-name"
                     type="text"
                     className="auth-input"
                     placeholder="Your full name"
                     value={fullName}
-                    onChange={e => setFullName(e.target.value)}
+                    onChange={(e) => setFullName(e.target.value)}
                     autoFocus
                     required
                   />
                 </div>
 
                 <div className="auth-input-group">
-                  <label className="auth-label" htmlFor="auth-phone">Phone Number *</label>
+                  <label className="auth-label" htmlFor="auth-phone">
+                    Phone Number *
+                  </label>
                   <div className="auth-input-icon-wrapper">
-                    <span className="auth-input-icon"><PhoneIcon /></span>
+                    <span className="auth-input-icon">
+                      <PhoneIcon />
+                    </span>
                     <input
                       id="auth-phone"
                       type="tel"
@@ -345,7 +423,7 @@ export default function AuthModal() {
                       className="auth-input auth-input--with-icon"
                       placeholder="10-digit mobile number"
                       value={phone}
-                      onChange={e => {
+                      onChange={(e) => {
                         const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
                         setPhone(digitsOnly);
                         if (error) setError('');
@@ -356,8 +434,13 @@ export default function AuthModal() {
                 </div>
 
                 <button type="submit" className="auth-submit-btn" disabled={loading}>
-                  {loading ? <span className="auth-spinner" /> : (
-                    <><span>Send Verification Code</span><ArrowRightIcon /></>
+                  {loading ? (
+                    <span className="auth-spinner" />
+                  ) : (
+                    <>
+                      <span>Send Verification Code</span>
+                      <ArrowRightIcon />
+                    </>
                   )}
                 </button>
               </form>
@@ -368,8 +451,16 @@ export default function AuthModal() {
         {/* ── STEP: OTP ────────────────────────────────── */}
         {step === 'otp' && (
           <>
-            <button className="auth-back-btn" onClick={() => { setStep(isNewUser ? 'details' : 'email'); setError(''); setOtpDigits(['', '', '', '', '', '']); }}>
-              <BackIcon /><span>Go back</span>
+            <button
+              className="auth-back-btn"
+              onClick={() => {
+                setStep(isNewUser ? 'details' : 'email');
+                setError('');
+                setOtpDigits(['', '', '', '', '', '']);
+              }}
+            >
+              <BackIcon />
+              <span>Go back</span>
             </button>
 
             <h2 className="auth-modal-title">Enter verification code</h2>
@@ -384,14 +475,16 @@ export default function AuthModal() {
                 {otpDigits.map((d, i) => (
                   <input
                     key={i}
-                    ref={el => { otpRefs.current[i] = el; }}
+                    ref={(el) => {
+                      otpRefs.current[i] = el;
+                    }}
                     type="text"
                     inputMode="numeric"
                     maxLength={1}
                     className="auth-otp-digit-input"
                     value={d}
-                    onChange={e => handleOtpChange(i, e.target.value)}
-                    onKeyDown={e => handleOtpKeyDown(i, e)}
+                    onChange={(e) => handleOtpChange(i, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
                     aria-label={`OTP digit ${i + 1}`}
                   />
                 ))}
@@ -403,9 +496,16 @@ export default function AuthModal() {
 
               <div className="auth-resend-row">
                 {resendTimer > 0 ? (
-                  <span className="auth-timer-text">Resend code in <strong>{resendTimer}s</strong></span>
+                  <span className="auth-timer-text">
+                    Resend code in <strong>{resendTimer}s</strong>
+                  </span>
                 ) : (
-                  <button type="button" className="auth-resend-btn" onClick={handleResend} disabled={loading}>
+                  <button
+                    type="button"
+                    className="auth-resend-btn"
+                    onClick={handleResend}
+                    disabled={loading}
+                  >
                     Resend verification code
                   </button>
                 )}
@@ -417,7 +517,6 @@ export default function AuthModal() {
             </form>
           </>
         )}
-
       </div>
     </div>
   );

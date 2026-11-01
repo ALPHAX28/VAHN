@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCart } from '@/context/CartContext';
-import { useAuth } from '@/context/AuthContext';
-import SearchModal from '@/components/layout/SearchModal';
-import MobileNav from '@/components/layout/MobileNav';
+import { useEffect, useState } from 'react';
 import AnnouncementBanner from '@/components/layout/AnnouncementBanner';
+import MobileNav from '@/components/layout/MobileNav';
+import SearchModal from '@/components/layout/SearchModal';
+import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
 
 const NAV_LINKS = [
   { href: '/products', label: 'All Products' },
@@ -100,10 +100,7 @@ export default function Header() {
           {/* Left: Desktop Nav Links (Desktop) OR Hamburger (Mobile) */}
           <div style={{ display: 'flex', alignItems: 'center' }}>
             {/* Desktop Navigation */}
-            <nav
-              className="header-desktop-nav"
-              aria-label="Primary navigation"
-            >
+            <nav className="header-desktop-nav" aria-label="Primary navigation">
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.href}
@@ -177,7 +174,7 @@ export default function Header() {
                   : '/assets/logos/VAHN-Primary-colour-transparent.png'
               }
               alt="VAHN"
-              width={105}
+              width={116}
               height={24}
               priority
               style={{
@@ -290,8 +287,12 @@ export default function Header() {
                   }}
                 >
                   <div style={{ padding: '4px 8px 8px' }}>
-                    <span style={{ fontSize: '0.6875rem', color: '#888', display: 'block' }}>Signed in as</span>
-                    <strong style={{ fontSize: '0.875rem', color: '#fff' }}>{user.full_name}</strong>
+                    <span style={{ fontSize: '0.6875rem', color: '#888', display: 'block' }}>
+                      Signed in as
+                    </span>
+                    <strong style={{ fontSize: '0.875rem', color: '#fff' }}>
+                      {user.full_name}
+                    </strong>
                   </div>
                   <hr style={{ borderColor: 'rgba(255, 255, 255, 0.1)', margin: '4px 0 8px' }} />
                   <Link
@@ -401,7 +402,11 @@ export default function Header() {
 
       {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
       {shouldRenderNav && (
-        <MobileNav links={NAV_LINKS} isClosing={isClosingNav} onClose={() => setMobileOpen(false)} />
+        <MobileNav
+          links={NAV_LINKS}
+          isClosing={isClosingNav}
+          onClose={() => setMobileOpen(false)}
+        />
       )}
     </div>
   );
